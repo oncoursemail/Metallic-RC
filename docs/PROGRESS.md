@@ -3,18 +3,18 @@
 > **This dashboard is generated automatically from GitHub Issues.** A closed issue is a completed task, **not** proof of a tested executable, released multiplayer game, or production readiness. Releases must be verified separately using CI artifacts and acceptance tests.
 
 **Repository:** [\`oncoursemail/Metallic\`](https://github.com/oncoursemail/Metallic)  
-**Last tracked issue activity (UTC):** 2026-10-15T23:46:02Z  
+**Last tracked issue activity (UTC):** 2026-10-15T23:49:58Z  
 **Update trigger:** issue changes, manual dispatch, daily reconciliation, and relevant workflow changes.
 
 ## Overall issue completion
 
-**0/33 scoped issues closed (0.0%).**
+**1/34 scoped issues closed (2.9%).**
 
 **Open:** 33 · **In progress:** 0 · **Blocked:** 0 · **Untracked:** 0
 
 | Phase | Closed/total | Issue completion |
 | --- | ---: | ---: |
-| **P0** — Research, architecture & dev tooling | 0/5 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
+| **P0** — Research, architecture & dev tooling | 1/6 | \`▰▰▱▱▱▱▱▱▱▱\` 16.7% |
 | **P1** — Accounts, backend & launcher | 0/5 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
 | **P2** — Playable multiplayer + VR | 0/5 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
 | **P3** — Maker Pen, creator tools & CV3 | 0/5 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
@@ -50,7 +50,7 @@ No phase-tagged issues are labeled \`status:blocked\`.
 
 ## Recently closed tasks
 
-No scoped issue has been closed yet.
+- [#34: \[P0\] Implement automatic issue-driven roadmap progress dashboard](https://github.com/oncoursemail/Metallic/issues/34)
 
 ## What this does and does not measure
 
