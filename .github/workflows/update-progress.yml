@@ -1,0 +1,58 @@
+name: Update project progress
+
+on:
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled, assigned, unassigned]
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/update_progress.py'
+      - 'tests/test_progress.py'
+      - 'docs/ROADMAP.md'
+      - '.github/workflows/update-progress.yml'
+      - 'README.md'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: write
+  issues: read
+
+concurrency:
+  group: metallic-issue-progress
+  cancel-in-progress: false
+
+jobs:
+  update-progress:
+    name: Validate and refresh GitHub issue progress
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Rebuild docs/PROGRESS.md and docs/progress.json from GitHub Issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_API_URL: ${{ github.api_url }}
+        run: python scripts/update_progress.py
+      - name: Commit the dashboard only if issue state changed
+        run: |
+          git config user.name "metallic-roadmap-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/PROGRESS.md docs/progress.json
+          if git diff --cached --quiet; then
+            echo "Roadmap snapshot is unchanged."
+            exit 0
+          fi
+          git commit -m "chore(roadmap): refresh issue progress [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
