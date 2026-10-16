@@ -32,7 +32,7 @@ export function activityLabel(status) {
 export function publicReport(status) {
   if (!status) return "Metallic production player count is not available. No verified live feed has been configured.";
   const rooms = status.rooms !== null ? "\nActive room sessions: **" + status.rooms + "**" : "";
-  return "Verified active players: **" + status.humans.toLocaleString("en-US") +
+  return "Server-reported active players: **" + status.humans.toLocaleString("en-US") +
     "**" + rooms + "\nSample: " + status.observedAt +
     "\n(Synthetic tests excluded; server heartbeat snapshot.)";
 }
