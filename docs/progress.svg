@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="510" viewBox="0 0 1200 510" role="img" aria-labelledby="title desc">
-<title id="title">Metallic Studios development issue progress: 1 of 34 verified tasks closed (2.9 percent)</title>
-<desc id="desc">Roadmap issue completion only, not a playable game or verified release. Data last changed 2026-10-15T23:49:58Z.</desc>
+<title id="title">Metallic Studios development issue progress: 1 of 38 verified tasks closed (2.6 percent)</title>
+<desc id="desc">Roadmap issue completion only, not a playable game or verified release. Data last changed 2026-10-16T00:48:57Z.</desc>
 <rect width="1200" height="510" fill="#0E0F12"/>
 <rect x="12" y="12" width="1176" height="486" rx="8" fill="#17181D" stroke="#393A43"/>
 <rect x="12" y="12" width="7" height="486" fill="#AA8CC5"/>
@@ -9,18 +9,18 @@
 <text x="64" y="108" fill="#F0EEF1" font-size="38" font-family="Segoe UI,Arial,sans-serif" font-weight="700">Building the world.</text>
 <text x="1142" y="72" text-anchor="end" fill="#AA8CC5" font-size="13" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">ROADMAP 2026</text>
 <text x="64" y="170" fill="#BAB8C2" font-size="14" font-family="Segoe UI,Arial,sans-serif">TRACKED ENGINEERING TASKS</text>
-<text x="64" y="215" fill="#F0EEF1" font-size="42" font-family="Segoe UI,Arial,sans-serif" font-weight="700">1<tspan fill="#BAB8C2" font-size="23"> / 34 COMPLETE</tspan></text>
-<text x="1142" y="194" fill="#F0EEF1" text-anchor="end" font-size="36" font-family="Segoe UI,Arial,sans-serif" font-weight="700">2.9%</text>
+<text x="64" y="215" fill="#F0EEF1" font-size="42" font-family="Segoe UI,Arial,sans-serif" font-weight="700">1<tspan fill="#BAB8C2" font-size="23"> / 38 COMPLETE</tspan></text>
+<text x="1142" y="194" fill="#F0EEF1" text-anchor="end" font-size="36" font-family="Segoe UI,Arial,sans-serif" font-weight="700">2.6%</text>
 <rect x="64" y="230" width="1078" height="8" rx="3" fill="#2B2B33"/>
-<rect x="64" y="230" width="31.71" height="8" rx="3" fill="#AA8CC5"/>
+<rect x="64" y="230" width="28.37" height="8" rx="3" fill="#AA8CC5"/>
 <text x="64" y="276" fill="#AA8CC5" font-family="Segoe UI,Arial,sans-serif" font-weight="700" font-size="12" letter-spacing=".8">P0</text>
 <text x="104" y="276" fill="#F0EEF1" font-family="Segoe UI,Arial,sans-serif" font-weight="500" font-size="14">Research, architecture &amp; dev tooling</text>
-<text x="554" y="276" text-anchor="end" fill="#BAB8C2" font-family="Segoe UI,Arial,sans-serif" font-size="13">1/6</text>
+<text x="554" y="276" text-anchor="end" fill="#BAB8C2" font-family="Segoe UI,Arial,sans-serif" font-size="13">1/8</text>
 <rect x="64" y="289" width="490" height="5" rx="2" fill="#2B2B33"/>
-<rect x="64" y="289" width="81.67" height="5" rx="2" fill="#AA8CC5"/>
+<rect x="64" y="289" width="61.25" height="5" rx="2" fill="#AA8CC5"/>
 <text x="64" y="329" fill="#AA8CC5" font-family="Segoe UI,Arial,sans-serif" font-weight="700" font-size="12" letter-spacing=".8">P1</text>
 <text x="104" y="329" fill="#F0EEF1" font-family="Segoe UI,Arial,sans-serif" font-weight="500" font-size="14">Accounts, backend &amp; launcher</text>
-<text x="554" y="329" text-anchor="end" fill="#BAB8C2" font-family="Segoe UI,Arial,sans-serif" font-size="13">0/5</text>
+<text x="554" y="329" text-anchor="end" fill="#BAB8C2" font-family="Segoe UI,Arial,sans-serif" font-size="13">0/7</text>
 <rect x="64" y="342" width="490" height="5" rx="2" fill="#2B2B33"/>
 <rect x="64" y="342" width="0.00" height="5" rx="2" fill="#AA8CC5"/>
 <text x="64" y="382" fill="#AA8CC5" font-family="Segoe UI,Arial,sans-serif" font-weight="700" font-size="12" letter-spacing=".8">P2</text>
@@ -49,5 +49,5 @@
 <rect x="602" y="395" width="490" height="5" rx="2" fill="#2B2B33"/>
 <rect x="602" y="395" width="0.00" height="5" rx="2" fill="#AA8CC5"/>
 <circle cx="66" cy="484" r="3" fill="#82BFA3"/>
-<text x="80" y="488" fill="#BAB8C2" font-size="11" font-family="Segoe UI,Arial,sans-serif">Automated from GitHub Issues · Last issue activity 2026-10-15T23:49:58Z · No verified game release</text>
+<text x="80" y="488" fill="#BAB8C2" font-size="11" font-family="Segoe UI,Arial,sans-serif">Automated from GitHub Issues · Last issue activity 2026-10-16T00:48:57Z · No verified game release</text>
 </svg>
