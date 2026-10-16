@@ -58,15 +58,34 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_API_URL: ${{ github.api_url }}
         run: python scripts/update_progress.py
-      - name: Commit the dashboard only if issue state changed
+      - name: Refresh and commit safely when concurrent issues change
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_API_URL: ${{ github.api_url }}
         run: |
           git config user.name "metallic-roadmap-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/PROGRESS.md docs/progress.json docs/progress.svg
-          if git diff --cached --quiet; then
-            echo "Roadmap snapshot is unchanged."
-            exit 0
-          fi
-          git commit -m "chore(roadmap): refresh issue progress [skip ci]"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          # Other workflow runs and contributors may push at the same moment.
+          # Start from the remote tip on every attempt, fetch *fresh* issue state,
+          # then push a clean commit. Only the generated dashboard files change.
+          for attempt in 1 2 3 4 5; do
+            echo "Dashboard publication attempt ${attempt}"
+            git fetch origin main
+            git reset --hard origin/main
+            python scripts/update_progress.py
+            git add docs/PROGRESS.md docs/progress.json docs/progress.svg
+            if git diff --cached --quiet; then
+              echo "Roadmap snapshot is unchanged."
+              exit 0
+            fi
+            git commit -m "chore(roadmap): refresh issue progress [skip ci]"
+            if git push origin HEAD:main; then
+              echo "Roadmap snapshot published safely."
+              exit 0
+            fi
+            echo "Remote advanced during progress refresh, retrying against fresh issue snapshot..."
+            sleep "${attempt}"
+          done
+          echo "Unable to update roadmap after 5 attempts; will reconcile on the next issue event or scheduled run." >&2
+          exit 1
