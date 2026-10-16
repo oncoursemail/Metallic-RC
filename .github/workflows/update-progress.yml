@@ -9,8 +9,12 @@ on:
       - 'scripts/update_progress.py'
       - 'scripts/render_progress_svg.py'
       - 'docs/DESIGN_SYSTEM.md'
+      - 'docs/site/**'
       - 'tests/test_progress.py'
       - 'tests/test_progress_svg.py'
+      - 'tests/test_load_harness.py'
+      - 'tests/test_site.py'
+      - 'tests/load/**'
       - 'docs/ROADMAP.md'
       - '.github/workflows/update-progress.yml'
       - 'README.md'
@@ -41,6 +45,8 @@ jobs:
           python-version: '3.12'
       - name: Unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Validate website JavaScript syntax
+        run: node --check docs/site/app.js
       - name: Rebuild docs/PROGRESS.md and docs/progress.json from GitHub Issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
