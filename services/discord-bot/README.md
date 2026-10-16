@@ -48,6 +48,8 @@ METALLIC_STATUS_BEARER=<optional_private_server_to_server_token>
 
 This is a **schema example**, not a real count. The API should use authenticated HTTPS and signed/stable upstream session heartbeats, dedupe users with multiple connections, exclude load-test namespaces and enforce staleness. The bot's string validation is not itself cryptographic attestation; server authenticity comes from the trusted authenticated transport and secure service-to-service access.
 
+A local implementation of the producing service (authenticated heartbeat ingest, de-duplication and synthetic-actor separation) lives in [services/player-count](../player-count/README.md). It is not deployed and emits no production count.
+
 ## Extending later
 
 The full spec is in [Moderation, Discord and Staff](../../docs/MODERATION_DISCORD_STAFF.md). Next stages: \`/servers\`, \`/rooms\`, \`/events\`, \`/appeal\`, \`/creator\`, and staff commands **after** the central Metallic RBAC/moderation service supports scoped authorization, case IDs, reasons and append-only audit receipts. A Discord guild role is not enough to authorize an in-game sanction.

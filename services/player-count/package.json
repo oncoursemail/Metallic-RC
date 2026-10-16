@@ -1,0 +1,14 @@
+{
+  "name": "@metallic/player-count",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Trusted production heartbeat player-count aggregator (local, not deployed)",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
