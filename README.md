@@ -6,6 +6,12 @@
 [![Roadmap & progress](https://img.shields.io/badge/Roadmap-Live%20progress-24292f?logo=github)](docs/PROGRESS.md)
 [![Project plan](https://img.shields.io/badge/Plan-Engineering%20roadmap-323f53)](docs/ROADMAP.md)
 
+![Verified Metallic engineering progress](docs/progress.svg)
+
+*This live artwork represents completed GitHub engineering issues, **not** available game builds or real player counts.*
+
+[Original development-status website prototype](docs/site/index.html) · [How to preview the website locally](docs/site/README.md)
+
 ## What we are building
 
 Metallic Studios is intended to be an independent, high-performance social game platform with its own client, dedicated servers, launcher, identity service, creator tools, user-generated rooms, visual scripting, and optional integrations with cooperating community projects.
@@ -27,6 +33,11 @@ Metallic Studios is intended to be an independent, high-performance social game 
 - **[156-feature capability catalog](docs/FEATURE_CATALOG.md)** — concrete feature candidates and suggested acceptance tests.
 - **[Research backlog](docs/RESEARCH.md)** — sources, experiments, unknowns, and competitor review.
 - **[Contributor development rules](docs/DEVELOPMENT.md)** — issue labels, PR review gates and evidence requirements.
+- **[Visual identity and UI quality system](docs/DESIGN_SYSTEM.md)** — professional interface direction, motion, VFX and anti-generic acceptance checks.
+- **[AI players and stress-testing laboratory](docs/QUALITY_AND_STRESS_TESTING.md)** — staged load, synthetic protocol users, game AI and measurable release gates.
+- **[Moderation, Discord and staff titles](docs/MODERATION_DISCORD_STAFF.md)** — unified permissions, in-game and web consoles, bot design, Volunteer Mod / Developer title controls.
+- **[Meta Quest release preparation](docs/META_QUEST_RELEASE.md)** — Horizon Store, channels, ARM64 build quality and verification.
+- **[Live website prototype](docs/site/index.html)** — handcrafted responsive layout reading the generated aggregate progress JSON.
 - **[Tracked work items](../../issues)** — one issue per verifiable deliverable.
 - **[Pull requests](../../pulls)** — proposed changes and review history.
 
