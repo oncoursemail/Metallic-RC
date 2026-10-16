@@ -17,6 +17,8 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from render_progress_svg import progress_svg
+
 PHASES = [
     ("P0", "Research, architecture & dev tooling"),
     ("P1", "Accounts, backend & launcher"),
@@ -249,6 +251,9 @@ def main() -> int:
         (args.output_dir / "progress.json").write_text(
             json.dumps(snapshot, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
             encoding="utf-8",
+        )
+        (args.output_dir / "progress.svg").write_text(
+            progress_svg(snapshot), encoding="utf-8"
         )
         print(f"Updated progress: {snapshot['overall']['closed']}/"
               f"{snapshot['overall']['total']} closed; {snapshot['overall']['percent_closed']}%")
