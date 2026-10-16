@@ -10,6 +10,7 @@ on:
       - 'scripts/render_progress_svg.py'
       - 'docs/DESIGN_SYSTEM.md'
       - 'docs/site/**'
+      - 'services/discord-bot/**'
       - 'tests/test_progress.py'
       - 'tests/test_progress_svg.py'
       - 'tests/test_load_harness.py'
@@ -46,7 +47,11 @@ jobs:
       - name: Unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Validate website JavaScript syntax
-        run: node --check docs/site/app.js
+        run: |
+          node --check docs/site/app.js
+          node --check services/discord-bot/src/index.mjs
+          node --check services/discord-bot/src/register.mjs
+          node --test services/discord-bot/tests/*.test.mjs
       - name: Rebuild docs/PROGRESS.md and docs/progress.json from GitHub Issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
