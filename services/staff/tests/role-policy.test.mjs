@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ROLES, TITLES, resolvePublicStaffTitle, canPerformStaffAction, validateTitlePreference,
+  updateTitlePreference,
 } from "../role-policy.mjs";
 
 const NOW = Date.parse("2026-10-15T22:00:00Z");
@@ -36,7 +37,7 @@ test("Developer title does not grant volunteer moderation", () => {
 test("No-role and wrong-role players cannot forge an overhead staff title", () => {
   assert.equal(resolvePublicStaffTitle([], show(TITLES.VOLUNTEER_MOD), NOW).titleText, null);
   assert.equal(resolvePublicStaffTitle([grant(ROLES.DEVELOPER)], show(TITLES.VOLUNTEER_MOD), NOW).titleText, null);
-  assert.throws(() => validateTitlePreference([], show(TITLES.DEVELOPER), NOW));
+  assert.throws(() => validateTitlePreference([], show(TITLES.VOLUNTEER_MOD), NOW));
   assert.throws(() => validateTitlePreference([grant(ROLES.DEVELOPER)], {
     ...show(TITLES.DEVELOPER), role: "owner",
   }, NOW));
@@ -78,4 +79,42 @@ test("Having two roles allows selection of one verified label", () => {
   assert.equal(first.availableTitles.length, 2);
   assert.equal(first.titleText, "Volunteer Mod");
   assert.equal(second.titleText, "Developer");
+});
+
+test("updateTitlePreference merges and validates changes", () => {
+  const grants = [grant(ROLES.VOLUNTEER_MOD)];
+  const current = { preferredTitle: TITLES.VOLUNTEER_MOD, showOverheadTitle: true, showProfileTitle: true };
+  const requested = { showOverheadTitle: false };
+  const updated = updateTitlePreference(grants, current, requested, NOW);
+  assert.deepEqual(updated, {
+    preferredTitle: TITLES.VOLUNTEER_MOD,
+    showOverheadTitle: false,
+    showProfileTitle: true,
+  });
+});
+
+test("updateTitlePreference throws for invalid boolean", () => {
+  const grants = [grant(ROLES.VOLUNTEER_MOD)];
+  const current = { preferredTitle: TITLES.VOLUNTEER_MOD, showOverheadTitle: true, showProfileTitle: true };
+  const requested = { showOverheadTitle: "true" };
+  assert.throws(() => updateTitlePreference(grants, current, requested, NOW), TypeError);
+});
+
+test("updateTitlePreference throws for unknown grant title", () => {
+  const grants = [grant(ROLES.DEVELOPER)];
+  const current = { preferredTitle: TITLES.DEVELOPER, showOverheadTitle: true, showProfileTitle: true };
+  const requested = { preferredTitle: TITLES.VOLUNTEER_MOD };
+  assert.throws(() => updateTitlePreference(grants, current, requested, NOW), Error);
+});
+
+test("updateTitlePreference leaves unchanged fields when not specified", () => {
+  const grants = [grant(ROLES.VOLUNTEER_MOD)];
+  const current = { preferredTitle: TITLES.VOLUNTEER_MOD, showOverheadTitle: true, showProfileTitle: false };
+  const requested = { showProfileTitle: true };
+  const updated = updateTitlePreference(grants, current, requested, NOW);
+  assert.deepEqual(updated, {
+    preferredTitle: TITLES.VOLUNTEER_MOD,
+    showOverheadTitle: true,
+    showProfileTitle: true,
+  });
 });

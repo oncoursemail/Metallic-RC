@@ -80,7 +80,6 @@ const CAPABILITIES = Object.freeze({
     "moderation.case.escalate",
     "moderation.case.review",
     "moderation.role.propose",
-    "moderation.role.grant",
     "moderation.role.revoke",
     "operations.fleet.read",
     "operations.staging.loadtest",
@@ -187,4 +186,26 @@ export function validateTitlePreference(grants, patch, now = Date.now()) {
     showOverheadTitle: patch.showOverheadTitle,
     showProfileTitle: patch.showProfileTitle,
   });
+}
+
+/**
+ * Update a user's title preference with validation.
+ * Merges the requested changes into the current preference, validates the result
+ * against the user's grants, and returns the validated preference.
+ * Throws if the requested changes are invalid or if the user lacks the grant
+ * for the requested title.
+ *
+ * @param {Array<Object>} grants - The user's verified staff grants.
+ * @param {Object} currentPreference - The user's current title preference.
+ * @param {Object} requestedChanges - The partial preference to apply.
+ * @returns {Object} The validated and frozen preference object.
+ */
+export function updateTitlePreference(grants, currentPreference, requestedChanges, now = Date.now()) {
+  // Merge the requested changes into a copy of the current preference.
+  const newPreference = {
+    ...currentPreference,
+    ...requestedChanges,
+  };
+  // Validate the new preference against the user's grants.
+  return validateTitlePreference(grants, newPreference, now);
 }
