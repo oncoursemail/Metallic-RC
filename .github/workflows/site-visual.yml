@@ -1,0 +1,51 @@
+name: Metallic visual quality gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/site/**'
+      - 'tests/browser/**'
+      - '.github/workflows/site-visual.yml'
+  pull_request:
+    paths:
+      - 'docs/site/**'
+      - 'tests/browser/**'
+      - '.github/workflows/site-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site-render:
+    name: Real Chromium site rendering + screenshot review artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned Playwright package
+        run: npm install --prefix tests/browser --ignore-scripts --no-audit --no-fund --no-package-lock
+      - name: Install Chromium for test
+        run: cd tests/browser && npx playwright install --with-deps chromium
+      - name: Serve checked-out Metallic website on loopback and inspect real layouts
+        run: |
+          python -m http.server 8765 --bind 127.0.0.1 >/tmp/metallic-site-preview.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          sleep 1
+          node tests/browser/verify_site.mjs
+      - name: Upload desktop and mobile screenshots for human review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metallic-site-screenshots
+          path: artifacts/ui-screenshots/
+          retention-days: 14
+          if-no-files-found: warn
