@@ -114,7 +114,8 @@ function normalizedGrants(grants, now) {
  */
 export function resolvePublicStaffTitle(grants, preference, now = Date.now()) {
   const active = normalizedGrants(grants, now);
-  const allowed = new Set(active.map((grant) => ROLE_TITLES[grant.role]).filter(Boolean));
+  const allowed = new Set(active.filter((grant) => grant.scopeType === "global")
+    .map((grant) => ROLE_TITLES[grant.role]).filter(Boolean));
   const selection = preference && typeof preference.preferredTitle === "string"
     ? preference.preferredTitle : "";
   const eligible = allowed.has(selection);
