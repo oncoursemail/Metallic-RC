@@ -45,6 +45,24 @@ flowchart TD
 
 **These are aspirational ranges, not delivery promises.** One person building every requested capability could take multiple years. Multiple stages can overlap only once interfaces are stable.
 
+
+## Focus areas added in October 2026
+
+This roadmap now has **specialist implementation and quality specifications**. These documents define acceptance tests and tool choices, not released game capabilities:
+
+| Workstream | Technical guide | Related issues |
+| --- | --- | --- |
+| Original product UI, launcher design and high-quality animation | [Visual design and VFX system](DESIGN_SYSTEM.md) | [#35](../issues/35) / [#40](../issues/40) / [#49](../issues/49) |
+| Synthetic players, game AI, soak/load, network failure & fleet performance | [Quality and stress lab](QUALITY_AND_STRESS_TESTING.md) | [#36](../issues/36) / [#39](../issues/39) / [#50](../issues/50) |
+| In-game/web/Discord administration, staff titles and permissions | [Moderation, Discord and staff system](MODERATION_DISCORD_STAFF.md) | [#43](../issues/43)–[#47](../issues/47) |
+| Meta Quest launch, signing and device certification | [Meta Quest release checklist](META_QUEST_RELEASE.md) | [#48](../issues/48) |
+| Original development-status website (implemented preview) | [Website prototype](site/README.md) | [#35](../issues/35) / [#51](../issues/51) |
+| Working Discord bot foundation (local code only) | [Discord implementation README](../services/discord-bot/README.md) | [#38](../issues/38) / [#53](../issues/53) |
+
+**Current release truth:** the SVG progress tracker, static development website prototype, localhost synthetic room simulator and Discord bot skeleton have code/test evidence. The underlying multiplayer game client, account server, real game stress test, active moderation service and signed Quest binary do not yet exist. Review [PROGRESS.md](PROGRESS.md) for the machine-updated issue count (which may change as scope evolves), and see [FEATURE_CATALOG.md](FEATURE_CATALOG.md) for the 240 long-term feature proposals.
+
+**Top actual feature dependency:** [#1 engine benchmark](../issues/1) → [#4 original avatar/client](../issues/4) + [#10 authoritative server](../issues/10) → [#13 two-player room/quest](../issues/13) → [#39 real protocol bots](../issues/39) → [#50 fleet stress and reliability](../issues/50). Simulated room-fixture tests alone cannot bypass this dependency.
+
 ## P0 — Architecture & developer platform
 
 **Deliverables**
