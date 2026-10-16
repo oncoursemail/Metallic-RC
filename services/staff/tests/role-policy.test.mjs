@@ -52,6 +52,7 @@ test("Expired or revoked roles immediately lose title and permissions", () => {
 
 test("Room-scoped grants do not authorize global sanctions", () => {
   const g = [grant(ROLES.VOLUNTEER_MOD, {scopeType:"room",scopeId:"room-1"})];
+  assert.equal(resolvePublicStaffTitle(g, show(TITLES.VOLUNTEER_MOD), NOW).titleText, null);
   assert.equal(canPerformStaffAction(g, "moderation.room.mute", {type:"room",id:"room-1"}, NOW), true);
   assert.equal(canPerformStaffAction(g, "moderation.room.mute", {type:"room",id:"room-2"}, NOW), false);
   assert.equal(canPerformStaffAction(g, "moderation.player.warn", {type:"global"}, NOW), false);
