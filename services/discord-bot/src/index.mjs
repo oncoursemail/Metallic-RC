@@ -6,7 +6,8 @@
 import {
   Client, Events, GatewayIntentBits, ActivityType, MessageFlags,
 } from "discord.js";
-import { activityLabel, loadProductionStatus, publicReport } from "./status.mjs";
+import { activityLabel, publicReport } from "./status.mjs";
+import { StatusFeed } from "./feed.mjs";
 
 const token = process.env.METALLIC_DISCORD_TOKEN;
 const appId = process.env.METALLIC_DISCORD_APP_ID;
@@ -21,26 +22,18 @@ if (!token || !appId || !guildId) {
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-let lastSnapshot = null;
-let lastCheckedAt = 0;
 let lastActivity = "";
 
-async function snapshot() {
-  const now = Date.now();
-  if (now - lastCheckedAt < 60000) return lastSnapshot;
-  lastCheckedAt = now;
-  try {
-    lastSnapshot = await loadProductionStatus(statusUrl, statusBearer, now);
-  } catch (error) {
-    // Never print tokens, full URLs, user data or status response bodies.
-    console.warn("Trusted Metallic status endpoint unavailable:", error.name);
-    lastSnapshot = null;
-  }
-  return lastSnapshot;
-}
+// One shared feed instance: presence and /players can never show different counts.
+const feed = new StatusFeed({
+  apiUrl: statusUrl,
+  bearerToken: statusBearer,
+  // Never print tokens, full URLs, user data or status response bodies.
+  onError: (error) => console.warn("Trusted Metallic status endpoint unavailable:", error.name),
+});
 
 async function refreshActivity() {
-  const current = await snapshot();
+  const current = await feed.current();
   const activity = activityLabel(current);
   if (client.user && lastActivity !== activity) {
     client.user.setPresence({
@@ -77,10 +70,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     } else if (interaction.commandName === "players") {
       await interaction.deferReply();
-      await interaction.editReply({ content: publicReport(await snapshot()) });
+      // Same feed snapshot as the bot's own presence label; no second source of truth.
+      await interaction.editReply({ content: publicReport(await feed.current()) });
     } else if (interaction.commandName === "status") {
       await interaction.deferReply();
-      const current = await snapshot();
+      const current = await feed.current();
       await interaction.editReply({
         content: current
           ? "**Metallic production status sample available.**\n" + publicReport(current)

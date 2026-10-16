@@ -19,6 +19,7 @@ export function parseProductionStatus(value, nowMs = Date.now()) {
     humans: count,
     bots,
     observedAt: value.observedAt,
+    ttlSeconds: ttl,
     rooms: Number.isSafeInteger(value.activeRoomSessions) && value.activeRoomSessions >= 0
       ? value.activeRoomSessions : null,
   };
@@ -49,12 +50,12 @@ export function requireSafeApiUrl(raw) {
   return url.toString();
 }
 
-export async function loadProductionStatus(apiUrl, token, nowMs = Date.now()) {
+export async function loadProductionStatus(apiUrl, token, nowMs = Date.now(), fetchImpl = fetch) {
   const url = requireSafeApiUrl(apiUrl);
   if (!url) return null;
   const headers = { "Accept": "application/json" };
   if (token) headers.Authorization = "Bearer " + token;
-  const response = await fetch(url, {
+  const response = await fetchImpl(url, {
     method: "GET", headers, redirect: "error", signal: AbortSignal.timeout(4000),
   });
   if (!response.ok) throw new Error("Metallic status API unavailable (" + response.status + ")");

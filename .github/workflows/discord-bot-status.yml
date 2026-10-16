@@ -1,0 +1,41 @@
+name: Discord status feed integration gate
+
+# Issue #38: the Discord bot must prove its verified status-feed integration
+# (shared presence//players snapshot, TTL freshness, outage fallback, bearer
+# auth and URL policy) on every change. No Discord credentials exist in CI;
+# tests use a loopback HTTP server only.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/discord-bot/**'
+      - '.github/workflows/discord-bot-status.yml'
+  pull_request:
+    paths:
+      - 'services/discord-bot/**'
+      - '.github/workflows/discord-bot-status.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  status-feed-tests:
+    name: Verified status feed unit and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check bot entrypoints
+        run: |
+          node --check services/discord-bot/src/index.mjs
+          node --check services/discord-bot/src/register.mjs
+          node --check services/discord-bot/src/status.mjs
+          node --check services/discord-bot/src/feed.mjs
+          node --check services/discord-bot/src/commands.mjs
+      - name: Run bot test suites without Discord credentials
+        run: node --test services/discord-bot/tests/*.test.mjs
