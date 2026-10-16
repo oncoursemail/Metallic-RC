@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "smoke-local",
+  "title": "Local mock smoke",
+  "description": "Tiny mixed workload proving the harness, caps, budget and artifact path end to end.",
+  "mode": "mixed",
+  "clients": 6,
+  "actions": 4,
+  "spawnRate": 60,
+  "seed": 31,
+  "budget": {
+    "maxErrorRatio": 0.0,
+    "minSuccessfulRatio": 1.0,
+    "maxLatencyP95Ms": 250,
+    "minActionsSentRatio": 1.0
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "builder-local",
+  "title": "Local builder behaviour",
+  "description": "Interact-heavy actors approximating place/rotate style actions with object-budget pacing.",
+  "mode": "builder",
+  "clients": 6,
+  "actions": 5,
+  "spawnRate": 50,
+  "seed": 51,
+  "budget": {
+    "maxErrorRatio": 0.0,
+    "minSuccessfulRatio": 1.0,
+    "maxLatencyP95Ms": 250,
+    "minActionsSentRatio": 1.0
+  }
+}

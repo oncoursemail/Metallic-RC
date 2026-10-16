@@ -14,12 +14,47 @@ MAX_LINE = 4096
 ROOM = "__metallic_local_synthetic_lab__"
 
 
+class MockRoomMetrics:
+    """Server-side counters for the LOCAL fixture only.
+
+    These numbers describe how the mock fixture answered synthetic loopback
+    traffic. They are NOT game telemetry, NOT a real player count and NOT a
+    measurement of any shipping Metallic service.
+    """
+
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        self.connections_accepted = 0
+        self.successful_joins = 0
+        self.join_rejections = 0
+        self.leaves_confirmed = 0
+        self.actions_accepted = 0
+        self.malformed_messages = 0
+        self.peak_concurrent_synthetic_sessions = 0
+
+    def snapshot(self) -> dict[str, int]:
+        return {
+            "connectionsAccepted": self.connections_accepted,
+            "successfulJoins": self.successful_joins,
+            "joinRejections": self.join_rejections,
+            "leavesConfirmed": self.leaves_confirmed,
+            "actionsAccepted": self.actions_accepted,
+            "malformedMessages": self.malformed_messages,
+            "peakConcurrentSyntheticSessions": self.peak_concurrent_synthetic_sessions,
+        }
+
+
 async def handle_client(
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
     players: set[str],
+    metrics: MockRoomMetrics | None = None,
 ) -> None:
     actor: str | None = None
+    if metrics is not None:
+        metrics.connections_accepted += 1
     try:
         while True:
             line = await asyncio.wait_for(reader.readline(), timeout=20)
@@ -46,7 +81,14 @@ async def handle_client(
                         else:
                             actor = candidate
                             players.add(actor)
+                            if metrics is not None:
+                                metrics.successful_joins += 1
+                                metrics.peak_concurrent_synthetic_sessions = max(
+                                    metrics.peak_concurrent_synthetic_sessions, len(players)
+                                )
                             reply = {"ok": True, "op": "joined", "actor": actor, "synthetic": True}
+                    if not reply.get("ok") and metrics is not None:
+                        metrics.join_rejections += 1
                 elif not actor:
                     reply = {"ok": False, "error": "join_required"}
                 elif op in ("move", "interact"):
@@ -54,12 +96,18 @@ async def handle_client(
                     if not isinstance(seq, int) or not 0 <= seq <= 100000:
                         reply = {"ok": False, "error": "bad_sequence"}
                     else:
+                        if metrics is not None:
+                            metrics.actions_accepted += 1
                         reply = {"ok": True, "op": "ack", "seq": seq, "actor": actor}
                 elif op == "leave":
+                    if metrics is not None:
+                        metrics.leaves_confirmed += 1
                     reply = {"ok": True, "op": "left", "actor": actor}
                 else:
                     reply = {"ok": False, "error": "unknown_operation"}
             except (json.JSONDecodeError, ValueError):
+                if metrics is not None:
+                    metrics.malformed_messages += 1
                 reply = {"ok": False, "error": "malformed_message"}
             writer.write((json.dumps(reply, separators=(",", ":")) + "\n").encode())
             await writer.drain()
@@ -77,11 +125,15 @@ async def handle_client(
             pass
 
 
-async def start_mock_server(host: str = "127.0.0.1", port: int = 0) -> tuple[asyncio.Server, set[str]]:
+async def start_mock_server(
+    host: str = "127.0.0.1",
+    port: int = 0,
+    metrics: MockRoomMetrics | None = None,
+) -> tuple[asyncio.Server, set[str]]:
     if host not in ("127.0.0.1", "::1", "localhost"):
         raise ValueError("Fixture server must bind only to loopback")
     players: set[str] = set()
-    server = await asyncio.start_server(lambda r, w: handle_client(r, w, players), host, port)
+    server = await asyncio.start_server(lambda r, w: handle_client(r, w, players, metrics), host, port)
     return server, players
 
 

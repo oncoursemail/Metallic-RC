@@ -31,6 +31,57 @@ async def rpc(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, payloa
     return message, (time.perf_counter() - start) * 1000
 
 
+MODES = ("explore", "builder", "mixed", "idle", "reconnect")
+
+
+async def _join_session(
+    host: str,
+    port: int,
+    actor: str,
+    times: list[float],
+) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+    reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=5)
+    response, elapsed = await rpc(reader, writer, {
+        "op": "join", "room": TEST_ROOM, "actor": actor, "synthetic": True
+    })
+    times.append(elapsed)
+    if not response.get("ok") or response.get("synthetic") is not True:
+        writer.close()
+        raise RuntimeError("Synthetic join rejected: " + str(response))
+    return reader, writer
+
+
+async def _send_action(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    rnd: random.Random,
+    seq: int,
+    mode: str,
+    times: list[float],
+) -> None:
+    if mode == "builder":
+        action = "interact" if rnd.random() < 0.8 else "move"
+    elif mode == "explore":
+        action = "move" if rnd.random() < 0.85 else "interact"
+    elif mode == "idle":
+        action = "interact"
+    else:
+        action = "move" if seq % 2 == 0 else "interact"
+    response, elapsed = await rpc(reader, writer, {
+        "op": action, "seq": seq,
+        "x": round(rnd.uniform(-50, 50), 3),
+        "y": 0, "z": round(rnd.uniform(-50, 50), 3),
+    })
+    times.append(elapsed)
+    if not response.get("ok") or response.get("seq") != seq:
+        raise RuntimeError("Fixture action acknowledgment mismatch")
+
+
+def _close(writer: asyncio.StreamWriter | None) -> None:
+    if writer is not None:
+        writer.close()
+
+
 async def actor_run(
     number: int,
     host: str,
@@ -45,34 +96,48 @@ async def actor_run(
     errors: list[str] = []
     sent = 0
     joined = False
-    writer = None
+    reconnects = 0
+    writer: asyncio.StreamWriter | None = None
     try:
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=5)
-        response, elapsed = await rpc(reader, writer, {
-            "op": "join", "room": TEST_ROOM, "actor": actor, "synthetic": True
-        })
-        times.append(elapsed)
-        if not response.get("ok") or response.get("synthetic") is not True:
-            raise RuntimeError("Synthetic join rejected: " + str(response))
+        reader, writer = await _join_session(host, port, actor, times)
         joined = True
-        for seq in range(actions):
-            if mode == "builder":
-                action = "interact" if rnd.random() < 0.8 else "move"
-            elif mode == "explore":
-                action = "move" if rnd.random() < 0.85 else "interact"
+        if mode == "reconnect" and actions > 1:
+            # Deliberate drop mid-run, then rejoin to exercise server-side
+            # ghost cleanup. The fixture frees the actor slot asynchronously on
+            # TCP close, so retry briefly on duplicate_actor.
+            head = max(1, actions // 2)
+            for seq in range(head):
+                await _send_action(reader, writer, rnd, seq, mode, times)
+                sent += 1
+                await asyncio.sleep(rnd.uniform(0.001, 0.004))
+            _close(writer)
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass
+            writer = None
+            for attempt in range(5):
+                await asyncio.sleep(0.01 * (attempt + 1))
+                try:
+                    reader, writer = await _join_session(host, port, actor, times)
+                    break
+                except RuntimeError as error:
+                    if "duplicate_actor" in str(error):
+                        continue
+                    raise
             else:
-                action = "move" if seq % 2 == 0 else "interact"
-            response, elapsed = await rpc(reader, writer, {
-                "op": action, "seq": seq,
-                "x": round(rnd.uniform(-50, 50), 3),
-                "y": 0, "z": round(rnd.uniform(-50, 50), 3),
-            })
-            times.append(elapsed)
-            sent += 1
-            if not response.get("ok") or response.get("seq") != seq:
-                raise RuntimeError("Fixture action acknowledgment mismatch")
-            # Pacing avoids treating a tight CPU loop as typical human activity.
-            await asyncio.sleep(rnd.uniform(0.001, 0.004))
+                raise RuntimeError("rejoin_after_drop_failed")
+            reconnects = 1
+            for seq in range(head, actions):
+                await _send_action(reader, writer, rnd, seq, mode, times)
+                sent += 1
+                await asyncio.sleep(rnd.uniform(0.001, 0.004))
+        else:
+            for seq in range(actions):
+                await _send_action(reader, writer, rnd, seq, mode, times)
+                sent += 1
+                # Pacing avoids treating a tight CPU loop as typical human activity.
+                await asyncio.sleep(rnd.uniform(0.001, 0.004) if mode != "idle" else rnd.uniform(0.004, 0.010))
         response, elapsed = await rpc(reader, writer, {"op": "leave"})
         times.append(elapsed)
         if not response.get("ok"):
@@ -80,13 +145,13 @@ async def actor_run(
     except (OSError, ValueError, RuntimeError, asyncio.TimeoutError, ConnectionError) as error:
         errors.append(str(error)[:160])
     finally:
+        _close(writer)
         if writer is not None:
-            writer.close()
             try:
                 await writer.wait_closed()
             except OSError:
                 pass
-    return {"actor": actor, "joined": joined, "sent": sent,
+    return {"actor": actor, "joined": joined, "sent": sent, "reconnects": reconnects,
             "latenciesMs": times, "errors": errors, "synthetic": True}
 
 
@@ -108,7 +173,7 @@ async def run_scenario(host: str, port: int, clients: int, actions: int, seed: i
         raise ValueError("actions must be between 1 and 200")
     if not 0.1 <= spawn_rate <= 100:
         raise ValueError("spawn rate must be between 0.1 and 100")
-    if mode not in ("explore", "builder", "mixed"):
+    if mode not in MODES:
         raise ValueError("unsupported synthetic behavior mode")
     if not 1 <= port <= 65535:
         raise ValueError("port outside valid range")
@@ -138,12 +203,15 @@ async def run_scenario(host: str, port: int, clients: int, actions: int, seed: i
         "testType": "local-mock-protocol-only",
         "notActualGamePlayers": True,
         "countTowardsPublicPlayersOnline": False,
+        "provesRealGameCapacity": False,
         "mode": mode,
         "seed": seed,
         "requested": clients,
         "successful": successful,
         "failed": len(results) - successful,
+        "expectedActions": clients * actions,
         "actionsSent": actions_sent,
+        "reconnects": sum(result["reconnects"] for result in results),
         "durationSeconds": round(duration, 3),
         "actionsPerSecond": round(actions_sent / duration, 1),
         "requestLatencyMs": {
@@ -163,7 +231,7 @@ def main() -> int:
     parser.add_argument("--actions", type=int, default=12)
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--spawn-rate", type=float, default=12)
-    parser.add_argument("--mode", choices=["explore", "builder", "mixed"], default="mixed")
+    parser.add_argument("--mode", choices=list(MODES), default="mixed")
     options = parser.parse_args()
     try:
         report = asyncio.run(run_scenario(options.host, options.port, options.clients,

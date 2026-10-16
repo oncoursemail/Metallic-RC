@@ -1,0 +1,41 @@
+name: Metallic synthetic staging lab (localhost mock)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/load/**'
+      - 'tests/test_staging_lab.py'
+      - '.github/workflows/load-lab.yml'
+  pull_request:
+    paths:
+      - 'tests/load/**'
+      - 'tests/test_staging_lab.py'
+      - '.github/workflows/load-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  load-lab:
+    name: Controlled localhost mock suite + metric artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run controlled synthetic mock-lab suite
+        run: python -m unittest discover -s tests -p 'test_staging_lab.py' -v
+      - name: Generate metric artifacts from scenario manifests
+        run: python tests/load/run_lab.py --all --out artifacts/load-runs
+      - name: Upload synthetic metric artifacts for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metallic-load-lab-metrics
+          path: artifacts/load-runs/
+          retention-days: 14
+          if-no-files-found: warn

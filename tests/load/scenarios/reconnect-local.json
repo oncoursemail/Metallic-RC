@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "reconnect-local",
+  "title": "Local frequent-reconnect behaviour",
+  "description": "Actors that deliberately drop mid-run and rejoin, checking server-side ghost cleanup and rejoin acceptance.",
+  "mode": "reconnect",
+  "clients": 6,
+  "actions": 6,
+  "spawnRate": 40,
+  "seed": 63,
+  "budget": {
+    "maxErrorRatio": 0.0,
+    "minSuccessfulRatio": 1.0,
+    "maxLatencyP95Ms": 250,
+    "minActionsSentRatio": 1.0
+  }
+}

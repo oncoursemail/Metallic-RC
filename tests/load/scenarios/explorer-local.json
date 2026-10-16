@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "explorer-local",
+  "title": "Local explorer behaviour",
+  "description": "Mostly-movement actors that join, roam and interact, checking presence cleanup.",
+  "mode": "explore",
+  "clients": 8,
+  "actions": 5,
+  "spawnRate": 80,
+  "seed": 44,
+  "budget": {
+    "maxErrorRatio": 0.0,
+    "minSuccessfulRatio": 1.0,
+    "maxLatencyP95Ms": 250,
+    "minActionsSentRatio": 1.0
+  }
+}

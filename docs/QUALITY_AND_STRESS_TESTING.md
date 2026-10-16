@@ -1,6 +1,6 @@
 # Metallic Studios — Performance, Synthetic Players and Continuous Quality Laboratory
 
-**Research baseline:** 2026-10-15 · **Status:** IMPLEMENTATION PLAN, not a demonstrated player capacity.
+**Research baseline:** 2026-10-15 · **Status:** IMPLEMENTATION PLAN, not a demonstrated player capacity. A **reusable localhost mock lab** is implemented in [`tests/load/`](../tests/load/README.md) — it proves the harness, caps and error budgets, not real capacity.
 **Goal:** reproducibly prove backend robustness, responsive VR and desktop graphics, creator-scene correctness, moderation resilience and excellent player experience before release.
 
 ## Why one kind of test is not enough
@@ -209,9 +209,34 @@ This is a **specification example**; no real session is running.
 - [OpenTelemetry](https://opentelemetry.io/) — metrics and traces; [Grafana](https://grafana.com/oss/grafana/) — dashboards.
 - [Meta Horizon VRC performance checks](https://developers.meta.com/vr/resources/publish-quest-req/) — mandatory release QA for Meta Quest.
 
+## Reusable localhost staging lab (implemented)
+
+The mock-player harness has been turned into a controlled, reproducible lab in
+[`tests/load/`](../tests/load/README.md):
+
+- **Scenario manifests** (`tests/load/scenarios/*.json`) declare mode, clients,
+  actions, spawn rate, seed and error budget.
+- **Rate/resource caps** (`lab_policy.DEFAULT_CAPS`) bound concurrency, total
+  actions, duration, request rate and budget thresholds; manifests may only
+  tighten them. The runner refuses any non-loopback host.
+- **Error budgets** fail a scenario that exceeds its error ratio, falls below its
+  success/action ratio or breaches p95 latency.
+- **Metric artifacts** (`artifacts/load-runs/*.json` + `index.json`) carry
+  client and fixture-side counters and explicit `synthetic` /
+  `provesRealGameCapacity: false` labels, uploaded by the
+  [`load-lab` workflow](../.github/workflows/load-lab.yml) as CI evidence.
+
+Run it locally with `python tests/load/run_lab.py --all` and test it with
+`python -m unittest discover -s tests -p 'test_staging_lab.py' -v`.
+
+**Honest scope:** this lab proves the test scaffolding, caps, budgets and
+fixtures work on loopback. It does not exercise the shipping protocol,
+rendering/VR, real networks or real game-server capacity; see the lab README for
+the full limitations, supported hosts and risk mitigations.
+
 ## Next buildable tasks
 
-1. Implement a **localhost fixture server + safe seeded mock bot harness** in \`tests/load/\`; use it to prove scenario generation and metrics *only*.
+1. ✅ Implemented: a **localhost fixture server + safe seeded mock bot harness** in \`tests/load/\` with scenario manifests, caps, error budgets and artifacts. Use it to prove scenario generation and metrics *only*.
 2. Introduce one actual game client wire protocol and add protocol-aware headless agents as soon as the authoritative session server exists.
 3. Gate all load tools behind staging allowlists and traffic/cost limits. Make it impossible for test accounts to inflate public presence.
 4. Add dashboards for server tick time, queue, allocs, bandwidth, join p95, server error rates and test scenario IDs.
