@@ -1,0 +1,12 @@
+{
+  "name": "metallic-ui-browser-qa",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node verify_site.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.56.1"
+  }
+}
