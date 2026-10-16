@@ -2,7 +2,7 @@
 
 **Status:** proposals, not implemented. **Research baseline:** October 15, 2026.
 
-The catalog describes 156 candidate features across 13 areas. It does not inflate [live GitHub issue completion](PROGRESS.md): only features converted into acceptance-tested `[P0]–[P6]` issues become tracked scope. Groups are ordered for readability, not release sequence.
+The catalog describes 240 candidate features across 20 areas. It does not inflate [live GitHub issue completion](PROGRESS.md): only features converted into acceptance-tested `[P0]–[P6]` issues become tracked scope. Groups are ordered for readability, not release sequence.
 
 **Priority tier:** **Foundation** = priority within this area, **Expansion** = after foundational dependencies, **Advanced** = longer-term candidate. Phasing and technical risk still govern actual build order. **Proof** is a suggested acceptance test, not a claim of passing status.
 
@@ -226,6 +226,125 @@ The catalog describes 156 candidate features across 13 areas. It does not inflat
 | `ADV-10` | Local-first creator draft merges | Advanced | Offline creation merge produces explicit conflict previews |
 | `ADV-11` | Automatic low-end asset variant build | Advanced | LOD and texture tiers produced from validated assets |
 | `ADV-12` | Community quest pack creator toolkit | Advanced | Composable objectives produce repeatable missions |
+
+## In-game staff roles, identity and moderation
+
+| ID | Proposed feature | Priority | Proof required |
+| --- | --- | --- | --- |
+| `STAFF-01` | Grant/revoke Volunteer Moderator | Foundation | Only authorized staff can grant temporary or indefinite VMod scopes |
+| `STAFF-02` | Grant/revoke Developer role | Foundation | Developer powers are separately scoped from moderation |
+| `STAFF-03` | Volunteer Mod overhead title toggle | Foundation | Authoritative title display saved and replicated; hidden mode works |
+| `STAFF-04` | Developer overhead title toggle | Foundation | No player can spoof title or unlock developer controls |
+| `STAFF-05` | Global audit receipt for every sanction | Expansion | In-game, web and bot routes share one durable log |
+| `STAFF-06` | VR wrist-mounted staff tools | Expansion | Legible panels with controller and hand fallback |
+| `STAFF-07` | Room moderator role separation | Expansion | Creator local powers cannot cause global sanctions |
+| `STAFF-08` | Appeals workflow with second reviewer | Expansion | Appeal reversals preserve evidence chain |
+| `STAFF-09` | Staff roster and training status | Advanced | Inactive/expired role cannot use privileged command |
+| `STAFF-10` | Case severity and priority triage | Advanced | Queue sort/paging reproducible with same results |
+| `STAFF-11` | Player teleport/spectate restrictions | Advanced | Every moderation travel has scope and reason |
+| `STAFF-12` | Staff impersonation/report prevention | Advanced | Server-issued verification prevents fake badge claims |
+
+## Discord application and community operations
+
+| ID | Proposed feature | Priority | Proof required |
+| --- | --- | --- | --- |
+| `BOT-01` | Activity displays real humans online | Foundation | Authoritative production heartbeat excludes testbots |
+| `BOT-02` | Slash help and new-user guide | Foundation | Command categories and privacy scope clearly explained |
+| `BOT-03` | Real production status slash command | Foundation | Stale production data shown as unavailable |
+| `BOT-04` | Room catalog search slash command | Foundation | Filtered public results never reveal private rooms |
+| `BOT-05` | Event announcement and scheduling | Expansion | Rate limited updates and opt-in subscriber scope |
+| `BOT-06` | Discord account linking portal | Expansion | OAuth with revocable consent and short-lived code |
+| `BOT-07` | Moderator report queue access | Expansion | Scoped role check in Metallic backend, never Discord role alone |
+| `BOT-08` | Bot command receipts and rate limits | Expansion | Every privileged request audited with idempotent request ID |
+| `BOT-09` | Creator documentation and event command | Advanced | Published resources verified as accessible to members |
+| `BOT-10` | Staff online incident alert subscription | Advanced | Only meaningful incidents posted with no sensitive case data |
+| `BOT-11` | Discord user Rich Presence privacy controls | Advanced | Hidden room/private status never leaks game or join token |
+| `BOT-12` | Maintenance status and alert fallback | Advanced | Bot gracefully degrades during backend or Discord outage |
+
+## AI bot playtesting and stress engineering
+
+| ID | Proposed feature | Priority | Proof required |
+| --- | --- | --- | --- |
+| `LAB-01` | Local synthetic room fixture | Foundation | Seeded mock clients join/move/leave and report latency |
+| `LAB-02` | Protocol-realistic headless players | Foundation | Bots use the actual game wire protocol after it exists |
+| `LAB-03` | Deterministic scripted quest bots | Foundation | Failure replays from captured seed and server build |
+| `LAB-04` | Optional trained Unity ML-Agents explorers | Foundation | Policy discovers bugs and records reproducible traces |
+| `LAB-05` | Locust login+room browse benchmark | Expansion | Concurrent scoped users and p95 error measurements |
+| `LAB-06` | k6 WebSocket rooms benchmark | Expansion | Checks connection recovery and durable event delivery |
+| `LAB-07` | Staging-only load orchestrator | Expansion | Public servers cannot be selected without explicit access |
+| `LAB-08` | Chat and proximity voice media load test | Expansion | Synthetic audio packets stress SFU independently |
+| `LAB-09` | Creator CV3 graph stress scenes | Advanced | Quotas stop runaway graph nodes without server crash |
+| `LAB-10` | Regional fleet scale and join saturation tests | Advanced | Session capacity and autoscaler evidence published |
+| `LAB-11` | Failure injection and recoverability sweeps | Advanced | Cache/network/database outage budgets measured |
+| `LAB-12` | Quest/PC rendered 16-64 avatar benchmark | Advanced | GPU/CPU frame time, memory and LOD result recorded |
+
+## Original visual design and real UX testing
+
+| ID | Proposed feature | Priority | Proof required |
+| --- | --- | --- | --- |
+| `LOOK-01` | Obsidian Alloy token system | Foundation | Color/typography/spacing tokens and usage implemented consistently |
+| `LOOK-02` | Handcrafted launcher visual review | Foundation | No stock mock assets or fake download CTA |
+| `LOOK-03` | VR room-browser legibility audit | Foundation | Text and controls pass headset distance check |
+| `LOOK-04` | Desktop admin case triage workspace | Foundation | Data table, command confirmation and keyboard focus tested |
+| `LOOK-05` | Branded GitHub live progress SVG | Expansion | SVG must parse and mirror exact GitHub issue closure count |
+| `LOOK-06` | Live status website connected to GitHub | Expansion | Website displays sanitized JSON, no private issue content |
+| `LOOK-07` | Visual regression multi-browser suite | Expansion | Screenshots catch overlap, truncation and layout regression |
+| `LOOK-08` | Animated UI reduced-motion support | Expansion | All decorative movement fully respects comfort option |
+| `LOOK-09` | Responsive mobile viewport stress | Advanced | 320/375/768/1440px plus long labels/200% zoom |
+| `LOOK-10` | Original brand motion studies | Advanced | Purposeful mark reveal without loop/glow/slop |
+| `LOOK-11` | Screen-level quality reviews before merge | Advanced | Reviewer validates reference, hierarchy and hit targets |
+| `LOOK-12` | Real download progress and repair animations | Advanced | Displayed percent based on bytes, never invented telemetry |
+
+## High-end VFX, avatars, animation and graphics
+
+| ID | Proposed feature | Priority | Proof required |
+| --- | --- | --- | --- |
+| `VFX2-01` | Particle pooling and emission budgets | Foundation | GPU traces show bounded emitters and no huge frame spikes |
+| `VFX2-02` | Metal material and reflection consistency | Foundation | Materials verified across desktop and Quest tiers |
+| `VFX2-03` | Quest VFX tiering and foveated options | Foundation | Maintains required headset refresh under representative scene |
+| `VFX2-04` | Avatar head/hand IK stress under 32 avatars | Foundation | Replication and CPU animation cost measured |
+| `VFX2-05` | Emote wheel and cancellation blending | Expansion | No stuck rigs, hand overlap or jitter after emote cancel |
+| `VFX2-06` | Surface-specific footsteps and haptic events | Expansion | Audio/haptic variants tested across target surfaces |
+| `VFX2-07` | Creator effect node authoring and previews | Expansion | Node-limit and volume safeguards during maker editing |
+| `VFX2-08` | Quest/boss fight telegraphing with comfort | Expansion | Effects remain readable and photosensitivity-aware |
+| `VFX2-09` | Celebration VFX reward reveal | Advanced | Pool remains responsive under simultaneous reward events |
+| `VFX2-10` | Physics hit reactions and props | Advanced | Fixed step preserves authoritative contacts and interactions |
+| `VFX2-11` | Spatial audio occlusion and mix snapshots | Advanced | Client and media streams remain audible and configurable |
+| `VFX2-12` | Frame-safe shadows, fog and scene transitions | Advanced | Profiling shows acceptable frame-time on low tier |
+
+## Store publishing, platform distribution and build quality
+
+| ID | Proposed feature | Priority | Proof required |
+| --- | --- | --- | --- |
+| `META-01` | Meta Horizon developer application setup | Foundation | App ID and team verified via owner dashboard |
+| `META-02` | Signed ARM64 IL2CPP APK pipeline | Foundation | Manifest and signature validated on actual Quest |
+| `META-03` | VRC automated packaging checks | Foundation | Missing required manifest fields fail build CI |
+| `META-04` | Release channels alpha and beta | Foundation | Only approved testers receive install access |
+| `META-05` | Quest gameplay comfort and input checks | Expansion | Device matrix passes controller disconnect and teleport modes |
+| `META-06` | Meta technical review evidence bundle | Expansion | Real build video and measured frame time attached |
+| `META-07` | Windows launcher signed release channel | Expansion | Manifest hash and interrupted update recovery proven |
+| `META-08` | Linux native package proof | Expansion | Input, renderer and dependency test matrix passes |
+| `META-09` | Android/iOS UI and performance preview | Advanced | Touch safe areas and thermal soak measured |
+| `META-10` | Build asset delta patcher | Advanced | Bandwidth saving quantified vs full download and rollback safe |
+| `META-11` | Website downloads only for released artifacts | Advanced | No download button unless artifact URL and signatures valid |
+| `META-12` | Meta store approval and rollout confirmation | Advanced | Verified public listing before announcing publication |
+
+## Cloud and admin operations lab
+
+| ID | Proposed feature | Priority | Proof required |
+| --- | --- | --- | --- |
+| `OPS2-01` | In-game room health overlay for owner | Foundation | Shows tick/packet and capacity from authorized metrics |
+| `OPS2-02` | Web operations protected identity | Foundation | Admin MFA/passkeys and no privileged JS secret |
+| `OPS2-03` | Server role-based resource controls | Foundation | Operators can drain test rooms with audit and rollback |
+| `OPS2-04` | Private staff escalation pipeline | Foundation | Critical incident receipt per web/game/Discord initiation |
+| `OPS2-05` | Room live statistics via authoritative session | Expansion | Public counts dedupe session/user and exclude test accounts |
+| `OPS2-06` | Per-region CPU/memory/egress dashboards | Expansion | Charts have timestamp, source, units and staleness |
+| `OPS2-07` | Dedicated UDP mitigation provider review | Expansion | Upstream protections for real-time ports validated |
+| `OPS2-08` | Load testing cost ceilings and kill switch | Expansion | Job auto-terminates at time, bandwidth or error budget |
+| `OPS2-09` | Database backup and restore drill | Advanced | Full staging restoration within measured recovery target |
+| `OPS2-10` | Alert routing and owner on-call dashboard | Advanced | False alerts minimized with correlation and clear owners |
+| `OPS2-11` | Published status history with incident notes | Advanced | Only sanitized approved metrics visible publicly |
+| `OPS2-12` | Fleet soak+autoscaling reliability gates | Advanced | Capacity and recovery passes before beta announcement |
 
 ## Rules for promoting a catalog idea into development
 
