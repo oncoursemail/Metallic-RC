@@ -7,7 +7,10 @@ on:
     branches: [main]
     paths:
       - 'scripts/update_progress.py'
+      - 'scripts/render_progress_svg.py'
+      - 'docs/DESIGN_SYSTEM.md'
       - 'tests/test_progress.py'
+      - 'tests/test_progress_svg.py'
       - 'docs/ROADMAP.md'
       - '.github/workflows/update-progress.yml'
       - 'README.md'
@@ -48,7 +51,7 @@ jobs:
         run: |
           git config user.name "metallic-roadmap-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/PROGRESS.md docs/progress.json
+          git add docs/PROGRESS.md docs/progress.json docs/progress.svg
           if git diff --cached --quiet; then
             echo "Roadmap snapshot is unchanged."
             exit 0
