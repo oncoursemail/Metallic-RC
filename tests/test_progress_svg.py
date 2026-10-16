@@ -13,7 +13,7 @@ class ProgressArtTests(unittest.TestCase):
         svg = progress_svg({"overall": {"total": 0, "closed": 0}, "phases": {}})
         ET.fromstring(svg)
         self.assertIn("0.0%", svg)
-        self.assertIn("0 / 0 COMPLETE", svg)
+        self.assertIn("0 of 0 verified tasks", svg)
         self.assertIn("No verified game release", svg)
 
     def test_real_close_math(self):
@@ -24,7 +24,7 @@ class ProgressArtTests(unittest.TestCase):
         root = ET.fromstring(svg)
         self.assertEqual(root.attrib["width"], "1200")
         self.assertIn("25.0%", svg)
-        self.assertIn("10 / 40 COMPLETE", svg)
+        self.assertIn("10 of 40 verified tasks", svg)
 
     def test_svg_safe_even_with_bad_source(self):
         svg = progress_svg({
