@@ -1,0 +1,17 @@
+{
+  "name": "@metallic/discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "register": "node src/register.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "discord.js": "14.25.0"
+  }
+}
