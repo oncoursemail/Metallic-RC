@@ -1,14 +1,14 @@
 {
   "basis": "closed phase-tagged GitHub issues, not verified releases",
-  "last_issue_activity_utc": "2026-10-16T00:50:29Z",
+  "last_issue_activity_utc": "2026-10-16T01:01:41Z",
   "overall": {
     "blocked": 0,
-    "closed": 4,
+    "closed": 5,
     "in_progress": 0,
     "not_started": 49,
     "open": 49,
-    "percent_closed": 7.5,
-    "total": 53,
+    "percent_closed": 9.3,
+    "total": 54,
     "untracked": 0
   },
   "phases": {
@@ -41,11 +41,11 @@
       "total": 7
     },
     "P4": {
-      "closed": 0,
+      "closed": 1,
       "name": "Moderation, marketplace & Discord",
       "open": 10,
-      "percent_closed": 0.0,
-      "total": 10
+      "percent_closed": 9.1,
+      "total": 11
     },
     "P5": {
       "closed": 0,

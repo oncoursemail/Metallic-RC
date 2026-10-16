@@ -3,12 +3,12 @@
 > **This dashboard is generated automatically from GitHub Issues.** A closed issue is a completed task, **not** proof of a tested executable, released multiplayer game, or production readiness. Releases must be verified separately using CI artifacts and acceptance tests.
 
 **Repository:** [\`oncoursemail/Metallic\`](https://github.com/oncoursemail/Metallic)  
-**Last tracked issue activity (UTC):** 2026-10-16T00:50:29Z  
+**Last tracked issue activity (UTC):** 2026-10-16T01:01:41Z  
 **Update trigger:** issue changes, manual dispatch, daily reconciliation, and relevant workflow changes.
 
 ## Overall issue completion
 
-**4/53 scoped issues closed (7.5%).**
+**5/54 scoped issues closed (9.3%).**
 
 **Open:** 49 · **In progress:** 0 · **Blocked:** 0 · **Untracked:** 0
 
@@ -18,7 +18,7 @@
 | **P1** — Accounts, backend & launcher | 1/8 | \`▰▱▱▱▱▱▱▱▱▱\` 12.5% |
 | **P2** — Playable multiplayer + VR | 0/7 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
 | **P3** — Maker Pen, creator tools & CV3 | 0/7 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
-| **P4** — Moderation, marketplace & Discord | 0/10 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
+| **P4** — Moderation, marketplace & Discord | 1/11 | \`▰▱▱▱▱▱▱▱▱▱\` 9.1% |
 | **P5** — Interoperability & platform ports | 0/5 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
 | **P6** — Reliability, performance & launch | 0/6 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
 
@@ -50,6 +50,7 @@ No phase-tagged issues are labeled \`status:blocked\`.
 
 ## Recently closed tasks
 
+- [#54: \[P4\] Implement testable Volunteer Mod and Developer badge authorization policy kernel](https://github.com/oncoursemail/Metallic/issues/54)
 - [#53: \[P1\] Scaffold Discord bot slash commands with validated human-only status parsing](https://github.com/oncoursemail/Metallic/issues/53)
 - [#52: \[P0\] Implement localhost synthetic player protocol fixture and regression suite](https://github.com/oncoursemail/Metallic/issues/52)
 - [#51: \[P0\] Prototype custom progress SVG and live issue-driven development website](https://github.com/oncoursemail/Metallic/issues/51)
