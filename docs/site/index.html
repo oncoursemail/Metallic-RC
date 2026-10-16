@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e0f12">
+  <meta name="description" content="Metallic Studios: an independent social game platform in development. Follow verified engineering progress, architecture, and research.">
+  <title>Metallic Studios — Building the world</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Metallic Studios home">
+        <svg class="brand-mark" width="38" height="38" viewBox="0 0 38 38" fill="none" aria-hidden="true">
+          <path d="M3 32V6h6l10 12L29 6h6v26h-6V15L19 27 9 15v17H3Z" fill="currentColor"/>
+          <path d="m13 5 6 7 6-7" stroke="#aa8cc5" stroke-width="2"/>
+        </svg>
+        <span>METALLIC <small>STUDIOS</small></span>
+      </a>
+      <nav class="top-nav" aria-label="Main navigation">
+        <a href="#vision">The Platform</a>
+        <a href="#roadmap">Progress</a>
+        <a href="#engineering">Engineering</a>
+        <a href="#release">Releases</a>
+      </nav>
+      <a class="nav-repo" href="https://github.com/oncoursemail/Metallic" rel="noopener noreferrer" target="_blank">GitHub <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main id="main">
+      <section id="top" class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="tiny-square"></span> AN INDEPENDENT SOCIAL WORLD <span class="eyebrow-sep">/</span> IN DEVELOPMENT</div>
+          <h1 id="hero-title">Building a world<br><em>worth returning to.</em></h1>
+          <p class="intro">Social VR, original experiences, serious creator tools. Metallic Studios is an independent multiplayer platform being engineered from the ground up.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#roadmap">View actual progress <span aria-hidden="true">↘</span></a>
+            <a class="button button-quiet" href="https://github.com/oncoursemail/Metallic/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener noreferrer">Engineering roadmap <span aria-hidden="true">↗</span></a>
+          </div>
+          <p class="truth-line"><span aria-hidden="true">ⓘ</span> No public game download yet. This is a development-status preview, not a functioning client or a live game service.</p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-grid">
+            <span class="motif motif-a">M</span>
+            <span class="motif-track motif-track-a"></span>
+            <span class="motif-track motif-track-b"></span>
+            <span class="motif-note">BUILD / 001</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap" class="status-section" aria-labelledby="roadmap-title">
+        <div class="section-heading">
+          <div><span class="section-no">01 / DEVELOPMENT</span><h2 id="roadmap-title">Measured progress.<br><span class="muted-heading">Not manufactured hype.</span></h2></div>
+          <a class="text-link" href="https://github.com/oncoursemail/Metallic/blob/main/docs/PROGRESS.md" rel="noopener noreferrer" target="_blank">Open the task tracker <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="progress-panel" id="progress-panel" aria-busy="true">
+          <div class="progress-summary">
+            <div><span class="overline">TRACKED ENGINEERING ISSUES</span><p class="progress-total"><span id="count-closed">—</span><span class="progress-divider"> / </span><span id="count-total">—</span></p><p class="progress-caption">Acceptance-backed tasks closed</p></div>
+            <div class="percent-wrap"><span class="overline">ISSUE COMPLETION</span><p class="progress-percent" id="overall-percent">—</p></div>
+          </div>
+          <div class="meter" role="progressbar" aria-label="Issue completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="main-meter"><span id="main-fill"></span></div>
+          <div class="status-meta"><span id="progress-note">Loading the verified GitHub issue snapshot…</span><span id="progress-timestamp"></span></div>
+          <div class="phases" id="phases" aria-label="Per-phase progress">
+            <p class="load-note">Phase breakdown will appear when a valid snapshot is available.</p>
+          </div>
+          <div class="progress-footer"><span>ISSUE COMPLETION IS NOT A VERIFIED GAME RELEASE.</span><a href="https://github.com/oncoursemail/Metallic/issues" target="_blank" rel="noopener noreferrer">Explore all tasks ↗</a></div>
+        </div>
+      </section>
+
+      <section class="pillars" id="vision" aria-labelledby="pillars-title">
+        <div class="section-heading"><div><span class="section-no">02 / VISION</span><h2 id="pillars-title">Built around play.<br><span class="muted-heading">Designed for creators.</span></h2></div></div>
+        <div class="pillar-grid">
+          <article class="pillar"><span class="pillar-id">A / 01</span><h3>Social by design.</h3><p>Shared rooms, expressive avatars, friends, original quests and stable cross-device interactions.</p><span class="pillar-foot">GAMEPLAY / VR / PRESENCE</span></article>
+          <article class="pillar"><span class="pillar-id">B / 02</span><h3>Give creators control.</h3><p>Powerful world-editing tools, inspectable visual scripting, asset workflows, versioning and community publishing.</p><span class="pillar-foot">STUDIO / MAKER PEN / CV3</span></article>
+          <article class="pillar"><span class="pillar-id">C / 03</span><h3>Earn trust with proof.</h3><p>Honest performance tests, thoughtful moderation, published development progress and independently owned infrastructure.</p><span class="pillar-foot">SAFETY / BACKEND / QA</span></article>
+        </div>
+      </section>
+
+      <section id="engineering" class="engineering-section" aria-labelledby="engineering-title">
+        <div class="section-heading"><div><span class="section-no">03 / UNDER THE SURFACE</span><h2 id="engineering-title">The engineering bench.</h2></div></div>
+        <div class="engineering-grid">
+          <div class="engineering-lead"><p class="overline">CURRENT PRIORITY</p><h3>A playable two-player world.</h3><p>The first release gate is deliberately small: two test users, one original room, an authoritative server, avatar sync, safe reconnection and measurable performance. No fake features.</p><a class="text-link" href="https://github.com/oncoursemail/Metallic/issues/10" target="_blank" rel="noopener noreferrer">Open multiplayer task ↗</a></div>
+          <div class="engineering-links">
+            <a href="https://github.com/oncoursemail/Metallic/blob/main/docs/QUALITY_AND_STRESS_TESTING.md" target="_blank" rel="noopener noreferrer"><span>LAB / 01</span><strong>AI players & server stress lab</strong><b aria-hidden="true">↗</b></a>
+            <a href="https://github.com/oncoursemail/Metallic/blob/main/docs/DESIGN_SYSTEM.md" target="_blank" rel="noopener noreferrer"><span>DESIGN / 02</span><strong>Visual system & animation quality</strong><b aria-hidden="true">↗</b></a>
+            <a href="https://github.com/oncoursemail/Metallic/blob/main/docs/MODERATION_DISCORD_STAFF.md" target="_blank" rel="noopener noreferrer"><span>OPS / 03</span><strong>Moderation, staff & Discord</strong><b aria-hidden="true">↗</b></a>
+            <a href="https://github.com/oncoursemail/Metallic/blob/main/docs/META_QUEST_RELEASE.md" target="_blank" rel="noopener noreferrer"><span>RELEASE / 04</span><strong>Meta Quest publishing plan</strong><b aria-hidden="true">↗</b></a>
+          </div>
+        </div>
+      </section>
+
+      <section id="release" class="release-section" aria-labelledby="release-title">
+        <span class="section-no">04 / PUBLIC BUILDS</span>
+        <div class="release-row"><div><h2 id="release-title">When it's ready,<br>you'll know.</h2><p>Downloads will appear only when signed builds have passed device and backend acceptance tests. Until then, follow development directly on GitHub.</p></div>
+          <div class="release-state"><span class="state-prefix">CURRENT CHANNEL</span><strong>PRE-ALPHA / NO BUILD</strong><span>No download available</span><a href="https://github.com/oncoursemail/Metallic/actions" target="_blank" rel="noopener noreferrer">View build automation ↗</a></div>
+        </div>
+      </section>
+    </main>
+    <footer class="footer"><span>METALLIC STUDIOS <span class="footer-div">/</span> DEVELOPMENT STATUS</span><a href="https://github.com/oncoursemail/Metallic" target="_blank" rel="noopener noreferrer">SOURCE & ROADMAP ↗</a><span class="footer-last">All metrics are repository task counts, not player counts.</span></footer>
+  </div>
+</body>
+</html>
