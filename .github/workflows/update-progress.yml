@@ -12,6 +12,7 @@ on:
       - 'docs/site/**'
       - 'services/discord-bot/**'
       - 'services/staff/**'
+      - 'services/player-count/**'
       - 'tests/test_progress.py'
       - 'tests/test_progress_svg.py'
       - 'tests/test_load_harness.py'
@@ -52,8 +53,12 @@ jobs:
           node --check docs/site/app.js
           node --check services/discord-bot/src/index.mjs
           node --check services/discord-bot/src/register.mjs
+          node --check services/player-count/src/aggregator.mjs
+          node --check services/player-count/src/server.mjs
+          node --check services/player-count/src/main.mjs
           node --test services/discord-bot/tests/*.test.mjs
           node --test services/staff/tests/*.test.mjs
+          node --test services/player-count/tests/*.test.mjs
       - name: Rebuild docs/PROGRESS.md and docs/progress.json from GitHub Issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
