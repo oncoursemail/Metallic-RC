@@ -1,10 +1,12 @@
-name: Capacity model regression
+name: Infrastructure and authority prototypes
 on:
   pull_request:
     paths:
       - "tools/capacity_planner.py"
       - "tests/test_capacity_planner.py"
       - "ops/capacity/**"
+      - "prototypes/authority/**"
+      - "tests/test_authority_input_gate.py"
       - ".github/workflows/capacity-model-tests.yml"
   push:
     branches: [main]
@@ -12,6 +14,8 @@ on:
       - "tools/capacity_planner.py"
       - "tests/test_capacity_planner.py"
       - "ops/capacity/**"
+      - "prototypes/authority/**"
+      - "tests/test_authority_input_gate.py"
       - ".github/workflows/capacity-model-tests.yml"
   workflow_dispatch:
 permissions:
@@ -27,6 +31,8 @@ jobs:
           python-version: "3.12"
       - name: Verify model unit tests
         run: python -m unittest discover -s tests -p 'test_capacity_planner.py' -v
+      - name: Verify reference authority input gate
+        run: python -m unittest discover -s tests -p 'test_authority_input_gate.py' -v
       - name: Verify hypothetical scenario CLI output
         run: |
           python tools/capacity_planner.py ops/capacity/hypothetical_10k_multi_region.json > capacity-results.json
