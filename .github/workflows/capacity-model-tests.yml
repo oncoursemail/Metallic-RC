@@ -1,0 +1,33 @@
+name: Capacity model regression
+on:
+  pull_request:
+    paths:
+      - "tools/capacity_planner.py"
+      - "tests/test_capacity_planner.py"
+      - "ops/capacity/**"
+      - ".github/workflows/capacity-model-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/capacity_planner.py"
+      - "tests/test_capacity_planner.py"
+      - "ops/capacity/**"
+      - ".github/workflows/capacity-model-tests.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  assumptions-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify model unit tests
+        run: python -m unittest discover -s tests -p 'test_capacity_planner.py' -v
+      - name: Verify hypothetical scenario CLI output
+        run: |
+          python tools/capacity_planner.py ops/capacity/hypothetical_10k_multi_region.json > capacity-results.json
+          python -c "import json; d=json.load(open('capacity-results.json')); assert d['result_type']=='HYPOTHETICAL_CAPACITY_MODEL_NOT_MEASURED'; assert d['assumed_peak_ccu']==10000; assert d['total_sessions']==418; assert d['total_hosts_including_regional_spares']==58"
