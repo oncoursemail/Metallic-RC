@@ -100,6 +100,10 @@ Threat cases and deterministic first checks:
 - Security engineering: authorization at object/function level, signing keys in KMS, MFA for staff, scoped production access, rotating secrets, packet fuzzing, SBOM/supply-chain checks, authenticated service-to-service traffic, and manual approval for destructive operations.
 - Protect player privacy: no covert recording, limited necessary telemetry, age-appropriate moderation safeguards and legal review across regions.
 
+### Executable reference-only input checks
+
+A **non-production, dependency-free** [reference input gate](../prototypes/authority/input_gate.py) and [unit fixtures](../tests/test_authority_input_gate.py) now demonstrate OS-neutral rejection of replay/duplicate sequence numbers, unexpected action types, invalid movement axes, input rates beyond per-tick caps, out-of-bounds normalized movement and unauthenticated session IDs. This is *not* a deployed anti-cheat or a server; it relies on a future authenticated transport to register sessions and a future engine simulator to enforce collision, physics, object permissions, hit detection, replay storage, lag compensation and anti-abuse policy. Because it never asks about the client's OS, a valid Linux user is checked the same way as a Windows user. It is a contract prototype to port into the selected game-server runtime only after profiling.
+
 ## 5. Self-hosted/regional infrastructure & capacity
 
 **Stage A — local/team alpha:** 1 protected Linux test host + CI, dedicated server binary in a container, Postgres, Valkey, telemetry stack. Manual session allocator and fixed concurrency caps. Test data only; no public promises.
