@@ -1,4 +1,4 @@
-# Metallic Studios
+# Metallic
 
 > **Project status: Foundation planning — not yet a playable game.**  
 > Independent social multiplayer, VR, and creator platform. The repository starts with a technical roadmap and evidence-based progress tracker; completed features must be proven by merged changes, tests, and working builds.
@@ -14,11 +14,11 @@
 
 ## What we are building
 
-Metallic Studios is intended to be an independent, high-performance social game platform with its own client, dedicated servers, launcher, identity service, creator tools, user-generated rooms, visual scripting, and optional integrations with cooperating community projects.
+Metallic is intended to be an independent, high-performance social game platform with its own client, dedicated servers, launcher, identity service, creator tools, user-generated rooms, visual scripting, and optional integrations with cooperating community projects.
 
 ### Product pillars
 
-1. **Cross-device multiplayer:** PC first; VR alongside a shared multiplayer vertical slice; Linux, Android, and iOS after platform validation.
+1. **Cross-device multiplayer:** PC first; VR alongside a shared multiplayer vertical slice; native Linux/SteamOS validated early where feasible; Android and iOS after platform validation.
 2. **Player-controlled creation:** in-game building, modular prefabs, an asset pipeline, and a next-generation *Circuits V3* typed node graph.
 3. **Social platform:** accounts, profiles, friends, parties, rooms, matchmaking, spatial voice, moderation, reporting, and search.
 4. **Creator economy:** moderated marketplace, entitlements, auditable token ledger, creator analytics, and optional premium upgrades.
@@ -30,6 +30,9 @@ Metallic Studios is intended to be an independent, high-performance social game 
 - **[Roadmap and milestones](docs/ROADMAP.md)** — scopes, dependencies, test gates, order of delivery.
 - **[Live progress dashboard](docs/PROGRESS.md)** — automatically generated from repository GitHub issues; reflects *closed issues*, not claims that binaries are already usable.
 - **[Architecture and research guide](docs/ARCHITECTURE.md)** — component boundaries, decisions, performance, and research.
+- **[Global multiplayer, anti-cheat, Linux & owned infrastructure research](docs/METALLIC_GLOBAL_INFRASTRUCTURE_SECURITY_2026.md)** — regional session fleet, transport, server authority, performance SLOs and security design (proposal, not implemented).
+- **[Hypothetical capacity planning script](tools/capacity_planner.py)** and [10k-player assumption scenario](ops/capacity/hypothetical_10k_multi_region.json) — sizing math only; does not measure deployed server capacity.
+- **[Reference authoritative input gate](prototypes/authority/input_gate.py)** — cross-platform policy prototype with unit tests; not integrated into a game server and not a complete anti-cheat.
 - **[240-feature capability catalog](docs/FEATURE_CATALOG.md)** — concrete feature candidates and suggested acceptance tests.
 - **[Research backlog](docs/RESEARCH.md)** — sources, experiments, unknowns, and competitor review.
 - **[Contributor development rules](docs/DEVELOPMENT.md)** — issue labels, PR review gates and evidence requirements.
