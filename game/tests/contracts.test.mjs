@@ -54,6 +54,7 @@ test("public invention results exclude unapproved, stale revisions, mature and d
 });
 test("catalog rejects forged approvals, invalid files, duplicate IDs and arbitrary sorts", () => {
   assert.throws(() => validateInvention(sample({ licenseVerified: false })), /approval/);
+  assert.throws(() => validateInvention(sample({ revision: "v2" })), /approval/);
   assert.throws(() => validateInvention(sample({ files: [{ sha256: "123", bytes: 12 }] })), /digest/);
   assert.throws(() => searchInventions([sample(), sample()]), /Duplicate/);
   assert.throws(() => searchInventions([sample()], { sort: "injected" }), /sort/);

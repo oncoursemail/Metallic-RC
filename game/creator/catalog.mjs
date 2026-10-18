@@ -82,6 +82,10 @@ export function searchInventions(source, {
   const needle = query.trim().toLocaleLowerCase("en-US");
   const matches = [];
   for (const data of source) {
+    // A changed revision cannot inherit approval from a previous version.
+    // Quarantine it from public discovery rather than failing the entire catalog.
+    // The publishing service must fix its moderation state before indexing it.
+    if (data && data.status === "approved" && data.approvedRevision !== data.revision) continue;
     const item = validateInvention(data);
     requireValid(!ids.has(item.id), "Duplicate invention id");
     ids.add(item.id);
