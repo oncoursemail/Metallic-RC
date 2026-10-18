@@ -34,7 +34,7 @@ export function validateInvention(raw) {
   requireValid(INVENTION_CATEGORIES.includes(raw.category), "Invalid category");
   requireValid(CONTENT_RATINGS.includes(raw.rating), "Invalid content rating");
   requireValid(STATUSES.has(raw.status), "Invalid moderation state");
-  requireValid(identifier(raw.revision), "Invalid revision");
+  requireValid(/^[a-z0-9][a-z0-9._-]{0,63}$/i.test(raw.revision), "Invalid revision");
   requireValid(Array.isArray(raw.tags) && raw.tags.length <= 12 &&
     raw.tags.every((t) => typeof t === "string" && TAG.test(t)) &&
     new Set(raw.tags).size === raw.tags.length, "Invalid or duplicate tags");
