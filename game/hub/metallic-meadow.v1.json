@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "id": "metallic-meadow",
+  "name": "Metallic Meadow — The Commons",
+  "status": "design-spec-only",
+  "spawnAreaId": "arrival-square",
+  "artDirection": "Original warm and vivid social world: sculpted wood, botanical forms, crafted metallic details and subtle plum/silver accents. No Rec Room meshes, textures, logos or level data.",
+  "areas": [
+    {
+      "id": "arrival-square",
+      "name": "Arrival Square",
+      "kind": "arrival",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "watchIcon": "map-pin"
+    },
+    {
+      "id": "central-barn",
+      "name": "The Central Barn",
+      "kind": "social",
+      "position": [
+        0,
+        0,
+        38
+      ],
+      "watchIcon": "warehouse"
+    },
+    {
+      "id": "golf-green",
+      "name": "Meadow Golf Green",
+      "kind": "golf",
+      "position": [
+        65,
+        0,
+        30
+      ],
+      "watchIcon": "flag"
+    },
+    {
+      "id": "orchard-farm",
+      "name": "Orchard & Farm",
+      "kind": "farm",
+      "position": [
+        -56,
+        0,
+        26
+      ],
+      "watchIcon": "sprout"
+    },
+    {
+      "id": "treehouse",
+      "name": "Canopy Treehouse",
+      "kind": "explore",
+      "position": [
+        -46,
+        14,
+        -41
+      ],
+      "watchIcon": "trees"
+    },
+    {
+      "id": "maker-pavilion",
+      "name": "Maker Pavilion",
+      "kind": "creation",
+      "position": [
+        32,
+        0,
+        -52
+      ],
+      "watchIcon": "hammer"
+    },
+    {
+      "id": "learning-grove",
+      "name": "Learning Grove",
+      "kind": "learning",
+      "position": [
+        -12,
+        0,
+        -79
+      ],
+      "watchIcon": "graduation-cap"
+    },
+    {
+      "id": "companion-meadow",
+      "name": "Companion Meadow",
+      "kind": "pets",
+      "position": [
+        81,
+        0,
+        -37
+      ],
+      "watchIcon": "paw-print"
+    }
+  ],
+  "paths": [
+    [
+      "arrival-square",
+      "central-barn"
+    ],
+    [
+      "arrival-square",
+      "golf-green"
+    ],
+    [
+      "arrival-square",
+      "orchard-farm"
+    ],
+    [
+      "arrival-square",
+      "treehouse"
+    ],
+    [
+      "arrival-square",
+      "maker-pavilion"
+    ],
+    [
+      "arrival-square",
+      "learning-grove"
+    ],
+    [
+      "golf-green",
+      "companion-meadow"
+    ],
+    [
+      "maker-pavilion",
+      "companion-meadow"
+    ],
+    [
+      "treehouse",
+      "learning-grove"
+    ],
+    [
+      "orchard-farm",
+      "central-barn"
+    ]
+  ],
+  "cinematic": {
+    "title": "From Memory to Tomorrow",
+    "originalStory": true,
+    "skippable": true,
+    "reducedMotionVariant": true,
+    "shots": [
+      {
+        "id": "memory",
+        "seconds": 4,
+        "description": "A completely original old meeting hall appears as a memory, not a recreation of protected Rec Room geometry."
+      },
+      {
+        "id": "transition",
+        "seconds": 3.5,
+        "description": "The hall breaks into light, leaves, and floating metal fragments; no intense flashes or player-head movement."
+      },
+      {
+        "id": "reveal",
+        "seconds": 6,
+        "description": "Camera reveals the new outdoor meadow, original central barn, distant golf green and treehouse."
+      },
+      {
+        "id": "welcome",
+        "seconds": 3,
+        "description": "User gains control at Arrival Square with optional tutorial and watch map."
+      }
+    ]
+  },
+  "interactionContract": {
+    "gameplayNotYetImplemented": true,
+    "landmarks": [
+      "golf putt training",
+      "workshop class portal",
+      "maker studio",
+      "pet adoption",
+      "social lounge"
+    ],
+    "serverOwned": [
+      "golf score",
+      "class enrollment",
+      "achievements",
+      "object ownership",
+      "pet collection"
+    ],
+    "clientOwned": [
+      "map viewport",
+      "comfort preferences",
+      "local UI navigation"
+    ]
+  }
+}
