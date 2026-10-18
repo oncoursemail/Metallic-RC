@@ -32,6 +32,7 @@ Metallic is intended to be an independent, high-performance social game platform
 - **[Architecture and research guide](docs/ARCHITECTURE.md)** — component boundaries, decisions, performance, and research.
 - **[Global multiplayer, anti-cheat, Linux & owned infrastructure research](docs/METALLIC_GLOBAL_INFRASTRUCTURE_SECURITY_2026.md)** — regional session fleet, transport, server authority, performance SLOs and security design (proposal, not implemented).
 - **[Hypothetical capacity planning script](tools/capacity_planner.py)** and [10k-player assumption scenario](ops/capacity/hypothetical_10k_multi_region.json) — sizing math only; does not measure deployed server capacity.
+- **[Reference authoritative input gate](prototypes/authority/input_gate.py)** — cross-platform policy prototype with unit tests; not integrated into a game server and not a complete anti-cheat.
 - **[240-feature capability catalog](docs/FEATURE_CATALOG.md)** — concrete feature candidates and suggested acceptance tests.
 - **[Research backlog](docs/RESEARCH.md)** — sources, experiments, unknowns, and competitor review.
 - **[Contributor development rules](docs/DEVELOPMENT.md)** — issue labels, PR review gates and evidence requirements.
