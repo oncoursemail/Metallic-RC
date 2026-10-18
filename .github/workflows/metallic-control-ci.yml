@@ -1,0 +1,41 @@
+name: Metallic Control Plane CI
+on:
+  pull_request:
+    paths:
+      - 'services/metallic-control/**'
+      - 'ops/metallic-control/**'
+      - '.github/workflows/metallic-control-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/metallic-control/**'
+      - 'ops/metallic-control/**'
+      - '.github/workflows/metallic-control-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  go-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/metallic-control
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/metallic-control/go.mod
+          cache-dependency-path: services/metallic-control/go.mod
+      - name: Validate Go formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Unit / HTTP / concurrency race tests
+        run: go test -race -count=1 ./...
+      - name: Static Go validation
+        run: go vet ./...
+      - name: Build controller and Linux agent
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/metallic-control ./cmd/control
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/metallic-agent ./cmd/agent
+      - name: Verify example inventory is valid JSON
+        run: python3 -m json.tool ../../ops/metallic-control/inventory.example.json > /dev/null
