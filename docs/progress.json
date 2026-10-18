@@ -1,14 +1,14 @@
 {
   "basis": "closed phase-tagged GitHub issues, not verified releases",
-  "last_issue_activity_utc": "2026-10-18T21:11:09Z",
+  "last_issue_activity_utc": "2026-10-18T21:11:14Z",
   "overall": {
     "blocked": 0,
     "closed": 5,
     "in_progress": 0,
-    "not_started": 52,
-    "open": 52,
-    "percent_closed": 8.8,
-    "total": 57,
+    "not_started": 55,
+    "open": 55,
+    "percent_closed": 8.3,
+    "total": 60,
     "untracked": 0
   },
   "phases": {
@@ -36,16 +36,16 @@
     "P3": {
       "closed": 0,
       "name": "Maker Pen, creator tools & CV3",
-      "open": 8,
+      "open": 9,
       "percent_closed": 0.0,
-      "total": 8
+      "total": 9
     },
     "P4": {
       "closed": 1,
       "name": "Moderation, marketplace & Discord",
-      "open": 10,
-      "percent_closed": 9.1,
-      "total": 11
+      "open": 12,
+      "percent_closed": 7.7,
+      "total": 13
     },
     "P5": {
       "closed": 0,
