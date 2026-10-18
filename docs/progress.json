@@ -1,23 +1,23 @@
 {
   "basis": "closed phase-tagged GitHub issues, not verified releases",
-  "last_issue_activity_utc": "2026-10-18T21:25:13Z",
+  "last_issue_activity_utc": "2026-10-18T22:46:38Z",
   "overall": {
     "blocked": 0,
     "closed": 5,
     "in_progress": 0,
-    "not_started": 57,
-    "open": 57,
-    "percent_closed": 8.1,
-    "total": 62,
+    "not_started": 59,
+    "open": 59,
+    "percent_closed": 7.8,
+    "total": 64,
     "untracked": 0
   },
   "phases": {
     "P0": {
       "closed": 3,
       "name": "Research, architecture & dev tooling",
-      "open": 7,
-      "percent_closed": 30.0,
-      "total": 10
+      "open": 8,
+      "percent_closed": 27.3,
+      "total": 11
     },
     "P1": {
       "closed": 1,
@@ -29,9 +29,9 @@
     "P2": {
       "closed": 0,
       "name": "Playable multiplayer + VR",
-      "open": 10,
+      "open": 11,
       "percent_closed": 0.0,
-      "total": 10
+      "total": 11
     },
     "P3": {
       "closed": 0,
