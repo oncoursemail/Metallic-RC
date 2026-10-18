@@ -7,10 +7,10 @@ This folder is **not** the Metallic game engine. It contains dependency-free Nod
 | `hub/` | Original outdoor world blueprint, connected POI map and skip-safe cinematic contract | 3D art, lights, animation, collisions, navmesh, gameplay scene |
 | `creator/` | Invention category metadata, revision-bound approval and safe public searching | Signed server moderation, content scanning, CDN, assets, creator permissions |
 | `ai/` | Roomie bounded fear/bond/mood FSM with fixed animation effects | NPC rigs/navmesh, replicated server actions, optional approved dialogue/voice |
-| `learning/` | Four workshop rubrics and authoritative-achievement event shape | Teacher verification, human grading, enrollment, records, integration |
+| `learning/` | Four workshop rubrics, host/teacher grants and authoritative-achievement event shape | Teacher verification service, human grading, enrollment, records, integration |
 | `watch/` | Original customizable menu model for mouse/gamepad/VR/touch | Actual accessible visual menus and server permission calls |
 
-Run locally: `cd game && npm test`.
+Run locally: `cd game && npm test`. Support case policy tests: `cd services/support && npm test`.
 
 **Security note:** Passing a forged `authenticatedService: true` object or `approved` content metadata from an untrusted client does not make it trusted. These modules must be called only *after* real middleware authenticates service identities and fetches immutable moderation/ownership state from a server-controlled database.
 

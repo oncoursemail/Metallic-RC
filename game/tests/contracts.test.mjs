@@ -6,6 +6,7 @@ import { makeCompanion, stepCompanion } from "../ai/roomie.mjs";
 import { validateWorkshop, applyVerifiedAchievement } from "../learning/education.mjs";
 import { validateHubManifest, getWatchHubMap } from "../hub/manifest.mjs";
 import { buildWatchMenu } from "../watch/menu.mjs";
+import { canPerformTeachingAction } from "../learning/host-policy.mjs";
 
 const load = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const sha256 = "a".repeat(64);
@@ -99,4 +100,28 @@ test("watch quick slots are whitelist-validated and input-specific", () => {
   assert.throws(() => buildWatchMenu({ quickSlots: ["map", "map"] }), /unique/);
   assert.throws(() => buildWatchMenu({ quickSlots: ["admin.godmode"] }), /known/);
   assert.throws(() => buildWatchMenu({ input: "telepathy" }), /input/);
+});
+
+test("teacher and host grants are workshop-scoped and never imply moderation access", () => {
+  const now = Date.parse("2026-10-18T12:00:00Z");
+  const context = { workshopId: "workshop.001", accountId: "teacher.001",
+    workshopApproved: true, safetyReviewPassed: true, rosterVerified: true,
+    assessmentEvidenceReady: true };
+  const host = [{ accountId: "teacher.001", workshopId: "workshop.001", role: "workshop_host",
+    verifiedByHuman: true, safeguardingApproved: true, expiresAt: "2026-12-01T00:00:00Z" }];
+  assert.equal(canPerformTeachingAction(host, "workshop.host", context, now), true);
+  assert.equal(canPerformTeachingAction(host, "workshop.progress.assess", context, now), false);
+  assert.equal(canPerformTeachingAction(host, "moderation.user.ban", context, now), false);
+  assert.equal(canPerformTeachingAction(host, "workshop.host",
+    { ...context, workshopId: "workshop.002" }, now), false);
+  assert.equal(canPerformTeachingAction(host, "workshop.host",
+    { ...context, safetyReviewPassed: false }, now), false);
+  assert.equal(canPerformTeachingAction(host.map((g) => ({ ...g, revokedAt: "2026-10-18" })),
+    "workshop.host", context, now), false);
+  assert.equal(canPerformTeachingAction(host.map((g) => ({ ...g, expiresAt: "2026-01-01T00:00:00Z" })),
+    "workshop.host", context, now), false);
+  const teacher = [{ ...host[0], role: "verified_instructor" }];
+  assert.equal(canPerformTeachingAction(teacher, "workshop.progress.assess", context, now), true);
+  assert.equal(canPerformTeachingAction(teacher, "workshop.progress.assess",
+    { ...context, assessmentEvidenceReady: false }, now), false);
 });

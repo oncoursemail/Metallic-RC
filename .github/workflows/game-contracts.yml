@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - "game/**"
+      - "services/support/**"
       - ".github/workflows/game-contracts.yml"
   push:
     paths:
       - "game/**"
+      - "services/support/**"
       - ".github/workflows/game-contracts.yml"
   workflow_dispatch:
 
@@ -25,4 +27,7 @@ jobs:
           node-version: '22'
       - name: Test future gameplay contracts
         working-directory: game
+        run: npm test
+      - name: Test support case contracts
+        working-directory: services/support
         run: npm test
