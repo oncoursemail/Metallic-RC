@@ -3,24 +3,24 @@
 > **This dashboard is generated automatically from GitHub Issues.** A closed issue is a completed task, **not** proof of a tested executable, released multiplayer game, or production readiness. Releases must be verified separately using CI artifacts and acceptance tests.
 
 **Repository:** [\`oncoursemail/Metallic\`](https://github.com/oncoursemail/Metallic)  
-**Last tracked issue activity (UTC):** 2026-10-18T21:11:14Z  
+**Last tracked issue activity (UTC):** 2026-10-18T21:25:13Z  
 **Update trigger:** issue changes, manual dispatch, daily reconciliation, and relevant workflow changes.
 
 ## Overall issue completion
 
-**5/60 scoped issues closed (8.3%).**
+**5/62 scoped issues closed (8.1%).**
 
-**Open:** 55 · **In progress:** 0 · **Blocked:** 0 · **Untracked:** 0
+**Open:** 57 · **In progress:** 0 · **Blocked:** 0 · **Untracked:** 0
 
 | Phase | Closed/total | Issue completion |
 | --- | ---: | ---: |
 | **P0** — Research, architecture & dev tooling | 3/10 | \`▰▰▰▱▱▱▱▱▱▱\` 30.0% |
 | **P1** — Accounts, backend & launcher | 1/8 | \`▰▱▱▱▱▱▱▱▱▱\` 12.5% |
-| **P2** — Playable multiplayer + VR | 0/9 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
+| **P2** — Playable multiplayer + VR | 0/10 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
 | **P3** — Maker Pen, creator tools & CV3 | 0/9 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
 | **P4** — Moderation, marketplace & Discord | 1/13 | \`▰▱▱▱▱▱▱▱▱▱\` 7.7% |
 | **P5** — Interoperability & platform ports | 0/5 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
-| **P6** — Reliability, performance & launch | 0/6 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
+| **P6** — Reliability, performance & launch | 0/7 | \`▱▱▱▱▱▱▱▱▱▱\` 0.0% |
 
 ## Actively worked tasks
 

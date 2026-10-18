@@ -1,14 +1,14 @@
 {
   "basis": "closed phase-tagged GitHub issues, not verified releases",
-  "last_issue_activity_utc": "2026-10-18T21:11:14Z",
+  "last_issue_activity_utc": "2026-10-18T21:25:13Z",
   "overall": {
     "blocked": 0,
     "closed": 5,
     "in_progress": 0,
-    "not_started": 55,
-    "open": 55,
-    "percent_closed": 8.3,
-    "total": 60,
+    "not_started": 57,
+    "open": 57,
+    "percent_closed": 8.1,
+    "total": 62,
     "untracked": 0
   },
   "phases": {
@@ -29,9 +29,9 @@
     "P2": {
       "closed": 0,
       "name": "Playable multiplayer + VR",
-      "open": 9,
+      "open": 10,
       "percent_closed": 0.0,
-      "total": 9
+      "total": 10
     },
     "P3": {
       "closed": 0,
@@ -57,9 +57,9 @@
     "P6": {
       "closed": 0,
       "name": "Reliability, performance & launch",
-      "open": 6,
+      "open": 7,
       "percent_closed": 0.0,
-      "total": 6
+      "total": 7
     }
   },
   "released": false,
