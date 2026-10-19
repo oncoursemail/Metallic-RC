@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0e0f12">
+  <meta name="theme-color" content="#10110f">
   <meta name="description" content="Metallic Studios: an independent social game platform in development. Follow verified engineering progress, architecture, and research.">
   <title>Metallic Studios — Building the world</title>
+  <link rel="icon" href="./assets/metallic-crow.webp" type="image/webp">
   <link rel="stylesheet" href="./styles.css">
   <script src="./app.js" defer></script>
 </head>
@@ -14,10 +15,7 @@
   <div class="page-shell">
     <header class="site-header">
       <a class="brand" href="#top" aria-label="Metallic Studios home">
-        <svg class="brand-mark" width="38" height="38" viewBox="0 0 38 38" fill="none" aria-hidden="true">
-          <path d="M3 32V6h6l10 12L29 6h6v26h-6V15L19 27 9 15v17H3Z" fill="currentColor"/>
-          <path d="m13 5 6 7 6-7" stroke="#aa8cc5" stroke-width="2"/>
-        </svg>
+        <img class="brand-mark" src="./assets/metallic-crow.webp" width="44" height="44" alt="">
         <span>METALLIC <small>STUDIOS</small></span>
       </a>
       <nav class="top-nav" aria-label="Main navigation">
@@ -43,17 +41,16 @@
         </div>
         <div class="hero-art" aria-hidden="true">
           <div class="art-grid">
-            <span class="motif motif-a">M</span>
-            <span class="motif-track motif-track-a"></span>
-            <span class="motif-track motif-track-b"></span>
-            <span class="motif-note">BUILD / 001</span>
+            <img class="crow-emblem" src="./assets/metallic-crow.webp" width="1254" height="1254" alt="" fetchpriority="high">
+            <span class="art-caption">METALLIC</span>
+            <span class="motif-note">AN INDEPENDENT WORLD</span>
           </div>
         </div>
       </section>
 
       <section id="roadmap" class="status-section" aria-labelledby="roadmap-title">
         <div class="section-heading">
-          <div><span class="section-no">01 / DEVELOPMENT</span><h2 id="roadmap-title">Measured progress.<br><span class="muted-heading">Not manufactured hype.</span></h2></div>
+          <div><span class="section-no">01 / DEVELOPMENT</span><h2 id="roadmap-title">The work so far.<br><span class="muted-heading">And what comes next.</span></h2></div>
           <a class="text-link" href="https://github.com/oncoursemail/Metallic/blob/main/docs/PROGRESS.md" rel="noopener noreferrer" target="_blank">Open the task tracker <span aria-hidden="true">↗</span></a>
         </div>
         <div class="progress-panel" id="progress-panel" aria-busy="true">
@@ -99,7 +96,7 @@
         </div>
       </section>
     </main>
-    <footer class="footer"><span>METALLIC STUDIOS <span class="footer-div">/</span> DEVELOPMENT STATUS</span><a href="https://github.com/oncoursemail/Metallic" target="_blank" rel="noopener noreferrer">SOURCE & ROADMAP ↗</a><span class="footer-last">All metrics are repository task counts, not player counts.</span></footer>
+    <footer class="footer"><span class="footer-brand"><img class="brand-mark" src="./assets/metallic-crow.webp" width="34" height="34" alt="">METALLIC STUDIOS <span class="footer-div">/</span> DEVELOPMENT STATUS</span><a href="https://github.com/oncoursemail/Metallic" target="_blank" rel="noopener noreferrer">SOURCE & ROADMAP ↗</a><span class="footer-last">All metrics are repository task counts, not player counts.</span></footer>
   </div>
 </body>
 </html>
