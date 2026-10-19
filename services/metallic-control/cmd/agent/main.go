@@ -106,7 +106,13 @@ func send(ctx context.Context, client *http.Client, endpoint, token string, t co
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
-	res, e := client.Do(req)
+	// Endpoint validation applies to this URL only. Even a same-host redirect
+	// can downgrade HTTPS or send the bearer and telemetry to another service.
+	// Copy the client to preserve its transport/timeout without mutating a
+	// shared client while another heartbeat could be in flight.
+	boundClient := *client
+	boundClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	res, e := boundClient.Do(req)
 	if e != nil {
 		return e
 	}

@@ -1,6 +1,7 @@
 package control
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // API is an administrator/agent-only lab API; it is NOT public player login.
@@ -54,26 +56,63 @@ func apiError(w http.ResponseWriter, err error) {
 	}
 	jsonReply(w, status, map[string]string{"error": code})
 }
-func readJSON(w http.ResponseWriter, r *http.Request, out any) error {
+
+// Every current request is a flat object with required, non-null fields. Check
+// its shape before decoding values: encoding/json alone permits missing fields,
+// null scalars, duplicate names and case aliases that can hide bad telemetry.
+func readJSON(w http.ResponseWriter, r *http.Request, out any, fields ...string) error {
 	ct := r.Header.Get("Content-Type")
 	mediatype, _, err := mime.ParseMediaType(ct)
 	if err != nil || mediatype != "application/json" {
 		return ErrInvalid
 	}
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
-	dec.DisallowUnknownFields()
-	if err = dec.Decode(out); err != nil {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
+	if err != nil {
 		var max *http.MaxBytesError
 		if errors.As(err, &max) {
 			return ErrTooLarge
 		}
 		return ErrInvalid
 	}
-	if err = dec.Decode(new(any)); err != io.EOF {
-		var max *http.MaxBytesError
-		if errors.As(err, &max) {
-			return ErrTooLarge
+	if !utf8.Valid(body) {
+		return ErrInvalid
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	tok, err := dec.Token()
+	if err != nil || tok != json.Delim('{') {
+		return ErrInvalid
+	}
+	seen := make(map[string]bool, len(fields))
+	for _, field := range fields {
+		seen[field] = false
+	}
+	for dec.More() {
+		tok, err = dec.Token()
+		key, ok := tok.(string)
+		if err != nil || !ok {
+			return ErrInvalid
 		}
+		if present, allowed := seen[key]; !allowed || present {
+			return ErrInvalid
+		}
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return ErrInvalid
+		}
+		seen[key] = true
+	}
+	if tok, err = dec.Token(); err != nil || tok != json.Delim('}') {
+		return ErrInvalid
+	}
+	if _, err = dec.Token(); err != io.EOF {
+		return ErrInvalid
+	}
+	for _, present := range seen {
+		if !present {
+			return ErrInvalid
+		}
+	}
+	if err := json.Unmarshal(body, out); err != nil {
 		return ErrInvalid
 	}
 	return nil
@@ -100,7 +139,7 @@ func (a API) Handler() http.Handler {
 			return
 		}
 		var h Telemetry
-		if err := readJSON(w, r, &h); err != nil {
+		if err := readJSON(w, r, &h, "availableMemoryMiB", "freeDiskMiB", "load1", "swapUsedMiB", "swapTotalMiB"); err != nil {
 			apiError(w, err)
 			return
 		}
@@ -119,7 +158,7 @@ func (a API) Handler() http.Handler {
 	}))
 	mux.HandleFunc("POST /v1/reservations", a.admin(func(w http.ResponseWriter, r *http.Request) {
 		var req Request
-		if err := readJSON(w, r, &req); err != nil {
+		if err := readJSON(w, r, &req, "roomId", "region", "cpuMilli", "memoryMiB", "ttlSeconds"); err != nil {
 			apiError(w, err)
 			return
 		}
@@ -145,7 +184,7 @@ func (a API) Handler() http.Handler {
 		var obj struct {
 			TTLSeconds int `json:"ttlSeconds"`
 		}
-		if err := readJSON(w, r, &obj); err != nil {
+		if err := readJSON(w, r, &obj, "ttlSeconds"); err != nil {
 			apiError(w, err)
 			return
 		}

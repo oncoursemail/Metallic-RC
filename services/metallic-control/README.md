@@ -13,6 +13,8 @@ This Go service and Linux agent are the first self-hostable components of Metall
 - **Reservations:** TTL, idempotency/replay guards, one active reservation per room, renewal and release, bounded request size.
 - **Single-process durability:** file-backed atomic reservation snapshots (restrictive permissions), restored on restart. Corrupt snapshots refuse startup rather than silently resetting.
 - **Security basics:** constant-time token comparison, distinct operator vs node permissions, strict JSON, no CORS, no secrets returned or logged, bounded HTTP request sizes, loopback-only controller.
+- **Complete telemetry:** every heartbeat field is required and non-null; duplicate or case-aliased JSON names are rejected before refreshing node health. An incomplete heartbeat cannot make a stale node schedulable. Reservation and renewal requests use the same strict shape checks.
+- **Bound agent destination:** the agent rejects HTTP redirects, including a redirect from HTTPS to HTTP on the same host. Configure the final HTTPS origin; a moved endpoint is an error, not permission to forward authentication or metrics elsewhere.
 - **Tests:** unit, HTTP and race tests; GitHub CI confirms code builds and tests pass.
 
 **Explicit limitations:** This does **not** authenticate real game players, create Unity/Godot/Rust game processes, monitor actual containers, provision cloud servers, execute jobs, support high availability, allocate network ports, stream voice, detect cheating, or prove any concurrent-player count. It has one in-process controller writer only; no cross-region quorum/failover. It is not safe to expose directly to the public internet. It is not a launcher or in-game API. Operators must not interpret `reservation` as a started game session.
