@@ -1,4 +1,4 @@
-# Metallic Studios — Expanded Capability Catalog
+# Metallic-RC — Expanded Capability Catalog
 
 **Status:** proposals, not implemented. **Research baseline:** October 15, 2026.
 

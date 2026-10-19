@@ -14,7 +14,7 @@ const guildId = process.env.METALLIC_DISCORD_GUILD_ID;
 const statusUrl = process.env.METALLIC_STATUS_URL || "";
 const statusBearer = process.env.METALLIC_STATUS_BEARER || "";
 const roadmapUrl = process.env.METALLIC_ROADMAP_URL ||
-  "https://github.com/oncoursemail/Metallic/blob/main/docs/ROADMAP.md";
+  "https://github.com/oncoursemail/Metallic-RC/blob/main/docs/ROADMAP.md";
 
 if (!token || !appId || !guildId) {
   throw new Error("Bot requires METALLIC_DISCORD_TOKEN, _APP_ID and _GUILD_ID");

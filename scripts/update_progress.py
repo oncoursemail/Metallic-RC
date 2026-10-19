@@ -144,14 +144,14 @@ def render_progress(issues: list[dict], repo: str) -> tuple[str, dict]:
     }
 
     lines = [
-        "# Metallic Studios — Live Build Progress",
+        "# Metallic-RC — Live Build Progress",
         "",
         "> **This dashboard is generated automatically from GitHub Issues.** "
         "A closed issue is a completed task, **not** proof of a tested executable, "
         "released multiplayer game, or production readiness. Releases must be "
         "verified separately using CI artifacts and acceptance tests.",
         "",
-        f"**Repository:** [\`{repo}\`](https://github.com/{repo})  ",
+        f"**Repository:** [\`{repo}\`](https://github.com/{repo})",
         f"**Last tracked issue activity (UTC):** {last_activity}  ",
         "**Update trigger:** issue changes, manual dispatch, daily reconciliation, and relevant workflow changes.",
         "",
@@ -234,7 +234,7 @@ def main() -> int:
     parser.add_argument("--fixture", type=Path, help="Read GitHub API JSON from fixture")
     parser.add_argument("--output-dir", type=Path, default=Path("docs"))
     args = parser.parse_args()
-    repo = os.environ.get("GITHUB_REPOSITORY", "oncoursemail/Metallic")
+    repo = os.environ.get("GITHUB_REPOSITORY", "oncoursemail/Metallic-RC")
     try:
         if args.fixture:
             issues = json.loads(args.fixture.read_text(encoding="utf-8"))
