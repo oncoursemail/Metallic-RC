@@ -1,4 +1,4 @@
-# Metallic Studios — Meta Quest / Horizon Store, PC Distribution & QA Roadmap
+# Metallic-RC — Meta Quest / Horizon Store, PC Distribution & QA Roadmap
 
 **Research baseline:** October 15, 2026 · **Status:** release process design; no game APK or Meta submission exists in this repository.
 

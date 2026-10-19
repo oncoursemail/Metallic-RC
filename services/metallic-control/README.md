@@ -98,4 +98,4 @@ Errors have a non-sensitive `error` code. No API is exposed for terminating/reco
 6. Region-level failover, backups and tested restoration, chaos drills and CI deployment gates with real-player vs synthetic telemetry.
 7. Threat modeling, fuzzing, security review, privacy and jurisdiction compliance, measured actual load, on-call and capacity budget.
 
-**Read next:** [Hardware-aware design/research](../../docs/METALLIC_OWN_INFRASTRUCTURE_2026.md), [Architecture](../../docs/ARCHITECTURE.md), [load testing](../../docs/QUALITY_AND_STRESS_TESTING.md). Earlier global architecture research remains in [PR #65](https://github.com/oncoursemail/Metallic/pull/65) until merged.
+**Read next:** [Hardware-aware design/research](../../docs/METALLIC_OWN_INFRASTRUCTURE_2026.md), [Architecture](../../docs/ARCHITECTURE.md), [load testing](../../docs/QUALITY_AND_STRESS_TESTING.md). Earlier global architecture research remains in [PR #65](https://github.com/oncoursemail/Metallic-RC/pull/65) until merged.

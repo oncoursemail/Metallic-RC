@@ -1,4 +1,4 @@
-# Metallic Studios — Research Register and Experiment Backlog
+# Metallic-RC — Research Register and Experiment Backlog
 
 **Research cut-off:** 2026-10-15 · **Scope:** product parity, competitor implementations, public/open-source tools, security, VR, performance and product quality. Legal analysis is not the focus of this document.  
 **Confidence scale:** **Verified source** = official announcement/maintained project README, **Project claim** = untested author statement, **Unknown** = no verified evidence yet, **Proposal** = original Metallic design.
