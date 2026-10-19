@@ -1,0 +1,351 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Metallic Atlas Lab Control API",
+    "version": "0.1.0-lab",
+    "description": "Loopback-only, operator and agent API. Does not start actual game sessions. Never publicly expose."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8098",
+      "description": "Local isolated lab only"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "admin": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Private operator token; no browser players."
+      },
+      "agent": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Distinct credential for the matching configured node."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Telemetry": {
+        "type": "object",
+        "required": [
+          "availableMemoryMiB",
+          "freeDiskMiB",
+          "load1",
+          "swapUsedMiB",
+          "swapTotalMiB"
+        ],
+        "properties": {
+          "availableMemoryMiB": {
+            "type": "integer"
+          },
+          "freeDiskMiB": {
+            "type": "integer"
+          },
+          "load1": {
+            "type": "number"
+          },
+          "swapUsedMiB": {
+            "type": "integer"
+          },
+          "swapTotalMiB": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReservationRequest": {
+        "type": "object",
+        "required": [
+          "roomId",
+          "region",
+          "cpuMilli",
+          "memoryMiB",
+          "ttlSeconds"
+        ],
+        "properties": {
+          "roomId": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "cpuMilli": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "memoryMiB": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ttlSeconds": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 3600
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Liveness, NOT game readiness",
+        "responses": {
+          "200": {
+            "description": "Alive"
+          }
+        }
+      }
+    },
+    "/internal/nodes/{nodeID}/heartbeat": {
+      "post": {
+        "summary": "Fresh telemetry from authenticated node",
+        "security": [
+          {
+            "agent": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Telemetry"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Heartbeat recorded"
+          },
+          "400": {
+            "description": "Invalid metrics"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/nodes": {
+      "get": {
+        "summary": "Operator-visible node pressure states",
+        "security": [
+          {
+            "admin": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Node status"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/metrics": {
+      "get": {
+        "summary": "Lab-only node and reservation counters",
+        "security": [
+          {
+            "admin": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Counters"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/reservations": {
+      "get": {
+        "summary": "List currently active capacity leases",
+        "security": [
+          {
+            "admin": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leases"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "summary": "Reserve capacity, never starts a game process",
+        "security": [
+          {
+            "admin": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 12,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New lease"
+          },
+          "200": {
+            "description": "Exact idempotent retry"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "413": {
+            "description": "Too large"
+          },
+          "503": {
+            "description": "No healthy capacity"
+          }
+        }
+      }
+    },
+    "/v1/reservations/{reservationID}/renew": {
+      "post": {
+        "summary": "Extend active capacity lease",
+        "security": [
+          {
+            "admin": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservationID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Lease not found"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ttlSeconds"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ttlSeconds": {
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 3600
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reservations/{reservationID}/release": {
+      "post": {
+        "summary": "Release capacity lease (no process termination)",
+        "security": [
+          {
+            "admin": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservationID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Lease not found"
+          }
+        }
+      }
+    }
+  }
+}

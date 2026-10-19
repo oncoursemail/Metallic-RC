@@ -1,0 +1,30 @@
+{
+  "nodes": [
+    {
+      "id": "lab-node-a",
+      "region": "lab-only",
+      "logicalCpus": 8,
+      "cpuMilli": 2000,
+      "memoryMiB": 2048,
+      "maxRooms": 2,
+      "minFreeMemoryMiB": 2048,
+      "minFreeDiskMiB": 16384,
+      "maxLoadPerThread": 0.7,
+      "maxSwapUsedFraction": 0.5,
+      "draining": false
+    },
+    {
+      "id": "lab-node-b",
+      "region": "lab-only",
+      "logicalCpus": 8,
+      "cpuMilli": 1000,
+      "memoryMiB": 1024,
+      "maxRooms": 1,
+      "minFreeMemoryMiB": 2048,
+      "minFreeDiskMiB": 16384,
+      "maxLoadPerThread": 0.7,
+      "maxSwapUsedFraction": 0.5,
+      "draining": true
+    }
+  ]
+}

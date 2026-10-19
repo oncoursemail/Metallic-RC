@@ -30,6 +30,9 @@ Metallic Studios is intended to be an independent, high-performance social game 
 - **[Roadmap and milestones](docs/ROADMAP.md)** — scopes, dependencies, test gates, order of delivery.
 - **[Live progress dashboard](docs/PROGRESS.md)** — automatically generated from repository GitHub issues; reflects *closed issues*, not claims that binaries are already usable.
 - **[Architecture and research guide](docs/ARCHITECTURE.md)** — component boundaries, decisions, performance, and research.
+- **[Metallic Atlas backend lab](services/metallic-control/README.md)** — original Go node heartbeat API, pressure-aware reservations and read-only Linux agent with race/HTTP tests; **not deployed, not a real game server**.
+- **[Owned hardware and custom infrastructure research](docs/METALLIC_OWN_INFRASTRUCTURE_2026.md)** — observed constraints, workload isolation, advanced server design, cross-device/network goals, and staged deployment safety.
+- **[Control-plane API schema](services/metallic-control/openapi.json)** — versioned lab operator/agent API contract; separate from player-facing services.
 - **[240-feature capability catalog](docs/FEATURE_CATALOG.md)** — concrete feature candidates and suggested acceptance tests.
 - **[Research backlog](docs/RESEARCH.md)** — sources, experiments, unknowns, and competitor review.
 - **[Contributor development rules](docs/DEVELOPMENT.md)** — issue labels, PR review gates and evidence requirements.
