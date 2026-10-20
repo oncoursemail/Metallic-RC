@@ -1,0 +1,9 @@
+{
+  "name": "@metallic/support-contract-prototypes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Privacy-aware support case state machine prototype; not an API or deployed service",
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test tests/*.test.mjs" }
+}
