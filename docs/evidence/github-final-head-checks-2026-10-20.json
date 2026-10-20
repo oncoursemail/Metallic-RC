@@ -1,0 +1,25 @@
+{
+  "head": "83a186f03510844fe010ceda652d239eb3670a2a",
+  "runId": 39418812572,
+  "jobs": [
+    {
+      "job": "linux-x64 acceptance and native publish",
+      "id": 118614354108,
+      "conclusion": "failure",
+      "executedSteps": 0,
+      "messages": [
+        "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings",
+        "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\""
+      ]
+    },
+    {
+      "job": "win-x64 acceptance and native publish",
+      "id": 118614354625,
+      "conclusion": "failure",
+      "executedSteps": 0,
+      "messages": [
+        "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings"
+      ]
+    }
+  ]
+}

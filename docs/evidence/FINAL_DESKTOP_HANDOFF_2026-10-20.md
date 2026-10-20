@@ -25,7 +25,7 @@ Both delivered packages were built from clean commit **`70c32244d17bdaef815749b5
 | `Metallic-RC-0.2-tools-win-x64.zip` | 98,158,674 | `497c15815e14b0f96829e9ec55c982262f000c5df12644b961e02ccd99024c82` |
 | `Metallic-RC-0.2-tools-linux-x64.tar.gz` | 95,195,100 | `e2214709c82fb267fa5fd947efcc1723b2836c550531b5583a6ec721bf12d8f4` |
 
-The [private draft release](https://github.com/oncoursemail/Metallic-RC/releases/tag/untagged-db7941be28d0d323b4b0) retains both archives and SHA256SUMS.txt. It remains **draft and prerelease**. The archives contain the .NET runtimes and Metallic tools; no Rec Room game binaries or user authentication files are redistributed. [Package records](desktop-packages-2026-10-20.json) and [release receipt](draft-release-2026-10-20.json).
+The [private draft release](https://github.com/oncoursemail/Metallic-RC/releases) retains both archives and SHA256SUMS.txt. It remains **draft and prerelease**. The archives contain the .NET runtimes and Metallic tools; no Rec Room game binaries or user authentication files are redistributed. [Package records](desktop-packages-2026-10-20.json) and [release receipt](draft-release-2026-10-20.json).
 
 ## Native Windows acceptance
 

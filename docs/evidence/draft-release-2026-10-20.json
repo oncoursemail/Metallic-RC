@@ -5,14 +5,14 @@
       "contentType": "application/x-gtar",
       "createdAt": "2026-10-20T11:46:04Z",
       "digest": "sha256:e2214709c82fb267fa5fd947efcc1723b2836c550531b5583a6ec721bf12d8f4",
-      "downloadCount": 0,
+      "downloadCount": 1,
       "id": "RA_kwDOVKZUiM4nSjcY",
       "label": "",
       "name": "Metallic-RC-0.2-tools-linux-x64.tar.gz",
       "size": 95195100,
       "state": "uploaded",
       "updatedAt": "2026-10-20T11:46:10Z",
-      "url": "https://github.com/oncoursemail/Metallic-RC/releases/download/untagged-db7941be28d0d323b4b0/Metallic-RC-0.2-tools-linux-x64.tar.gz"
+      "url": "https://github.com/oncoursemail/Metallic-RC/releases/download/untagged-f0d5d665a1aa2c404d28/Metallic-RC-0.2-tools-linux-x64.tar.gz"
     },
     {
       "apiUrl": "https://api.github.com/repos/oncoursemail/Metallic-RC/releases/assets/659175190",
@@ -26,7 +26,7 @@
       "size": 98158674,
       "state": "uploaded",
       "updatedAt": "2026-10-20T11:46:09Z",
-      "url": "https://github.com/oncoursemail/Metallic-RC/releases/download/untagged-db7941be28d0d323b4b0/Metallic-RC-0.2-tools-win-x64.zip"
+      "url": "https://github.com/oncoursemail/Metallic-RC/releases/download/untagged-f0d5d665a1aa2c404d28/Metallic-RC-0.2-tools-win-x64.zip"
     },
     {
       "apiUrl": "https://api.github.com/repos/oncoursemail/Metallic-RC/releases/assets/659175189",
@@ -40,7 +40,7 @@
       "size": 207,
       "state": "uploaded",
       "updatedAt": "2026-10-20T11:46:04Z",
-      "url": "https://github.com/oncoursemail/Metallic-RC/releases/download/untagged-db7941be28d0d323b4b0/SHA256SUMS.txt"
+      "url": "https://github.com/oncoursemail/Metallic-RC/releases/download/untagged-f0d5d665a1aa2c404d28/SHA256SUMS.txt"
     }
   ],
   "id": "RE_kwDOVKZUiM4Y7098",
@@ -48,5 +48,7 @@
   "isPrerelease": true,
   "tagName": "desktop-tools-20261020",
   "targetCommitish": "70c32244d17bdaef815749b5582306955f2187cb",
-  "url": "https://github.com/oncoursemail/Metallic-RC/releases/tag/untagged-db7941be28d0d323b4b0"
+  "url": "https://github.com/oncoursemail/Metallic-RC/releases/tag/untagged-f0d5d665a1aa2c404d28",
+  "recordedAtUtc": "2026-10-20T12:05:25.536413+00:00",
+  "stableListingUrl": "https://github.com/oncoursemail/Metallic-RC/releases"
 }
