@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://github.com/recflare/skills/blob/main/tools/il2cpp/carve/solve_header.py",
+    "gitBlobSha": "6580515b905be72415554bae10763a33a83cb817"
+  },
+  {
+    "url": "https://github.com/recflare/skills/blob/main/tools/il2cpp/carve/idtables.py",
+    "gitBlobSha": "05cfdd30e508e96f7acf9d66f8387d632afdd89e"
+  },
+  {
+    "url": "https://github.com/recflare/skills/blob/main/tools/il2cpp/carve/rebuild_metadata.py",
+    "gitBlobSha": "523a0ccae9315a04da8adb9e0ea3fce62ff7cd63"
+  },
+  {
+    "url": "https://github.com/Perfare/Il2CppDumper/blob/master/Il2CppDumper/Il2Cpp/MetadataClass.cs",
+    "gitBlobSha": "a05dc7ea9fc849f7f94b024acf61b2411614e662"
+  },
+  {
+    "url": "https://github.com/recflare/skills/blob/main/tools/il2cpp/carve/idtables2.py",
+    "gitBlobSha": "e87e43346337f411ab5ab333bb1e9f980598f122"
+  },
+  {
+    "url": "https://github.com/recflare/skills/blob/main/tools/il2cpp/carve/idtables3.py",
+    "gitBlobSha": "6354497d13aa5b8ca723d44dc3bebf9239faceb2"
+  }
+]

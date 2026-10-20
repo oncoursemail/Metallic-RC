@@ -1,0 +1,14 @@
+{
+  "status": "uniform_R_placeholder",
+  "decoded": false,
+  "inputBytes": 52403096,
+  "exactLength": 52403096,
+  "sha256": "01ab66ca50a00960c555abe9a646401b7f37838c67bb654f9831f7bdc34ec62e",
+  "bodySha256": "efea0a4c300088e192d93f0a628392b0b603a4149fd93960bb9471661e0b12e9",
+  "notes": [
+    "No repairs or output metadata emitted.",
+    "Structural candidates require cross-table identification and independent parser validation."
+  ],
+  "reason": "No metadata tables exist in these bytes.",
+  "inputPath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom\\RecRoom_Data\\il2cpp_data\\Metadata\\global-metadata.dat"
+}
