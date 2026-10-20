@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Metallic-RC · Creator</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/">METALLIC<span>RC / CREATOR</span></a>
+    <div class="section-label">YOUR WORKSPACE</div>
+    <button id="new-draft" class="new-draft">+ New circuit draft</button>
+    <div id="draft-list" class="draft-list" aria-label="Saved drafts"></div>
+    <div class="side-bottom"><span id="service-state" class="status-pill">Connecting…</span><p>Drafts stay on this computer.</p><p class="small">CV3 preview is available here.<br>Game-client integration is pending.</p></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><span class="eyebrow">CREATOR TOOLS</span><h1>Circuit workspace</h1></div><div class="header-note">Local workspace <span class="local-dot"></span></div></header>
+    <section class="editor-head">
+      <div class="draft-fields"><label for="draft-name">Draft name</label><input id="draft-name" value="Untitled circuit" maxlength="120"><input id="draft-description" aria-label="Draft description" placeholder="What does this circuit do?" maxlength="2000"></div>
+      <div class="actions"><button id="validate">Validate</button><button id="preview">Run preview</button><button id="save" class="primary">Save draft</button></div>
+    </section>
+    <div class="workspace-meta"><span id="draft-state">Unsaved draft</span><span id="graph-count"></span><span class="scope-note">Preview runtime · version 1</span></div>
+    <section class="editor-layout">
+      <div class="graph-column">
+        <div class="graph-toolbar"><div class="tabs"><button id="visual-tab" aria-pressed="true">Circuit</button><button id="json-tab" aria-pressed="false">Graph JSON</button></div><div class="add-node"><select id="node-kind" aria-label="Node type"></select><button id="add-node">Add node</button></div></div>
+        <div id="graph-view" class="graph-view"><svg id="graph" viewBox="0 0 900 450" role="img" aria-label="Circuit nodes and typed connections"></svg></div>
+        <div id="json-view" class="json-view" hidden><label for="graph-json">Versioned graph source</label><textarea id="graph-json" spellcheck="false"></textarea><button id="apply-json">Apply JSON</button></div>
+        <div class="graph-legend"><span class="exec-key">Execution</span><span class="number-key">Number</span><span class="boolean-key">Boolean</span><span class="string-key">Text</span><span>Click a node to edit</span></div>
+        <section class="connection-editor"><h2>Connections</h2><div class="connection-form"><select id="from-node" aria-label="Source node"></select><select id="from-port" aria-label="Source port"></select><span>→</span><select id="to-node" aria-label="Destination node"></select><select id="to-port" aria-label="Destination port"></select><button id="connect">Connect</button></div><div id="connections" class="connections"></div></section>
+      </div>
+      <aside class="inspector"><span class="section-label">NODE INSPECTOR</span><h2 id="node-title">Select a node</h2><div id="node-settings"><p>Choose a node on the circuit to inspect its values and ports.</p></div><div class="inspector-note">Connections are checked by type. Invalid circuits can be saved as drafts, but cannot run.</div></aside>
+    </section>
+    <section class="results"><div class="results-header"><h2>Output</h2><span id="result-summary" aria-live="polite">Ready to validate</span><label>Step limit <input id="step-limit" type="number" min="1" max="4096" value="512"></label></div><div id="output" class="output" role="log">Run preview to see logs, state changes, and execution cost.</div><div id="program-hash" class="program-hash"></div></section>
+    <footer><span>Metallic-RC creator preview</span><span id="save-status" aria-live="polite">No changes saved yet</span><button id="delete-draft" class="text-button" disabled>Delete draft</button></footer>
+  </main>
+</body>
+</html>

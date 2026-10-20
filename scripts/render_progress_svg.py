@@ -79,7 +79,7 @@ def progress_svg(snapshot: dict) -> str:
 
     return "\n".join([
         '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="510" viewBox="0 0 1200 510" role="img" aria-labelledby="title desc">',
-        f'<title id="title">Metallic Studios development issue progress: {done} of {total} verified tasks closed ({pct_label} percent)</title>',
+        f'<title id="title">Metallic-RC development issue progress: {done} of {total} verified tasks closed ({pct_label} percent)</title>',
         f'<desc id="desc">Roadmap issue completion only, not a playable game or verified release. Data last changed {updated}.</desc>',
         f'<rect width="1200" height="510" fill="{BG}"/>',
         f'<rect x="12" y="12" width="1176" height="486" rx="8" fill="{PANEL}" stroke="{BORDER}"/>',

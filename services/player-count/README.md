@@ -1,4 +1,4 @@
-# Metallic Studios — Trusted Production Player-Count Aggregator
+# Metallic-RC — Trusted Production Player-Count Aggregator
 
 **Implementation status:** local, tested, **not deployed**. No authoritative room
 server or real game telemetry exists in this repository yet, so this service
@@ -14,7 +14,7 @@ tracked separately and never added to the public number**.
 
 Related design: [Moderation, Discord and staff](../../docs/MODERATION_DISCORD_STAFF.md)
 and [Quality and stress testing](../../docs/QUALITY_AND_STRESS_TESTING.md).
-Task: [#37](https://github.com/oncoursemail/Metallic/issues/37).
+Task: [#37](https://github.com/oncoursemail/Metallic-RC/issues/37).
 
 ## What is implemented today
 

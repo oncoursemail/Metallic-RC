@@ -1,4 +1,6 @@
-# Metallic Studios — Technical Reference Architecture (Proposed)
+> **Direction update — 20 October 2026:** use the owner's actual compiled client as the starting point. The [compiled-client rework](COMPILED_CLIENT_REWORK.md) supersedes earlier replacement-engine/hub proposals below. These plans do not establish shipped gameplay.
+
+# Metallic-RC — Technical Reference Architecture (Proposed)
 
 **Research baseline:** 2026-10-15  
 **Decision status:** Candidate architecture, *not* evidence that services have been implemented.  
@@ -232,7 +234,7 @@ Example conceptual launcher manifest:
 {
   "schema": 1,
   "projectId": "metallic",
-  "displayName": "Metallic Studios",
+  "displayName": "Metallic-RC",
   "channel": "alpha",
   "build": "0.1.0-alpha.1",
   "platforms": ["windows-x64"],

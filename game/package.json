@@ -1,0 +1,9 @@
+{
+  "name": "@metallic/game-contract-prototypes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dependency-free, testable contracts for future Metallic gameplay systems. Not a playable engine.",
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test tests/*.test.mjs" }
+}

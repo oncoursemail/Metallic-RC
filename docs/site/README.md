@@ -1,4 +1,4 @@
-# Metallic Studios — Public Status Website Prototype
+# Metallic-RC — Public Status Website Prototype
 
 **Source:** `docs/site/index.html`, `styles.css`, `app.js`. This is a real HTML/CSS/JS static site, not a screenshot/mockup.
 **Status:** Version-controlled prototype, **not deployed**, no download yet.
@@ -23,7 +23,7 @@ Then open `http://127.0.0.1:8000/docs/site/`. The page fetches `../progress.json
 
 ## Publication options (not executed)
 
-Repository `oncoursemail/Metallic` is **private**. [GitHub Pages documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site) states that publishing Pages from private repositories requires an eligible plan; publishing a public Pages site from a private repository can make its **website contents public**. Avoid exposing any sensitive internal assets, secret configuration or case reports.
+Repository `oncoursemail/Metallic-RC` is **private**. [GitHub Pages documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site) states that publishing Pages from private repositories requires an eligible plan; publishing a public Pages site from a private repository can make its **website contents public**. Avoid exposing any sensitive internal assets, secret configuration or case reports.
 
 This prototype lives at `docs/site`, but `docs/site` is **not** a selectable direct GitHub Pages publishing root when using a branch folder source. A future deployment workflow should publish a purpose-built `_site` artifact containing only:
 - `index.html`, `styles.css`, `app.js`;
