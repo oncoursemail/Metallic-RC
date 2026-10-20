@@ -28,9 +28,6 @@ jobs:
     timeout-minutes: 10
     env:
       GODOT_SILENCE_ROOT_WARNING: '1'
-      XDG_DATA_HOME: ${{ runner.temp }}/metallic-xdg-data
-      XDG_CONFIG_HOME: ${{ runner.temp }}/metallic-xdg-config
-      XDG_CACHE_HOME: ${{ runner.temp }}/metallic-xdg-cache
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
