@@ -1,4 +1,4 @@
-# Metallic Studios — Technical Reference Architecture (Proposed)
+# Metallic-RC — Technical Reference Architecture (Proposed)
 
 **Research baseline:** 2026-10-15  
 **Decision status:** Candidate architecture, *not* evidence that services have been implemented.  
@@ -232,7 +232,7 @@ Example conceptual launcher manifest:
 {
   "schema": 1,
   "projectId": "metallic",
-  "displayName": "Metallic Studios",
+  "displayName": "Metallic-RC",
   "channel": "alpha",
   "build": "0.1.0-alpha.1",
   "platforms": ["windows-x64"],

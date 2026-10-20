@@ -1,4 +1,4 @@
-# Metallic Studios — Development and Progress Tracking Rules
+# Metallic-RC — Development and Progress Tracking Rules
 
 ## How project progress works (already implemented)
 
@@ -76,7 +76,7 @@ The site can display sanitized values from [progress.json](progress.json) (count
 
 \`\`\`shell
 python -m unittest discover -s tests -p 'test_*.py' -v
-GITHUB_TOKEN="a_repo_scoped_issues_read_token" GITHUB_REPOSITORY="oncoursemail/Metallic" python scripts/update_progress.py
+GITHUB_TOKEN="a_repo_scoped_issues_read_token" GITHUB_REPOSITORY="oncoursemail/Metallic-RC" python scripts/update_progress.py
 \`\`\`
 
 Use a private environment variable, not a pasted token in GitHub issues or docs. In GitHub Actions, the built-in \`GITHUB_TOKEN\` is provided automatically with only required rights. The script also supports \`--fixture tests/fixtures/issues.json --output-dir /tmp/progress\` for offline fixture generation.

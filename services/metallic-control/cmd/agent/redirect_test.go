@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oncoursemail/Metallic/services/metallic-control/internal/control"
+	"github.com/oncoursemail/Metallic-RC/services/metallic-control/internal/control"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

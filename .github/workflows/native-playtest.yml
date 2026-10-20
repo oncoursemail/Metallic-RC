@@ -1,0 +1,119 @@
+name: Native Meadow playtest
+
+on:
+  pull_request:
+    paths:
+      - 'game/native/**'
+      - 'services/session-runner/**'
+      - 'scripts/build_native.py'
+      - '.github/workflows/native-playtest.yml'
+  push:
+    paths:
+      - 'game/native/**'
+      - 'services/session-runner/**'
+      - 'scripts/build_native.py'
+      - '.github/workflows/native-playtest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-meadow-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GODOT_SILENCE_ROOT_WARNING: '1'
+      XDG_DATA_HOME: ${{ runner.temp }}/metallic-xdg-data
+      XDG_CONFIG_HOME: ${{ runner.temp }}/metallic-xdg-config
+      XDG_CACHE_HOME: ${{ runner.temp }}/metallic-xdg-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download and verify the pinned native runtime
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/metallic-godot"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/metallic-godot/editor.zip" https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip
+          python - <<'PY'
+          import hashlib, os, pathlib, zipfile
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'metallic-godot'
+          archive = root / 'editor.zip'
+          expected = 'e3ce6194b6d4d2dcef5e5b5136752c084d9d8b9071c10bc2d2011b947ec7439a257c8d23c541cb30699f16d9edea6dff36e6e84d2bec14a8fe9b4e9aacbe5a8d'
+          assert hashlib.sha512(archive.read_bytes()).hexdigest() == expected, 'Godot archive checksum mismatch'
+          with zipfile.ZipFile(archive) as package:
+              package.extractall(root)
+          (root / 'Godot_v4.5.2-stable_linux.x86_64').chmod(0o755)
+          PY
+      - name: Import native project and check simulation and wire protocol
+        shell: bash
+        run: |
+          "$RUNNER_TEMP/metallic-godot/Godot_v4.5.2-stable_linux.x86_64" --headless --path game/native --editor --import --quit
+          "$RUNNER_TEMP/metallic-godot/Godot_v4.5.2-stable_linux.x86_64" --headless --path game/native --script res://tests/test_simulation.gd
+      - name: Exercise real impaired ENet clients, recovery, and 32-player capacity
+        shell: bash
+        run: python game/native/tests/run_network_tests.py --godot "$RUNNER_TEMP/metallic-godot/Godot_v4.5.2-stable_linux.x86_64" --output artifacts/native-ci/linux --clients 32 --load-seconds 8
+      - name: Verify runner integrity and real subprocess lifecycle
+        run: python -m unittest discover -s services/session-runner/tests -v
+      - name: Verify build provenance and export-failure handling
+        run: python -m unittest discover -s tests -p 'test_native_build.py' -v
+      - name: Retain local scenario evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-linux-evidence-${{ github.sha }}
+          path: |
+            artifacts/native-ci/linux/*.json
+            artifacts/native-ci/linux/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  native-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download and verify the pinned Windows runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $runtime = Join-Path $env:RUNNER_TEMP 'metallic-godot'
+          New-Item -ItemType Directory -Path $runtime -Force | Out-Null
+          $archive = Join-Path $runtime 'editor.zip'
+          Invoke-WebRequest -Uri 'https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable/Godot_v4.5.2-stable_win64.exe.zip' -OutFile $archive
+          $expected = 'b21115cf3620438e17959d13946bf9c7dceabb6ff71ed32a68996a21e08615edd2d1a3d25641bb3e260d084b31f500231aa59fcf026a5228bcc20ac4e8bade60'
+          if ((Get-FileHash -Algorithm SHA512 -LiteralPath $archive).Hash.ToLowerInvariant() -ne $expected) { throw 'Godot archive checksum mismatch' }
+          Expand-Archive -LiteralPath $archive -DestinationPath $runtime
+      - name: Import native project and check simulation and wire protocol
+        shell: pwsh
+        run: |
+          $engine = Join-Path $env:RUNNER_TEMP 'metallic-godot/Godot_v4.5.2-stable_win64_console.exe'
+          & $engine --headless --path game/native --editor --import --quit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $engine --headless --path game/native --script res://tests/test_simulation.gd
+          exit $LASTEXITCODE
+      - name: Exercise two Windows clients, impaired datagrams, and reconnect
+        shell: pwsh
+        run: |
+          $engine = Join-Path $env:RUNNER_TEMP 'metallic-godot/Godot_v4.5.2-stable_win64_console.exe'
+          python game/native/tests/run_network_tests.py --godot $engine --output artifacts/native-ci/windows --clients 2 --skip-load
+          exit $LASTEXITCODE
+      - name: Retain Windows scenario evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-windows-evidence-${{ github.sha }}
+          path: |
+            artifacts/native-ci/windows/*.json
+            artifacts/native-ci/windows/*.log
+          if-no-files-found: warn
+          retention-days: 14

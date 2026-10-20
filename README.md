@@ -1,7 +1,9 @@
-# Metallic Studios
+# Metallic-RC
 
-> **Project status: Foundation planning — not yet a playable game.**  
-> Independent social multiplayer, VR, and creator platform. The repository starts with a technical roadmap and evidence-based progress tracker; completed features must be proven by merged changes, tests, and working builds.
+**Project naming:** [Metallic-RC / Metallic-MC / Metallic-RB / Metallic-PX](docs/PROJECT_IDENTITIES.md). Family domain: **Metallic.club** (application routing is not configured by this repository change).
+
+> **Project status: Private native desktop playtest in development.**
+> Metallic Meadow now has a runnable desktop client and authoritative multiplayer session: explore three trails, share their progress, and ring the barn bell. This development build is unsigned. The full social, VR, account, voice, and creator platform remains in development or planned; its release gates are unchanged.
 
 [![Roadmap & progress](https://img.shields.io/badge/Roadmap-Live%20progress-24292f?logo=github)](docs/PROGRESS.md)
 [![Project plan](https://img.shields.io/badge/Plan-Engineering%20roadmap-323f53)](docs/ROADMAP.md)
@@ -12,9 +14,20 @@
 
 [Original development-status website prototype](docs/site/index.html) · [How to preview the website locally](docs/site/README.md)
 
+## Play Metallic Meadow
+
+The [native playtest guide](game/native/README.md) covers the desktop build, controls, local hosting, joining a known server, and dedicated-server startup. The original Meadow includes a barn, orchard, treehouse setting, and little green. Its playable activity is a shared three-landmark welcome trail followed by the barn bell; golf and climbing are scenery at this stage.
+
+- **Desktop client:** third-person movement, jumping, animated visitors, host/join menus, live watch map, shared objectives, and saved input/audio preferences.
+- **Native authority:** fixed 30 Hz movement and interactions, bounded input, room capacity, live-session reconnect reservations, compact snapshots, and validated activity persistence.
+- **Private session runner:** verifies local build hashes, supervises one loopback server with bounded restart, and records readiness. See [runner setup](services/session-runner/README.md).
+- **Evidence and scope:** [native playtest validation](docs/NATIVE_PLAYTEST_VALIDATION.md) and the [provisional engine experiment](docs/ADR_NATIVE_PLAYTEST.md). A local test receipt does not replace hosted CI or public-release acceptance.
+
+Build Windows x64, Linux x64, and Linux server packages with [scripts/build_native.py](scripts/build_native.py). Every package carries its source revision, source digest, executable/pack hashes, redistribution notices, and explicit unsigned development status.
+
 ## What we are building
 
-Metallic Studios is intended to be an independent, high-performance social game platform with its own client, dedicated servers, launcher, identity service, creator tools, user-generated rooms, visual scripting, and optional integrations with cooperating community projects.
+Metallic-RC is intended to be an independent, high-performance social game platform with its own client, dedicated servers, launcher, identity service, creator tools, user-generated rooms, visual scripting, and optional integrations with cooperating community projects.
 
 ### Product pillars
 
@@ -30,6 +43,15 @@ Metallic Studios is intended to be an independent, high-performance social game 
 - **[Roadmap and milestones](docs/ROADMAP.md)** — scopes, dependencies, test gates, order of delivery.
 - **[Live progress dashboard](docs/PROGRESS.md)** — automatically generated from repository GitHub issues; reflects *closed issues*, not claims that binaries are already usable.
 - **[Architecture and research guide](docs/ARCHITECTURE.md)** — component boundaries, decisions, performance, and research.
+- **[Playable native Meadow](game/native/README.md)** — desktop controls, shared activity, private multiplayer, persistence, and build instructions.
+- **[Launcher component setup](services/launcher/README.md)** — independent game and hosting choices, saved preferences, and installation planning; signed native installers remain pending.
+- **[Metallic Meadow social hub](docs/METALLIC_MEADOW_HUB.md)** — original barn/farm/golf/treehouse world plan, cinematic storyboard, navigation manifest, and accessibility gates.
+- **[Creator, teachers, AI companions, achievements, watch and support](docs/METALLIC_CREATOR_LEARNING_AI.md)** — implementation specs and acceptance gates.
+- **[Game system contracts and tests](game/README.md)** — standalone system-contract prototypes, separate from the native client and from deployed APIs.
+- **[World, Academy, creator exchange and AI research](docs/METALLIC_WORLD_ACADEMY_AI_RESEARCH.md)** — supporting design research and staged delivery requirements.
+- **[Global multiplayer, anti-cheat, Linux and infrastructure research](docs/METALLIC_GLOBAL_INFRASTRUCTURE_SECURITY_2026.md)** — regional session fleet, transport, server authority, performance objectives, and security proposals.
+- **[Hypothetical capacity planner](tools/capacity_planner.py)** and [10k-player assumption scenario](ops/capacity/hypothetical_10k_multi_region.json) — sizing math; not measured deployed-server capacity.
+- **[Reference authoritative input gate](prototypes/authority/input_gate.py)** — cross-platform policy prototype with tests; not integrated into game transport or a complete anti-cheat.
 - **[Metallic Atlas backend lab](services/metallic-control/README.md)** — original Go node heartbeat API, pressure-aware reservations and read-only Linux agent with race/HTTP tests; **not deployed, not a real game server**.
 - **[Owned hardware and custom infrastructure research](docs/METALLIC_OWN_INFRASTRUCTURE_2026.md)** — observed constraints, workload isolation, advanced server design, cross-device/network goals, and staged deployment safety.
 - **[Control-plane API schema](services/metallic-control/openapi.json)** — versioned lab operator/agent API contract; separate from player-facing services.
@@ -47,19 +69,19 @@ Metallic Studios is intended to be an independent, high-performance social game 
 
 The `Update project progress` GitHub Actions workflow refreshes the Markdown dashboard after relevant issue/PR changes, on demand, and daily. Issues use `[P0]` to `[P6]` title prefixes; the updater counts open/closed issues in each stage and refuses to fabricate implementation progress. An issue should close only when its linked acceptance tests have passed.
 
-## Initial milestone
+## Full first-playable acceptance target
 
-**First playable vertical slice:** a signed desktop test build connects to an independently hosted authoritative server, joins a room with two players, replicates movement, shows a basic avatar, sends optional positional voice, and survives reconnects. We deliberately defer marketplace, account import, and federation until the foundation is safe and testable.
+**First playable vertical slice:** a signed desktop test build connects to an independently hosted authoritative server, joins a room with two players, replicates movement, shows a basic avatar, sends optional positional voice, and survives reconnects. The private native experiment now exercises movement, avatars, authoritative shared activity, and reconnects. Signing, independently hosted account/ticket admission, voice, and VR/device acceptance are still required before this broader milestone can close.
 
 ## Platform and tech candidates
 
-- **Client:** Unity + OpenXR **or** a tested Godot/OpenXR path; decision recorded after performance and licensing comparison.
-- **Backend:** Rust or Go authoritative game sessions; a modular HTTP API; PostgreSQL; Valkey; object storage; OpenTelemetry.
+- **Client:** Godot 4.5.2 powers the private desktop experiment. Unity/OpenXR versus Godot/OpenXR remains a separate measured production decision.
+- **Backend:** the experiment uses native Godot ENet authority; the existing Go Atlas lab covers control-plane reservations. Production session architecture, modular APIs, PostgreSQL, Valkey, object storage, and OpenTelemetry remain proposals.
 - **Website + launcher:** TypeScript web console, Tauri/Rust desktop launcher candidate.
 - **Creator runtime:** versioned graph schema, deterministic/server-authoritative execution for trusted game logic.
 - **Infrastructure:** self-owned machines for dev/test; provider-protected networking for public UDP sessions. Cloudflare's regular HTTP proxy is not a complete UDP game-server DDoS solution.
 
-Technology choices remain proposals until measured prototypes and an architecture decision record (ADR) are committed.
+The native experiment has a scoped ADR. It does not settle the production engine, public fleet, or VR architecture.
 
 ## Principles
 
