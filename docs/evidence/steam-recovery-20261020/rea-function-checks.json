@@ -1,0 +1,108 @@
+{
+  "wholeImageAttempt": {
+    "status": "provider_timeout",
+    "elapsedSeconds": 334.7154456,
+    "result": "PaintballManager.get_IsInitialized.evidence.json"
+  },
+  "boundedFunctionResults": [
+    {
+      "file": "NameServerResponse.get_Auth.bounded.evidence.json",
+      "evidenceId": "ev_c95434eacee17375356ef42d2b5300e690017d7c141e126ddf5b5cd07a0f3ae1",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "operation": "analyze_function",
+      "procedure": "NameServerResponse.get_Auth",
+      "address": "0x180d0ccb0",
+      "body": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x180d0ccb0",
+            "end": "0x180d0ccb4"
+          }
+        ],
+        "total_bytes": 5,
+        "span_bytes": 5,
+        "non_contiguous": false,
+        "contains_entry": true
+      },
+      "warnings": [],
+      "assemblyLines": 2,
+      "evidenceSha256": "4558c550668ede20d8e5aa5594c3a68be68431a3fb97c4ad4efb3f2a3564407f",
+      "scope": "Exact source-code pages in synthetic offline PE; omitted outside-page dependencies remain unresolved",
+      "targetExecuted": false
+    },
+    {
+      "file": "NameServerResponse.get_API.bounded.evidence.json",
+      "evidenceId": "ev_58451cf53a49adeb95d4b2dfd6e6f5adee554fa0bd5f500ce34aec33baf530cd",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "operation": "analyze_function",
+      "procedure": "NameServerResponse.get_API",
+      "address": "0x180d11e20",
+      "body": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x180d11e20",
+            "end": "0x180d11e24"
+          }
+        ],
+        "total_bytes": 5,
+        "span_bytes": 5,
+        "non_contiguous": false,
+        "contains_entry": true
+      },
+      "warnings": [],
+      "assemblyLines": 2,
+      "evidenceSha256": "236f36b35f837e969b200fdcc2d7bb6c5d19ce63d50f3cd9b1c958b469beea96",
+      "scope": "Exact source-code pages in synthetic offline PE; omitted outside-page dependencies remain unresolved",
+      "targetExecuted": false
+    },
+    {
+      "file": "Paintball.with-tail.evidence.json",
+      "evidenceId": "ev_277e81f78606d7dc2547f20b1c5710039c594671b5026e6b9a05a68406e9737e",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "operation": "analyze_function",
+      "procedure": "PaintballManager.get_IsInitialized",
+      "address": "0x181b28e30",
+      "body": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x181b28e30",
+            "end": "0x181b28ea3"
+          }
+        ],
+        "total_bytes": 116,
+        "span_bytes": 116,
+        "non_contiguous": false,
+        "contains_entry": true
+      },
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "assemblyLines": 26,
+      "evidenceSha256": "1927957139ea043c5878c6a66e7c9b033abffb6e6803a1fb761194e7b7986ed2",
+      "scope": "Exact source-code pages in synthetic offline PE; omitted outside-page dependencies remain unresolved",
+      "targetExecuted": false,
+      "interpretationLimit": "Paintball global/type information remains unresolved; inferred void return is not accepted as the original method signature."
+    }
+  ],
+  "originalSourceRecovered": false,
+  "allGameFunctionsDecompiled": false,
+  "canonicalEvidenceLocation": "Private decoded/rea folder on Main"
+}

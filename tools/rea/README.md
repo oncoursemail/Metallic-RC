@@ -1,3 +1,5 @@
+> **Validated follow-up:** see `recovery-v4/README.md` and `docs/evidence/STEAM_RUNTIME_RECOVERY_2026-10-20.md`. The private captured metadata now parses successfully; the older launch instructions below are retained as historical tooling, not the preferred next step.
+
 # Steam Rec Room decoding with REA
 
 Date: 2026-10-20. Status: **runtime recovery prepared; decoded metadata and usable game code not yet recovered**.

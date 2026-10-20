@@ -1,3 +1,5 @@
+> **Later result, 21:25 UTC:** stable runtime metadata and native-code captures are now recovered. The normalized metadata passed an independent parser. See [the current recovery report](STEAM_RUNTIME_RECOVERY_2026-10-20.md). The earlier unsuccessful attempts below remain historical evidence.
+
 # Steam Rec Room decoding with REA
 
 Date: 2026-10-20. Status: **runtime recovery prepared; decoded metadata and usable game code not yet recovered**.

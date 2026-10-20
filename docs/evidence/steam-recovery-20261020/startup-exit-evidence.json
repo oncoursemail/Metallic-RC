@@ -1,0 +1,22 @@
+{
+  "sourceFileSha256": "fc87279050000ca17f901c7c6b21756cd5b0925510231d3c357b5360c830e269",
+  "scope": "Previous v3 client run; this is not a claim that all reported crashes have this cause.",
+  "selectedLines": [
+    {
+      "line": 127,
+      "text": "[14:08:05] [1] [18.3252] [Error] [Unity | Error] [RecNet.Features.NameServer] RecNet name server query failed (error code: summer): Could not resolve host 'ns.rec.net'"
+    },
+    {
+      "line": 128,
+      "text": "[14:08:05] [2] [18.3472] [Log] [Default] AppExitState changed: Running => PreparingToExit"
+    },
+    {
+      "line": 129,
+      "text": "[14:08:06] [4] [19.3682] [Log] [Default] AppExitState changed: PreparingToExit => ReadyForExit"
+    },
+    {
+      "line": 131,
+      "text": "[14:08:07] [5] [20.4138] [Log] [Unity] Application.quit"
+    }
+  ]
+}

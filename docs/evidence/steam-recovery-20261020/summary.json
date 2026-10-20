@@ -1,0 +1,363 @@
+{
+  "status": "normalized_metadata_and_native_code_evidence_recovered",
+  "recordedAtUtc": "2026-10-20T21:49:23.760471+00:00",
+  "buildId": "23191908",
+  "depotId": "471711",
+  "manifestId": "8867414017562658247",
+  "captureRun": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\runs\\recovery-\\20261020T212503.738773Z",
+  "decodedDirectory": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\runs\\recovery-\\20261020T212503.738773Z\\decoded",
+  "metadataSha256": "d675ea92bfb0086c0238e56702e91413fcc663c81fce364253749edbf6fcec9f",
+  "metadataBytes": 52403096,
+  "metadataCounts": {
+    "images": 419,
+    "assemblies": 419,
+    "types": 63648,
+    "methods": 409503,
+    "fields": 252928,
+    "parameters": 373383,
+    "properties": 80911,
+    "events": 1802,
+    "genericContainers": 8922,
+    "genericParameters": 14086,
+    "stringLiterals": 83658,
+    "attributeRanges": 201468,
+    "modulePlaceholderRepairs": 418
+  },
+  "metadataChangedBytes": 2308,
+  "metadataChanges": "Canonical 256-byte header plus two documented fields in each of 418 module placeholder records; source capture retained unchanged.",
+  "independentParser": {
+    "status": "independent_upstream_metadata_parse_passed",
+    "upstream": "Perfare/Il2CppDumper",
+    "upstreamCommit": "4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a",
+    "metadataVersion": 31,
+    "inputSha256": "d675ea92bfb0086c0238e56702e91413fcc663c81fce364253749edbf6fcec9f",
+    "sourceFilesModified": false,
+    "inputMemoryUnchanged": true,
+    "counts": {
+      "images": 419,
+      "assemblies": 419,
+      "types": 63648,
+      "methods": 409503,
+      "fields": 252928,
+      "parameters": 373383,
+      "properties": 80911,
+      "events": 1802,
+      "genericContainers": 8922,
+      "genericParameters": 14086,
+      "stringLiterals": 83658,
+      "attributeRanges": 201468,
+      "modulePlaceholders": 418
+    },
+    "identifierLookups": 1260747,
+    "nativeMethodBodiesRecovered": false,
+    "originalSourceRecovered": false,
+    "limits": [
+      "The independent upstream metadata parser validates parseability; this is not a native registration or original-source recovery result.",
+      "JSON indices describe metadata, not rebuilt game assemblies."
+    ]
+  },
+  "methodMap": {
+    "status": "passed",
+    "allMetadataMethodsAccounted": 409503,
+    "nonNullMethodEntries": 367865,
+    "nullMethodEntries": 41638,
+    "uniqueNativeAddresses": 270148,
+    "uniqueNonemptyModules": 417,
+    "zeroMethodImages": [
+      {
+        "index": 73,
+        "name": "UnityEngine.dll",
+        "maxMethodTokenRid": 0
+      },
+      {
+        "index": 342,
+        "name": "Unity.RenderPipeline.Universal.ShaderLibrary.dll",
+        "maxMethodTokenRid": 0
+      }
+    ],
+    "allMethodPointerCountsEqualExactMaxTokenRid": true,
+    "sourceMapSha256": "11a98e828ef21f7689e968f77ba14e27ee96aa69851c6970ccee9db9e7b8d800",
+    "finishedUtc": "2026-10-20T21:45:25.887815+00:00"
+  },
+  "nativeAnalysisDerivative": {
+    "file": "GameAssembly.code-restored.analysis.dll",
+    "bytes": 287903264,
+    "sha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+    "restoredCodeBytes": 194843984,
+    "codeRelocationsUndone": {},
+    "diskDataSectionsPreserved": [
+      {
+        "section": ".rdata",
+        "sha256": "f9f085a20e7c8ab5f10ef006816b4f937f6c718bc8b0522a8b26d35128a3a15c",
+        "bytes": 64694272,
+        "identicalToDisk": true
+      },
+      {
+        "section": ".data",
+        "sha256": "6d038e82daf7ef9bd8cc57fa2b6488954f31a4f47432c2e5c82a1b1634266011",
+        "bytes": 12994560,
+        "identicalToDisk": true
+      },
+      {
+        "section": ".pdata",
+        "sha256": "b8290d07004b35cbaafa77f3bd3bc4f0c8cb1607c3f2979fbabdfc28910cb963",
+        "bytes": 9259008,
+        "identicalToDisk": true
+      },
+      {
+        "section": ".reloc",
+        "sha256": "de3752d76217b03a38b4a9e45612df0ab6201bfea7ce44a8dcda68ad13c334c1",
+        "bytes": 6099968,
+        "identicalToDisk": true
+      }
+    ],
+    "runnableGame": false
+  },
+  "nativeRea": {
+    "wholeImageAttempt": {
+      "status": "provider_timeout",
+      "elapsedSeconds": 334.7154456,
+      "result": "PaintballManager.get_IsInitialized.evidence.json"
+    },
+    "boundedFunctionResults": [
+      {
+        "file": "NameServerResponse.get_Auth.bounded.evidence.json",
+        "evidenceId": "ev_c95434eacee17375356ef42d2b5300e690017d7c141e126ddf5b5cd07a0f3ae1",
+        "provider": {
+          "id": "ghidra",
+          "name": "Ghidra",
+          "version": "12.1.4"
+        },
+        "operation": "analyze_function",
+        "procedure": "NameServerResponse.get_Auth",
+        "address": "0x180d0ccb0",
+        "body": {
+          "available": true,
+          "provenance": "ghidra-function-body-address-set",
+          "ranges": [
+            {
+              "start": "0x180d0ccb0",
+              "end": "0x180d0ccb4"
+            }
+          ],
+          "total_bytes": 5,
+          "span_bytes": 5,
+          "non_contiguous": false,
+          "contains_entry": true
+        },
+        "warnings": [],
+        "assemblyLines": 2,
+        "evidenceSha256": "4558c550668ede20d8e5aa5594c3a68be68431a3fb97c4ad4efb3f2a3564407f",
+        "scope": "Exact source-code pages in synthetic offline PE; omitted outside-page dependencies remain unresolved",
+        "targetExecuted": false
+      },
+      {
+        "file": "NameServerResponse.get_API.bounded.evidence.json",
+        "evidenceId": "ev_58451cf53a49adeb95d4b2dfd6e6f5adee554fa0bd5f500ce34aec33baf530cd",
+        "provider": {
+          "id": "ghidra",
+          "name": "Ghidra",
+          "version": "12.1.4"
+        },
+        "operation": "analyze_function",
+        "procedure": "NameServerResponse.get_API",
+        "address": "0x180d11e20",
+        "body": {
+          "available": true,
+          "provenance": "ghidra-function-body-address-set",
+          "ranges": [
+            {
+              "start": "0x180d11e20",
+              "end": "0x180d11e24"
+            }
+          ],
+          "total_bytes": 5,
+          "span_bytes": 5,
+          "non_contiguous": false,
+          "contains_entry": true
+        },
+        "warnings": [],
+        "assemblyLines": 2,
+        "evidenceSha256": "236f36b35f837e969b200fdcc2d7bb6c5d19ce63d50f3cd9b1c958b469beea96",
+        "scope": "Exact source-code pages in synthetic offline PE; omitted outside-page dependencies remain unresolved",
+        "targetExecuted": false
+      },
+      {
+        "file": "Paintball.with-tail.evidence.json",
+        "evidenceId": "ev_277e81f78606d7dc2547f20b1c5710039c594671b5026e6b9a05a68406e9737e",
+        "provider": {
+          "id": "ghidra",
+          "name": "Ghidra",
+          "version": "12.1.4"
+        },
+        "operation": "analyze_function",
+        "procedure": "PaintballManager.get_IsInitialized",
+        "address": "0x181b28e30",
+        "body": {
+          "available": true,
+          "provenance": "ghidra-function-body-address-set",
+          "ranges": [
+            {
+              "start": "0x181b28e30",
+              "end": "0x181b28ea3"
+            }
+          ],
+          "total_bytes": 116,
+          "span_bytes": 116,
+          "non_contiguous": false,
+          "contains_entry": true
+        },
+        "warnings": [
+          "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+        ],
+        "assemblyLines": 26,
+        "evidenceSha256": "1927957139ea043c5878c6a66e7c9b033abffb6e6803a1fb761194e7b7986ed2",
+        "scope": "Exact source-code pages in synthetic offline PE; omitted outside-page dependencies remain unresolved",
+        "targetExecuted": false,
+        "interpretationLimit": "Paintball global/type information remains unresolved; inferred void return is not accepted as the original method signature."
+      }
+    ],
+    "originalSourceRecovered": false,
+    "allGameFunctionsDecompiled": false,
+    "canonicalEvidenceLocation": "Private decoded/rea folder on Main"
+  },
+  "negativeTests": {
+    "status": "passed",
+    "negativeCases": 7,
+    "cases": [
+      {
+        "case": "bad_method_token",
+        "rejected": true,
+        "reason": "methods all token tags: {'records': 409503, 'unnamedZeroRowTokens': 0}"
+      },
+      {
+        "case": "out_of_range_method_name",
+        "rejected": true,
+        "reason": "String index out of bounds: 4294967295"
+      },
+      {
+        "case": "wrong_method_owner",
+        "rejected": true,
+        "reason": "Method declaring type mismatch"
+      },
+      {
+        "case": "literal_overlap",
+        "rejected": true,
+        "reason": "Literal data not exact concatenation"
+      },
+      {
+        "case": "bad_attribute_sentinel",
+        "rejected": true,
+        "reason": "Attribute sentinel plus alignment: {'meaningfulBytes': 4294967295, 'paddingBytes': -4291504791}"
+      },
+      {
+        "case": "bad_image_assembly_link",
+        "rejected": true,
+        "reason": "Image/assembly reciprocal indices: None"
+      },
+      {
+        "case": "bad_module_generic_shape",
+        "rejected": true,
+        "reason": "Corrupt module shape 0: None"
+      }
+    ],
+    "decoderSha256": "39cc7be63f0e0cb7b279c47c4101ac2f4538325c0fb0cb4ded674d077b813884",
+    "sourceSha256": "5af86c2e051811bf84f56461af8757bc767855645aa4ef8985487a3333ac71e4",
+    "sourceUnchanged": true,
+    "finishedUtc": "2026-10-20T21:38:37.271767+00:00"
+  },
+  "helperChecksPassed": 10,
+  "gameClosureEvidence": {
+    "sourceFileSha256": "fc87279050000ca17f901c7c6b21756cd5b0925510231d3c357b5360c830e269",
+    "scope": "Previous v3 client run; this is not a claim that all reported crashes have this cause.",
+    "selectedLines": [
+      {
+        "line": 127,
+        "text": "[14:08:05] [1] [18.3252] [Error] [Unity | Error] [RecNet.Features.NameServer] RecNet name server query failed (error code: summer): Could not resolve host 'ns.rec.net'"
+      },
+      {
+        "line": 128,
+        "text": "[14:08:05] [2] [18.3472] [Log] [Default] AppExitState changed: Running => PreparingToExit"
+      },
+      {
+        "line": 129,
+        "text": "[14:08:06] [4] [19.3682] [Log] [Default] AppExitState changed: PreparingToExit => ReadyForExit"
+      },
+      {
+        "line": 131,
+        "text": "[14:08:07] [5] [20.4138] [Log] [Unity] Application.quit"
+      }
+    ]
+  },
+  "postRunOriginalHashes": [
+    {
+      "copy": "installed",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "matchesExpected": true
+    },
+    {
+      "copy": "fresh",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "matchesExpected": true
+    },
+    {
+      "copy": "installed",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "matchesExpected": true
+    },
+    {
+      "copy": "fresh",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "matchesExpected": true
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "game",
+      "pid": 14604,
+      "startedByWrapper": true,
+      "windowCloseAttempts": [
+        {
+          "hwnd": 77467000,
+          "sent": true,
+          "error": null
+        },
+        {
+          "hwnd": 2491066,
+          "sent": true,
+          "error": null
+        }
+      ],
+      "terminatedAfterGrace": true,
+      "exitCode": 1,
+      "finishedUtc": "2026-10-20T21:25:25.686663+00:00"
+    },
+    {
+      "label": "capture",
+      "pid": 23940,
+      "startedByWrapper": true,
+      "exitCode": 0,
+      "finishedUtc": "2026-10-20T21:25:25.686712+00:00"
+    }
+  ],
+  "temporarySectionHandleClosed": true,
+  "noDnsOrSecuritySettingsChanged": true,
+  "cleanDownloadExecuted": false,
+  "remaining": [
+    "Complete native type/generic registration recovery and reliable reconstructed signatures.",
+    "Whole-program decompilation, asset/project reconstruction and original-name recovery where symbols are obfuscated.",
+    "A compatible owned backend, startup/login and two-client shared-room tests.",
+    "In-game CV3, voice, platform ports and measured performance."
+  ],
+  "notClaimed": [
+    "Original C# source",
+    "Buildable original Unity project",
+    "Recompiled game executable",
+    "Working public multiplayer server",
+    "Finished Metallic-RC release"
+  ]
+}
