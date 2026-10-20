@@ -15,7 +15,7 @@ The complete desktop package contains the launcher, the local creator service an
 
 The launcher can inspect a Windows installation on Linux, but does not pretend that its Windows executable is a native Linux game. The current creator is a local authoring tool; it is not yet integrated into the compiled game or deployed at Metallic.club.
 
-[Desktop usage](docs/DESKTOP_README.txt) · [Rework architecture and actual build evidence](docs/COMPILED_CLIENT_REWORK.md) · [Revival research](docs/REVIVAL_RESEARCH_2026-10-20.md) · [Recovered REA history](docs/evidence/REA_HISTORY_RECOVERY_2026-10-20.md)
+[Installed build and final validation](docs/evidence/FINAL_DESKTOP_HANDOFF_2026-10-20.md) · [Desktop usage](docs/DESKTOP_README.txt) · [Rework architecture and actual build evidence](docs/COMPILED_CLIENT_REWORK.md) · [Revival research](docs/REVIVAL_RESEARCH_2026-10-20.md) · [Recovered REA history](docs/evidence/REA_HISTORY_RECOVERY_2026-10-20.md)
 
 ## Build from source
 

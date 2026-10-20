@@ -51,3 +51,8 @@ The active native world, hub manifest, Godot package/build tests, native workflo
 No rebuilt Rec Room executable, compatible game login/session protocol, shared two-client world, voice, reconnect, in-game CV3, mobile client, headset acceptance, public hosting or measured game-performance improvement is claimed. Those require their own executable implementation and recorded client/device tests. A launcher compile or local API record is not a substitute.
 
 No signed installer or public release has been issued. Repository policy requires CI to pass before merge; local evidence does not silently waive that gate. Final source publication and native Windows desktop evidence are appended after those actions complete.
+
+
+## Completed desktop handoff
+
+Final exact-commit Windows packaging, native GUI and creator-service handoff, both real-client verifications, the exact uploaded Linux archive smoke, installed shortcut, archive hashes and the hosted CI blocker are recorded in the [final desktop handoff](FINAL_DESKTOP_HANDOFF_2026-10-20.md). It supersedes the pending final-Windows/publication statements above without relabeling historical evidence.
