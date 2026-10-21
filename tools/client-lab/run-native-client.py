@@ -19,7 +19,7 @@ def source_module(name,path):
 
 def validate(path):
     manifest=json.loads(path.read_text(encoding='utf8'))
-    if manifest.get('schemaVersion')!=2 or manifest.get('steamBuildId')!='23191908' or manifest.get('port')!=4187:raise ValueError('Manifest requires reviewed v2 profile for build 23191908')
+    if manifest.get('schemaVersion')!=3 or manifest.get('steamBuildId')!='23191908' or manifest.get('port')!=4187:raise ValueError('Manifest requires reviewed v3 profile for build 23191908')
     if pathlib.Path(manifest['gameRoot']).resolve()!=GAME:raise ValueError('Unreviewed game installation')
     root=pathlib.Path(manifest['labRoot']).resolve()
     if root==GAME or GAME in root.parents:raise ValueError('Lab must be outside game installation')
@@ -29,7 +29,7 @@ def validate(path):
         if key in records:raise ValueError('Duplicate manifest path')
         if sha(p)!=record['sha256'] or p.stat().st_size!=record['bytes']:raise ValueError('Pinned input changed: '+p.name)
         records[key]=record
-    required=[ROOT/'run-native-client.py',ROOT/'supervision.py',ROOT/'winjob.py',pathlib.Path(manifest['agent']),pathlib.Path(manifest['policy']),pathlib.Path(manifest['methodIdentities']),pathlib.Path(manifest['recoveryWrapper']),pathlib.Path(manifest['captureHelper'])]
+    required=[ROOT/'run-native-client.py',ROOT/'supervision.py',ROOT/'progress_store.py',ROOT/'winjob.py',pathlib.Path(manifest['agent']),pathlib.Path(manifest['policy']),pathlib.Path(manifest['methodIdentities']),pathlib.Path(manifest['recoveryWrapper']),pathlib.Path(manifest['captureHelper'])]
     required += [GAME/name for name in EXPECTED]
     required += [pathlib.Path(manifest['vendor'])/'frida'/name for name in ['__init__.py','aio.py','_frida.pyd']]
     if any(os.path.normcase(str(p.resolve())) not in records for p in required):raise ValueError('Required executable input missing from manifest')
@@ -61,6 +61,7 @@ def private_folder(path):
     if result.returncode:raise RuntimeError('Private evidence directory ACL failed')
 
 def modules(manifest):
+    source_module('progress_store',ROOT/'progress_store.py')
     win=source_module('winjob',ROOT/'winjob.py');control=source_module('supervision',ROOT/'supervision.py')
     recovery=source_module('verified_recovery_wrapper',pathlib.Path(manifest['recoveryWrapper']))
     capture=source_module('verified_capture_reader',pathlib.Path(manifest['captureHelper']))
@@ -97,6 +98,8 @@ def worker(args,manifest):
         if pathlib.Path(game.image()).resolve()!=GAME/'RecRoom.exe':raise RuntimeError('Spawned process image mismatch')
         if not win.current_job_membership(args.job,game,assign=True):raise RuntimeError('Game process containment failed')
         state['retainedProcessHandleVerified']=True;state['gameJobMembershipVerified']=True
+        try:state['beforeAttach']=game.diagnostics()
+        except Exception as error:state['beforeAttach']={'diagnosticQueryError':type(error).__name__}
         state['attachmentAttempted']=True;ledger.save()
         session=ledger.call(frida,'attach',15,lambda:device.attach(pid))
         state['attached']=True;ledger.save()
@@ -132,9 +135,11 @@ def worker(args,manifest):
         state['status']='client_attempt_failed';state['errors'].append({'phase':state['phase'],'type':type(error).__name__,'message':str(error)[:400]})
     finally:
         state['failedPhase']=state['errors'][-1]['phase'] if state['errors'] else None
-        state['phase']='cleanup';state['phaseStartedMonotonic']=time.monotonic();ledger.save()
+        state['phase']='cleanup';state['phaseStartedMonotonic']=time.monotonic();ledger.save_best_effort()
         try:
             if game:
+                try:state['beforeProcessCleanup']=game.diagnostics()
+                except Exception as error:state['beforeProcessCleanup']={'diagnosticQueryError':type(error).__name__}
                 if game.poll() is None:
                     if state['processResumed']:
                         state['cleanup']['windowCloseRequests']=api.request_window_close(game.pid);game.wait(1)
@@ -148,7 +153,15 @@ def worker(args,manifest):
                 except Exception:state['cleanup']['detachIncomplete']=True
         finally:
             if mapping:state['cleanup']['sharedSectionHandleClosed']=bool(api.close(mapping))
-            state['finishedUtc']=utc();state['runnerResultCode']=result;ledger.save()
+            if state.get('receiptPersistenceFailed'):result=1
+            state['finishedUtc']=utc();state['runnerResultCode']=result
+            if not ledger.save_best_effort():result=1
+            try:ledger.close()
+            except Exception:result=1
+            # Independent one-shot failure snapshot after cleanup, never polled live.
+            if state.get('receiptPersistenceFailed'):
+                try:control.write_json(run/'receipt.failure.json',state)
+                except Exception:pass
     return result
 
 def main():
@@ -167,12 +180,12 @@ def main():
     if capture.WindowsReader().processes():raise RuntimeError('Existing Rec Room process; it is not touched')
     health=backend_health()
     if not args.run:
-        print(json.dumps({'status':'preflight_passed','gameWillNotRun':True,'elevated':api.is_elevated(),'schemaVersion':2,'backendInstance':health['instanceId'],'pinnedFiles':len(manifest['files']),'totalBudgetSeconds':args.seconds,'attachLimitSeconds':15,'startupLimitSeconds':30}));return 0
+        print(json.dumps({'status':'preflight_passed','gameWillNotRun':True,'elevated':api.is_elevated(),'schemaVersion':3,'backendInstance':health['instanceId'],'pinnedFiles':len(manifest['files']),'totalBudgetSeconds':args.seconds,'attachLimitSeconds':15,'startupLimitSeconds':30}));return 0
     if not api.is_elevated():raise PermissionError('Approve Windows elevation separately; no self-elevation')
     run=pathlib.Path(manifest['labRoot'])/'runs'/datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ');private_folder(run)
     started=time.monotonic();deadline=started+args.seconds;startup_deadline=min(deadline,started+30)
     record={'startedUtc':utc(),'status':'starting_worker','totalBudgetSeconds':args.seconds,'startupLimitSeconds':min(30,args.seconds),'attachLimitSeconds':15,'manifestSha256':sha(args.manifest),'runnerSha256':sha(__file__),'existingProcessesTouched':False}
-    control.write_json(run/'supervisor.json',record)
+    control.write_json(run/'supervisor.start.json',record)
     with win.OwnedJob() as job:
         process=None
         try:
@@ -188,9 +201,16 @@ def main():
     record['originalHashesAfter']=[{'name':name,'matches':sha(GAME/name)==expected} for name,expected in EXPECTED.items()]
     record['finishedUtc']=utc();record['elapsedSeconds']=round(time.monotonic()-started,3)
     if not record['jobEmpty'] or not all(x['matches'] for x in record['originalHashesAfter']):record['resultCode']=1
-    control.write_json(run/'supervisor.json',record)
-    try:receipt=json.loads((run/'receipt.json').read_text())
-    except (ValueError,OSError):receipt={}
+    try:receipt=control.read_latest(run/'receipt.json')
+    except Exception as error:
+        receipt={'status':'progress_unavailable','receiptPersistenceFailed':True,'errors':[{'type':type(error).__name__}]}
+    failure=run/'receipt.failure.json'
+    if failure.exists():
+        try:receipt=json.loads(failure.read_text())
+        except Exception:receipt['receiptPersistenceFailed']=True
+    try:control.write_json(run/'receipt.json',receipt)
+    except Exception as error:
+        receipt['receiptPersistenceFailed']=True;record['receiptExportError']=type(error).__name__
     record['resultCode']=control.final_result_code(record.get('resultCode'),receipt,record['jobEmpty'],all(x['matches'] for x in record['originalHashesAfter']))
     control.write_json(run/'supervisor.json',record)
     print(json.dumps({'status':receipt.get('status',record['status']),'supervisorStatus':record['status'],'receipt':str(run/'receipt.json'),'supervisor':str(run/'supervisor.json'),'failedPhase':receipt.get('failedPhase') or record.get('workerPhase'),'resultCode':record.get('resultCode',1),'jobEmpty':record['jobEmpty'],'nativeDiscoveryParsed':receipt.get('nativeDiscoveryParsed',False),'nativeLoginVerified':False}),flush=True)

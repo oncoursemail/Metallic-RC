@@ -1,0 +1,39 @@
+{
+  "checkedUtc": "2026-10-21T21:02:08.959184+00:00",
+  "originals": [
+    {
+      "copy": "installed",
+      "name": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "unchanged": true
+    },
+    {
+      "copy": "installed",
+      "name": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "unchanged": true
+    },
+    {
+      "copy": "fresh",
+      "name": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "unchanged": true
+    },
+    {
+      "copy": "fresh",
+      "name": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "unchanged": true
+    }
+  ],
+  "backendHealth": {
+    "status": "ok",
+    "service": "metallic-rc-backend",
+    "instanceId": "212d47d08e104ef58c747a4cdf10ece1"
+  },
+  "deployedBackendHashMatches": true,
+  "backendRestarted": false,
+  "originalGameLaunchedByRepair": false,
+  "windowsApprovalRequested": false,
+  "securityDnsFirewallSettingsChanged": false
+}

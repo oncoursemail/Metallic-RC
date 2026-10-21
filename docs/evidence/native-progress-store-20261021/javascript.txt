@@ -1,0 +1,18 @@
+✔ discovery and service routing preserve only the required local request path (1.5859ms)
+✔ the already-owned origin is not rewritten twice (0.2255ms)
+✔ userinfo, suffix tricks, wrong local ports and unknown hosts cannot escape (0.7139ms)
+✔ relative and non-network URI values are not treated as network requests (1.5719ms)
+✔ ambiguous/bounded inputs rejected (0.5136ms)
+✔ diagnostics never include query/fragment values or long identifier segments (0.4834ms)
+✔ all emitted absolute destinations stay on the owned loopback origin (6.4822ms)
+✔ loading diagnostics does not assert a native adapter or network guard is ready (4.0072ms)
+✔ agent failure remains observable after ordinary diagnostics fill their cap (3.506ms)
+✔ repeat failures do not grow an unbounded error stream (11.6407ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 142.8323

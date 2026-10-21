@@ -16,10 +16,10 @@ try {
     if((Get-FileHash -LiteralPath $RunnerPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $ExpectedRunnerHash) { throw 'Reviewed runner hash changed; no launch.' }
     if((Get-FileHash -LiteralPath $ManifestPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $ExpectedManifestHash) { throw 'Reviewed manifest hash changed; no launch.' }
     $manifest=Get-Content -LiteralPath $ManifestPath -Raw|ConvertFrom-Json
-    if($manifest.schemaVersion -ne 2 -or $manifest.steamBuildId -ne '23191908') { throw 'Reviewed v2 manifest required.' }
+    if($manifest.schemaVersion -ne 3 -or $manifest.steamBuildId -ne '23191908') { throw 'Reviewed v3 progress-store manifest required.' }
     & $PythonPath -I -B $RunnerPath --manifest $ManifestPath
     if($LASTEXITCODE -ne 0) { throw 'Preflight failed. No original-client launch was requested.' }
-    Write-Host 'Metallic-RC native test: 90-second TOTAL worker budget, including startup.'
+    Write-Host 'Metallic-RC native test: transactional progress; 90-second TOTAL worker budget.'
     Write-Host 'Startup limit: 30 seconds. Attachment limit: 15 seconds. Cleanup is supervised separately.'
     Write-Host 'Normal Windows approval is required. No password or Rec Room credential entry is needed.'
     Write-Host 'Only the newly created test process tree is controlled. No game-file or system security changes.'
