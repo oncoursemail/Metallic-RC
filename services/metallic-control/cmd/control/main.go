@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/oncoursemail/Metallic/services/metallic-control/internal/control"
+	"github.com/oncoursemail/Metallic-RC/services/metallic-control/internal/control"
 )
 
 func fatalIfMissing(name string) string {

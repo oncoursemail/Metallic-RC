@@ -1,0 +1,188 @@
+name: Metallic compiled-client tools
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/Metallic.RC.Core.Tests/**'
+      - 'tests/Metallic.RC.Platform.Tests/**'
+      - 'tests/browser/verify_creator.mjs'
+      - 'tests/browser/package.json'
+      - 'tests/browser/package-lock.json'
+      - 'scripts/build-desktop.sh'
+      - 'scripts/build-desktop.ps1'
+      - 'scripts/build_manifest.py'
+      - 'docs/DESKTOP_README.txt'
+      - 'global.json'
+      - 'Directory.Build.props'
+      - 'NuGet.Config'
+      - '.github/workflows/compiled-client.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/Metallic.RC.Core.Tests/**'
+      - 'tests/Metallic.RC.Platform.Tests/**'
+      - 'tests/browser/verify_creator.mjs'
+      - 'tests/browser/package.json'
+      - 'tests/browser/package-lock.json'
+      - 'scripts/build-desktop.sh'
+      - 'scripts/build-desktop.ps1'
+      - 'scripts/build_manifest.py'
+      - 'docs/DESKTOP_README.txt'
+      - 'global.json'
+      - 'Directory.Build.props'
+      - 'NuGet.Config'
+      - '.github/workflows/compiled-client.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compiled-client-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
+
+jobs:
+  desktop:
+    name: ${{ matrix.runtime }} acceptance and native publish
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+          - os: ubuntu-latest
+            runtime: linux-x64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the SDK specified by global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Install Python for the Linux build manifest
+        if: runner.os == 'Linux'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Core and Platform acceptance on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path 'artifacts/ci/win-x64' -Force | Out-Null
+          foreach ($suite in @('Core', 'Platform')) {
+              & dotnet run --project "tests/Metallic.RC.$suite.Tests/Metallic.RC.$suite.Tests.csproj" -c Release --no-launch-profile 2>&1 |
+                  Tee-Object -FilePath "artifacts/ci/win-x64/$suite-acceptance.log"
+              if ($LASTEXITCODE -ne 0) { throw "$suite acceptance failed." }
+          }
+      - name: Publish the self-contained Windows launcher and creator service
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & ./scripts/build-desktop.ps1 -Runtime win-x64 -SkipAcceptance 2>&1 |
+              Tee-Object -FilePath 'artifacts/ci/win-x64/publish.log'
+      - name: Run acceptance and publish the self-contained Linux bundle
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ci/linux-x64
+          # This script runs both acceptance suites before publishing.
+          bash scripts/build-desktop.sh linux-x64 "$PWD/artifacts/desktop/linux-x64" 2>&1 |
+            tee artifacts/ci/linux-x64/build-and-acceptance.log
+
+      - name: Install Node for creator browser acceptance
+        if: runner.os == 'Linux'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+      - name: Install locked browser-test dependencies
+        if: runner.os == 'Linux'
+        working-directory: tests/browser
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium and its system dependencies
+        if: runner.os == 'Linux'
+        working-directory: tests/browser
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Verify the published creator service in a real browser
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          METALLIC_CREATOR_URL: http://127.0.0.1:5187/
+        run: |
+          set -euo pipefail
+          task_state="$(mktemp -d "$RUNNER_TEMP/metallic-creator-ci.XXXXXX")"
+          artifacts/desktop/linux-x64/platform/Metallic.RC.Platform \
+            --port 5187 --data-dir "$task_state" \
+            >artifacts/ci/linux-x64/creator-service.log 2>&1 &
+          task_server_pid=$!
+          trap 'kill "$task_server_pid" 2>/dev/null || true; wait "$task_server_pid" 2>/dev/null || true' EXIT
+          task_ready=false
+          for task_attempt in {1..60}; do
+            if ! kill -0 "$task_server_pid" 2>/dev/null; then
+              cat artifacts/ci/linux-x64/creator-service.log
+              exit 1
+            fi
+            if curl --fail --silent --max-time 1 http://127.0.0.1:5187/healthz >/dev/null; then
+              task_ready=true
+              break
+            fi
+            sleep 0.5
+          done
+          if [[ "$task_ready" != true ]]; then
+            cat artifacts/ci/linux-x64/creator-service.log
+            echo 'Creator service did not become ready on port 5187.' >&2
+            exit 1
+          fi
+          node tests/browser/verify_creator.mjs 2>&1 |
+            tee artifacts/ci/linux-x64/creator-browser.log
+
+      - name: Archive the Windows desktop bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path 'artifacts/packages' -Force | Out-Null
+          Compress-Archive -Path 'artifacts/desktop/win-x64/*' -DestinationPath 'artifacts/packages/Metallic-RC-desktop-win-x64.zip'
+      - name: Archive the Linux desktop bundle with executable permissions
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p artifacts/packages
+          tar -czf artifacts/packages/Metallic-RC-desktop-linux-x64.tar.gz -C artifacts/desktop/linux-x64 .
+      - name: Upload the verified desktop tools bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: metallic-rc-desktop-${{ matrix.runtime }}
+          path: artifacts/packages/Metallic-RC-desktop-${{ matrix.runtime }}.*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload successful acceptance logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: metallic-rc-acceptance-${{ matrix.runtime }}
+          path: artifacts/ci/${{ matrix.runtime }}/*.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload successful creator browser evidence
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: metallic-rc-creator-browser
+          path: |
+            artifacts/creator-browser-results.json
+            artifacts/creator-browser-desktop.png
+            artifacts/creator-browser-mobile.png
+            artifacts/creator-browser-small-mobile.png
+          if-no-files-found: error
+          retention-days: 7

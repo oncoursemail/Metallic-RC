@@ -1,0 +1,80 @@
+{
+  "status": "coverage_and_crosschecks_passed",
+  "createdUtc": "2026-10-20T23:51:31.602126+00:00",
+  "completeByteHashCoverage": {
+    "nativeBytes": 287903264,
+    "metadataBytes": 52403096,
+    "totalBytes": 340306360,
+    "gaps": 0,
+    "allSemanticsUnderstood": false
+  },
+  "typedSignatureRowsCrossChecked": 409503,
+  "parameterRows": 373383,
+  "nonnullNativeAddresses": 367865,
+  "referenceTypesInOrder": 63648,
+  "runtimeOnlyPointerCorrections": 313,
+  "emittedLeafBodies": 27302,
+  "emittedOperations": {
+    "constant": 2702,
+    "get": 19616,
+    "set": 4984
+  },
+  "assembliesWithRecoveredLeafs": 219,
+  "topAssemblyLeafCounts": [
+    [
+      "Assembly-CSharp.dll",
+      7459
+    ],
+    [
+      "RecRoom.Protobuf.Runtime.dll",
+      4646
+    ],
+    [
+      "RecNet.Runtime.dll",
+      3113
+    ],
+    [
+      "RecNet.Interfaces.dll",
+      930
+    ],
+    [
+      "Circuits.V2.dll",
+      829
+    ],
+    [
+      "RecRoom.AppUI.Runtime.dll",
+      662
+    ],
+    [
+      "System.Xml.dll",
+      645
+    ],
+    [
+      "UnityEngine.UIElementsModule.dll",
+      625
+    ],
+    [
+      "mscorlib.dll",
+      517
+    ],
+    [
+      "RecRoom.RRUI.Data.Runtime.dll",
+      477
+    ],
+    [
+      "System.dll",
+      465
+    ],
+    [
+      "Unity.RenderPipelines.Universal.Runtime.dll",
+      329
+    ]
+  ],
+  "distinctLeafByteSpans": 1900,
+  "unionLeafNativeInstructionBytes": 13421,
+  "nativeInstructionCoverageMeaning": "Only these exact source spans have typed leaf translations; not a percentage of game completion. Shared native bodies are not counted repeatedly.",
+  "nativeByteLedgerSha256": "2286591ce2ca8f69c85447d060ba92c65697bae0e5d7b977dff424bcd596192e",
+  "unknownConcreteBodies": 354441,
+  "abstractOrExternalBodylessMethods": 27760,
+  "fullGameRebuild": false
+}

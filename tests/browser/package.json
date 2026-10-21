@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node verify_site.mjs"
+    "test": "node verify_site.mjs",
+    "test:creator": "node verify_creator.mjs"
   },
   "dependencies": {
     "playwright": "1.56.1"

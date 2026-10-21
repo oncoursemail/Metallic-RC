@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/Metallic.RC.Core/Metallic.RC.Core.csproj" />
+  <Project Path="src/Metallic.RC.Creator/Metallic.RC.Creator.csproj" />
+  <Project Path="src/Metallic.RC.Launcher/Metallic.RC.Launcher.csproj" />
+  <Project Path="src/Metallic.RC.Platform/Metallic.RC.Platform.csproj" />
+  <Project Path="tests/Metallic.RC.Core.Tests/Metallic.RC.Core.Tests.csproj" />
+  <Project Path="tests/Metallic.RC.Platform.Tests/Metallic.RC.Platform.Tests.csproj" />
+</Solution>

@@ -1,0 +1,12 @@
+{
+    "RequestedAtUtc":  "2026-10-20T18:03:50.0586283Z",
+    "Launcher":  "C:\\Program Files (x86)\\Steam\\steam.exe",
+    "Arguments":  [
+                      "-applaunch",
+                      "471710",
+                      "+forcemode:screen"
+                  ],
+    "LauncherInvocationPid":  24560,
+    "CaptureOutput":  "capture-01-steam",
+    "ElevationRequested":  false
+}

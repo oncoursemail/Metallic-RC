@@ -1,72 +1,70 @@
-# Metallic Studios
+# Metallic-RC
 
-> **Project status: Foundation planning — not yet a playable game.**  
-> Independent social multiplayer, VR, and creator platform. The repository starts with a technical roadmap and evidence-based progress tracker; completed features must be proven by merged changes, tests, and working builds.
+Metallic-RC starts from the owner's installed 2026 Rec Room client. The rejected Meadow prototype, its active world design, native build scripts and release links have been removed.
 
-[![Roadmap & progress](https://img.shields.io/badge/Roadmap-Live%20progress-24292f?logo=github)](docs/PROGRESS.md)
-[![Project plan](https://img.shields.io/badge/Plan-Engineering%20roadmap-323f53)](docs/ROADMAP.md)
+**Current compiled deliverable:** an original C# desktop launcher, read-only client inventory and verification, and a local CV3 creator website/service. **A rebuilt Rec Room executable and a compatible Metallic multiplayer/voice backend are not yet implemented.**
 
-![Verified Metallic engineering progress](docs/progress.svg)
+## Use the desktop tools
 
-*This live artwork represents completed GitHub engineering issues, **not** available game builds or real player counts.*
+The complete desktop package contains the launcher, the local creator service and their .NET runtimes. Open `Metallic.RC.Launcher.exe` on Windows or `Metallic.RC.Launcher` on Linux.
 
-[Original development-status website prototype](docs/site/index.html) · [How to preview the website locally](docs/site/README.md)
+1. **Find installations** or **Import installation** registers an existing client folder and records launch-file fingerprints.
+2. **Verify files** detects changes; **Show launch plan** displays the precise executable and arguments before starting anything.
+3. **Launch client** starts a supported local client. Installations requiring an external launcher use an explicitly registered executable and its own connection flow.
+4. **Creator tools** opens the bundled local website. Create circuit drafts, connect typed nodes, edit their values, save revisions, validate and preview execution.
 
-## What we are building
+The launcher can inspect a Windows installation on Linux, but does not pretend that its Windows executable is a native Linux game. The current creator is a local authoring tool; it is not yet integrated into the compiled game or deployed at Metallic.club.
 
-Metallic Studios is intended to be an independent, high-performance social game platform with its own client, dedicated servers, launcher, identity service, creator tools, user-generated rooms, visual scripting, and optional integrations with cooperating community projects.
+[Installed build and final validation](docs/evidence/FINAL_DESKTOP_HANDOFF_2026-10-20.md) · [Desktop usage](docs/DESKTOP_README.txt) · [Rework architecture and actual build evidence](docs/COMPILED_CLIENT_REWORK.md) · [Revival research](docs/REVIVAL_RESEARCH_2026-10-20.md) · [Recovered REA history](docs/evidence/REA_HISTORY_RECOVERY_2026-10-20.md)
 
-### Product pillars
+## Build from source
 
-1. **Cross-device multiplayer:** PC first; VR alongside a shared multiplayer vertical slice; Linux, Android, and iOS after platform validation.
-2. **Player-controlled creation:** in-game building, modular prefabs, an asset pipeline, and a next-generation *Circuits V3* typed node graph.
-3. **Social platform:** accounts, profiles, friends, parties, rooms, matchmaking, spatial voice, moderation, reporting, and search.
-4. **Creator economy:** moderated marketplace, entitlements, auditable token ledger, creator analytics, and optional premium upgrades.
-5. **Reliable infrastructure:** authoritative sessions, performance budgets, monitoring, anti-abuse, backups, and defensive network protection.
-6. **Open integrations:** an optional, permissioned federation protocol to expose public status and launch other participating projects.
+Install the SDK pinned in `global.json` and use the included solution, `Metallic.RC.slnx`.
 
-## Live project tracking
+```powershell
+# Windows: acceptance checks and a self-contained desktop package
+.\scripts\build-desktop.ps1 -Runtime win-x64
+```
 
-- **[Roadmap and milestones](docs/ROADMAP.md)** — scopes, dependencies, test gates, order of delivery.
-- **[Live progress dashboard](docs/PROGRESS.md)** — automatically generated from repository GitHub issues; reflects *closed issues*, not claims that binaries are already usable.
-- **[Architecture and research guide](docs/ARCHITECTURE.md)** — component boundaries, decisions, performance, and research.
-- **[Metallic Atlas backend lab](services/metallic-control/README.md)** — original Go node heartbeat API, pressure-aware reservations and read-only Linux agent with race/HTTP tests; **not deployed, not a real game server**.
-- **[Owned hardware and custom infrastructure research](docs/METALLIC_OWN_INFRASTRUCTURE_2026.md)** — observed constraints, workload isolation, advanced server design, cross-device/network goals, and staged deployment safety.
-- **[Control-plane API schema](services/metallic-control/openapi.json)** — versioned lab operator/agent API contract; separate from player-facing services.
-- **[240-feature capability catalog](docs/FEATURE_CATALOG.md)** — concrete feature candidates and suggested acceptance tests.
-- **[Research backlog](docs/RESEARCH.md)** — sources, experiments, unknowns, and competitor review.
-- **[Contributor development rules](docs/DEVELOPMENT.md)** — issue labels, PR review gates and evidence requirements.
-- **[Visual identity and UI quality system](docs/DESIGN_SYSTEM.md)** — professional interface direction, motion, VFX and anti-generic acceptance checks.
-- **[AI players and stress-testing laboratory](docs/QUALITY_AND_STRESS_TESTING.md)** — staged load, synthetic protocol users, game AI and measurable release gates.
-- **[Moderation, Discord and staff titles](docs/MODERATION_DISCORD_STAFF.md)** — unified permissions, in-game and web consoles, bot design, Volunteer Mod / Developer title controls.
-- **[Trusted player-count aggregator service](services/player-count/README.md)** — authenticated, de-duplicated heartbeat aggregation with separate synthetic-actor tracking (local code only; no live count).
-- **[Meta Quest release preparation](docs/META_QUEST_RELEASE.md)** — Horizon Store, channels, ARM64 build quality and verification.
-- **[Live website prototype](docs/site/index.html)** — handcrafted responsive layout reading the generated aggregate progress JSON.
-- **[Tracked work items](../../issues)** — one issue per verifiable deliverable.
-- **[Pull requests](../../pulls)** — proposed changes and review history.
+```bash
+# Linux: acceptance checks and a self-contained desktop package
+bash scripts/build-desktop.sh linux-x64
+```
 
-The `Update project progress` GitHub Actions workflow refreshes the Markdown dashboard after relevant issue/PR changes, on demand, and daily. Issues use `[P0]` to `[P6]` title prefixes; the updater counts open/closed issues in each stage and refuses to fabricate implementation progress. An issue should close only when its linked acceptance tests have passed.
+Both scripts refuse to replace an existing output directory. Choose a new output path for another build. Packages include a file-hash manifest; source provenance and device acceptance belong in a dated validation record.
 
-## Initial milestone
+```bash
+# Individual checks
+ dotnet run --project tests/Metallic.RC.Core.Tests -c Release
+ dotnet run --project tests/Metallic.RC.Platform.Tests -c Release
 
-**First playable vertical slice:** a signed desktop test build connects to an independently hosted authoritative server, joins a room with two players, replicates movement, shows a basic avatar, sends optional positional voice, and survives reconnects. We deliberately defer marketplace, account import, and federation until the foundation is safe and testable.
+# Run the local creator directly
+ dotnet run --project src/Metallic.RC.Platform -c Release -- --port 5187 --data-dir /absolute/path/to/local-state
+```
 
-## Platform and tech candidates
+The browser suite is `tests/browser/verify_creator.mjs`; it uses real local API requests. See the [platform README](src/Metallic.RC.Platform/README.md) for the API, graph schema and limits.
 
-- **Client:** Unity + OpenXR **or** a tested Godot/OpenXR path; decision recorded after performance and licensing comparison.
-- **Backend:** Rust or Go authoritative game sessions; a modular HTTP API; PostgreSQL; Valkey; object storage; OpenTelemetry.
-- **Website + launcher:** TypeScript web console, Tauri/Rust desktop launcher candidate.
-- **Creator runtime:** versioned graph schema, deterministic/server-authoritative execution for trusted game logic.
-- **Infrastructure:** self-owned machines for dev/test; provider-protected networking for public UDP sessions. Cloudflare's regular HTTP proxy is not a complete UDP game-server DDoS solution.
+## Source layout
 
-Technology choices remain proposals until measured prototypes and an architecture decision record (ADR) are committed.
+| Component | Purpose | Current boundary |
+| --- | --- | --- |
+| `src/Metallic.RC.Core` | Client discovery evidence, persisted registrations, SHA256 verification and reviewed launch plans | Does not reconstruct Unity source or implement Rec Room networking |
+| `src/Metallic.RC.Launcher` | Avalonia desktop interface and CLI | Windows/Linux tooling; device-specific game support needs separate proof |
+| `src/Metallic.RC.Creator` | Typed graph validation, stable compilation hashes and bounded execution | Eleven original preview node types; no in-game CV3 integration yet |
+| `src/Metallic.RC.Platform` | Loopback API and creator website, persistent drafts and revision checks | Local authoring; multiplayer, voice and account migration capability flags remain false |
+| `services/metallic-control` | Existing Go Atlas operations prototype | Capacity/control lab, not an executable game room host |
+| `game/` | Retained creator, companion, teaching and watch contracts | Data/logic prototypes for later integration |
 
-## Principles
+## Actual starting files and remaining integration
 
-- Report **planned / in progress / blocked / tested / released** separately.
-- Never equate issue closure to real-world benchmark or player availability.
-- No secrets or other people's account credentials in issues, logs, or import forms.
-- Only show external community player counts when a project willingly publishes trustworthy aggregate figures.
-- User-facing import flows require available source data, explicit consent, and a supported verification path.
+The current Steam and installed NexaNet copies share the same inspected Unity 6 core files. Campus2025 is a separate Unity 2021 installation. Exact paths, hashes, sizes and provenance are recorded in the [PC inventory](docs/evidence/pc-client-inventory-2026-10-20.json). The recovered REA audit adds prior complete-manifest and PE/resource analysis, with its limits explicitly retained.
 
-See [ROADMAP](docs/ROADMAP.md) for the implementation sequence and [PROGRESS](docs/PROGRESS.md) for live status.
+The next game integration gate is a real modern-client connection to owned services, followed by two clients sharing room state, voice, reconnect and persistence. An HTTP room record, circuit preview or successful process launch is not evidence for that gate. Native Android/Quest and Linux game builds also need target-specific source, plug-ins, assets and device testing.
+
+## Project identity and retained plans
+
+**Metallic-RC** is the Rec Room project. **Metallic-MC**, **Metallic-RB** and **Metallic-PX** remain separate projects; the family domain is **Metallic.club**. This change does not deploy that domain or alter those other projects.
+
+[Project identities](docs/PROJECT_IDENTITIES.md) · [Roadmap](docs/ROADMAP.md) · [Development and release gates](docs/DEVELOPMENT.md) · [Creator/learning/companions](docs/METALLIC_CREATOR_LEARNING_AI.md) · [Feature catalog](docs/FEATURE_CATALOG.md)
+
+The older website and engine research remain historical references. The compiled-client rework and the owner's 20 October correction define the current direction. Progress issue counts are not gameplay or performance claims; measured results must name the build, hardware, workload and evidence.

@@ -1,0 +1,12 @@
+test_complete_read (__main__.self_test.<locals>.Tests.test_complete_read) ... ok
+test_deadline_marks_all_missing (__main__.self_test.<locals>.Tests.test_deadline_marks_all_missing) ... ok
+test_entropy (__main__.self_test.<locals>.Tests.test_entropy) ... ok
+test_holes_are_explicit (__main__.self_test.<locals>.Tests.test_holes_are_explicit) ... ok
+test_pe_bounds (__main__.self_test.<locals>.Tests.test_pe_bounds) ... ok
+test_permuted_header_screen (__main__.self_test.<locals>.Tests.test_permuted_header_screen) ... ok
+test_placeholder_rejected (__main__.self_test.<locals>.Tests.test_placeholder_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+OK

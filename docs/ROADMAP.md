@@ -1,4 +1,6 @@
-# Metallic Studios — Executable Engineering Roadmap
+> **Direction update — 20 October 2026:** use the owner's actual compiled client as the starting point. The [compiled-client rework](COMPILED_CLIENT_REWORK.md) supersedes earlier replacement-engine/hub proposals below. These plans do not establish shipped gameplay.
+
+# Metallic-RC — Executable Engineering Roadmap
 
 **Baseline date:** 2026-10-15 · **Revision:** v0.1 · **Status:** bootstrap planning  
 **Canonical source of task state:** GitHub Issues in this repository. **Live counts:** [PROGRESS.md](PROGRESS.md).
@@ -52,16 +54,16 @@ This roadmap now has **specialist implementation and quality specifications**. T
 
 | Workstream | Technical guide | Related issues |
 | --- | --- | --- |
-| Original product UI, launcher design and high-quality animation | [Visual design and VFX system](DESIGN_SYSTEM.md) | [#35](https://github.com/oncoursemail/Metallic/issues/35) / [#40](https://github.com/oncoursemail/Metallic/issues/40) / [#49](https://github.com/oncoursemail/Metallic/issues/49) |
-| Synthetic players, game AI, soak/load, network failure & fleet performance | [Quality and stress lab](QUALITY_AND_STRESS_TESTING.md) | [#36](https://github.com/oncoursemail/Metallic/issues/36) / [#39](https://github.com/oncoursemail/Metallic/issues/39) / [#50](https://github.com/oncoursemail/Metallic/issues/50) |
-| In-game/web/Discord administration, staff titles and permissions | [Moderation, Discord and staff system](MODERATION_DISCORD_STAFF.md) | [#43](https://github.com/oncoursemail/Metallic/issues/43)–[#47](https://github.com/oncoursemail/Metallic/issues/47) |
-| Meta Quest launch, signing and device certification | [Meta Quest release checklist](META_QUEST_RELEASE.md) | [#48](https://github.com/oncoursemail/Metallic/issues/48) |
-| Original development-status website (implemented preview) | [Website prototype](site/README.md) | [#35](https://github.com/oncoursemail/Metallic/issues/35) / [#51](https://github.com/oncoursemail/Metallic/issues/51) |
-| Working Discord bot foundation (local code only) | [Discord implementation README](../services/discord-bot/README.md) | [#38](https://github.com/oncoursemail/Metallic/issues/38) / [#53](https://github.com/oncoursemail/Metallic/issues/53) |
+| Original product UI, launcher design and high-quality animation | [Visual design and VFX system](DESIGN_SYSTEM.md) | [#35](https://github.com/oncoursemail/Metallic-RC/issues/35) / [#40](https://github.com/oncoursemail/Metallic-RC/issues/40) / [#49](https://github.com/oncoursemail/Metallic-RC/issues/49) |
+| Synthetic players, game AI, soak/load, network failure & fleet performance | [Quality and stress lab](QUALITY_AND_STRESS_TESTING.md) | [#36](https://github.com/oncoursemail/Metallic-RC/issues/36) / [#39](https://github.com/oncoursemail/Metallic-RC/issues/39) / [#50](https://github.com/oncoursemail/Metallic-RC/issues/50) |
+| In-game/web/Discord administration, staff titles and permissions | [Moderation, Discord and staff system](MODERATION_DISCORD_STAFF.md) | [#43](https://github.com/oncoursemail/Metallic-RC/issues/43)–[#47](https://github.com/oncoursemail/Metallic-RC/issues/47) |
+| Meta Quest launch, signing and device certification | [Meta Quest release checklist](META_QUEST_RELEASE.md) | [#48](https://github.com/oncoursemail/Metallic-RC/issues/48) |
+| Original development-status website (implemented preview) | [Website prototype](site/README.md) | [#35](https://github.com/oncoursemail/Metallic-RC/issues/35) / [#51](https://github.com/oncoursemail/Metallic-RC/issues/51) |
+| Working Discord bot foundation (local code only) | [Discord implementation README](../services/discord-bot/README.md) | [#38](https://github.com/oncoursemail/Metallic-RC/issues/38) / [#53](https://github.com/oncoursemail/Metallic-RC/issues/53) |
 
 **Current release truth:** the SVG progress tracker, static development website prototype, localhost synthetic room simulator and Discord bot skeleton have code/test evidence. The underlying multiplayer game client, account server, real game stress test, active moderation service and signed Quest binary do not yet exist. Review [PROGRESS.md](PROGRESS.md) for the machine-updated issue count (which may change as scope evolves), and see [FEATURE_CATALOG.md](FEATURE_CATALOG.md) for the 240 long-term feature proposals.
 
-**Top actual feature dependency:** [#1 engine benchmark](https://github.com/oncoursemail/Metallic/issues/1) → [#4 original avatar/client](https://github.com/oncoursemail/Metallic/issues/4) + [#10 authoritative server](https://github.com/oncoursemail/Metallic/issues/10) → [#13 two-player room/quest](https://github.com/oncoursemail/Metallic/issues/13) → [#39 real protocol bots](https://github.com/oncoursemail/Metallic/issues/39) → [#50 fleet stress and reliability](https://github.com/oncoursemail/Metallic/issues/50). Simulated room-fixture tests alone cannot bypass this dependency.
+**Top actual feature dependency:** [#1 engine benchmark](https://github.com/oncoursemail/Metallic-RC/issues/1) → [#4 original avatar/client](https://github.com/oncoursemail/Metallic-RC/issues/4) + [#10 authoritative server](https://github.com/oncoursemail/Metallic-RC/issues/10) → [#13 two-player room/quest](https://github.com/oncoursemail/Metallic-RC/issues/13) → [#39 real protocol bots](https://github.com/oncoursemail/Metallic-RC/issues/39) → [#50 fleet stress and reliability](https://github.com/oncoursemail/Metallic-RC/issues/50). Simulated room-fixture tests alone cannot bypass this dependency.
 
 ## P0 — Architecture & developer platform
 
@@ -174,4 +176,4 @@ These do **not** count toward phase progress until converted into concrete issue
 - **At every milestone:** require a runnable vertical slice, regression suite, and recorded evidence, not just issue closure.
 - **At every release:** signed build and migration/recovery notes; announce only supported devices and verified features.
 
-[View all current issue tasks](https://github.com/oncoursemail/Metallic/issues) · [Live completion dashboard](PROGRESS.md) · [Architecture](ARCHITECTURE.md)
+[View all current issue tasks](https://github.com/oncoursemail/Metallic-RC/issues) · [Live completion dashboard](PROGRESS.md) · [Architecture](ARCHITECTURE.md)

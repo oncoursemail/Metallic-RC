@@ -1,0 +1,30 @@
+{
+  "recordedAtUtc": "2026-10-20T11:44:00.745775+00:00",
+  "sourceInputFingerprint": "7d652604d8488e8740891dced3fd0787cc4ef5917e221772ba3353c0b8407608",
+  "files": [
+    {
+      "runtime": "win-x64",
+      "path": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\packages\\Metallic-RC-0.2-tools-win-x64.zip",
+      "bytes": 98158674,
+      "sha256": "497c15815e14b0f96829e9ec55c982262f000c5df12644b961e02ccd99024c82",
+      "payloadFiles": 575,
+      "sourceCommit": "70c32244d17bdaef815749b5582306955f2187cb",
+      "sourceTreeDirty": false,
+      "manifestSha256": "9292c3799d772902ff4ddd883bdd3c009b045075e104bb70feba00f75db8d71a",
+      "packageBuildHost": "Windows Main",
+      "executionEvidence": "Native Windows acceptance and real imported profiles"
+    },
+    {
+      "runtime": "linux-x64",
+      "path": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\packages\\Metallic-RC-0.2-tools-linux-x64.tar.gz",
+      "bytes": 95195100,
+      "sha256": "e2214709c82fb267fa5fd947efcc1723b2836c550531b5583a6ec721bf12d8f4",
+      "payloadFiles": 571,
+      "sourceCommit": "70c32244d17bdaef815749b5582306955f2187cb",
+      "sourceTreeDirty": false,
+      "manifestSha256": "fefb7c376380e3f7476bdf274eefadae168bf31138b00453d2112a03bceaca61",
+      "packageBuildHost": "Windows Main",
+      "executionEvidence": "Exact uploaded archive downloaded and SHA256-verified, extracted and executed on Linux x86_64: all 571 payload hashes, packaged CLI and real localhost service smoke passed; owned service exited 0. See linux-uploaded-archive-verification.json."
+    }
+  ]
+}

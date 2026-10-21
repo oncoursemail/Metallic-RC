@@ -1,0 +1,28 @@
+{
+  "recordedAtUtc": "2026-10-20T11:51:30.115184+00:00",
+  "os": "Linux-6.18.55-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "archive": "Metallic-RC-0.2-tools-linux-x64.tar.gz",
+  "archiveBytes": 95195100,
+  "archiveSha256": "e2214709c82fb267fa5fd947efcc1723b2836c550531b5583a6ec721bf12d8f4",
+  "downloadedFromPrivateDraftRelease": true,
+  "sourceCommit": "70c32244d17bdaef815749b5582306955f2187cb",
+  "sourceTreeDirty": false,
+  "payloadFilesVerified": 571,
+  "launcherCli": {
+    "exitCode": 0,
+    "stdout": "[]",
+    "stderr": ""
+  },
+  "serviceSmoke": [
+    "health",
+    "workspace/capabilities",
+    "editor HTML",
+    "JavaScript",
+    "missing API 404"
+  ],
+  "ownedServiceExitCode": 0,
+  "ownedServiceStopped": true,
+  "gameClientExecuted": false,
+  "guiRerun": false
+}

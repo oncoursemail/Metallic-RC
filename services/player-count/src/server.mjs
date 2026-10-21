@@ -1,5 +1,5 @@
 /**
- * Metallic Studios — trusted player-count aggregator HTTP surface.
+ * Metallic-RC — trusted player-count aggregator HTTP surface.
  *
  * Minimal, dependency-free Node.js server around {@link PlayerCountAggregator}.
  * It is NOT deployed and does NOT receive real game telemetry yet: no

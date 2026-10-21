@@ -1,0 +1,329 @@
+{
+  "capturedAt": "2026-10-20T18:00:43.991214+00:00",
+  "root": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom",
+  "files": [
+    {
+      "relativePath": "GameAssembly.dll",
+      "size": 287903264,
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "prefix": "4d5a90000300000004000000ffff0000b8000000000000004000000000000000",
+      "sections": [
+        {
+          "name": ".text",
+          "rva": 4096,
+          "virtualSize": 13661364,
+          "rawOffset": 1024,
+          "rawSize": 13661696,
+          "sampleEntropy": 7.999802346900228
+        },
+        {
+          "name": "il2cpp",
+          "rva": 13668352,
+          "virtualSize": 181182620,
+          "rawOffset": 13662720,
+          "rawSize": 181182976,
+          "sampleEntropy": 7.999806351414818
+        },
+        {
+          "name": ".rdata",
+          "rva": 194854912,
+          "virtualSize": 64694218,
+          "rawOffset": 194845696,
+          "rawSize": 64694272,
+          "sampleEntropy": 1.8054032385796603
+        },
+        {
+          "name": ".data",
+          "rva": 259551232,
+          "virtualSize": 16124880,
+          "rawOffset": 259539968,
+          "rawSize": 12994560,
+          "sampleEntropy": 3.9410003094297616
+        },
+        {
+          "name": ".pdata",
+          "rva": 275677184,
+          "virtualSize": 9258672,
+          "rawOffset": 272534528,
+          "rawSize": 9259008,
+          "sampleEntropy": 6.587395302753384
+        },
+        {
+          "name": ".reloc",
+          "rva": 284938240,
+          "virtualSize": 6099588,
+          "rawOffset": 281793536,
+          "rawSize": 6099968,
+          "sampleEntropy": 5.439208683465873
+        }
+      ]
+    },
+    {
+      "relativePath": "RecRoom.exe",
+      "size": 672800,
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "prefix": "4d5a90000300000004000000ffff0000b8000000000000004000000000000000",
+      "sections": [
+        {
+          "name": ".text",
+          "rva": 4096,
+          "virtualSize": 48352,
+          "rawOffset": 1024,
+          "rawSize": 48640,
+          "sampleEntropy": 7.99134043267343
+        },
+        {
+          "name": ".rdata",
+          "rva": 53248,
+          "virtualSize": 38714,
+          "rawOffset": 49664,
+          "rawSize": 38912,
+          "sampleEntropy": 4.470689336734693
+        },
+        {
+          "name": ".data",
+          "rva": 94208,
+          "virtualSize": 5824,
+          "rawOffset": 88576,
+          "rawSize": 3072,
+          "sampleEntropy": 1.8973350284688746
+        },
+        {
+          "name": ".pdata",
+          "rva": 102400,
+          "virtualSize": 3576,
+          "rawOffset": 91648,
+          "rawSize": 3584,
+          "sampleEntropy": 4.818807485850989
+        },
+        {
+          "name": ".fptable",
+          "rva": 106496,
+          "virtualSize": 256,
+          "rawOffset": 95232,
+          "rawSize": 512,
+          "sampleEntropy": -0.0
+        },
+        {
+          "name": ".rsrc",
+          "rva": 110592,
+          "virtualSize": 565248,
+          "rawOffset": 95744,
+          "rawSize": 565248,
+          "sampleEntropy": 6.380928814491704
+        },
+        {
+          "name": ".reloc",
+          "rva": 675840,
+          "virtualSize": 1620,
+          "rawOffset": 660992,
+          "rawSize": 2048,
+          "sampleEntropy": 4.853399622002653
+        }
+      ]
+    },
+    {
+      "relativePath": "Recroom_Release.exe",
+      "size": 1055776,
+      "sha256": "0e5b80fd7483c00001fbc899b5c3dce3f3102d0b8c2b9a8f5bd04d052a7bda39",
+      "prefix": "4d5a90000300000004000000ffff0000b8000000000000004000000000000000",
+      "sections": [
+        {
+          "name": ".text",
+          "rva": 4096,
+          "virtualSize": 183892,
+          "rawOffset": 1024,
+          "rawSize": 184320,
+          "sampleEntropy": 6.50528149949481
+        },
+        {
+          "name": ".rdata",
+          "rva": 188416,
+          "virtualSize": 71478,
+          "rawOffset": 185344,
+          "rawSize": 71680,
+          "sampleEntropy": 4.959406593367115
+        },
+        {
+          "name": ".data",
+          "rva": 262144,
+          "virtualSize": 13136,
+          "rawOffset": 257024,
+          "rawSize": 5632,
+          "sampleEntropy": 3.0501027459945527
+        },
+        {
+          "name": ".pdata",
+          "rva": 278528,
+          "virtualSize": 9288,
+          "rawOffset": 262656,
+          "rawSize": 9728,
+          "sampleEntropy": 5.242135975378429
+        },
+        {
+          "name": "_RDATA",
+          "rva": 290816,
+          "virtualSize": 500,
+          "rawOffset": 272384,
+          "rawSize": 512,
+          "sampleEntropy": 4.22209575641445
+        },
+        {
+          "name": ".rsrc",
+          "rva": 294912,
+          "virtualSize": 770224,
+          "rawOffset": 272896,
+          "rawSize": 770560,
+          "sampleEntropy": 7.438036879672199
+        },
+        {
+          "name": ".reloc",
+          "rva": 1069056,
+          "virtualSize": 2512,
+          "rawOffset": 1043456,
+          "rawSize": 2560,
+          "sampleEntropy": 5.502313485837002
+        }
+      ]
+    },
+    {
+      "relativePath": "Referee.dll",
+      "size": 63516208,
+      "sha256": "5868c90a7c67757f3b678aa356cbd933d646c9749e0acaa31b7dcc9eaee12ead",
+      "prefix": "4d5a90000300000004000000ffff0000b8000000000000004000000000000000",
+      "sections": [
+        {
+          "name": "        ",
+          "rva": 4096,
+          "virtualSize": 40919844,
+          "rawOffset": 1536,
+          "rawSize": 5127680,
+          "sampleEntropy": 7.966087747654128
+        },
+        {
+          "name": "        ",
+          "rva": 40927232,
+          "virtualSize": 2301150,
+          "rawOffset": 5129216,
+          "rawSize": 821248,
+          "sampleEntropy": 7.8706626734375815
+        },
+        {
+          "name": "        ",
+          "rva": 43229184,
+          "virtualSize": 70106726,
+          "rawOffset": 5950464,
+          "rawSize": 52878336,
+          "sampleEntropy": 7.999818585479513
+        },
+        {
+          "name": "        ",
+          "rva": 113336320,
+          "virtualSize": 487188,
+          "rawOffset": 58828800,
+          "rawSize": 253440,
+          "sampleEntropy": 7.673524945107552
+        },
+        {
+          "name": "        ",
+          "rva": 113823744,
+          "virtualSize": 500,
+          "rawOffset": 59082240,
+          "rawSize": 512,
+          "sampleEntropy": 4.596245440701277
+        },
+        {
+          "name": "        ",
+          "rva": 113827840,
+          "virtualSize": 1296,
+          "rawOffset": 59082752,
+          "rawSize": 1024,
+          "sampleEntropy": 5.341896741447332
+        },
+        {
+          "name": "        ",
+          "rva": 113831936,
+          "virtualSize": 114580,
+          "rawOffset": 59083776,
+          "rawSize": 18432,
+          "sampleEntropy": 7.628379182482121
+        },
+        {
+          "name": ".edata",
+          "rva": 113946624,
+          "virtualSize": 4096,
+          "rawOffset": 59102208,
+          "rawSize": 512,
+          "sampleEntropy": 0.9989708937259321
+        },
+        {
+          "name": ".idata",
+          "rva": 113950720,
+          "virtualSize": 4096,
+          "rawOffset": 59102720,
+          "rawSize": 512,
+          "sampleEntropy": 2.3475138148066526
+        },
+        {
+          "name": ".tls",
+          "rva": 113954816,
+          "virtualSize": 4096,
+          "rawOffset": 59103232,
+          "rawSize": 512,
+          "sampleEntropy": 0.28456851570206254
+        },
+        {
+          "name": ".rsrc",
+          "rva": 113958912,
+          "virtualSize": 4096,
+          "rawOffset": 59103744,
+          "rawSize": 1536,
+          "sampleEntropy": 3.7524138993281158
+        },
+        {
+          "name": ".themida",
+          "rva": 113963008,
+          "virtualSize": 7168000,
+          "rawOffset": 59105280,
+          "rawSize": 0,
+          "sampleEntropy": null
+        },
+        {
+          "name": ".boot",
+          "rva": 121131008,
+          "virtualSize": 4401152,
+          "rawOffset": 59105280,
+          "rawSize": 4401152,
+          "sampleEntropy": 7.940307941654249
+        },
+        {
+          "name": ".reloc",
+          "rva": 125534208,
+          "virtualSize": 4096,
+          "rawOffset": 63506432,
+          "rawSize": 16,
+          "sampleEntropy": 2.73345859334435
+        }
+      ]
+    },
+    {
+      "relativePath": "RecRoom_Data/il2cpp_data/Metadata/global-metadata.dat",
+      "size": 52403096,
+      "sha256": "01ab66ca50a00960c555abe9a646401b7f37838c67bb654f9831f7bdc34ec62e",
+      "prefix": "5252525252525252525252525252525252525252525252525252525252525252",
+      "allBytes0x52": true
+    },
+    {
+      "relativePath": "RecRoom_Data/globalgamemanagers",
+      "size": 8819716,
+      "sha256": "f69a1f338a5feadb5f46d23b2ebf57a37d79fd44318c8264bca6f654abe8082a",
+      "prefix": "0000525200005252e8242c478162dfed75572e7bb49a4bc4d4b0d8efe3b5bca3"
+    },
+    {
+      "relativePath": "RecRoom_Data/ScriptingAssemblies.json",
+      "size": 18725,
+      "sha256": "6a011fe3742744bb44e1480ca609ebdda2968c19f9f288017e1b6532d3dfdb56",
+      "prefix": "000052520000525239722855ce3b2f6942d6f4fc4da3dac17836f637804e8b67"
+    }
+  ]
+}

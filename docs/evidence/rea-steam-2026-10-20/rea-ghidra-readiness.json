@@ -1,0 +1,179 @@
+{
+  "healthy": true,
+  "scope": {
+    "mode": "explicit",
+    "clients": [],
+    "providers": [
+      "ghidra"
+    ],
+    "skill": false,
+    "target": null
+  },
+  "scope_checks": [
+    {
+      "name": "node",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "26.11.1",
+      "details": {
+        "runtime": "node",
+        "version": "26.11.1"
+      }
+    },
+    {
+      "name": "ghidra",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC"
+    },
+    {
+      "name": "ghidra-platform",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "win32"
+    },
+    {
+      "name": "ghidra-architecture",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "x64"
+    },
+    {
+      "name": "ghidra-installation",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC\\Ghidra\\application.properties"
+    },
+    {
+      "name": "ghidra-version",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "12.1.4"
+    },
+    {
+      "name": "ghidra-headless",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC\\support\\analyzeHeadless.bat"
+    },
+    {
+      "name": "ghidra-native_decompiler",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC\\Ghidra\\Features\\Decompiler\\os\\win_x86_64\\decompile.exe reports pe x86_64, which matches win32/x64"
+    },
+    {
+      "name": "ghidra-java",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "21.0.12.1; 64-bit; JDK; C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\jdk-21.0.12.1+1; accepted a 64-bit full JDK 21 or newer"
+    },
+    {
+      "name": "ghidra-native_authority",
+      "ok": true,
+      "classification": "healthy",
+      "detail": "Verified Windows native Job Object, private DACL, and reparse-safe handle controls; local NTFS only."
+    }
+  ],
+  "providerInspections": [
+    {
+      "id": "ghidra",
+      "configured": true,
+      "available": true,
+      "providerVersion": "12.1.4",
+      "registrationEnvironment": {
+        "GHIDRA_INSTALL_DIR": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC",
+        "JAVA_HOME": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\jdk-21.0.12.1+1"
+      },
+      "checks": [
+        {
+          "name": "configuration",
+          "ok": true,
+          "code": null,
+          "detail": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC",
+          "remediation": null,
+          "classification": "config_drift"
+        },
+        {
+          "name": "platform",
+          "ok": true,
+          "code": null,
+          "detail": "win32",
+          "remediation": null,
+          "classification": "unsupported_host"
+        },
+        {
+          "name": "architecture",
+          "ok": true,
+          "code": null,
+          "detail": "x64",
+          "remediation": null,
+          "classification": "unsupported_host"
+        },
+        {
+          "name": "installation",
+          "ok": true,
+          "code": null,
+          "detail": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC\\Ghidra\\application.properties",
+          "remediation": null,
+          "classification": "config_drift"
+        },
+        {
+          "name": "version",
+          "ok": true,
+          "code": null,
+          "detail": "12.1.4",
+          "remediation": null,
+          "classification": "config_drift"
+        },
+        {
+          "name": "headless",
+          "ok": true,
+          "code": null,
+          "detail": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC\\support\\analyzeHeadless.bat",
+          "remediation": null,
+          "classification": "config_drift"
+        },
+        {
+          "name": "native_decompiler",
+          "ok": true,
+          "code": null,
+          "detail": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\ghidra_12.1.4_PUBLIC\\Ghidra\\Features\\Decompiler\\os\\win_x86_64\\decompile.exe reports pe x86_64, which matches win32/x64",
+          "remediation": null,
+          "classification": "config_drift"
+        },
+        {
+          "name": "java",
+          "ok": true,
+          "code": null,
+          "detail": "21.0.12.1; 64-bit; JDK; C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\tooling\\rea-native\\jdk-21.0.12.1+1; accepted a 64-bit full JDK 21 or newer",
+          "remediation": null,
+          "classification": "config_drift"
+        },
+        {
+          "name": "native_authority",
+          "ok": true,
+          "code": null,
+          "detail": "Verified Windows native Job Object, private DACL, and reparse-safe handle controls; local NTFS only.",
+          "remediation": null,
+          "classification": "unsupported_host"
+        }
+      ]
+    }
+  ],
+  "identity": {
+    "cli_package_version": "6.5.0",
+    "catalog": {
+      "counts": {
+        "cli_commands": 153,
+        "mcp_tools": 207,
+        "mcp_prompts": 6
+      },
+      "digests": {
+        "tools_sha256": "805433f17bb4f709558ff20c04f96fe561fca2938fd0f459b1f8cc0f6b438ded",
+        "prompts_sha256": "7152916ab48bd2a9677a5ad9cdbde0a51dc53c113934952ad096e93f5f18aa7e",
+        "combined_sha256": "405725e736ec8dc8483435b970acbf20f9f26b9f1fd25203b992f5ab4cd2a4f4"
+      }
+    }
+  }
+}

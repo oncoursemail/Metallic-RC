@@ -1,0 +1,12 @@
+test_literal_data_range_validation (test_inspect_metadata_candidate.ValidationTests.test_literal_data_range_validation) ... ok
+test_partial_capture_refused (test_inspect_metadata_candidate.ValidationTests.test_partial_capture_refused) ... ok
+test_permuted_individual_ints (test_inspect_metadata_candidate.ValidationTests.test_permuted_individual_ints) ... ok
+test_search_limit_does_not_claim_complete (test_inspect_metadata_candidate.ValidationTests.test_search_limit_does_not_claim_complete) ... ok
+test_string_bounds_and_unicode (test_inspect_metadata_candidate.ValidationTests.test_string_bounds_and_unicode) ... ok
+test_uniform_R_has_no_metadata (test_inspect_metadata_candidate.ValidationTests.test_uniform_R_has_no_metadata) ... ok
+test_wrong_length_is_not_accepted (test_inspect_metadata_candidate.ValidationTests.test_wrong_length_is_not_accepted) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.216s
+
+OK

@@ -1,0 +1,7 @@
+{
+  "shortcut": "C:\\Users\\alexi\\OneDrive\\Desktop\\Metallic-RC Launcher.lnk",
+  "target": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\desktop-win-x64\\Metallic.RC.Launcher.exe",
+  "arguments": "ui",
+  "source": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\source",
+  "sourceCommit": "70c32244d17bdaef815749b5582306955f2187cb"
+}
