@@ -1,3 +1,5 @@
+> **Later checkpoint:** native types/generics, typed C# declarations, conservative leaf-body translations, and syntax-checked source are recorded in [the C# reconstruction report](CSHARP_RECONSTRUCTION_2026-10-21.md). The original capture results below remain historical evidence.
+
 # Steam Rec Room: stable metadata and native-code recovery
 
 **Observed on Main, 20 October 2026.** Status: normalized IL2CPP metadata passes an independent upstream parser; captured native code is restored for offline analysis, and all metadata methods have a pointer-table disposition. This is not original C# source, a complete Unity project, a runnable recompiled game, or a finished Metallic-RC server.

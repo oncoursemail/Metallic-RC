@@ -1,0 +1,154 @@
+{
+  "status": "partial_csharp_reconstruction_verified",
+  "completedUtc": "2026-10-21T00:16:50.867779+00:00",
+  "buildId": "23191908",
+  "sourceCaptureSha256": "8f69ea448097cfffb3e3a4e61eb92981db99c14c3e1fbaba572afbaf8a63a732",
+  "normalizedMetadataSha256": "d675ea92bfb0086c0238e56702e91413fcc663c81fce364253749edbf6fcec9f",
+  "nativeTypeCount": 201385,
+  "genericClasses": 78758,
+  "genericInstantiations": 113837,
+  "genericArgumentCount": 235870,
+  "genericMethodSpecifications": 1275652,
+  "genericMethodTableRows": 1124806,
+  "fieldOffsetStates": {
+    "concrete": 252884,
+    "sentinel": 44
+  },
+  "referenceStructure": {
+    "status": "typed_csharp_reference_reconstructed",
+    "nativeTypes": 201385,
+    "images": 419,
+    "types": 63648,
+    "methods": 409503,
+    "fields": 252928,
+    "parameters": 373383,
+    "nonNullNativeMethodEntries": 367865,
+    "explicitThrowStubs": 381743,
+    "bodylessMethods": 27760,
+    "upstreamCommit": "4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a",
+    "nativeVersion": 31,
+    "inputBytesUnchanged": true,
+    "targetExecuted": false,
+    "completeGameRebuild": false,
+    "methodBodiesRecovered": 0,
+    "limits": [
+      "Readable declarations and reference assemblies are not recovered gameplay logic.",
+      "Each generated concrete body throws explicitly; abstract/external methods remain bodyless.",
+      "Original symbols may be obfuscated. C# syntax in the declaration dump is for inspection, not a buildable Unity project."
+    ]
+  },
+  "leafReconstruction": {
+    "status": "partial_managed_leaf_reconstruction",
+    "allMethods": 409503,
+    "allTypes": 63648,
+    "allFields": 252928,
+    "proofsIndependentlyDecodedByIced": 28082,
+    "emittedLeafBodies": 27302,
+    "unrecoveredConcreteThrowBodies": 354441,
+    "bodylessMethods": 27760,
+    "syntheticManagedChecks": 76,
+    "allOutputMethodsReadBack": true,
+    "inputFilesUnchanged": true,
+    "nativeCodeExecuted": false,
+    "gameAssembliesExecuted": false,
+    "fullGameRebuild": false,
+    "limits": [
+      "Only exact typed branch/call-free leaf operations are reconstructed, not full gameplay.",
+      "Synthetic checks exercise emitted operation families; they do not prove every recovered method under game concurrency, exceptional inputs or other platforms.",
+      "C# output is generated from reconstructed managed IL. It is not the original developer source."
+    ],
+    "skippedReasons": {
+      "readonly_or_literal_field": 780
+    },
+    "skippedCount": 780
+  },
+  "byteCoverage": {
+    "nativeBytes": 287903264,
+    "metadataBytes": 52403096,
+    "totalBytes": 340306360,
+    "gaps": 0,
+    "allSemanticsUnderstood": false
+  },
+  "methodEntriesWithRecoveredLeafBodies": 27302,
+  "distinctRecoveredNativeByteSpans": 1900,
+  "unionRecoveredLeafInstructionBytes": 13421,
+  "sourceExport": {
+    "files": 419,
+    "bytes": 145020870,
+    "escapedInvalidIdentifiers": true,
+    "syntaxErrors": 0,
+    "syntaxParser": "5.9.0.0",
+    "semanticCompilationPerformed": false,
+    "fullGameBuildPerformed": false
+  },
+  "initialSourceDiagnostics": {
+    "filesWithErrors": 203,
+    "syntaxErrors": 210579,
+    "fix": "ILSpy EscapeInvalidIdentifiers AST transform; original metadata names/tokens retained separately."
+  },
+  "nativeFlowAudit": {
+    "sourceSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+    "unwindTableEntries": 771556,
+    "admittedUniqueRanges": 771556,
+    "unionRangeBytes": 189189243,
+    "instructions": 44556578,
+    "invalidInstructions": 14763,
+    "rangesWithInvalid": 4204,
+    "directCalls": 5768162,
+    "outOfRangeJumpCandidates": 179841,
+    "indirectCalls": 285650,
+    "indirectJumps": 23276,
+    "conditionalBranches": 3952607,
+    "limits": [
+      "PE unwind entries are compiler-provided ranges, not one-to-one original C# methods.",
+      "Linear disassembly inside an admitted range does not establish all instructions are reachable or all bytes are code.",
+      "Overlapping ranges can repeat listed-byte/instruction counts; unionRangeBytes removes interval overlap.",
+      "Direct targets are observed static operands. Indirect targets remain unresolved; an out-of-range jump is not automatically a proven tail call.",
+      "Leaf functions without unwind entries and all semantic reconstruction outside admitted ranges remain separate work."
+    ]
+  },
+  "portablePatternTests": {
+    "status": "passed",
+    "cases": 35,
+    "requiresGameFiles": false,
+    "matcherSha256": "9f732869db76088303c66719a985c82587cca1ca52ad4f03105981f6a7fbf701",
+    "matchesExecutedAnalysisSource": true
+  },
+  "originalFilesAfter": [
+    {
+      "copy": "installed",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "matchesExpected": true
+    },
+    {
+      "copy": "installed",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "matchesExpected": true
+    },
+    {
+      "copy": "fresh",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "matchesExpected": true
+    },
+    {
+      "copy": "fresh",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "matchesExpected": true
+    }
+  ],
+  "upstreamCheckoutUnmodified": true,
+  "noGameOrNativeTargetExecuted": true,
+  "unchangedSystemSettings": true,
+  "codeLanguageDecision": "C# for the managed reconstruction; native C++/Rust components only as explicit future implementation choices, not a performance claim.",
+  "remaining": [
+    "354441 concrete method bodies remain explicit NotSupportedException stubs.",
+    "27760 abstract/external methods remain bodyless.",
+    "Complex control-flow recovery, calls, generics, concurrency and native-engine integration remain unverified.",
+    "Generated syntax acceptance does not establish successful source compilation, original-name binding, serialization compatibility or a working Unity project.",
+    "Runtime tests and real owned-backend login/room synchronization are still required."
+  ]
+}

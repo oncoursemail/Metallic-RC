@@ -1,0 +1,17 @@
+Il2CppDumper-source/
+**/bin/
+**/obj/
+**/__pycache__/
+verified-native/
+typed-reference*/
+partial-csharp/
+leaf-bodies/
+native-flow/
+CSharp.*/
+verification/
+*.dll
+*.bin
+*.dat
+*.jsonl
+*.csv
+*.zip

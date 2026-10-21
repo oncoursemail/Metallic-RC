@@ -1,0 +1,117 @@
+[
+  {
+    "path": ".gitignore",
+    "bytes": 192,
+    "sha256": "ec26aeaea185044c2f1e228d597a060c990616579202577762d82fea0dfbcd6a"
+  },
+  {
+    "path": "analyze_leaf_bodies.py",
+    "bytes": 8656,
+    "sha256": "49e0fdec9aef5898613e8e0a1fd6b2019bc33275653c918e82198e225586c96c"
+  },
+  {
+    "path": "bootstrap-upstream.ps1",
+    "bytes": 1055,
+    "sha256": "0d45ab9a619637e9595195162138fa1714a6dfe7c2d72f0a70e5f9d3e5f66412"
+  },
+  {
+    "path": "CSharpExporter/CSharpExporter.csproj",
+    "bytes": 372,
+    "sha256": "21521cc627c11875559817d5d886ecc71d202e00098792b94c22294edec0cf54"
+  },
+  {
+    "path": "CSharpExporter/packages.lock.json",
+    "bytes": 323,
+    "sha256": "a115aa36e20798e91368ad7ae75c5591d087a8e093322351329a998af77c61f5"
+  },
+  {
+    "path": "CSharpExporter/Program.cs",
+    "bytes": 4044,
+    "sha256": "ef1363c1278c7cd6a41aca36aa67b7e311a733a44c7d04527e814a8ed1041f87"
+  },
+  {
+    "path": "global.json",
+    "bytes": 55,
+    "sha256": "d1bb820bf074027be921b263729d1fba343d34328f0c4b7484d10162287c059e"
+  },
+  {
+    "path": "leaf_instruction_patterns.py",
+    "bytes": 1689,
+    "sha256": "636d610ee76f3462bc5c33dc7a78181bfb0eb5b122a88c17ac87ec953e7f6cf7"
+  },
+  {
+    "path": "LeafEmitter/LeafEmitter.csproj",
+    "bytes": 480,
+    "sha256": "ed5ff1235cf31d9d08dc6a7c6e4f14f80f29d4eb065788cb4595e848d1ac7dd5"
+  },
+  {
+    "path": "LeafEmitter/packages.lock.json",
+    "bytes": 789,
+    "sha256": "da6a2cbd80ad2b7d7b853a91ab610302d0dd6ccc16fb92c8efd536d74855d462"
+  },
+  {
+    "path": "LeafEmitter/Program.cs",
+    "bytes": 14699,
+    "sha256": "ec4d83676dad58e7ea427132cfa264952e67f61862547250cc77858eaf12ef64"
+  },
+  {
+    "path": "NativeFlowAudit/NativeFlowAudit.csproj",
+    "bytes": 349,
+    "sha256": "7d09d8689d7bdac3b5dfd8dd91bc47ea21dbea8cc77ce2371f01bf9b271fb2e8"
+  },
+  {
+    "path": "NativeFlowAudit/packages.lock.json",
+    "bytes": 295,
+    "sha256": "c2c0522eb054e3805b78b8bdecb6a26369d0fc745e4b55c1e576b73273e234f8"
+  },
+  {
+    "path": "NativeFlowAudit/Program.cs",
+    "bytes": 9089,
+    "sha256": "7d1314b8f3adaac3a0e4ba3711323dab79bc61b5aedb320ce8f8f454a1a0a0a1"
+  },
+  {
+    "path": "README.md",
+    "bytes": 3969,
+    "sha256": "d57eb8dd3f8f62018ec4fa0b33145afebd8f6e2d516321814f26f995f63d9c2a"
+  },
+  {
+    "path": "recover_native_registration.py",
+    "bytes": 10633,
+    "sha256": "11e19e4565041a6f5ec7d2f1377641f473f3cc556593b63882af7c0bfeb1eb23"
+  },
+  {
+    "path": "RecoveryHost/packages.lock.json",
+    "bytes": 301,
+    "sha256": "3c1daac1d61ff82d5a2b7a35333a80ffd61408b5f3d5576451a59b3298e0ca23"
+  },
+  {
+    "path": "RecoveryHost/Program.cs",
+    "bytes": 14152,
+    "sha256": "de2d425c0874219d7eb4ed6e5da7bb6587bd3c454440622b384b50a30acdcb71"
+  },
+  {
+    "path": "RecoveryHost/RecoveryHost.csproj",
+    "bytes": 936,
+    "sha256": "072382467f9e4306d9c33a1724b2ebdeb8e2d3905eaa50465351b8f216a63d1a"
+  },
+  {
+    "path": "SyntaxCheck/Program.cs",
+    "bytes": 2179,
+    "sha256": "c5967ab43109ef3ca06610c4b21757869715416a3929ccd22e30d023672843d2"
+  },
+  {
+    "path": "SyntaxCheck/SyntaxCheck.csproj",
+    "bytes": 529,
+    "sha256": "85508131ed08d1bd179620f539d6c773ee4b3071a2da6e7fb6610ff096989afa"
+  },
+  {
+    "path": "test_leaf_instruction_patterns.py",
+    "bytes": 737,
+    "sha256": "32c65c3c9637d681b8ba8c3acd73488a1dbd00b867eed439d39743802c58dd57"
+  },
+  {
+    "path": "verify_coverage.py",
+    "bytes": 6151,
+    "sha256": "12e7696a54fadb8590e9b316ab829cf851640c40ee84860deb6c4835eb2ea175"
+  }
+]
