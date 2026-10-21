@@ -1,0 +1,16 @@
+{
+  "gameLaunched": false,
+  "version": "17.24.3",
+  "jobMembershipVerified": true,
+  "realNativeCancellationSeconds": 0.21,
+  "status": "real_frida_fixture_passed",
+  "attachPassed": true,
+  "networkGuards": {
+    "localService": "metallic-rc-backend",
+    "external": 10013,
+    "otherLocalPort": 10013,
+    "dns": 11001
+  },
+  "ownedPid": 23948,
+  "agentSha256": "5be105ac790bb1df46e32b3a1a422b0c65cfaf25dae91971e0e996d425dee320"
+}

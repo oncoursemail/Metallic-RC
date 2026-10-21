@@ -7,8 +7,10 @@ function event(kind, details = {}) {
   if (eventCount++ < 512) send({kind, timeMs:Date.now(), ...details});
 }
 function failure(scope, error) {
+  if (stopped) return;
   stopped = true;
-  event('agent_failure', {scope, error:String(error).slice(0,160)});
+  // One failure must remain observable even after ordinary diagnostics hit their cap.
+  send({kind:'agent_failure', timeMs:Date.now(), scope, error:String(error).slice(0,160)});
 }
 function isAllowedSocket(address, length) {
   if (address.isNull() || length < 8) return false;
