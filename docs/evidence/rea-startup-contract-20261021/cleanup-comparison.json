@@ -1,0 +1,28 @@
+{
+  "status": "omitted_cleanup_block_differential_passed",
+  "cases": 2048,
+  "mismatches": 0,
+  "returnCases": 1024,
+  "propagationBoundaryCases": 1024,
+  "guestInstructions": 20480,
+  "exactCleanupLeafBytes": "c20000",
+  "cleanupType": "System.Collections.Generic.List<System.Action>.Enumerator.Dispose",
+  "cleanupBlockRva": "0x94837d4",
+  "propagationStopRva": "0xc3c3b0",
+  "negativeControls": {
+    "skip-cleanup": 2048,
+    "drop-error": 1024
+  },
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "sourceBlockBytes": 62,
+  "sourceBlockSha256": "37f9a91c8755b91299411b4cba0ee154cfac9ce3ee3f3ed211bb7fd1ce38d7b2",
+  "nativeErrorDispatcherExecuted": false,
+  "nativeUnwindSemanticsEstablished": false,
+  "gameExecuted": false,
+  "createdUtc": "2026-10-21T02:28:45.349265+00:00",
+  "limits": [
+    "Starts at the observed cleanup entry with synthetic saved stack state; does not prove OS dispatch into that entry.",
+    "The actual three-byte Dispose leaf and cleanup branch run in the CPU emulator; the propagation implementation is intentionally not executed.",
+    "Exact saved exception pointer, cleanup-before-forward ordering and normal epilogue are checked, not full original exception class or asynchronous state-machine equivalence."
+  ]
+}

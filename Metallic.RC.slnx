@@ -5,4 +5,6 @@
   <Project Path="src/Metallic.RC.Platform/Metallic.RC.Platform.csproj" />
   <Project Path="tests/Metallic.RC.Core.Tests/Metallic.RC.Core.Tests.csproj" />
   <Project Path="tests/Metallic.RC.Platform.Tests/Metallic.RC.Platform.Tests.csproj" />
+  <Project Path="src/Metallic.RC.Compatibility/Metallic.RC.Compatibility.csproj" />
+  <Project Path="tests/Metallic.RC.Compatibility.Tests/Metallic.RC.Compatibility.Tests.csproj" />
 </Solution>

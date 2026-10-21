@@ -11,6 +11,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Metallic.RC.Core/Metallic.RC.Core.csproj" />
+    <ProjectReference Include="../Metallic.RC.Compatibility/Metallic.RC.Compatibility.csproj" />
     <PackageReference Include="Avalonia" Version="11.3.22" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />

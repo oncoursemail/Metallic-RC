@@ -1,0 +1,49 @@
+{
+  "status": "startup_contract_implemented_and_integrated",
+  "createdUtc": "2026-10-21T02:41:29.239421+00:00",
+  "buildId": "23191908",
+  "baseCommit": "0bbeee920031784969cdbe8d00a2c2e1f6b7028c",
+  "canonicalResponseFields": 32,
+  "registeredInputAliases": 76,
+  "formatterComparisonCases": 2474,
+  "formatterMismatches": 0,
+  "cleanupBoundaryCases": 2048,
+  "cleanupMismatches": 0,
+  "managedSelfTestCases": 570,
+  "managedSelfTestAssertions": 4996,
+  "loopbackHttpRequests": 4,
+  "launcherCliChecks": 10,
+  "coreRegressionChecks": 18,
+  "platformRegressionAssertions": 101,
+  "solutionBuildWarnings": 0,
+  "solutionBuildErrors": 0,
+  "realClientConnected": false,
+  "originalSteamFilesUnchanged": true,
+  "earlierUnknownGameBodiesNotClaimedRecovered": true,
+  "nativeExecutionBoundary": "Captured snippets evaluated only inside the bounded CPU emulator; runtime/parser callbacks remain modeled and native exception propagation is a stop boundary.",
+  "lineEndingNormalization": [
+    {
+      "file": "src/Metallic.RC.Compatibility/packages.lock.json",
+      "beforeSha256": "865f22cdea4c197d3756a069bf389ff60be708d309c6e540576d68c5b9314c05",
+      "afterSha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792",
+      "onlyLineEndingsChanged": true
+    },
+    {
+      "file": "tests/Metallic.RC.Compatibility.Tests/packages.lock.json",
+      "beforeSha256": "813798dda9516b28dd0cb90ac49a47906e3d2146ea5e85212db8e8df96de7d2e",
+      "afterSha256": "395a35ff6747a0286c95b1201d33db90600b6b277792516594d4d7b8c528576e",
+      "onlyLineEndingsChanged": true
+    }
+  ],
+  "codeLocations": [
+    "src/Metallic.RC.Compatibility",
+    "tests/Metallic.RC.Compatibility.Tests",
+    "src/Metallic.RC.Launcher/DiscoveryCheck.cs"
+  ],
+  "remaining": [
+    "Original client startup/login against an owned service has not been tested.",
+    "Complete transport/retry/async behavior and native OS exception dispatch remain unimplemented.",
+    "Full original parser/URI/GC equivalence and arbitrary escaped/malformed input parity are not established.",
+    "No full rebuilt game, gameplay/server release or VR/device acceptance is claimed."
+  ]
+}

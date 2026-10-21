@@ -90,6 +90,11 @@ public static class Program
     private static async Task<int> RunCliAsync(List<string> args)
     {
         var command = args[0]; args.RemoveAt(0);
+        if (command == "check-discovery")
+        {
+            var buildId = TakeOption(args, "--build-id") ?? Metallic.RC.Compatibility.DiscoveryContract.SteamBuildId;
+            return await DiscoveryCheck.RunAsync(One(args), buildId);
+        }
         var catalog = new LauncherCatalog(StateDirectory);
         switch (command)
         {
@@ -101,6 +106,7 @@ public static class Program
                     ui [--state-dir DIRECTORY]
                     discover
                     inspect DIRECTORY
+                    check-discovery JSON_FILE [--build-id 23191908]
                     import DIRECTORY --name NAME [--launcher EXE] [--replace]
                     list
                     verify ID
