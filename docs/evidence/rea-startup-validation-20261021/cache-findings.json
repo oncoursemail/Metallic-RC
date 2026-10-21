@@ -1,0 +1,410 @@
+{
+  "status": "reverse_service_bindings_and_generic_candidates_checked",
+  "reverseBindingCount": 31,
+  "reverseBindingEvidenceId": "ev_a38acfc633b193a5644a57cad16ffe0c4cb05a2970dbff1c4bd42b7df36db4ef",
+  "rows": [
+    {
+      "serviceId": 0,
+      "name": "AI",
+      "fieldOffset": 24,
+      "lookupCall": "0x18948777a",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x18948779f"
+    },
+    {
+      "serviceId": 1,
+      "name": "Auth",
+      "fieldOffset": 32,
+      "lookupCall": "0x1894877d2",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x1894877ee"
+    },
+    {
+      "serviceId": 2,
+      "name": "API",
+      "fieldOffset": 40,
+      "lookupCall": "0x189487821",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x18948783d"
+    },
+    {
+      "serviceId": 3,
+      "name": "Commerce",
+      "fieldOffset": 80,
+      "lookupCall": "0x189487870",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x18948788c"
+    },
+    {
+      "serviceId": 4,
+      "name": "Matchmaking",
+      "fieldOffset": 88,
+      "lookupCall": "0x1894878bf",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x1894878db"
+    },
+    {
+      "serviceId": 5,
+      "name": "Notifications",
+      "fieldOffset": 56,
+      "lookupCall": "0x18948790e",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x18948792a"
+    },
+    {
+      "serviceId": 6,
+      "name": "Images",
+      "fieldOffset": 64,
+      "lookupCall": "0x18948795d",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487979"
+    },
+    {
+      "serviceId": 7,
+      "name": "CDN",
+      "fieldOffset": 72,
+      "lookupCall": "0x1894879ac",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x1894879c8"
+    },
+    {
+      "serviceId": 8,
+      "name": "Storage",
+      "fieldOffset": 96,
+      "lookupCall": "0x1894879fb",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487a17"
+    },
+    {
+      "serviceId": 9,
+      "name": "Chat",
+      "fieldOffset": 104,
+      "lookupCall": "0x189487a4a",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487a66"
+    },
+    {
+      "serviceId": 10,
+      "name": "Leaderboard",
+      "fieldOffset": 112,
+      "lookupCall": "0x189487a99",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487ab5"
+    },
+    {
+      "serviceId": 11,
+      "name": "Accounts",
+      "fieldOffset": 120,
+      "lookupCall": "0x189487ae8",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487b04"
+    },
+    {
+      "serviceId": 12,
+      "name": "Link",
+      "fieldOffset": 128,
+      "lookupCall": "0x189487b37",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487b56"
+    },
+    {
+      "serviceId": 13,
+      "name": "Lists",
+      "fieldOffset": 136,
+      "lookupCall": "0x189487b8c",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487bab"
+    },
+    {
+      "serviceId": 14,
+      "name": "RoomComments",
+      "fieldOffset": 144,
+      "lookupCall": "0x189487be1",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487c00"
+    },
+    {
+      "serviceId": 15,
+      "name": "Clubs",
+      "fieldOffset": 152,
+      "lookupCall": "0x189487c36",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487c55"
+    },
+    {
+      "serviceId": 16,
+      "name": "Rooms",
+      "fieldOffset": 160,
+      "lookupCall": "0x189487c8b",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487caa"
+    },
+    {
+      "serviceId": 17,
+      "name": "PlatformNotifications",
+      "fieldOffset": 168,
+      "lookupCall": "0x189487ce0",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487cff"
+    },
+    {
+      "serviceId": 18,
+      "name": "Moderation",
+      "fieldOffset": 176,
+      "lookupCall": "0x189487d35",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487d54"
+    },
+    {
+      "serviceId": 19,
+      "name": "DataCollection",
+      "fieldOffset": 184,
+      "lookupCall": "0x189487d8a",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487da9"
+    },
+    {
+      "serviceId": 20,
+      "name": "BugReporting",
+      "fieldOffset": 192,
+      "lookupCall": "0x189487ddf",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487dfe"
+    },
+    {
+      "serviceId": 21,
+      "name": "Discovery",
+      "fieldOffset": 200,
+      "lookupCall": "0x189487e34",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487e53"
+    },
+    {
+      "serviceId": 22,
+      "name": "PlayerSettings",
+      "fieldOffset": 208,
+      "lookupCall": "0x189487e89",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487ea8"
+    },
+    {
+      "serviceId": 23,
+      "name": "Studio",
+      "fieldOffset": 216,
+      "lookupCall": "0x189487ede",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487efd"
+    },
+    {
+      "serviceId": 24,
+      "name": "GameLogs",
+      "fieldOffset": 224,
+      "lookupCall": "0x189487f33",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487f52"
+    },
+    {
+      "serviceId": 27,
+      "name": "WWW",
+      "fieldOffset": 48,
+      "lookupCall": "0x189487f88",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487fa4"
+    },
+    {
+      "serviceId": 25,
+      "name": "Strings",
+      "fieldOffset": 232,
+      "lookupCall": "0x189487fd7",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x189487ff6"
+    },
+    {
+      "serviceId": 26,
+      "name": "StringsCDN",
+      "fieldOffset": 248,
+      "lookupCall": "0x18948802c",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x18948804b"
+    },
+    {
+      "serviceId": 28,
+      "name": "Econ",
+      "fieldOffset": 240,
+      "lookupCall": "0x189488081",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x1894880a0"
+    },
+    {
+      "serviceId": 29,
+      "name": "Data",
+      "fieldOffset": 256,
+      "lookupCall": "0x1894880d6",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x1894880f5"
+    },
+    {
+      "serviceId": 30,
+      "name": "Cards",
+      "fieldOffset": 264,
+      "lookupCall": "0x18948812b",
+      "originalStringCallObserved": true,
+      "matchesDiscoveryReadOffset": true,
+      "storeInstructionAddress": "0x18948814a"
+    }
+  ],
+  "selectedGenericCandidates": [],
+  "allGenericCandidateCounts": {
+    "0x5873790": 2,
+    "0x5873a30": 1,
+    "0x3b0e610": 1
+  },
+  "fieldEvidence": [
+    {
+      "id": 92673,
+      "name": "<TOKVSAMZGRO>k__BackingField",
+      "type": "RecRoom.Preferences.STAKPLUPOSH",
+      "offset": 56,
+      "is_static": 1
+    },
+    {
+      "id": 92689,
+      "name": "DPKEZKDJVHS",
+      "type": "System.Collections.Generic.Dictionary<Service, Uri>",
+      "offset": 208,
+      "is_static": 1
+    },
+    {
+      "id": 92702,
+      "name": "AGUPXMUGJJM",
+      "type": "bool",
+      "offset": 296,
+      "is_static": 1
+    },
+    {
+      "id": 92703,
+      "name": "AAYTSLFJWCM",
+      "type": "bool",
+      "offset": 297,
+      "is_static": 1
+    },
+    {
+      "id": 92705,
+      "name": "DVHOZKRVOCQ",
+      "type": "System.Collections.Generic.Queue<Core.GPNVRNRTWOD>",
+      "offset": 304,
+      "is_static": 1
+    },
+    {
+      "id": 92706,
+      "name": "MCFEHSCWZTB",
+      "type": "System.Collections.Generic.Queue<Core.GPNVRNRTWOD>",
+      "offset": 312,
+      "is_static": 1
+    },
+    {
+      "id": 92707,
+      "name": "QQBIPFAPZRG",
+      "type": "System.Collections.Generic.Queue<Core.GPNVRNRTWOD>",
+      "offset": 320,
+      "is_static": 1
+    }
+  ],
+  "preferenceInterfaceSlots": [
+    {
+      "methodIndex": 388733,
+      "assembly": "RecRoom.Preferences.Runtime.dll",
+      "declaringTypeIndex": 58447,
+      "declaringType": "RecRoom.Preferences.STAKPLUPOSH",
+      "name": "JWNXNXMNZMR",
+      "returnType": "bool",
+      "returnByref": 0,
+      "parameters": [
+        {
+          "name": "a",
+          "type": "string",
+          "nativeTypeIndex": 121328,
+          "attributes": 0,
+          "byref": 0,
+          "token": 134218104
+        }
+      ],
+      "token": 100663553,
+      "flags": 1478,
+      "iflags": 0,
+      "slot": 22,
+      "nativeRva": null,
+      "bodyStatus": "not_reconstructed"
+    },
+    {
+      "methodIndex": 388735,
+      "assembly": "RecRoom.Preferences.Runtime.dll",
+      "declaringTypeIndex": 58447,
+      "declaringType": "RecRoom.Preferences.STAKPLUPOSH",
+      "name": "ZWMTZYLZACM",
+      "returnType": "RecRoom.Preferences.SetResult",
+      "returnByref": 0,
+      "parameters": [
+        {
+          "name": "a",
+          "type": "string",
+          "nativeTypeIndex": 121328,
+          "attributes": 0,
+          "byref": 0,
+          "token": 134218107
+        },
+        {
+          "name": "b",
+          "type": "string",
+          "nativeTypeIndex": 121328,
+          "attributes": 0,
+          "byref": 0,
+          "token": 134218108
+        }
+      ],
+      "token": 100663555,
+      "flags": 1478,
+      "iflags": 0,
+      "slot": 24,
+      "nativeRva": null,
+      "bodyStatus": "not_reconstructed"
+    }
+  ],
+  "sourceSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "limitations": [
+    "Reverse assignments and OriginalString calls are observed; the final storage provider and serialization wire format have not been executed.",
+    "Generic shared body matches are candidates until the call-specific MethodInfo/context is validated.",
+    "Obfuscated interface slot 22 is a bool-returning one-string operation; delete/remove semantics are not established by signature alone.",
+    "Initialize flags and request queues are identified structurally; complete async dispatch and failure behavior remain unresolved."
+  ]
+}

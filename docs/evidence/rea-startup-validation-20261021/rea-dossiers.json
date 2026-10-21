@@ -1,0 +1,152 @@
+{
+  "status": "completed",
+  "selectedFunctions": 4,
+  "canonicalBundleSha256": "bfe3eb4cd96a51a77b2060a5aa414ac35a638ff28d783e6cb9d1c5e1cb99450f",
+  "sessionClosed": true,
+  "results": [
+    {
+      "methodIndex": 148090,
+      "method": "RecNet.Core::GPJMHWOJPVX",
+      "evidenceId": "ev_e9f8ec4f42b9f821ee6672416943d8b696ec4f7ee8d5b9b45281016efe1660e3",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 37,
+      "analyzedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x1894827e0",
+            "end": "0x18948288f"
+          }
+        ],
+        "total_bytes": 176,
+        "span_bytes": 176,
+        "non_contiguous": false,
+        "contains_entry": true
+      },
+      "sourceUnwindBodyBytes": 177,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ],
+      "seconds": 33.901
+    },
+    {
+      "methodIndex": 148091,
+      "method": "RecNet.Core::VVSKWLPRHAJ",
+      "evidenceId": "ev_a38acfc633b193a5644a57cad16ffe0c4cb05a2970dbff1c4bd42b7df36db4ef",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 621,
+      "analyzedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x1894876c0",
+            "end": "0x18948825a"
+          }
+        ],
+        "total_bytes": 2971,
+        "span_bytes": 2971,
+        "non_contiguous": false,
+        "contains_entry": true
+      },
+      "sourceUnwindBodyBytes": 2972,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Could not recover jumptable at 0x000189488234. Too many branches */",
+        "/* WARNING: Treating indirect jump as call */",
+        "/* WARNING: Subroutine does not return */"
+      ],
+      "seconds": 5.491
+    },
+    {
+      "methodIndex": 148096,
+      "method": "RecNet.Core::Initialize",
+      "evidenceId": "ev_69fd8947e185f97d0a8bd587ca0d4ae9cb1fa745166ca693b0989b47a95837fb",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 401,
+      "analyzedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x189483060",
+            "end": "0x1894837d3"
+          },
+          {
+            "start": "0x1894837ef",
+            "end": "0x189483804"
+          },
+          {
+            "start": "0x18948380c",
+            "end": "0x189483810"
+          }
+        ],
+        "total_bytes": 1935,
+        "span_bytes": 1969,
+        "non_contiguous": true,
+        "contains_entry": true
+      },
+      "sourceUnwindBodyBytes": 1970,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ],
+      "seconds": 7.973
+    },
+    {
+      "methodIndex": 145417,
+      "method": "RecNet.RecNetNameServerResponseChangedException::.ctor",
+      "evidenceId": "ev_7d33461c1d21d3d1e096e948e98f561292dced7fec5d7925c54b1b4af74bb172",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 33,
+      "analyzedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x189432150",
+            "end": "0x1894321e5"
+          }
+        ],
+        "total_bytes": 150,
+        "span_bytes": 150,
+        "non_contiguous": false,
+        "contains_entry": true
+      },
+      "sourceUnwindBodyBytes": 150,
+      "bodyByteCountMatchesUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "seconds": 0.307
+    }
+  ],
+  "limitations": [
+    "Generated headers/export labels provide analysis structure; source instruction pages are SHA256-bound to recovered native code.",
+    "Omitted dependencies and globals can affect decompiler signatures and control-flow conclusions.",
+    "Body byte-count equality is a consistency check, not proof of semantic equivalence.",
+    "Failures, warnings and truncated ranges remain explicit."
+  ]
+}

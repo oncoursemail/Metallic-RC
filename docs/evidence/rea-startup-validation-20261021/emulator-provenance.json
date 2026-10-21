@@ -1,0 +1,12 @@
+{
+  "package": "unicorn",
+  "version": "2.1.4",
+  "wheel": "unicorn-2.1.4-cp37-abi3-win_amd64.whl",
+  "sha256": "d7107500c64ce5c168fbff6bef9485b5db1350050036f4cea568650cf8bdbdf5",
+  "bytes": 15943079,
+  "source": "https://files.pythonhosted.org/packages/70/3d/de7be9bd1addabe6d8a1369381f8a080400c349850e978689c5e18287957/unicorn-2.1.4-cp37-abi3-win_amd64.whl",
+  "syntheticSmokePassed": true,
+  "installLocation": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\verification-pass-20261021\\vendor",
+  "systemPythonChanged": false,
+  "originalGameExecuted": false
+}
