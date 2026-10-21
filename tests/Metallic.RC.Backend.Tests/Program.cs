@@ -78,6 +78,12 @@ try
     foreach(var route in routes.Values)Check(route.Host=="127.0.0.1"&&route.Port==client!.BaseAddress!.Port&&route.AbsolutePath.StartsWith("/recnet/",StringComparison.Ordinal),"discovery route stays owned");
     Check((await Request("GET","/nameserver?buildId=other")).Status==409,"unsupported build rejected");
     Check((await Request("GET","/recnet/auth/unmapped-login")).Status==501,"unknown native login does not fake success");
+    var nativeFailure=await Request("POST","/recnet/auth/connect/token",raw:"grant_type=password&username=fixture&password=never-echo-this",contentType:"application/x-www-form-urlencoded");
+    var nativeReply=LoginResponseContract.Read(Encoding.UTF8.GetBytes(nativeFailure.Body.GetRawText()));
+    Check(nativeFailure.Status==501&&nativeReply is not null&&nativeReply.Error=="native_login_not_implemented","native auth failure uses the observed response envelope");
+    Check(nativeReply!.AccessToken is null&&nativeReply.RefreshToken is null&&nativeReply.Key is null,"unimplemented native auth never fabricates credentials");
+    Check(LoginResponseContract.Classify(nativeReply,nativeFailure.Status)==LoginResponseDisposition.Rejected,"native failure cannot be mistaken for completed login");
+    Check(!nativeFailure.Body.GetRawText().Contains("never-echo-this",StringComparison.Ordinal),"native failure never echoes submitted credentials");
     Check((await Request("GET","/missing")).Status==404,"unknown route rejected");
     Check((await Request("GET","/healthz",host:"evil.invalid:"+client!.BaseAddress!.Port)).Status==421,"DNS rebinding host blocked");
     Check((await Request("GET","/healthz",origin:"https://evil.invalid")).Status==403,"cross-origin request blocked");

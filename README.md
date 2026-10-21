@@ -74,3 +74,7 @@ The older website and engine research remain historical references. The compiled
 The repository now includes a persistent C# owned backend with real HTTP and WebSocket integration tests, a live launcher probe, local backup/restore checks, and a bounded Windows local-service runner. The Main deployment is loopback-only on port 4187. **Original Rec Room client login/gameplay compatibility is not yet verified; unimplemented native routes return 501.**
 
 See [the measured backend checkpoint](docs/evidence/OWNED_BACKEND_2026-10-21.md), [API scope](src/Metallic.RC.Backend/README.md), and [local operations](ops/backend/README.md). This is not a public game release.
+
+## Native login profile checkpoint (21 October 2026)
+
+The bounded generated login-response profile is compiled and checked against captured instruction fixtures. The owned backend now returns the verified error envelope for its still-unimplemented native token endpoint; **this is not a successful native login**. The original-client test passed preflight but its Windows approval request was canceled before launch. See [the exact findings and remaining gate](docs/evidence/NATIVE_LOGIN_PROFILE_2026-10-21.md).

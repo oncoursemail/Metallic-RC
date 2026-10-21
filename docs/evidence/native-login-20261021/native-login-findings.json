@@ -1,0 +1,54 @@
+{
+  "buildId": "23191908",
+  "observedTokenRelativePath": "connect/token",
+  "observedManualGrant": "password",
+  "manualParameterNames": [
+    "grant_type",
+    "username",
+    "password",
+    "security_code",
+    "2fa_code",
+    "login_context",
+    "require_password"
+  ],
+  "requestContextParameterNames": [
+    "client_id",
+    "client_secret",
+    "platform",
+    "platform_id",
+    "device_id",
+    "device_class",
+    "time",
+    "ver",
+    "cid",
+    "asid",
+    "locale",
+    "isInitialLogin",
+    "build_key"
+  ],
+  "productionClientSecretValuePublished": false,
+  "productionServiceCalled": false,
+  "credentialsReused": false,
+  "responseFields": [
+    "Error",
+    "error_description",
+    "access_token",
+    "refresh_token",
+    "Key",
+    "code_hint",
+    "login_context",
+    "hcc"
+  ],
+  "postParseGates": [
+    "Token and key processing in method 149439",
+    "Subsequent account request initiated by the response state machine",
+    "Original asynchronous continuation and error handling"
+  ],
+  "observations": [
+    "The inspected token consumer passes the returned key to Base64 decoding when it is non-null.",
+    "The successful-response branch proceeds through token processing and a separate account fetch; parsing a JSON reply is not a completed login.",
+    "The existing opaque owned-service session is not presented as a verified replacement for the native token/key/account sequence."
+  ],
+  "fullNativeTokenContractProved": false,
+  "fullAccountWireContractProved": false
+}

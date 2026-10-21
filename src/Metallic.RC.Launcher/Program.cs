@@ -95,6 +95,12 @@ public static class Program
             var buildId = TakeOption(args, "--build-id") ?? Metallic.RC.Compatibility.DiscoveryContract.SteamBuildId;
             return await BackendProbe.RunAsync(One(args), buildId);
         }
+        if (command == "check-login-response")
+        {
+            var buildId = TakeOption(args, "--build-id") ?? Metallic.RC.Compatibility.DiscoveryContract.SteamBuildId;
+            var status = TakeOption(args, "--http-status") ?? "200";
+            return await LoginCheck.RunAsync(One(args), buildId, status);
+        }
         if (command == "check-discovery")
         {
             var buildId = TakeOption(args, "--build-id") ?? Metallic.RC.Compatibility.DiscoveryContract.SteamBuildId;
@@ -112,6 +118,7 @@ public static class Program
                     discover
                     inspect DIRECTORY
                     check-discovery JSON_FILE [--build-id 23191908]
+                    check-login-response JSON_FILE [--http-status 200] [--build-id 23191908]
                     probe-backend http://127.0.0.1:4187/ [--build-id 23191908]
                     import DIRECTORY --name NAME [--launcher EXE] [--replace]
                     list

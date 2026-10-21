@@ -1,0 +1,18 @@
+{
+  "status": "login_error_profile_deployed",
+  "checkedUtc": "2026-10-21T10:33:55.216057+00:00",
+  "port": 4187,
+  "instanceId": "212d47d08e104ef58c747a4cdf10ece1",
+  "sourceContentSha256": "60f8a7b8d523a48da0312c16b3402e2aeb0402cc83ff3ee6ad43ebc7a82c9908",
+  "assemblySha256": "9a9f0876a50eb0c98fb4bed0ff5ef9d4f1c83d72947b355a51f01b8862741990",
+  "fileCount": 14,
+  "backupIntegrity": "ok",
+  "backupPreserved": true,
+  "oldManifestRetained": "deployment-before-login-20261021T103348Z.json",
+  "nativeErrorHttpStatus": 501,
+  "nativeSuccessImplemented": false,
+  "nativeClientLaunched": false,
+  "schemaMigrationPerformed": false,
+  "approvalPromptIssued": false,
+  "rollbackNeeded": false
+}

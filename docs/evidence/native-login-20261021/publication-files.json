@@ -1,0 +1,186 @@
+{
+  "files": [
+    {
+      "path": ".github/workflows/backend-ci.yml",
+      "sha256": "017d336b42205cd3f9948f88811b1ea4e6ae214313e94302c01e5a6d36046e34",
+      "bytes": 3202
+    },
+    {
+      "path": "Metallic.RC.slnx",
+      "sha256": "bd83deafc5a05c83d9904b14036cc7d6fff299a9c1440f760548311ec14b3949",
+      "bytes": 915
+    },
+    {
+      "path": "README.md",
+      "sha256": "1ad64d1f522a16e94250f2e7ecfb47c6d2c570802c3cecc92cab3ed7d2cbcc1f",
+      "bytes": 6776
+    },
+    {
+      "path": "docs/evidence/NATIVE_LOGIN_PROFILE_2026-10-21.md",
+      "sha256": "3e1cb78706e0a203fa5844769fc05ff7f98375f5e8bbaa4a7c6eb77fd2cfea48",
+      "bytes": 10680
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/deployment.json",
+      "sha256": "ffcbca5f3b2f9e7c9028aab8b3f0c9cacf51e6b82a73ac726370e450a97795b0",
+      "bytes": 694
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/formatter-comparison.json",
+      "sha256": "bc367e3f9ffd11ad7196e02282cfbf6d670aa4041cd8cc9229f6a3f4b8623fdd",
+      "bytes": 2623
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/handoff-tests.json",
+      "sha256": "0515cb270c040366413564af06c6ffcd9fa1cd5e70955a39b2dfc34ff843bdbc",
+      "bytes": 6544
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/login-self-tests.json",
+      "sha256": "d4d13ca7c5487a9016d397ebe9a12bd622a5dfb742cf8c7910a210f8bc06cb27",
+      "bytes": 4038
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/native-login-findings.json",
+      "sha256": "63b9a413fe0289146292c2f801a54fea4cee72bfaee3906ca2f76718091cace3",
+      "bytes": 1508
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/original-client-attempt.json",
+      "sha256": "327c8fc82b9f5a087b20c6fbaf216cfceaace03ba94f6cabe7cf0ce0b53e55ac",
+      "bytes": 423
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/rea-observations.json",
+      "sha256": "c1696fe6985993cf1a01b42ba2ebbd7bece1f251737bb0f3864561a9bb12bcf1",
+      "bytes": 14037
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/regression-tests.json",
+      "sha256": "21369d12e169703495a404ca8fd765ee1e07c05d26038553c98515c301d0e55a",
+      "bytes": 5672
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/response-profile.json",
+      "sha256": "4728b87f3be7dd3414abc71c96e1e2ac1153a94eef9100bcb4a9798887fd3df1",
+      "bytes": 1936
+    },
+    {
+      "path": "docs/evidence/native-login-20261021/tool-identities.json",
+      "sha256": "a0923857ce9dd60674aeb4e3cc5edafb38dd8980d1a6978aa281215f44371073",
+      "bytes": 1285
+    },
+    {
+      "path": "ops/backend/verify_backend.py",
+      "sha256": "d6633787d3e4a9754be926ab1e4a612cc8aacfb678720751d2d1238212a306d5",
+      "bytes": 2777
+    },
+    {
+      "path": "src/Metallic.RC.Backend/BackendApplication.cs",
+      "sha256": "a3d8e7cc6e8a7ee0ae3017f03e4cabd7bed370789c8387ccf48066a2eb149583",
+      "bytes": 13375
+    },
+    {
+      "path": "src/Metallic.RC.Compatibility/LoginResponseContract.cs",
+      "sha256": "5f4eb10f1312cafd6158f17a4e89da3c08ae70656875453e033d678030f20524",
+      "bytes": 6653
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/LoginCheck.cs",
+      "sha256": "28c391bcbdb0669f8453722dbcc387724f2cccc0454e81225de76bbdf0be73e3",
+      "bytes": 2293
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/Program.cs",
+      "sha256": "7ce70128011d8841dc6cb055e87c7f804e37e987d926c11aba091f1916793d22",
+      "bytes": 8746
+    },
+    {
+      "path": "tests/Metallic.RC.Backend.Tests/Program.cs",
+      "sha256": "7b1838ff083738d057787bf848ba3a24c4899b613bd06b789597b9df4a558fc1",
+      "bytes": 16973
+    },
+    {
+      "path": "tests/Metallic.RC.LoginContract.Tests/Metallic.RC.LoginContract.Tests.csproj",
+      "sha256": "40d793c44693d1cc0fe782780be93b71ec7e7a4846256eeb07d573d1d5301a35",
+      "bytes": 318
+    },
+    {
+      "path": "tests/Metallic.RC.LoginContract.Tests/Program.cs",
+      "sha256": "f7bb4eae52ecaa42222c793ed340d2fab67b1e998532374d5df9e6b33cc01f7f",
+      "bytes": 8884
+    },
+    {
+      "path": "tests/Metallic.RC.LoginContract.Tests/packages.lock.json",
+      "sha256": "395a35ff6747a0286c95b1201d33db90600b6b277792516594d4d7b8c528576e",
+      "bytes": 193
+    },
+    {
+      "path": "tools/client-lab/README.md",
+      "sha256": "a0b9f3603be02609d3d3cc43c3e7267e4bdb75ab41d3514d3dfe50cea0b2ffde",
+      "bytes": 3551
+    },
+    {
+      "path": "tools/client-lab/route-policy.js",
+      "sha256": "8c5483385580455289240854beb63649ad324848ea5ac03e7c6a275eb5a34a2a",
+      "bytes": 2680
+    },
+    {
+      "path": "tools/client-lab/route-policy.test.js",
+      "sha256": "5347ca15587f16d44e22b62aade9b9f28b49f02b658388c28d63979527cfad9e",
+      "bytes": 2723
+    },
+    {
+      "path": "tools/client-lab/run-native-client.py",
+      "sha256": "9aa2d0d842879d145596c55639a3118c513dd4d771fedfe48501b55505497592",
+      "bytes": 10493
+    },
+    {
+      "path": "tools/client-lab/runtime-agent.js",
+      "sha256": "227b6f9b13cdfa636d596907959f3bd23a6c180fa8fbb4c8eefc0f7afbbb54e5",
+      "bytes": 8301
+    },
+    {
+      "path": "tools/rea/native-login/README.md",
+      "sha256": "b9bde9bcddd4ec4d7ccab6597ef5a0ee716447ad31bf73634e37fc894596ff9d",
+      "bytes": 2866
+    },
+    {
+      "path": "tools/rea/native-login/audit_login_ranges.py",
+      "sha256": "ecfe35289e5c7d4ed5e4f384dc531f7e56e685d29b6cdc7a9e6148699ac6a2a6",
+      "bytes": 3394
+    },
+    {
+      "path": "tools/rea/native-login/compare_managed_login.py",
+      "sha256": "1b68d12814545a1d495bf3f3293fba21b66102ec1d0ef75219eb3a973c92ed04",
+      "bytes": 3391
+    },
+    {
+      "path": "tools/rea/native-login/focus_login_writer.py",
+      "sha256": "8bbfa787a14cc24d6e16de213d3303946ffcc513fa8f59beb877daa98da1f0da",
+      "bytes": 1311
+    },
+    {
+      "path": "tools/rea/native-login/generate_login_fixtures.py",
+      "sha256": "ac0712d6aedf4ec9ec74307bf48e13453ca8f791f0847e46031381affa09649a",
+      "bytes": 3409
+    },
+    {
+      "path": "tools/rea/native-login/native_login_probe.py",
+      "sha256": "beab5d5691417eab55cdeadd3b24fee3041cfc6130c9472fd30acf30390e66c8",
+      "bytes": 13429
+    },
+    {
+      "path": "tools/rea/native-login/prepare_login_rea.py",
+      "sha256": "edd0262dbe43b63d95a5d4736c28ad8ee5580f17bc4c3c9cc64bcde215057f92",
+      "bytes": 1737
+    },
+    {
+      "path": "tools/rea/native-login/prepare_login_token_rea.py",
+      "sha256": "b582f578033ba0e5f861c02cc6fb1d2a14242568c2b0d8e7b36ba90e547b34b6",
+      "bytes": 711
+    }
+  ],
+  "capturedBinariesPublished": false,
+  "productionCredentialsPublished": false
+}
