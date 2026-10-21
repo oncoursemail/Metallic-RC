@@ -1,0 +1,17 @@
+{
+  "core": [
+    "PASS A reviewed plan cannot be redirected by changing the catalog root",
+    "18/18 acceptance checks passed. Fixture PE headers are synthetic; no game, external launcher, guard, or injector was executed."
+  ],
+  "platform": [
+    "PASS: 101 assertions; typed CV3, bounded preview, real loopback HTTP, authentication, ETags and restart persistence."
+  ],
+  "build": [
+    "",
+    "Build succeeded.",
+    "    0 Warning(s)",
+    "    0 Error(s)",
+    "",
+    "Time Elapsed 00:00:16.08"
+  ]
+}
