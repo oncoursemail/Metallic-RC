@@ -1,0 +1,56 @@
+{
+  "status": "deployment_transport_and_recovery_passed",
+  "createdUtc": "2026-10-21T05:29:35.508165+00:00",
+  "launcherChecks": [
+    {
+      "name": "positive",
+      "exitCode": 0,
+      "reachable": true
+    },
+    {
+      "name": "external-blocked",
+      "exitCode": 2,
+      "reachable": false
+    },
+    {
+      "name": "userinfo-blocked",
+      "exitCode": 2,
+      "reachable": false
+    },
+    {
+      "name": "path-blocked",
+      "exitCode": 2,
+      "reachable": false
+    },
+    {
+      "name": "wrong-build",
+      "exitCode": 2,
+      "reachable": false
+    }
+  ],
+  "task": {
+    "state": "Running",
+    "description": "Metallic-RC owned loopback backend; local user only.",
+    "runLevel": "Limited",
+    "restartCount": 0,
+    "restartInterval": null,
+    "atLogon": true
+  },
+  "onlineBackupIntegrity": "ok",
+  "backupPreservedAcrossRestarts": true,
+  "gracefulStopAndTaskRestartPassed": true,
+  "crashRecovery": {
+    "forcedExitOfVerifiedBackendChild": true,
+    "runnerRecoveredWithoutManualStart": true,
+    "seconds": 6.071,
+    "newInstance": true
+  },
+  "finalHealth": {
+    "status": "ok",
+    "service": "metallic-rc-backend",
+    "instanceId": "3587e3fc958c437cb4e354f64bfbb157"
+  },
+  "publicListenerOpened": false,
+  "originalGameExecuted": false,
+  "originalClientLoginVerified": false
+}

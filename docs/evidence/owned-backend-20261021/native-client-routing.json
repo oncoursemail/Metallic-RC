@@ -1,0 +1,210 @@
+{
+  "status": "provider_path_observed_no_verified_live_redirect",
+  "steamBuildId": "23191908",
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "selectedReaDossiers": 8,
+  "records": [
+    {
+      "scope": "environment-override",
+      "methodIndex": 148126,
+      "method": "RecNet.Core.RecNetEnvInfo::IXFGPIMASSR",
+      "address": "0x18948b670",
+      "status": "dossier_retained",
+      "evidenceId": "ev_1ab575489156bf052b287cd427bdf524e066712e6b833077baf9c2287622b5fa",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 206,
+      "sourceUnwindBodyBytes": 857,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ],
+      "gameExecuted": false
+    },
+    {
+      "scope": "environment-override",
+      "methodIndex": 148052,
+      "method": "RecNet.Core::QFLNMCNLBFF",
+      "address": "0x1894860d0",
+      "status": "dossier_retained",
+      "evidenceId": "ev_dae566e0ba763aad035104aa84937907e3a8f719a103245b4871f15e3afa967d",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 21,
+      "sourceUnwindBodyBytes": 105,
+      "bodyByteCountMatchesUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "gameExecuted": false
+    },
+    {
+      "scope": "environment-override",
+      "methodIndex": 148054,
+      "method": "RecNet.Core::FHCNIGFZHCE",
+      "address": "0x189482110",
+      "status": "dossier_retained",
+      "evidenceId": "ev_0f60192f4da79131f0229d98622804a32a9529437bcb4456c7959f68bd3bff84",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 21,
+      "sourceUnwindBodyBytes": 98,
+      "bodyByteCountMatchesUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "gameExecuted": false
+    },
+    {
+      "scope": "client-config",
+      "methodIndex": 6693,
+      "method": "HGOBVUFNAMJ::LGETANDGIVD",
+      "address": "0x1811244f0",
+      "status": "dossier_retained",
+      "evidenceId": "ev_e0423d7377058269bffb217fec6bdd2f113e6474eaba144e2bc2df486d90cb86",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 32,
+      "sourceUnwindBodyBytes": 146,
+      "bodyByteCountMatchesUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "gameExecuted": false
+    },
+    {
+      "scope": "client-config",
+      "methodIndex": 6694,
+      "method": "HGOBVUFNAMJ::FHCNIGFZHCE",
+      "address": "0x181124450",
+      "status": "dossier_retained",
+      "evidenceId": "ev_591d964d3b243af8f5229f68e5ab286b23989f37a71b122e89b6f012d6853d74",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 32,
+      "sourceUnwindBodyBytes": 146,
+      "bodyByteCountMatchesUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "gameExecuted": false
+    },
+    {
+      "scope": "client-config",
+      "methodIndex": 6702,
+      "method": "HGOBVUFNAMJ.VVODECGMVCY::LGETANDGIVD",
+      "address": "0x181138900",
+      "status": "dossier_retained",
+      "evidenceId": "ev_8a0c826d4df8287f0e0d049da886e6ca5e04b78cad486dab3c04b8b3c1418160",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 42,
+      "sourceUnwindBodyBytes": 202,
+      "bodyByteCountMatchesUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "gameExecuted": false
+    },
+    {
+      "scope": "client-config",
+      "methodIndex": 6703,
+      "method": "HGOBVUFNAMJ.VVODECGMVCY::FHCNIGFZHCE",
+      "address": "0x181138830",
+      "status": "dossier_retained",
+      "evidenceId": "ev_4e86e236f40fec3bfd38f6cf042450d97ad0ccd156b3dc3d019e15c790f313bb",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 42,
+      "sourceUnwindBodyBytes": 202,
+      "bodyByteCountMatchesUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "gameExecuted": false
+    },
+    {
+      "scope": "config-load",
+      "methodIndex": 6695,
+      "method": "HGOBVUFNAMJ::BPNYSGWJKCW",
+      "address": "0x181124130",
+      "status": "dossier_retained",
+      "evidenceId": "ev_b1fe1ac4441ff823c630a546c18ec8ab05e0316ba96bd71eb279532fe1a41402",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 128,
+      "sourceUnwindBodyBytes": 546,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Control flow encountered bad instruction data */",
+        "/* WARNING: Possible PIC construction at 0x0001811241a9: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000181124318: Changing call to branch */",
+        "/* WARNING: Removing unreachable block (ram,0x0001811241ae) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001811241fd) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018112420d) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018112421c) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124241) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124251) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124260) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001811242d7) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001811242e7) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001811242f3) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124281) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124291) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001811242a0) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018112439e) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001811242b1) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124314) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018112431d) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018112432d) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124339) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124399) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124344) */",
+        "/* WARNING: Removing unreachable block (ram,0x000181124360) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018112436c) */",
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Bad instruction - Truncating control flow here */",
+        "halt_baddata();"
+      ],
+      "gameExecuted": false
+    }
+  ],
+  "observations": [
+    "Core initialization obtains environment and nameserver override from the configuration interface.",
+    "Inspected release-provider getters call method 6695 when their static values are unset.",
+    "In the inspected loader instruction path, environment is initialized from the prod literal and override from String.Empty.",
+    "A URI override parser exists, but this does not establish a usable command-line or configuration-file switch for this release."
+  ],
+  "limits": [
+    "The loader pseudocode is truncated and its body spans multiple native ranges; warnings remain visible. Instruction-level observations are not a full reconstructed method.",
+    "This is not proof that every possible configuration path lacks an override.",
+    "No native-client routing, native authentication, native room join, or gameplay success has been established."
+  ],
+  "canonicalGamePseudocodePublished": false,
+  "capturedGameBinaryPublished": false
+}

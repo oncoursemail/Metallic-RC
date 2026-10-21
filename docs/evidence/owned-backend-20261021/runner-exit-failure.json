@@ -1,0 +1,5 @@
+{
+  "status": "graceful_stop_misclassified",
+  "reason": "Start-Process returned no exit code; the fallback was treated as failure. Replaced with a directly retained Process handle.",
+  "originalGameTouched": false
+}

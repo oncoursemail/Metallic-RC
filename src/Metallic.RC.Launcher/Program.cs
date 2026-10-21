@@ -90,6 +90,11 @@ public static class Program
     private static async Task<int> RunCliAsync(List<string> args)
     {
         var command = args[0]; args.RemoveAt(0);
+        if (command == "probe-backend")
+        {
+            var buildId = TakeOption(args, "--build-id") ?? Metallic.RC.Compatibility.DiscoveryContract.SteamBuildId;
+            return await BackendProbe.RunAsync(One(args), buildId);
+        }
         if (command == "check-discovery")
         {
             var buildId = TakeOption(args, "--build-id") ?? Metallic.RC.Compatibility.DiscoveryContract.SteamBuildId;
@@ -107,6 +112,7 @@ public static class Program
                     discover
                     inspect DIRECTORY
                     check-discovery JSON_FILE [--build-id 23191908]
+                    probe-backend http://127.0.0.1:4187/ [--build-id 23191908]
                     import DIRECTORY --name NAME [--launcher EXE] [--replace]
                     list
                     verify ID

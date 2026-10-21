@@ -68,3 +68,9 @@ The next game integration gate is a real modern-client connection to owned servi
 [Project identities](docs/PROJECT_IDENTITIES.md) · [Roadmap](docs/ROADMAP.md) · [Development and release gates](docs/DEVELOPMENT.md) · [Creator/learning/companions](docs/METALLIC_CREATOR_LEARNING_AI.md) · [Feature catalog](docs/FEATURE_CATALOG.md)
 
 The older website and engine research remain historical references. The compiled-client rework and the owner's 20 October correction define the current direction. Progress issue counts are not gameplay or performance claims; measured results must name the build, hardware, workload and evidence.
+
+## Owned backend checkpoint (21 October 2026)
+
+The repository now includes a persistent C# owned backend with real HTTP and WebSocket integration tests, a live launcher probe, local backup/restore checks, and a bounded Windows local-service runner. The Main deployment is loopback-only on port 4187. **Original Rec Room client login/gameplay compatibility is not yet verified; unimplemented native routes return 501.**
+
+See [the measured backend checkpoint](docs/evidence/OWNED_BACKEND_2026-10-21.md), [API scope](src/Metallic.RC.Backend/README.md), and [local operations](ops/backend/README.md). This is not a public game release.
