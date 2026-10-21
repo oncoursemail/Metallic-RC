@@ -1,0 +1,208 @@
+{
+  "status": "login_profile_handoff_verified",
+  "createdUtc": "2026-10-21T10:35:22.197728+00:00",
+  "cliChecks": [
+    {
+      "case": "rejected",
+      "exitCode": 0,
+      "result": {
+        "profileParsed": true,
+        "reason": "profile_parsed",
+        "disposition": "Rejected",
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "null",
+      "exitCode": 0,
+      "result": {
+        "profileParsed": true,
+        "reason": "profile_parsed",
+        "disposition": "MissingResponse",
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "empty",
+      "exitCode": 0,
+      "result": {
+        "profileParsed": true,
+        "reason": "profile_parsed",
+        "disposition": "MissingResponse",
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "tokens",
+      "exitCode": 0,
+      "result": {
+        "profileParsed": true,
+        "reason": "profile_parsed",
+        "disposition": "RequiresTokenAndAccountValidation",
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "unknown",
+      "exitCode": 0,
+      "result": {
+        "profileParsed": true,
+        "reason": "profile_parsed",
+        "disposition": "RequiresTokenAndAccountValidation",
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "nested",
+      "exitCode": 2,
+      "result": {
+        "profileParsed": false,
+        "reason": "nested_hint_outside_verified_profile",
+        "disposition": null,
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "wrong-type",
+      "exitCode": 2,
+      "result": {
+        "profileParsed": false,
+        "reason": "known_value_type_error",
+        "disposition": null,
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "malformed",
+      "exitCode": 2,
+      "result": {
+        "profileParsed": false,
+        "reason": "invalid_json",
+        "disposition": null,
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "oversize",
+      "exitCode": 2,
+      "result": {
+        "profileParsed": false,
+        "reason": "response_too_large",
+        "disposition": null,
+        "nativeLoginVerified": false,
+        "credentialsPrinted": false,
+        "networkAttempted": false,
+        "cacheWritten": false,
+        "gameLaunched": false,
+        "scope": "Build 23191908 response profile; populated code_hint objects are not yet admitted. Parsing is not authentication."
+      },
+      "stateDirectoryAbsent": true
+    },
+    {
+      "case": "wrong-build",
+      "exitCode": 2,
+      "reason": "unsupported_build"
+    },
+    {
+      "case": "bad-status",
+      "exitCode": 2,
+      "reason": "invalid_http_status"
+    },
+    {
+      "case": "missing-file",
+      "exitCode": 2,
+      "reason": "response_file_unavailable"
+    }
+  ],
+  "routePolicyTestsPassed": true,
+  "liveNativeErrorProfile": {
+    "httpStatus": 501,
+    "bodySha256": "c89229593921475da910990b83a837559002a89d2f829b806a80b3fd23a6eba3",
+    "fields": 8,
+    "guestReadInstructions": 490,
+    "nativeFormatterProfileMatched": true,
+    "tokenIssued": false,
+    "runtimeParserCallbacksModeled": true
+  },
+  "health": {
+    "status": "ok",
+    "service": "metallic-rc-backend",
+    "instanceId": "212d47d08e104ef58c747a4cdf10ece1"
+  },
+  "originalHashes": [
+    {
+      "copy": "installed",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "unchanged": true
+    },
+    {
+      "copy": "installed",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "unchanged": true
+    },
+    {
+      "copy": "fresh",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "unchanged": true
+    },
+    {
+      "copy": "fresh",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "unchanged": true
+    }
+  ],
+  "actualOriginalClientExecuted": false,
+  "uacRetriedAfterCancellation": false
+}

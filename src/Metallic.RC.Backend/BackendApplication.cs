@@ -76,7 +76,7 @@ public static class BackendApplication
         object Capabilities()=>new
         {
             product="Metallic-RC",service="metallic-rc-backend",protocol="metallic-v1",deployment="loopback-development",instanceId=store.InstanceId,
-            compatibility=new{steamBuildId=DiscoveryContract.SteamBuildId,discoveryContract=true,configuredServiceAddresses=31,nativeLogin=false,nativeRoomJoin=false,nativeGameplay=false,nativeVoice=false,actualGameClientVerified=false},
+            compatibility=new{steamBuildId=DiscoveryContract.SteamBuildId,discoveryContract=true,configuredServiceAddresses=31,nativeLogin=false,nativeLoginErrorProfile=true,nativeRoomJoin=false,nativeGameplay=false,nativeVoice=false,actualGameClientVerified=false},
             implemented=new{ownedAccounts=true,hashedPasswords=true,revocableSessions=true,persistentProfiles=true,persistentRoomDirectory=true,roomPresenceAndPoseWebSocket=true,consistentBackups=true},
             limits=new{requestBytes=BackendOptions.MaxRequestBytes,roomCapacity=32,webSocketFrameBytes=4096,perPeerMessagesPerSecond=60,sessionHours=1},
             note="Metallic-v1 APIs are owned backend APIs. Their success is not RecNet protocol or original-game compatibility."
@@ -122,6 +122,15 @@ public static class BackendApplication
             Admin(context,store);
             context.Response.OnCompleted(()=>{app.Lifetime.StopApplication();return Task.CompletedTask;});
             return Json(new{status="stopping"});
+        }).RequireRateLimiting("auth");
+        // Verified native LoginResponse error envelope only. Do not process or store
+        // production credentials, mint guessed native tokens, or fabricate account success.
+        app.MapPost("/recnet/auth/connect/token", (HttpContext context) =>
+        {
+            context.Response.Headers["X-Metallic-Compatibility"] = "login-error-profile-only; build=23191908";
+            var reply = new LoginResponseProfile(Error: "native_login_not_implemented",
+                ErrorDescription: "Metallic native token and account integration is not available yet.");
+            return Results.Content(System.Text.Encoding.UTF8.GetString(LoginResponseContract.Write(reply)), "application/json; charset=utf-8", statusCode: 501);
         }).RequireRateLimiting("auth");
         app.Map("/recnet/{**path}",()=>Json(new{error=new{code="native_contract_not_implemented"},nativeClientVerified=false},501));
         app.MapFallback(()=>Json(new{error=new{code="not_found"}},404));

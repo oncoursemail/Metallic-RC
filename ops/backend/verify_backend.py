@@ -21,6 +21,7 @@ def main() -> None:
     for project in ['Core','Platform']:
         run(project.lower()+'-regression',[dotnet,str(repository/f'tests/Metallic.RC.{project}.Tests/bin/Release/net10.0/Metallic.RC.{project}.Tests.dll')])
     run('compatibility-regression',[dotnet,str(repository/'tests/Metallic.RC.Compatibility.Tests/bin/Release/net10.0/Metallic.RC.Compatibility.Tests.dll'),'--self-test',str(args.output/'compatibility.json')])
+    run('login-profile',[dotnet,str(repository/'tests/Metallic.RC.LoginContract.Tests/bin/Release/net10.0/Metallic.RC.LoginContract.Tests.dll'),'--self-test',str(args.output/'login-profile.json')])
     run('backend-real-transport',[dotnet,str(repository/'tests/Metallic.RC.Backend.Tests/bin/Release/net10.0/Metallic.RC.Backend.Tests.dll'),str(args.output/'backend.json')])
     report={'status':'full_local_backend_and_regressions_passed','createdUtc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'runs':results,
             'backend':json.loads((args.output/'backend.json').read_text()),'compatibility':json.loads((args.output/'compatibility.json').read_text()),'originalGameExecuted':False,'repositoryCIClaimed':False}

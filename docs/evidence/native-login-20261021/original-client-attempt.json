@@ -1,0 +1,12 @@
+{
+  "status": "blocked_by_windows_approval_cancellation",
+  "requestedUtc": "2026-10-21T10:03:28.2659871Z",
+  "finishedUtc": "2026-10-21T10:05:32.1244442Z",
+  "plannedObservationSeconds": 90,
+  "normalUacUsed": true,
+  "elevatedClientStarted": false,
+  "automaticRetryAfterCancellation": false,
+  "originalClientDiscoveryVerified": false,
+  "originalClientLoginVerified": false,
+  "originalClientRoomJoinVerified": false
+}

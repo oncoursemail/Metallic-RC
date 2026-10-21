@@ -6,6 +6,8 @@ on:
       - 'src/Metallic.RC.Backend/**'
       - 'src/Metallic.RC.Compatibility/**'
       - 'tests/Metallic.RC.Backend.Tests/**'
+      - 'tests/Metallic.RC.LoginContract.Tests/**'
+      - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
       - 'NuGet.Config'
@@ -17,6 +19,8 @@ on:
       - 'src/Metallic.RC.Backend/**'
       - 'src/Metallic.RC.Compatibility/**'
       - 'tests/Metallic.RC.Backend.Tests/**'
+      - 'tests/Metallic.RC.LoginContract.Tests/**'
+      - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
       - 'NuGet.Config'
@@ -62,6 +66,15 @@ jobs:
           & dotnet tests/Metallic.RC.Backend.Tests/bin/Release/net10.0/Metallic.RC.Backend.Tests.dll artifacts/backend/results.json 2>&1 |
               Tee-Object -FilePath artifacts/backend/transport.log
           if ($LASTEXITCODE -ne 0) { throw 'Owned-backend integration tests failed.' }
+      - name: Restore and build the authored login response profile tests
+        run: dotnet build tests/Metallic.RC.LoginContract.Tests/Metallic.RC.LoginContract.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify login profile decisions without game inputs
+        run: dotnet tests/Metallic.RC.LoginContract.Tests/bin/Release/net10.0/Metallic.RC.LoginContract.Tests.dll --self-test artifacts/backend/login-profile.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify pure temporary-route policy
+        run: node --test tools/client-lab/route-policy.test.js
       - name: Retain authored-service evidence
         if: always()
         uses: actions/upload-artifact@v4
