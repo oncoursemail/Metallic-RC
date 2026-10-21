@@ -1,0 +1,6 @@
+{
+  "status": "scheduler_only_recovery_test_failed",
+  "recoveredManually": true,
+  "waitSeconds": 110,
+  "supersededBySupervisorRetest": false
+}
