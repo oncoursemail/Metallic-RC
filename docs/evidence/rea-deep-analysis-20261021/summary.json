@@ -1,0 +1,662 @@
+{
+  "status": "deep_rea_pass_and_partial_csharp_workspace_verified",
+  "completedUtc": "2026-10-21T00:42:34.192087+00:00",
+  "buildId": "23191908",
+  "baselineSourceCommit": "9d497758e56e96fbd8477a8de0f1a4d4f0cf4066",
+  "reaDossiers": 26,
+  "uniqueSelectedMethods": 24,
+  "subsystems": [
+    "startup and discovery",
+    "room joining",
+    "Paintball",
+    "circuits",
+    "voice and VR"
+  ],
+  "reaEvidence": [
+    {
+      "methodIndex": 12789,
+      "method": "RecRoomGameRoot::Awake",
+      "group": "startup",
+      "evidenceId": "ev_59ba485b583205ad159d4e3322928678e89ede054f5828b2691777e7ae0b23f4",
+      "evidenceSha256": "f2794b34120970fbb653e40d4224c35c968f23f79d61b57c2e5e35a954421003",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\startup\\m12789.evidence.json",
+      "sourceRva": "0x2052a50",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m12789_Awake(longlong param_1)",
+      "assemblyInstructions": 153,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 12817,
+      "method": "RecRoomGameRoot.<StartBootSequence>d__17::MoveNext",
+      "group": "startup",
+      "evidenceId": "ev_21d5f1a3bc29b8f337403bf9184167a9f33a95d349595d849ebff7defa06da3f",
+      "evidenceSha256": "548adf5980e2cc62f91cd6f338a4523d0cf8c5a445ae7c0d7c777fe9ecb46eec",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\startup\\m12817.evidence.json",
+      "sourceRva": "0x20628c0",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m12817_MoveNext(int * param_1)",
+      "assemblyInstructions": 155,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 12811,
+      "method": "RecRoomGameRoot.<LoadAddressablesAndInstantiateStartupObject>d__22::MoveNext",
+      "group": "startup",
+      "evidenceId": "ev_d486eac5e9f67deeb4f6b7f1d9f5169f3e2157f7f21a50d302a008b4bb61ec27",
+      "evidenceSha256": "27f9c1c05caf1c8ea9f8835583ad48e3c47509e14c3ba4c4920c3dbf9c38eaf4",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\startup\\m12811.evidence.json",
+      "sourceRva": "0x2061bf0",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m12811_MoveNext(int * param_1)",
+      "assemblyInstructions": 343,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 148260,
+      "method": "RecNet.Core.<ProcessNameServerResponse>d__144::MoveNext",
+      "group": "startup",
+      "evidenceId": "ev_3240650d079e5e63f4ca35ac67282c5e6290b2f5167c7c69bbbb476c5ec36973",
+      "evidenceSha256": "742f132ce2238864ca96020fa9ee8e0c86bb64c27e75867883de82e23364132e",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\startup\\m148260.evidence.json",
+      "sourceRva": "0x9495c60",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m148260_MoveNext(int * param_1)",
+      "assemblyInstructions": 475,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 408427,
+      "method": "RecRoom.Utils.ApplicationQuitBehavior::OnApplicationQuit",
+      "group": "startup",
+      "evidenceId": "ev_6003ab238fc31c0eee6e7c816466ab1dd3df460bf1f6619c239f891050e4f107",
+      "evidenceSha256": "3268a5cb45762fcc2302606a5126e19d22be3a27774148c885a11d2b2438ca2f",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\startup\\m408427.evidence.json",
+      "sourceRva": "0x96aeb40",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m408427_OnApplicationQuit(longlong param_1)",
+      "assemblyInstructions": 61,
+      "bodyByteCountMatchesEntryUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 12993,
+      "method": "SessionManager::LocalPlayerRequestJoinRoomScene",
+      "group": "room-join",
+      "evidenceId": "ev_8fa15281b3bc7853931231e8e8c0fa16309cf8fac3f7c7ad6436234a4b9406ce",
+      "evidenceSha256": "923c912944b3054616b25f1ca94e4735209b3be28d089132c7c5b52701548bca",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\room-join\\m12993.evidence.json",
+      "sourceRva": "0x205a290",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m12993_LocalPlayerRequestJoinRoomScene(longlong param_1, longlong param_2, int param_3, int param_4, undefined1 param_5)",
+      "assemblyInstructions": 169,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 100412,
+      "method": "RecRoom.Core.ActivitySwitcher.<JoinRoomWithChecksAsync>d__65::MoveNext",
+      "group": "room-join",
+      "evidenceId": "ev_39ae11fcc5246512a8ee88615bb7f76f59252e7b987569a97fca58b0fdd2a1ae",
+      "evidenceSha256": "efb4e92282efe42020ab4cb4d5f118bc148009656c1b3cb2b87e6872421d1f52",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\room-join\\m100412.evidence.json",
+      "sourceRva": "0x1967df0",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m100412_MoveNext(int * param_1, undefined8 param_2, longlong param_3, undefined8 param_4)",
+      "assemblyInstructions": 326,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 314484,
+      "method": "RecRoom.RoomLoading.RoomManagerInitialRoomLoad.<JoinRoomInstance>d__30::MoveNext",
+      "group": "room-join",
+      "evidenceId": "ev_61ad6bc0c76045954d9fc30f5088d67018ff8ac77a4b7839041176975b0ea127",
+      "evidenceSha256": "0150c9e50bd3f4b49c352e1d28d69183a70275068697e0cfef09e57a8efcc584",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\room-join\\m314484.evidence.json",
+      "sourceRva": "0xa1ec1d0",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m314484_MoveNext(uint * param_1)",
+      "assemblyInstructions": 222,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 12925,
+      "method": "SessionManager::HandleRoomJoinFailure",
+      "group": "room-join",
+      "evidenceId": "ev_698d9b6d9d4b8bdc55e1d426fd8bbc5d0f0d8e430ee7f0cfcdcd702573a4f2eb",
+      "evidenceSha256": "17e24ea40c0c625abf62101a77ae06e9d17754aef4e4b19aed65083e2059012f",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\room-join\\m12925.evidence.json",
+      "sourceRva": "0x2058020",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m12925_HandleRoomJoinFailure(undefined8 param_1, undefined4 param_2, longlong param_3)",
+      "assemblyInstructions": 58,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 1316,
+      "method": "PaintballManager::Update",
+      "group": "paintball",
+      "evidenceId": "ev_dc5993cac449f4f49dcb36fb9f70ecd13bcc58a598e98f008224f96df6fd873a",
+      "evidenceSha256": "9c4776a2e30dfa252a79ba97da325202aebe890366af38b9ca4c17a449e61c0b",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\paintball\\m1316.evidence.json",
+      "sourceRva": "0x1b27540",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m1316_Update(longlong param_1)",
+      "assemblyInstructions": 16,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 1333,
+      "method": "PaintballManager::RpcMasterRequestFlagCapture",
+      "group": "paintball",
+      "evidenceId": "ev_0e68a96bfbbfb22a45bcb9a58dc320f8d0f7eefe6ed1c14b06fce7c5e7041d81",
+      "evidenceSha256": "6940f67364e149c5565a6d70f14697a9a13b6e0820d4fe845c0045b7a0da151f",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\paintball\\m1333.evidence.json",
+      "sourceRva": "0x1b25160",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m1333_RpcMasterRequestFlagCapture(longlong param_1, longlong param_2, int param_3, longlong param_4)",
+      "assemblyInstructions": 125,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 1341,
+      "method": "PaintballManager::ZDRPUOPJKXM",
+      "group": "paintball",
+      "evidenceId": "ev_80ff215ac063480405707ff5d4ab2b2f11f30d892544f41897b51ae35177e736",
+      "evidenceSha256": "91fad0602458ae5464864332a1484bb8e253f9028697951be1a98b55dce74c86",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\paintball\\m1341.evidence.json",
+      "sourceRva": "0x1b28520",
+      "typedReturn": "bool",
+      "inferredSignature": "ulonglong __fastcall m1341_ZDRPUOPJKXM(longlong param_1, longlong param_2, int param_3, undefined8 param_4)",
+      "assemblyInstructions": 179,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 1344,
+      "method": "PaintballManager::ZDXERKCHLYS",
+      "group": "paintball",
+      "evidenceId": "ev_cd8ab181dca7ec7e53239aec88b0d1c92bd0ec68e6637ecdb10a3bd22b94d623",
+      "evidenceSha256": "8f538ce23778edb54cf772447cbd0498f64a65e99452009793f841127a05064e",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\paintball\\m1344.evidence.json",
+      "sourceRva": "0x1b28810",
+      "typedReturn": "bool",
+      "inferredSignature": "undefined8 __fastcall m1344_ZDXERKCHLYS(longlong param_1, longlong param_2, longlong param_3)",
+      "assemblyInstructions": 84,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 1322,
+      "method": "PaintballManager::LocalPlayerHasGameActivity",
+      "group": "paintball",
+      "evidenceId": "ev_6b7e28b280529e64e13e745d7c139d8cc623c97a5fd0948827497db1c4529947",
+      "evidenceSha256": "6eb779e53075598c5e0b21f1381f4c07fb591369ea15dfc727f7b0e55c0313ce",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\paintball\\m1322.evidence.json",
+      "sourceRva": "0x1b23370",
+      "typedReturn": "bool",
+      "inferredSignature": "bool __fastcall m1322_LocalPlayerHasGameActivity(void)",
+      "assemblyInstructions": 94,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 387023,
+      "method": "Circuits.Shared.Core.ByteCode.IO.OIFGQWXAVQN::KAJWUAPOHBQ",
+      "group": "circuits",
+      "evidenceId": "ev_b5365bf377c82d58823002322aab98273920d7c8ef829c1fa231907012965847",
+      "evidenceSha256": "56bd4ff8c95d0bf8b05c49deaf58732aeb0c2c57eedc310c1397cad6c724c342",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\circuits\\m387023.evidence.json",
+      "sourceRva": "0x2b91ef0",
+      "typedReturn": "int",
+      "inferredSignature": "undefined __fastcall m387023_KAJWUAPOHBQ(longlong * param_1, uint param_2)",
+      "assemblyInstructions": 31,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 387055,
+      "method": "Circuits.Shared.Core.ByteCode.IO.XPAONVDHOEZ::IFOSWBJTEEP",
+      "group": "circuits",
+      "evidenceId": "ev_d91b91a3b16df9a8d64619f72aa478f7b149c2516f99f47b3a3ad879e6f5b5a4",
+      "evidenceSha256": "56b2946b00bbf8e3325bab0fe833f4065edae7a96d4cf2dc5be0511c0dc9898a",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\circuits\\m387055.evidence.json",
+      "sourceRva": "0x2b92120",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m387055_IFOSWBJTEEP(longlong param_1, uint param_2, undefined4 param_3)",
+      "assemblyInstructions": 35,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 375556,
+      "method": "Circuits.Static.Core.CompileSystem.PCYIFIIHMPD::KPMAITYCGTO",
+      "group": "circuits",
+      "evidenceId": "ev_ef0a1c0e3b29d9a183d8aaf994e465d0b192bd651cef03c71593dead1f83f6cb",
+      "evidenceSha256": "6461cb28749c65958dd7887ff993c238c397a0e75ab52503d981e05f0a9ef9db",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\circuits\\m375556.evidence.json",
+      "sourceRva": "0x2ba9950",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m375556_KPMAITYCGTO(longlong param_1, longlong * param_2)",
+      "assemblyInstructions": 70,
+      "bodyByteCountMatchesEntryUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ]
+    },
+    {
+      "methodIndex": 328387,
+      "method": "Dissonance.DissonanceComms::OnApplicationPause",
+      "group": "voice-vr",
+      "evidenceId": "ev_e891382aca20319a1e3aadd704b1aec798f96c5d33b939a842299328c63c3543",
+      "evidenceSha256": "7e67f3ff5f90b558ef3008af0a4470a859e7d3697584a451bdc10a242bb5c7ec",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\voice-vr\\m328387.evidence.json",
+      "sourceRva": "0x32a4280",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m328387_OnApplicationPause(longlong param_1, char param_2)",
+      "assemblyInstructions": 90,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 328397,
+      "method": "Dissonance.DissonanceComms::Update",
+      "group": "voice-vr",
+      "evidenceId": "ev_f569d42316af7faaf99be19b5123673d00c2abec36faebd0a267f1ddedd39f32",
+      "evidenceSha256": "dce9c564499ab4b86b37f409dd01d33df74ac8f7a27fa5c4efa5e4532bc97124",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\voice-vr\\m328397.evidence.json",
+      "sourceRva": "0x32a5ca0",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m328397_Update(longlong param_1)",
+      "assemblyInstructions": 113,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 264748,
+      "method": "UnityEngine.InputSystem.XR.XRControllerWithRumble::SendImpulse",
+      "group": "voice-vr",
+      "evidenceId": "ev_5600a74bf0116835a98a442fe1935976ca31e4225c03404e125d3b1a530feb02",
+      "evidenceSha256": "e8d94dfdae2dbebffac8cc81e04de469ce2892a8150a11b0b8148b74f6222619",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\voice-vr\\m264748.evidence.json",
+      "sourceRva": "0xafa2310",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m264748_SendImpulse(undefined8 param_1, undefined4 param_2, undefined4 param_3)",
+      "assemblyInstructions": 47,
+      "bodyByteCountMatchesEntryUnwind": true,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ]
+    },
+    {
+      "methodIndex": 327128,
+      "method": "RootMotion.FinalIK.VRIK::GuessHandOrientations",
+      "group": "voice-vr",
+      "evidenceId": "ev_fcbd2601fd8f3c1d72cd20a3565ef7cf6c01179ff37c3a389e1b5a0c97b81745",
+      "evidenceSha256": "cc264abd7e1d43950873aef4ed8ad3edd2d74da1843d961c347eb22f9707a6c8",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\rea-dossiers\\voice-vr\\m327128.evidence.json",
+      "sourceRva": "0xa5ec890",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m327128_GuessHandOrientations(longlong param_1)",
+      "assemblyInstructions": 11,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 148123,
+      "method": "RecNet.Core::UIESWZQYZHJ",
+      "group": "service-codec-followup",
+      "evidenceId": "ev_6d7938097f67e27791253bf43675962944b5b2a6a26e79131e613ce1ee75a9bc",
+      "evidenceSha256": "2415e4afd192f91a3e649242b2c259066845dbb1f8801485e2d1fe114a547360",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\followup-dossiers\\service-codec-followup\\m148123.evidence.json",
+      "sourceRva": "0x94871b0",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m148123_UIESWZQYZHJ(uint param_1, longlong param_2, char * param_3)",
+      "assemblyInstructions": 120,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 380446,
+      "method": "RecRoom.NoEngine.Common.Union32::BNRGTLIKWJH",
+      "group": "service-codec-followup",
+      "evidenceId": "ev_fe99c9ac15b89999937757e71439c4fd5aa0799a9665e393d00a0d1c3eb10863",
+      "evidenceSha256": "17ab1e6f7bf4aa589c3f9a9a8987e48ff3a8f46eae6b6ada3df955a301d5ab12",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\followup-dossiers\\service-codec-followup\\m380446.evidence.json",
+      "sourceRva": "0x9af2590",
+      "typedReturn": "RecRoom.NoEngine.Common.Union32",
+      "inferredSignature": "undefined4 __fastcall m380446_BNRGTLIKWJH(undefined1 param_1, undefined1 param_2, undefined1 param_3, undefined1 param_4)",
+      "assemblyInstructions": 6,
+      "bodyByteCountMatchesEntryUnwind": null,
+      "warnings": []
+    },
+    {
+      "methodIndex": 380444,
+      "method": "RecRoom.NoEngine.Common.Union32::LVQPXQNSKYK",
+      "group": "service-codec-followup",
+      "evidenceId": "ev_94f8df47a1802d364bad8863bec8bc5214fbadc3c1862c98dbf7eb13d86f76b3",
+      "evidenceSha256": "31376a5cc58f7ad3c3c36f793635845679fb348320f175c335d0ce8bf0310675",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\followup-dossiers\\service-codec-followup\\m380444.evidence.json",
+      "sourceRva": "0x1ccbc30",
+      "typedReturn": "RecRoom.NoEngine.Common.Union32",
+      "inferredSignature": "undefined4 __fastcall m380444_LVQPXQNSKYK(undefined4 param_1)",
+      "assemblyInstructions": 2,
+      "bodyByteCountMatchesEntryUnwind": null,
+      "warnings": []
+    },
+    {
+      "methodIndex": 387023,
+      "method": "Circuits.Shared.Core.ByteCode.IO.OIFGQWXAVQN::KAJWUAPOHBQ",
+      "group": "service-codec-followup",
+      "evidenceId": "ev_7ccae70f7d3aabb662691b87958ec7ed6b1abcba95b60fc6f56ccb843ed44001",
+      "evidenceSha256": "711c12f3cb74630b88590edda61ae889d0ae937641611ac1a30cc8e5592720eb",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\followup-dossiers\\service-codec-followup\\m387023.evidence.json",
+      "sourceRva": "0x2b91ef0",
+      "typedReturn": "int",
+      "inferredSignature": "undefined __fastcall m387023_KAJWUAPOHBQ(longlong * param_1, uint param_2)",
+      "assemblyInstructions": 31,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 387055,
+      "method": "Circuits.Shared.Core.ByteCode.IO.XPAONVDHOEZ::IFOSWBJTEEP",
+      "group": "service-codec-followup",
+      "evidenceId": "ev_ce2b49c27a20da1249dfbf6a7edee10d56571dbb8fb34874d4acccdcaf9a7aa1",
+      "evidenceSha256": "2526d32a51a62528da101e4e9a96b513a370641837ca09ebe3b5698a2a9d92e3",
+      "evidencePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\followup-dossiers\\service-codec-followup\\m387055.evidence.json",
+      "sourceRva": "0x2b92120",
+      "typedReturn": "void",
+      "inferredSignature": "undefined __fastcall m387055_IFOSWBJTEEP(longlong param_1, uint param_2, undefined4 param_3)",
+      "assemblyInstructions": 35,
+      "bodyByteCountMatchesEntryUnwind": false,
+      "warnings": [
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    }
+  ],
+  "sourcePagesRecheckedAcrossCarriers": 143,
+  "sourcePageBytesAcrossCarriers": 585728,
+  "sqliteAtlas": {
+    "file": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\Metallic-RC.Analysis.sqlite",
+    "bytes": 962576384,
+    "sha256": "2ee42286827598f8fdbc0f9a4088d7dd93e1ba749c75c8bcbbd29e71b9d5a065",
+    "counts": {
+      "methods": 409503,
+      "fields": 252928,
+      "types": 63648,
+      "ranges": 771556,
+      "directFlows": 5948003,
+      "indirectFlows": 308926,
+      "leafs": 27302,
+      "namedNativeRanges": 251319
+    },
+    "sqliteIntegrity": "ok"
+  },
+  "atlasTests": {
+    "tests": 12,
+    "failures": 0,
+    "errors": 0,
+    "passed": true,
+    "seconds": 3.62,
+    "databaseOpenedReadOnly": true,
+    "originalGameExecuted": false
+  },
+  "csharp": {
+    "files": 419,
+    "bytes": 145020870,
+    "syntaxErrors": 0,
+    "reconstructedSimpleMethodEntries": 27302,
+    "unrecoveredConcreteThrowBodies": 354441,
+    "abstractOrExternalBodylessMethods": 27760,
+    "semanticGameCompilationPerformed": false
+  },
+  "privateCSharpPackage": {
+    "path": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\Metallic-RC-23191908-Partial-CSharp.zip",
+    "bytes": 15251401,
+    "sha256": "ba765ecf200f8cb3ab5c4f362f4e4aa39f19dc4bdd4a09c2d553869e929e40f2",
+    "sourceFiles": 419,
+    "sourceBytes": 145020870,
+    "allArchivedSourceHashesVerified": true,
+    "publishedOnline": false,
+    "containsNativeBinaries": false
+  },
+  "selectedRangeAudit": {
+    "status": "selected_ranges_decoded_without_invalid_instructions",
+    "sourceSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+    "selectedFunctions": 24,
+    "sourceBytes": 14968,
+    "instructions": 3342,
+    "invalidInstructions": 0,
+    "allSelectedBytesAccounted": true,
+    "gameCodeExecuted": false,
+    "limitations": [
+      "Linear decoding accounts for byte ranges; it does not prove every instruction executes.",
+      "Compiler unwind spans may contain traps, padding or exception paths not included by the decompiler.",
+      "An omitted 0xCC byte is recorded as such, not automatically declared harmless padding.",
+      "Only these selected ranges are audited here, not every method in the game."
+    ]
+  },
+  "methodsWithUnrepresentedNonCCBytes": [
+    12811,
+    12817,
+    12925,
+    100412,
+    148260,
+    314484
+  ],
+  "serviceBindings": {
+    "count": 31,
+    "evidenceId": "ev_3240650d079e5e63f4ca35ac67282c5e6290b2f5167c7c69bbbb476c5ec36973",
+    "wireSchemaVerified": false
+  },
+  "codecTests": {
+    "status": "synthetic_behavior_checks_passed",
+    "validCases": 10009,
+    "invalidCases": 999,
+    "partialWriteCases": 297,
+    "checks": 33029,
+    "originalNativeCodeExecuted": false,
+    "originalGameAssembliesExecuted": false,
+    "methods": [
+      387023,
+      387055
+    ],
+    "helperMethods": [
+      380446,
+      380444
+    ],
+    "evidence": [
+      "ev_7ccae70f7d3aabb662691b87958ec7ed6b1abcba95b60fc6f56ccb843ed44001",
+      "ev_ce2b49c27a20da1249dfbf6a7edee10d56571dbb8fb34874d4acccdcaf9a7aa1",
+      "ev_fe99c9ac15b89999937757e71439c4fd5aa0799a9665e393d00a0d1c3eb10863",
+      "ev_94f8df47a1802d364bad8863bec8bc5214fbadc3c1862c98dbf7eb13d86f76b3"
+    ],
+    "scope": "Two bounded C# codec reconstructions. These tests run new managed code, not the original native implementation.",
+    "limitations": [
+      "Native exception types, hardware faults and concurrency have not been tested against a running original client.",
+      "No full bytecode instruction set, circuit compiler or game rebuild is established.",
+      "These two reconstructions are separate from the earlier 27302 leaf-body count."
+    ]
+  },
+  "originals": [
+    {
+      "copy": "installed",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "unchanged": true
+    },
+    {
+      "copy": "installed",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "unchanged": true
+    },
+    {
+      "copy": "fresh",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "unchanged": true
+    },
+    {
+      "copy": "fresh",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "unchanged": true
+    }
+  ],
+  "originalGameExecutedThisPass": false,
+  "runtimeCaptureNeededThisPass": false,
+  "dnsOrSecuritySettingsChanged": false,
+  "fullGameRecovered": false,
+  "limits": [
+    "All-file/core-byte accounting is not complete behavioral understanding.",
+    "The broad prior linear scan retains 14763 invalid instructions in 4204 compiler unwind ranges.",
+    "24 selected methods do not cover all 270148 distinct native addresses.",
+    "Async/exception paths and indirect dispatch remain explicitly incomplete.",
+    "The C# archive is a partial reconstruction, not original developer source or a compilable Unity game."
+  ]
+}

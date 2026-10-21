@@ -1,0 +1,9 @@
+{
+  "tests": 12,
+  "failures": 0,
+  "errors": 0,
+  "passed": true,
+  "seconds": 3.62,
+  "databaseOpenedReadOnly": true,
+  "originalGameExecuted": false
+}

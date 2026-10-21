@@ -1,0 +1,29 @@
+{
+  "status": "synthetic_behavior_checks_passed",
+  "validCases": 10009,
+  "invalidCases": 999,
+  "partialWriteCases": 297,
+  "checks": 33029,
+  "originalNativeCodeExecuted": false,
+  "originalGameAssembliesExecuted": false,
+  "methods": [
+    387023,
+    387055
+  ],
+  "helperMethods": [
+    380446,
+    380444
+  ],
+  "evidence": [
+    "ev_7ccae70f7d3aabb662691b87958ec7ed6b1abcba95b60fc6f56ccb843ed44001",
+    "ev_ce2b49c27a20da1249dfbf6a7edee10d56571dbb8fb34874d4acccdcaf9a7aa1",
+    "ev_fe99c9ac15b89999937757e71439c4fd5aa0799a9665e393d00a0d1c3eb10863",
+    "ev_94f8df47a1802d364bad8863bec8bc5214fbadc3c1862c98dbf7eb13d86f76b3"
+  ],
+  "scope": "Two bounded C# codec reconstructions. These tests run new managed code, not the original native implementation.",
+  "limitations": [
+    "Native exception types, hardware faults and concurrency have not been tested against a running original client.",
+    "No full bytecode instruction set, circuit compiler or game rebuild is established.",
+    "These two reconstructions are separate from the earlier 27302 leaf-body count."
+  ]
+}
