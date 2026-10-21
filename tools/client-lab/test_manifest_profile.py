@@ -1,4 +1,4 @@
-"""Read-only admission tests against an explicitly supplied private v2 manifest.
+"""Read-only admission tests against an explicitly supplied private v3 manifest.
 No process, section, Frida import, backend request or game launch occurs here.
 """
 from pathlib import Path
@@ -10,9 +10,11 @@ def main():
     if a.output.exists():raise FileExistsError('New report destination required')
     spec=importlib.util.spec_from_file_location('runner_under_test',ROOT/'run-native-client.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     original=a.manifest.read_bytes();profile=json.loads(original);results=[]
-    before=hashlib.sha256(original).hexdigest();valid=module.validate(a.manifest);assert valid['schemaVersion']==2
-    results.append({'case':'reviewed_v2_profile','passed':True})
+    before=hashlib.sha256(original).hexdigest();valid=module.validate(a.manifest);assert valid['schemaVersion']==3
+    results.append({'case':'reviewed_v3_profile','passed':True})
     cases={}
+    bad=copy.deepcopy(profile);bad['schemaVersion']=2;cases['legacy_live_json_schema']=bad
+    bad=copy.deepcopy(profile);bad['files']=[x for x in bad['files'] if Path(x['path']).name!='progress_store.py'];cases['missing_progress_store_pin']=bad
     bad=copy.deepcopy(profile);bad['schemaVersion']=1;cases['old_schema']=bad
     bad=copy.deepcopy(profile);bad['port']=9999;cases['wrong_backend_port']=bad
     bad=copy.deepcopy(profile);bad['gameRoot']=str(a.manifest.parent);cases['wrong_game_root']=bad

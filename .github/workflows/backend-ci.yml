@@ -80,6 +80,8 @@ jobs:
           python-version: '3.13'
       - name: Test startup deadlines, result reporting and process cleanup
         run: python -B tools/client-lab/test_supervision.py
+      - name: Test transactional progress and interrupted writers
+        run: python -B tools/client-lab/test_progress_store.py
       - name: Retain authored-service evidence
         if: always()
         uses: actions/upload-artifact@v4

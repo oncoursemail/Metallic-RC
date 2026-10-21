@@ -63,6 +63,26 @@ class ProcessHandle:
     def image(self):
         n=W.DWORD(32768);buf=C.create_unicode_buffer(n.value)
         check(self.k.QueryFullProcessImageNameW(self.handle,0,buf,C.byref(n)));return buf.value
+    def diagnostics(self):
+        """Read-only observations on this retained handle; no mitigation changes.
+        Unsupported/denied queries stay explicit, not interpreted as disabled policy.
+        """
+        result={'pid':self.pid,'exitCodeBeforeCleanup':self.poll(),'readOnly':True,'securityPolicyChanged':False}
+        get_times=self.k.GetProcessTimes;get_times.argtypes=[W.HANDLE]+[C.POINTER(W.FILETIME)]*4;get_times.restype=W.BOOL
+        stamps=[W.FILETIME() for _ in range(4)]
+        if get_times(self.handle,*[C.byref(value) for value in stamps]):
+            result['kernel100ns']=(stamps[2].dwHighDateTime<<32)|stamps[2].dwLowDateTime
+            result['user100ns']=(stamps[3].dwHighDateTime<<32)|stamps[3].dwLowDateTime
+        else:result['processTimesError']=C.get_last_error()
+        get_policy=self.k.GetProcessMitigationPolicy;get_policy.argtypes=[W.HANDLE,C.c_int,C.c_void_p,C.c_size_t];get_policy.restype=W.BOOL
+        policies={}
+        for name,index in [('dynamicCode',2),('controlFlowGuard',7),('binarySignature',8)]:
+            flags=W.DWORD()
+            policies[name]={'flags':flags.value} if get_policy(self.handle,index,C.byref(flags),C.sizeof(flags)) else {'queryError':C.get_last_error()}
+            if 'flags' in policies[name]:policies[name]['flags']=flags.value
+        result['mitigationPolicies']=policies
+        result['interpretation']='Raw policy/CPU observations only; no attachment cause inferred.'
+        return result
     def terminate(self,code=124):
         if self.poll() is None:check(self.k.TerminateProcess(self.handle,code))
     def close(self):

@@ -1,0 +1,69 @@
+{
+  "status": "transactional_logging_repair_completed_actual_attachment_still_unresolved",
+  "createdUtc": "2026-10-21T21:02:08.992416+00:00",
+  "baseCommit": "f27c589549a7040a83fe8e84b969efeb90321732",
+  "progressStore": "single-publisher SQLite WAL; live JSON replacement and mutex removed",
+  "progressTestsPerRepeat": 18,
+  "consecutivePassingRepeats": 5,
+  "concurrentReaderUpdates": 5000,
+  "supervisedUpdates": 5000,
+  "controlTests": 20,
+  "javascriptTests": 10,
+  "manifestAdmissionTests": 11,
+  "backendChecks": 92,
+  "actualFridaFixturePassed": true,
+  "desktopUpdated": true,
+  "latestOriginalRun": {
+    "run": "20261021T203537.110261Z",
+    "startedUtc": "2026-10-21T20:35:37.175696+00:00",
+    "finishedUtc": "2026-10-21T20:35:54.781362+00:00",
+    "status": "phase_timed_out",
+    "totalSeconds": 17.606,
+    "attachSeconds": 15.006,
+    "failedPhase": "attach",
+    "processSpawned": true,
+    "attached": false,
+    "agentLoaded": false,
+    "processResumed": false,
+    "nativeDiscoveryParsed": false,
+    "nativeLoginVerified": false,
+    "cleanup": {
+      "ownedProcessTerminated": true,
+      "exitCode": 124,
+      "sharedSectionHandleClosed": true
+    },
+    "jobAfterCleanup": {
+      "totalProcesses": 3,
+      "activeProcesses": 0,
+      "terminatedByLimit": 0
+    },
+    "sourceFiles": [
+      {
+        "file": "receipt.json",
+        "sha256": "dcd72c01b7f2e718a0be8491d48121928ea12261ebe6bed8e3ae4dedb3ad6cc5",
+        "bytes": 2849
+      },
+      {
+        "file": "supervisor.json",
+        "sha256": "d088c1b9f76403f73f3c6f1b9224da533e4aeb001571deb26a123e6efbaaabd2",
+        "bytes": 1008
+      },
+      {
+        "file": "worker.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "file": "worker.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    ],
+    "interpretation": "This user-triggered run predates the transactional repair. It reached actual attachment, canceled at its deadline and cleaned up. The game did not resume; it is not a successful backend connection."
+  },
+  "actualNativeAttachmentSolved": false,
+  "actualNativeLoginVerified": false,
+  "nativeGameLaunchedDuringRepair": false,
+  "approvalRequestedDuringRepair": false,
+  "originalHashesUnchanged": 4
+}

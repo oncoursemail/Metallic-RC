@@ -1,0 +1,33 @@
+{
+  "status": "transactional_progress_deployed",
+  "createdUtc": "2026-10-21T20:58:48.394313+00:00",
+  "manifest": "run-manifest-v3-progress-reviewed.json",
+  "manifestSha256": "37aac1a4609eb5f6017a644ed236096a8f6507b69bda1f575c7beb70bcae7832",
+  "pinnedFiles": 15,
+  "runnerSha256": "459604d53ff3a6ca38511118123b89fadb30c3a281faf15b1e4e628b371463a5",
+  "progressStoreSha256": "913185ce50bc8ae2c79a2c834171bb53d7c9b51322e315e0f05c04c3399b298c",
+  "launchSha256": "d66a2779fa8516076fa094fa2cd9bd3f61f08902dfbbcffd147d66bb02422806",
+  "previousWrapperSha256": "0dcc5ab7164a9b2acfdcebe45f18c814eff8993c5fc54e998c99cdcba9a519d5",
+  "wrapperSha256": "f321fcb73993d76132a0e3d5781c55376cf47186bb33688beead1c3731f83084",
+  "previousWrapperPreserved": "Start-NativeClientTest.before-progress-store.ps1",
+  "preflight": {
+    "status": "preflight_passed",
+    "gameWillNotRun": true,
+    "elevated": false,
+    "schemaVersion": 3,
+    "backendInstance": "212d47d08e104ef58c747a4cdf10ece1",
+    "pinnedFiles": 15,
+    "totalBudgetSeconds": 90,
+    "attachLimitSeconds": 15,
+    "startupLimitSeconds": 30
+  },
+  "desktop": {
+    "shortcut": "Metallic-RC Native Client Test.lnk",
+    "wrapperSelected": true,
+    "opened": false
+  },
+  "windowsApprovalRequested": false,
+  "nativeGameLaunched": false,
+  "nativeAttachmentSolved": false,
+  "backendRestarted": false
+}

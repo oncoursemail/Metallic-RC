@@ -2,6 +2,7 @@
 from pathlib import Path
 import contextlib,ctypes,json,os,subprocess,sys,tempfile,threading,time,unittest,uuid
 from supervision import Ledger,PhaseTimeout,cancelled_call,supervised
+from progress_store import read_latest
 
 ROOT=Path(__file__).resolve().parent
 class FakeCancelled(Exception):pass
@@ -28,24 +29,28 @@ class ControlTests(unittest.TestCase):
         with self.assertRaises(PhaseTimeout):cancelled_call(FakeFrida,'spawn',0,lambda:called.append(1))
         self.assertEqual(called,[])
     def test_facts_are_not_intent(self):
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td, contextlib.ExitStack() as stack:
             start=time.monotonic();l=Ledger(Path(td)/'receipt.json',start,start+10,start+3)
+            self.addCleanup(l.close);stack.callback(l.close)
             self.assertTrue(l.state['runtimeRoutingRequested']);self.assertFalse(l.state['runtimeRoutingHookUsed']);self.assertFalse(l.state['attached']);self.assertFalse(l.state['processResumed'])
             l.event({'kind':'agent_loaded'});self.assertTrue(l.state['agentLoaded']);self.assertFalse(l.state['runtimeRoutingHookUsed'])
             l.event({'kind':'client_route_adapter_ready'});self.assertTrue(l.state['runtimeRoutingHookUsed'])
     def test_late_timer_is_not_reset_by_phase(self):
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td, contextlib.ExitStack() as stack:
             now=time.monotonic();l=Ledger(Path(td)/'r.json',now,now+2,now-.1)
+            self.addCleanup(l.close);stack.callback(l.close)
             with self.assertRaises(PhaseTimeout):l.phase('attach',15)
     def test_phase_receipt_identifies_block(self):
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td, contextlib.ExitStack() as stack:
             now=time.monotonic();p=Path(td)/'r.json';l=Ledger(p,now,now+10,now+3)
+            self.addCleanup(l.close);stack.callback(l.close)
             def fail():raise ValueError('fixture')
             with self.assertRaises(ValueError):l.call(FakeFrida,'attach',1,fail)
-            d=json.loads(p.read_text());self.assertEqual(d['phase'],'attach');self.assertEqual(d['phases'][-1]['outcome'],'failed')
+            d=read_latest(p);self.assertEqual(d['phase'],'attach');self.assertEqual(d['phases'][-1]['outcome'],'failed')
     def test_bounded_event_size_and_count(self):
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td, contextlib.ExitStack() as stack:
             now=time.monotonic();l=Ledger(Path(td)/'r.json',now,now+5,now+2)
+            self.addCleanup(l.close);stack.callback(l.close)
             l.event({'kind':'test','oversize':'x'*5000});self.assertEqual(len(l.state['events']),0)
             for i in range(600):l.event({'kind':'test','number':i})
             self.assertEqual(len(l.state['events']),512)
@@ -68,14 +73,25 @@ class AcceptanceTests(unittest.TestCase):
         from supervision import final_result_code
         self.assertEqual(final_result_code(124,{},True,True),124)
     def test_failure_not_hidden_by_event_limit(self):
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td, contextlib.ExitStack() as stack:
             now=time.monotonic();l=Ledger(Path(td)/'r.json',now,now+5,now+2)
+            self.addCleanup(l.close);stack.callback(l.close)
             for i in range(520):l.event({'kind':'test','number':i})
             l.event({'kind':'agent_failure','scope':'fixture','error':'fixture'})
             self.assertTrue(l.state['agentFailed']);self.assertEqual(len(l.state['events']),512)
 
 @unittest.skipUnless(os.name=='nt','Real Job Object tests require Windows')
 class WindowsJobTests(unittest.TestCase):
+    def test_owned_process_diagnostics_are_readonly(self):
+        import winjob
+        with tempfile.TemporaryDirectory() as td,winjob.OwnedJob() as job:
+            child=job.spawn([sys.executable,'-I','-c','import time;time.sleep(5)'],ROOT)
+            try:
+                data=child.diagnostics();self.assertEqual(data['pid'],child.pid);self.assertTrue(data['readOnly']);self.assertFalse(data['securityPolicyChanged'])
+                self.assertIsNone(data['exitCodeBeforeCleanup']);self.assertGreaterEqual(data['kernel100ns'],0)
+                self.assertEqual(set(data['mitigationPolicies']),{'dynamicCode','controlFlowGuard','binarySignature'})
+                self.assertIsNone(child.poll())
+            finally:job.stop();job.wait_empty();child.close()
     def test_struct_layouts_match_x64_win32(self):
         import winjob
         self.assertEqual(ctypes.sizeof(winjob.STARTUP),104);self.assertEqual(ctypes.sizeof(winjob.EXTENDED),144);self.assertEqual(ctypes.sizeof(winjob.ACCOUNTING),48)
@@ -132,7 +148,7 @@ class WindowsJobTests(unittest.TestCase):
         import winjob
         with tempfile.TemporaryDirectory() as td,winjob.OwnedJob() as job:
             p=Path(td);script=p/'blocked.py';receipt=p/'receipt.json'
-            script.write_text('import json,time,sys;from pathlib import Path;Path(sys.argv[1]).write_text(json.dumps({"phase":"attach","phaseStartedMonotonic":time.monotonic(),"processResumed":False}));time.sleep(60)')
+            script.write_text('import time,sys;sys.path.insert(0,'+repr(str(ROOT))+');from progress_store import ProgressWriter,database_path;w=ProgressWriter(database_path(sys.argv[1]));w.publish({"phase":"attach","phaseStartedMonotonic":time.monotonic(),"processResumed":False});time.sleep(60)')
             before=time.monotonic();process=job.spawn([sys.executable,'-I',str(script),str(receipt)],ROOT)
             try:
                 r=supervised(job,process,receipt,before,before+40,before+35,lambda _:None)
@@ -141,7 +157,7 @@ class WindowsJobTests(unittest.TestCase):
             finally:process.close()
     def test_last_parent_handle_close_kills_owned_child(self):
         import winjob
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td, contextlib.ExitStack() as stack:
             p=Path(td);script=p/'owner.py';script.write_text('import sys,os;from pathlib import Path;sys.path.insert(0,'+repr(str(ROOT))+');from winjob import OwnedJob;j=OwnedJob();c=j.spawn([sys.executable,"-c","import time;time.sleep(60)"],sys.argv[1]);Path(sys.argv[1],"pid.txt").write_text(str(c.pid));import time;time.sleep(1);os._exit(0)')
             owner=subprocess.Popen([sys.executable,'-I',str(script),td]);child=None
             try:
