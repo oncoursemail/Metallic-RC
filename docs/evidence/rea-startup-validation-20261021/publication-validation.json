@@ -1,0 +1,78 @@
+{
+  "status": "publication_sources_built_and_verified",
+  "recordedUtc": "2026-10-21T01:16:21.282718+00:00",
+  "nativeComparisonChecks": [
+    {
+      "project": "BindingProbe",
+      "cases": 2048,
+      "mismatches": 0,
+      "sourceComparison": "Retained bounded native-emulation output, with the documented modeled boundaries.",
+      "publishedSourceHashes": [
+        {
+          "file": "BindingProbe.csproj",
+          "sha256": "f54621e1086d1f2deada1b3356a94998820056818b511d6f1cc802c7233a2bfa"
+        },
+        {
+          "file": "ObservedServiceBindingSequence.cs",
+          "sha256": "ad2669ed811983bf245fea9a7aa39ef3fb76bf388e0f227a01cc48ff9fb786ec"
+        },
+        {
+          "file": "packages.lock.json",
+          "sha256": "865f22cdea4c197d3756a069bf389ff60be708d309c6e540576d68c5b9314c05"
+        },
+        {
+          "file": "Program.cs",
+          "sha256": "a62a6944e7b106035717fe977f01104c68ff2ab740a74c5ce82059a4178d851f"
+        }
+      ]
+    },
+    {
+      "project": "ManagedProbe",
+      "cases": 5912,
+      "mismatches": 0,
+      "sourceComparison": "Retained bounded native-emulation output, with the documented modeled boundaries.",
+      "publishedSourceHashes": [
+        {
+          "file": "ManagedProbe.csproj",
+          "sha256": "8ca72cd7a8b3cf428f781bd94c1775e62ebcc983dc621f55001e15de499fa19d"
+        },
+        {
+          "file": "ObservedByteCodec.cs",
+          "sha256": "b2f244ef17d1c756ee3197d4c8d3ccc2568ad741b7ca9bf4d7da83a2be7723a2"
+        },
+        {
+          "file": "packages.lock.json",
+          "sha256": "865f22cdea4c197d3756a069bf389ff60be708d309c6e540576d68c5b9314c05"
+        },
+        {
+          "file": "Program.cs",
+          "sha256": "a8782b5f384466730a70f1d09baf97c8cebeddfd0f6421449c476b4ffaf39bb3"
+        }
+      ]
+    }
+  ],
+  "serviceModel": {
+    "status": "service_helper_model_checks_passed",
+    "cases": 2037,
+    "checks": 6045,
+    "sourceMethods": [
+      148123,
+      367496
+    ],
+    "cachedFlagFields": [
+      92806,
+      92807
+    ],
+    "serviceDictionaryField": 92689,
+    "nativeDifferentialExecuted": false,
+    "gameExecuted": false,
+    "networkRequests": 0,
+    "limits": [
+      "Tests validate the newly authored C# model against the observed branch/field mapping, NOT the original Unity runtime or original BCL.",
+      "Original exception message, runtime initialization and full async name-server processing remain unresolved.",
+      "Numeric service mapping is not a confirmed HTTP or JSON wire schema."
+    ]
+  },
+  "gameAssembliesLoaded": false,
+  "fullGameCompilationPerformed": false
+}

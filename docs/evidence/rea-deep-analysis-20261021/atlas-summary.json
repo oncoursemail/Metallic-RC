@@ -1,0 +1,26 @@
+{
+  "status": "atlas_built_and_integrity_checked",
+  "createdUtc": "2026-10-21T00:17:51.322982+00:00",
+  "file": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\Metallic-RC.Analysis.sqlite",
+  "bytes": 962576384,
+  "sha256": "2ee42286827598f8fdbc0f9a4088d7dd93e1ba749c75c8bcbbd29e71b9d5a065",
+  "counts": {
+    "methods": 409503,
+    "fields": 252928,
+    "types": 63648,
+    "ranges": 771556,
+    "directFlows": 5948003,
+    "indirectFlows": 308926,
+    "leafs": 27302,
+    "namedNativeRanges": 251319
+  },
+  "sqliteIntegrity": "ok",
+  "targetExecuted": false,
+  "allSemanticsUnderstood": false,
+  "limits": [
+    "Native ranges are compiler unwind records, not a one-to-one C# method list.",
+    "Static direct operands can be unreachable code or misclassified data; invalid-range counts are preserved.",
+    "Indirect target resolution and dynamic dispatch require separate proof.",
+    "Recovered leaf entries are prior translation results, not new REA-proven bodies."
+  ]
+}

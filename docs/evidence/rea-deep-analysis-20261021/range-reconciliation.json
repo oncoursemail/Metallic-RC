@@ -1,0 +1,409 @@
+{
+  "status": "explicit_union_spans",
+  "methods": [
+    {
+      "methodIndex": 1316,
+      "entryUnwindBytes": 58,
+      "reaSpanBytes": 57,
+      "auditedBytes": 58,
+      "compilerFragments": [
+        {
+          "start_rva": 28472640,
+          "end_rva": 28472698,
+          "unwind_rva": 252980024,
+          "sha256": "4ea51756078f7062b4e6f0f15e866176d8f96d841a8cf2315b3b1b29e0c18ee7"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 1322,
+      "entryUnwindBytes": 116,
+      "reaSpanBytes": 394,
+      "auditedBytes": 394,
+      "compilerFragments": [
+        {
+          "start_rva": 28455792,
+          "end_rva": 28455908,
+          "unwind_rva": 252985548,
+          "sha256": "6a48e73733af3a4c55f123d0021a565e5c4775ec3e697dd04306242f3c145a16"
+        },
+        {
+          "start_rva": 28455908,
+          "end_rva": 28456181,
+          "unwind_rva": 253681832,
+          "sha256": "744b3eb6d7ca1d6eaa7e83fdb812dc632df5fb9c8891c0e3241cae57a359bed2"
+        },
+        {
+          "start_rva": 28456181,
+          "end_rva": 28456187,
+          "unwind_rva": 253681856,
+          "sha256": "9d092d14ee417e209db5b1f7e643ec8cbf6a20642c21a4147ca24be9fd1ed754"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": true
+    },
+    {
+      "methodIndex": 1333,
+      "entryUnwindBytes": 219,
+      "reaSpanBytes": 563,
+      "auditedBytes": 563,
+      "compilerFragments": [
+        {
+          "start_rva": 28463456,
+          "end_rva": 28463675,
+          "unwind_rva": 252988224,
+          "sha256": "f730d8de204c029fc623dfe0a1c3f5f2de4ec694b91803591b731ea9d8359490"
+        },
+        {
+          "start_rva": 28463675,
+          "end_rva": 28463993,
+          "unwind_rva": 253682168,
+          "sha256": "6f44de6357f42e613c355f73b22aba2b26598e2eb878350f090b04a0712c492a"
+        },
+        {
+          "start_rva": 28463993,
+          "end_rva": 28464014,
+          "unwind_rva": 253682188,
+          "sha256": "b0110affb33e4235c3fbe8f594b864a50d2785b53ac225a1610e811a92817d22"
+        },
+        {
+          "start_rva": 28464014,
+          "end_rva": 28464020,
+          "unwind_rva": 253682204,
+          "sha256": "2cb46768c2bb25b96e8d11cd380d48c9d1879c11a36149154927343dabf39688"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": true
+    },
+    {
+      "methodIndex": 1341,
+      "entryUnwindBytes": 739,
+      "reaSpanBytes": 738,
+      "auditedBytes": 739,
+      "compilerFragments": [
+        {
+          "start_rva": 28476704,
+          "end_rva": 28477443,
+          "unwind_rva": 253678808,
+          "sha256": "df188debc6048d23cec047c3e7cc1627a186193ffc51ab223731015ad064a5e7"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 1344,
+      "entryUnwindBytes": 320,
+      "reaSpanBytes": 319,
+      "auditedBytes": 320,
+      "compilerFragments": [
+        {
+          "start_rva": 28477456,
+          "end_rva": 28477776,
+          "unwind_rva": 252980620,
+          "sha256": "74cadf3ed691b8af79ddc725a1ced87a6657437395a4291d264705d9ae93367d"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 12789,
+      "entryUnwindBytes": 699,
+      "reaSpanBytes": 698,
+      "auditedBytes": 699,
+      "compilerFragments": [
+        {
+          "start_rva": 33892944,
+          "end_rva": 33893643,
+          "unwind_rva": 253927700,
+          "sha256": "548c09476817f910683b95424778fac6bd495d5b2e03d802d05da22096d9171b"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 12811,
+      "entryUnwindBytes": 1729,
+      "reaSpanBytes": 1727,
+      "auditedBytes": 1729,
+      "compilerFragments": [
+        {
+          "start_rva": 33954800,
+          "end_rva": 33956529,
+          "unwind_rva": 253924664,
+          "sha256": "55c3768d59fdc99e3f2d48c40a4bca25be7fd51c68cb558b4263fd4f62f30b61"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 12817,
+      "entryUnwindBytes": 707,
+      "reaSpanBytes": 705,
+      "auditedBytes": 707,
+      "compilerFragments": [
+        {
+          "start_rva": 33958080,
+          "end_rva": 33958787,
+          "unwind_rva": 253924860,
+          "sha256": "328e34b01f58616fa4393e735478112790a994e4f82b0b4f9600d14a60130969"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 12925,
+      "entryUnwindBytes": 353,
+      "reaSpanBytes": 352,
+      "auditedBytes": 353,
+      "compilerFragments": [
+        {
+          "start_rva": 33914912,
+          "end_rva": 33915265,
+          "unwind_rva": 252983028,
+          "sha256": "29d373f331643fbe80b2d3a74a9689885781c2ffe5a28f8e94d3ab997987b0bd"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 12993,
+      "entryUnwindBytes": 730,
+      "reaSpanBytes": 729,
+      "auditedBytes": 730,
+      "compilerFragments": [
+        {
+          "start_rva": 33923728,
+          "end_rva": 33924458,
+          "unwind_rva": 253928452,
+          "sha256": "893ea0a21dcd3fe6f4e99b62c808060aa476b11464d1719382b8b443455ca750"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 100412,
+      "entryUnwindBytes": 2010,
+      "reaSpanBytes": 2008,
+      "auditedBytes": 2010,
+      "compilerFragments": [
+        {
+          "start_rva": 26639856,
+          "end_rva": 26641866,
+          "unwind_rva": 253596440,
+          "sha256": "65b6a98cf047e0b011d02a1a978743dc96b2c650d7de51e4728bd0223191ab05"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 148123,
+      "entryUnwindBytes": 536,
+      "reaSpanBytes": 535,
+      "auditedBytes": 536,
+      "compilerFragments": [
+        {
+          "start_rva": 155742640,
+          "end_rva": 155743176,
+          "unwind_rva": 257832808,
+          "sha256": "fff218ee7531bff83a9e2aff62c779c02eb34a2d02d7b84b4ceb013fca1ca4da"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 148260,
+      "entryUnwindBytes": 2663,
+      "reaSpanBytes": 2461,
+      "auditedBytes": 2663,
+      "compilerFragments": [
+        {
+          "start_rva": 155802720,
+          "end_rva": 155805383,
+          "unwind_rva": 257832828,
+          "sha256": "dabc2d3d82f77332704fb231d6c0108c014e5fa8b0a6df2eaebdfa358daa8e21"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 264748,
+      "entryUnwindBytes": 237,
+      "reaSpanBytes": 237,
+      "auditedBytes": 237,
+      "compilerFragments": [
+        {
+          "start_rva": 184165136,
+          "end_rva": 184165373,
+          "unwind_rva": 253137120,
+          "sha256": "98dded097c49782173835b5f1f9360d24e3549fcacbb76a53c686266ceadaf77"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 314484,
+      "entryUnwindBytes": 1451,
+      "reaSpanBytes": 1443,
+      "auditedBytes": 1451,
+      "compilerFragments": [
+        {
+          "start_rva": 169787856,
+          "end_rva": 169789307,
+          "unwind_rva": 258407756,
+          "sha256": "139c7f098789e99537c48b3bed099f1cf06101e589b95e4c0bc3803e289663a6"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 327128,
+      "entryUnwindBytes": 41,
+      "reaSpanBytes": 40,
+      "auditedBytes": 41,
+      "compilerFragments": [
+        {
+          "start_rva": 173983888,
+          "end_rva": 173983929,
+          "unwind_rva": 252980016,
+          "sha256": "6ec97fab53842e211aa3a9e4b815dd3da3b92db9ed7bda8f3213d49cfe26515f"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 328387,
+      "entryUnwindBytes": 401,
+      "reaSpanBytes": 400,
+      "auditedBytes": 401,
+      "compilerFragments": [
+        {
+          "start_rva": 53101184,
+          "end_rva": 53101585,
+          "unwind_rva": 252980000,
+          "sha256": "82861bb2e99723012a867733f755e86263e9959357afe3b797253f326e10836e"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 328397,
+      "entryUnwindBytes": 470,
+      "reaSpanBytes": 469,
+      "auditedBytes": 470,
+      "compilerFragments": [
+        {
+          "start_rva": 53107872,
+          "end_rva": 53108342,
+          "unwind_rva": 254506512,
+          "sha256": "4b5db51abe043cf40fe328ef98b431f59a9ea6ad74dd6e402edbb402f70062af"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 375556,
+      "entryUnwindBytes": 363,
+      "reaSpanBytes": 363,
+      "auditedBytes": 363,
+      "compilerFragments": [
+        {
+          "start_rva": 45783376,
+          "end_rva": 45783739,
+          "unwind_rva": 252980000,
+          "sha256": "95486ed93c75c737691c9dd993175b1268dfa531b3ecf65d000356d5976b548e"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 380444,
+      "entryUnwindBytes": null,
+      "reaSpanBytes": 3,
+      "auditedBytes": 3,
+      "compilerFragments": [],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 380446,
+      "entryUnwindBytes": null,
+      "reaSpanBytes": 23,
+      "auditedBytes": 23,
+      "compilerFragments": [],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 387023,
+      "entryUnwindBytes": 109,
+      "reaSpanBytes": 108,
+      "auditedBytes": 109,
+      "compilerFragments": [
+        {
+          "start_rva": 45686512,
+          "end_rva": 45686621,
+          "unwind_rva": 252985548,
+          "sha256": "38b354614ad73ea05a13e8aa7a3cefdf88d566928e05700e80c8b69762b96951"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 387055,
+      "entryUnwindBytes": 121,
+      "reaSpanBytes": 120,
+      "auditedBytes": 121,
+      "compilerFragments": [
+        {
+          "start_rva": 45687072,
+          "end_rva": 45687193,
+          "unwind_rva": 252980000,
+          "sha256": "e8ec6e19843897f2b5797d56595151271fbc5d63cce955c3893ae51136165a2c"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    },
+    {
+      "methodIndex": 408427,
+      "entryUnwindBytes": 248,
+      "reaSpanBytes": 248,
+      "auditedBytes": 248,
+      "compilerFragments": [
+        {
+          "start_rva": 158001984,
+          "end_rva": 158002232,
+          "unwind_rva": 252980024,
+          "sha256": "9abc74b5570979a63479d5b1fe3c14c63e39f1beced4c83b44eb3797339e376a"
+        }
+      ],
+      "otherMetadataEntriesWithinSpan": [],
+      "expandedBeyondFirstUnwind": false
+    }
+  ],
+  "limits": [
+    "These spans cover source bytes; they are not proofs that every byte is reachable.",
+    "Unwind records can split a function, while decompiler bodies can omit exception paths. Both boundaries remain separately recorded."
+  ]
+}

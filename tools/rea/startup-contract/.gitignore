@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/__pycache__/
+*.dll
+*.raw
+*.bin
+*.dat
+*.jsonl
+*.sqlite*
+*-differential/
+*-validation/
+isolated-pe/
+rea-dossiers/

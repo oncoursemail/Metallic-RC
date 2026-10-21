@@ -1,0 +1,115 @@
+{
+  "status": "selected_ranges_decoded_without_invalid_instructions",
+  "sourceSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "selectedFunctions": 4,
+  "sourceBytes": 5269,
+  "instructions": 1104,
+  "invalidInstructions": 0,
+  "allSelectedBytesAccounted": true,
+  "gameCodeExecuted": false,
+  "methods": [
+    {
+      "methodIndex": 148090,
+      "rva": "0x94827e0",
+      "sourceOffset": 155718112,
+      "sourceBytes": 177,
+      "sourceRangeBasis": "Union extent of the metadata entry unwind record and REA reported inclusive body; no extra metadata functions claimed.",
+      "sha256": "c43e868d7c879a1bb1f84112387729b0c5e419ce7137013d8ae44d447b665f49",
+      "decodedInstructions": 38,
+      "invalidInstructions": 0,
+      "allBytesAccounted": true,
+      "reaCoveredBytes": 176,
+      "reaOmittedBytes": 1,
+      "reaOmittedNonCCBytes": 0,
+      "reaGaps": [
+        {
+          "rva": "0x9482890",
+          "bytes": 1,
+          "allCC": true,
+          "sha256": "1dd8312636f6a0bf3d21fa2855e63072507453e93a5ced4301b364e91c9d87d6"
+        }
+      ],
+      "reachabilityProved": false
+    },
+    {
+      "methodIndex": 148091,
+      "rva": "0x94876c0",
+      "sourceOffset": 155738304,
+      "sourceBytes": 2972,
+      "sourceRangeBasis": "Union extent of the metadata entry unwind record and REA reported inclusive body; no extra metadata functions claimed.",
+      "sha256": "ac2ddafdcc4e2077418d69bbddbc468e2adb5849c114bfac32cc38d321c876f0",
+      "decodedInstructions": 622,
+      "invalidInstructions": 0,
+      "allBytesAccounted": true,
+      "reaCoveredBytes": 2971,
+      "reaOmittedBytes": 1,
+      "reaOmittedNonCCBytes": 0,
+      "reaGaps": [
+        {
+          "rva": "0x948825b",
+          "bytes": 1,
+          "allCC": true,
+          "sha256": "1dd8312636f6a0bf3d21fa2855e63072507453e93a5ced4301b364e91c9d87d6"
+        }
+      ],
+      "reachabilityProved": false
+    },
+    {
+      "methodIndex": 148096,
+      "rva": "0x9483060",
+      "sourceOffset": 155720288,
+      "sourceBytes": 1970,
+      "sourceRangeBasis": "Union extent of the metadata entry unwind record and REA reported inclusive body; no extra metadata functions claimed.",
+      "sha256": "474228e3bf1dc30c18b46edec1b2d7e46e084684783406c1f5c4ec49e3b2872f",
+      "decodedInstructions": 411,
+      "invalidInstructions": 0,
+      "allBytesAccounted": true,
+      "reaCoveredBytes": 1935,
+      "reaOmittedBytes": 35,
+      "reaOmittedNonCCBytes": 33,
+      "reaGaps": [
+        {
+          "rva": "0x94837d4",
+          "bytes": 27,
+          "allCC": false,
+          "sha256": "b1fd154b283ccf61c6b942bc329888fdaff560e410e9348217b457f0c64bd06c"
+        },
+        {
+          "rva": "0x9483805",
+          "bytes": 7,
+          "allCC": false,
+          "sha256": "2d48d84005ec639be906384842683df27093fd1020d25fd43e4ac426ea314161"
+        },
+        {
+          "rva": "0x9483811",
+          "bytes": 1,
+          "allCC": true,
+          "sha256": "1dd8312636f6a0bf3d21fa2855e63072507453e93a5ced4301b364e91c9d87d6"
+        }
+      ],
+      "reachabilityProved": false
+    },
+    {
+      "methodIndex": 145417,
+      "rva": "0x9432150",
+      "sourceOffset": 155388752,
+      "sourceBytes": 150,
+      "sourceRangeBasis": "Union extent of the metadata entry unwind record and REA reported inclusive body; no extra metadata functions claimed.",
+      "sha256": "b8d64fa9b311af046639be0696fc416bcb8f662db2dc1ec71b9a2b0efab815c6",
+      "decodedInstructions": 33,
+      "invalidInstructions": 0,
+      "allBytesAccounted": true,
+      "reaCoveredBytes": 150,
+      "reaOmittedBytes": 0,
+      "reaOmittedNonCCBytes": 0,
+      "reaGaps": [],
+      "reachabilityProved": false
+    }
+  ],
+  "limitations": [
+    "Linear decoding accounts for byte ranges; it does not prove every instruction executes.",
+    "Compiler unwind spans may contain traps, padding or exception paths not included by the decompiler.",
+    "An omitted 0xCC byte is recorded as such, not automatically declared harmless padding.",
+    "Only these selected ranges are audited here, not every method in the game."
+  ]
+}

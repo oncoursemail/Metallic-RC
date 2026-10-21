@@ -1,0 +1,377 @@
+{
+  "status": "integrated_startup_contract_verified",
+  "createdUtc": "2026-10-21T02:38:24.052151+00:00",
+  "formatterComparisonCases": 2474,
+  "formatterMismatches": 0,
+  "selfTests": {
+    "status": "startup_contract_and_loopback_tests_passed",
+    "cases": 570,
+    "checks": 4996,
+    "httpRequests": 4,
+    "listenerAddress": "127.0.0.1",
+    "ephemeralPort": 63474,
+    "externalRequests": 0,
+    "listenerStopped": true,
+    "actualGameConnected": false,
+    "completeOriginalAsyncReconstruction": false,
+    "scope": "Compiled authored compatibility component and its loopback HTTP fixture; not original client/backend acceptance."
+  },
+  "cliChecks": [
+    {
+      "case": "valid",
+      "valid": true,
+      "reason": "supported_contract_profile",
+      "exitCode": 0,
+      "stateDirectoryAbsent": true,
+      "addressesNotPrinted": true
+    },
+    {
+      "case": "empty",
+      "valid": false,
+      "reason": "missing_response",
+      "exitCode": 2,
+      "stateDirectoryAbsent": true,
+      "addressesNotPrinted": true
+    },
+    {
+      "case": "null",
+      "valid": false,
+      "reason": "missing_response",
+      "exitCode": 2,
+      "stateDirectoryAbsent": true,
+      "addressesNotPrinted": true
+    },
+    {
+      "case": "nonempty-status",
+      "valid": false,
+      "reason": "nonempty_status",
+      "exitCode": 2,
+      "stateDirectoryAbsent": true,
+      "addressesNotPrinted": true
+    },
+    {
+      "case": "missing-auth",
+      "valid": false,
+      "reason": "invalid_service_address",
+      "exitCode": 2,
+      "stateDirectoryAbsent": true,
+      "addressesNotPrinted": true
+    },
+    {
+      "case": "bad-uri",
+      "valid": false,
+      "reason": "invalid_service_uri",
+      "exitCode": 2,
+      "stateDirectoryAbsent": true,
+      "addressesNotPrinted": true
+    },
+    {
+      "case": "wrong-type",
+      "valid": false,
+      "reason": "invalid_json_or_value_type",
+      "exitCode": 2,
+      "stateDirectoryAbsent": true,
+      "addressesNotPrinted": true
+    },
+    {
+      "case": "privacy",
+      "valid": true,
+      "reason": "supported_contract_profile",
+      "exitCode": 0,
+      "stateDirectoryAbsent": true,
+      "addressesNotPrinted": true
+    },
+    {
+      "case": "unsupported-build",
+      "exitCode": 2
+    },
+    {
+      "case": "help",
+      "exitCode": 0
+    }
+  ],
+  "checks": [
+    {
+      "name": "restore-added-project",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "  Restored C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\publication-source\\src\\Metallic.RC.Core\\Metallic.RC.Core.csproj (in 270 ms).",
+        "  Restored C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\publication-source\\tests\\Metallic.RC.Platform.Tests\\Metallic.RC.Platform.Tests.csproj (in 276 ms).",
+        "  Restored C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\publication-source\\tests\\Metallic.RC.Compatibility.Tests\\Metallic.RC.Compatibility.Tests.csproj (in 276 ms).",
+        "  Restored C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\publication-source\\src\\Metallic.RC.Creator\\Metallic.RC.Creator.csproj (in 270 ms).",
+        "  Restored C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\deep-rea-20261021\\publication-source\\src\\Metallic.RC.Launcher\\Metallic.RC.Launcher.csproj (in 332 ms)."
+      ]
+    },
+    {
+      "name": "solution-locked-build",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "Build succeeded.",
+        "    0 Warning(s)",
+        "    0 Error(s)",
+        "",
+        "Time Elapsed 00:00:02.93"
+      ]
+    },
+    {
+      "name": "core-regression",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "PASS Concurrent imports preserve both registrations",
+        "PASS Canceled inspection cannot produce an import",
+        "PASS A previously planned executable is reverified before launch",
+        "PASS A reviewed plan cannot be redirected by changing the catalog root",
+        "18/18 acceptance checks passed. Fixture PE headers are synthetic; no game, external launcher, guard, or injector was executed."
+      ]
+    },
+    {
+      "name": "platform-regression",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "PASS: 101 assertions; typed CV3, bounded preview, real loopback HTTP, authentication, ETags and restart persistence."
+      ]
+    },
+    {
+      "name": "compatibility-selftests",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "{\"status\":\"startup_contract_and_loopback_tests_passed\",\"cases\":570,\"checks\":4996,\"httpRequests\":4,\"listenerAddress\":\"127.0.0.1\",\"ephemeralPort\":63474,\"externalRequests\":0,\"listenerStopped\":true,\"actualGameConnected\":false,\"completeOriginalAsyncReconstruction\":false,\"scope\":\"Compiled authored compatibility component and its loopback HTTP fixture; not original client/backend acceptance.\"}"
+      ]
+    },
+    {
+      "name": "formatter-comparison",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "{\"status\":\"completed\",\"cases\":2474,\"originalGameExecuted\":false}"
+      ]
+    },
+    {
+      "name": "cli-valid",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-empty",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-null",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-nonempty-status",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-missing-auth",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-bad-uri",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-wrong-type",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-privacy",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-unsupported-build",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "lastLines": [
+        "  \"gameLaunched\": false,",
+        "  \"cacheWritten\": false,",
+        "  \"liveClientCompatibilityVerified\": false,",
+        "  \"scope\": \"Offline build-specific response validation; not login or server acceptance.\"",
+        "}"
+      ]
+    },
+    {
+      "name": "cli-help",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "lastLines": [
+        "",
+        "--state-dir DIRECTORY can be used with every command.",
+        "Inspection and registration leave the client files untouched.",
+        "Windows clients need Windows; Linux compatibility is a separate test target.",
+        "External clients retain their own supported launchers and service requirements."
+      ]
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "src/Metallic.RC.Compatibility/DiscoveryContract.cs",
+      "sha256": "8ff8defbb0af1eae75114428c82bd5a6e80836420ba0ee3f8c9d98c4b9cc0090",
+      "bytes": 8488
+    },
+    {
+      "path": "src/Metallic.RC.Compatibility/Metallic.RC.Compatibility.csproj",
+      "sha256": "bd7b6d09d62946e48285f370193b24ffcd8262fd7fb1ae7b10605e554d4dd356",
+      "bytes": 168
+    },
+    {
+      "path": "src/Metallic.RC.Compatibility/packages.lock.json",
+      "sha256": "865f22cdea4c197d3756a069bf389ff60be708d309c6e540576d68c5b9314c05",
+      "bytes": 124
+    },
+    {
+      "path": "src/Metallic.RC.Compatibility/README.md",
+      "sha256": "660f19af9f382afa746721742a36bf9de4f338330777869972baad24445011a3",
+      "bytes": 1994
+    },
+    {
+      "path": "src/Metallic.RC.Compatibility/ServiceAddressUpdate.cs",
+      "sha256": "bba5faeed222cda7bf0df977a18d7f753b6fdb9adb7080682ecbd49fddf15637",
+      "bytes": 1516
+    },
+    {
+      "path": "tests/Metallic.RC.Compatibility.Tests/ContractSelfTests.cs",
+      "sha256": "930a076345badaef6dbba5d7205cf843e4f2a8a6acf9f0716768df1fc233ea93",
+      "bytes": 10863
+    },
+    {
+      "path": "tests/Metallic.RC.Compatibility.Tests/Metallic.RC.Compatibility.Tests.csproj",
+      "sha256": "40d793c44693d1cc0fe782780be93b71ec7e7a4846256eeb07d573d1d5301a35",
+      "bytes": 318
+    },
+    {
+      "path": "tests/Metallic.RC.Compatibility.Tests/packages.lock.json",
+      "sha256": "813798dda9516b28dd0cb90ac49a47906e3d2146ea5e85212db8e8df96de7d2e",
+      "bytes": 204
+    },
+    {
+      "path": "tests/Metallic.RC.Compatibility.Tests/Program.cs",
+      "sha256": "a0fe39d9b7c8f69f06ac7cd4f6aa6b790c71e0e6cca20b3c01650ca1c0555221",
+      "bytes": 1827
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/Program.cs",
+      "sha256": "5f18e6aea4f561ea249338e018e3efe08b610a477092c983e41f9e313dccbcf1",
+      "bytes": 8000
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/DiscoveryCheck.cs",
+      "sha256": "24c8900d085cd81ac884a6a942c06431b8a80e042dcfb248ef25105711c17fc5",
+      "bytes": 2284
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/Metallic.RC.Launcher.csproj",
+      "sha256": "4929f872aada3cab98e1b66ec1cc890879f56b0f07c509f4fecbbb3333ffaada",
+      "bytes": 1091
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/packages.lock.json",
+      "sha256": "a52a7de1794fff6427ccc302a5e356234df299b7d5027590c03445fe5c482c88",
+      "bytes": 11515
+    }
+  ],
+  "originalHashes": [
+    {
+      "copy": "installed",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "unchanged": true
+    },
+    {
+      "copy": "installed",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "unchanged": true
+    },
+    {
+      "copy": "fresh",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "unchanged": true
+    },
+    {
+      "copy": "fresh",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "unchanged": true
+    }
+  ],
+  "regressionRelocation": {
+    "reason": "Existing Core fixture creates junctions beneath AppContext.BaseDirectory. Deep worktree exceeded Windows mklink path length; identical compiled binaries were copied to this short task-owned folder, without skipping tests.",
+    "path": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\qa-sc-626bafabda",
+    "copiedFiles": 26,
+    "allHashesMatch": true
+  },
+  "liveClientTested": false,
+  "gameRedirected": false,
+  "fullGameBuild": false
+}

@@ -1,0 +1,46 @@
+{
+  "status": "cleanup_generic_context_and_leaf_effect_resolved",
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "slotAddress": "0x18fcfca98",
+  "taggedValue": "0xc02564af",
+  "methodSpecIndex": 1225303,
+  "methodDefinition": {
+    "methodIndex": 222879,
+    "assembly": "mscorlib.dll",
+    "declaringTypeIndex": 32827,
+    "declaringType": "System.Collections.Generic.List.Enumerator<T>",
+    "name": "Dispose",
+    "returnType": "void",
+    "returnByref": 0,
+    "parameters": [],
+    "token": 100676403,
+    "flags": 486,
+    "iflags": 0,
+    "slot": 5,
+    "nativeRva": null,
+    "bodyStatus": "not_reconstructed"
+  },
+  "classArguments": [
+    "System.Action"
+  ],
+  "methodArguments": [],
+  "observedCallTarget": "0x180d0a4c0",
+  "observedLeafInstruction": "RET 0",
+  "observedLeafBytes": "c20000",
+  "observedLeafSha256": "b6cbececf1b07e74f37d57710c68c31f0b92cb08d51093252b321b07542e177b",
+  "unwind": {
+    "rva": "0xf5e3ca4",
+    "version": 1,
+    "flags": 3,
+    "prologBytes": 13,
+    "codeSlots": 5,
+    "frameRegister": 0,
+    "frameOffset": 0,
+    "codeBytes": "0d3416000d0114000670",
+    "handlerRva": "0xcd54d0",
+    "handlerDataDecoded": false
+  },
+  "nativePropagationTarget": "0x180c3c3b0",
+  "propagationImplementationRecovered": false,
+  "interpretation": "The omitted block calls the typed enumerator cleanup context at a shared immediate-RET body, then conditionally forwards the saved exception pointer to a native propagation boundary. Full exception dispatch/unwind behavior is not inferred from this."
+}

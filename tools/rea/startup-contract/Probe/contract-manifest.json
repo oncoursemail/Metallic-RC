@@ -1,0 +1,345 @@
+{
+  "canonicalNames": [
+    "RecNetStatus",
+    "AI",
+    "Auth",
+    "API",
+    "WWW",
+    "Notifications",
+    "Images",
+    "CDN",
+    "Commerce",
+    "Matchmaking",
+    "Storage",
+    "Chat",
+    "Leaderboard",
+    "Accounts",
+    "Link",
+    "Lists",
+    "RoomComments",
+    "Clubs",
+    "Rooms",
+    "PlatformNotifications",
+    "Moderation",
+    "DataCollection",
+    "BugReporting",
+    "Discovery",
+    "PlayerSettings",
+    "Studio",
+    "GameLogs",
+    "Strings",
+    "Econ",
+    "StringsCDN",
+    "Data",
+    "Cards"
+  ],
+  "aliases": [
+    {
+      "name": "RecNetStatus",
+      "ordinal": 0
+    },
+    {
+      "name": "recNetStatus",
+      "ordinal": 0
+    },
+    {
+      "name": "recnetstatus",
+      "ordinal": 0
+    },
+    {
+      "name": "AI",
+      "ordinal": 1
+    },
+    {
+      "name": "aI",
+      "ordinal": 1
+    },
+    {
+      "name": "ai",
+      "ordinal": 1
+    },
+    {
+      "name": "Auth",
+      "ordinal": 2
+    },
+    {
+      "name": "auth",
+      "ordinal": 2
+    },
+    {
+      "name": "API",
+      "ordinal": 3
+    },
+    {
+      "name": "aPI",
+      "ordinal": 3
+    },
+    {
+      "name": "api",
+      "ordinal": 3
+    },
+    {
+      "name": "WWW",
+      "ordinal": 4
+    },
+    {
+      "name": "wWW",
+      "ordinal": 4
+    },
+    {
+      "name": "www",
+      "ordinal": 4
+    },
+    {
+      "name": "Notifications",
+      "ordinal": 5
+    },
+    {
+      "name": "notifications",
+      "ordinal": 5
+    },
+    {
+      "name": "Images",
+      "ordinal": 6
+    },
+    {
+      "name": "images",
+      "ordinal": 6
+    },
+    {
+      "name": "CDN",
+      "ordinal": 7
+    },
+    {
+      "name": "cDN",
+      "ordinal": 7
+    },
+    {
+      "name": "cdn",
+      "ordinal": 7
+    },
+    {
+      "name": "Commerce",
+      "ordinal": 8
+    },
+    {
+      "name": "commerce",
+      "ordinal": 8
+    },
+    {
+      "name": "Matchmaking",
+      "ordinal": 9
+    },
+    {
+      "name": "matchmaking",
+      "ordinal": 9
+    },
+    {
+      "name": "Storage",
+      "ordinal": 10
+    },
+    {
+      "name": "storage",
+      "ordinal": 10
+    },
+    {
+      "name": "Chat",
+      "ordinal": 11
+    },
+    {
+      "name": "chat",
+      "ordinal": 11
+    },
+    {
+      "name": "Leaderboard",
+      "ordinal": 12
+    },
+    {
+      "name": "leaderboard",
+      "ordinal": 12
+    },
+    {
+      "name": "Accounts",
+      "ordinal": 13
+    },
+    {
+      "name": "accounts",
+      "ordinal": 13
+    },
+    {
+      "name": "Link",
+      "ordinal": 14
+    },
+    {
+      "name": "link",
+      "ordinal": 14
+    },
+    {
+      "name": "Lists",
+      "ordinal": 15
+    },
+    {
+      "name": "lists",
+      "ordinal": 15
+    },
+    {
+      "name": "RoomComments",
+      "ordinal": 16
+    },
+    {
+      "name": "roomComments",
+      "ordinal": 16
+    },
+    {
+      "name": "roomcomments",
+      "ordinal": 16
+    },
+    {
+      "name": "Clubs",
+      "ordinal": 17
+    },
+    {
+      "name": "clubs",
+      "ordinal": 17
+    },
+    {
+      "name": "Rooms",
+      "ordinal": 18
+    },
+    {
+      "name": "rooms",
+      "ordinal": 18
+    },
+    {
+      "name": "PlatformNotifications",
+      "ordinal": 19
+    },
+    {
+      "name": "platformNotifications",
+      "ordinal": 19
+    },
+    {
+      "name": "platformnotifications",
+      "ordinal": 19
+    },
+    {
+      "name": "Moderation",
+      "ordinal": 20
+    },
+    {
+      "name": "moderation",
+      "ordinal": 20
+    },
+    {
+      "name": "DataCollection",
+      "ordinal": 21
+    },
+    {
+      "name": "dataCollection",
+      "ordinal": 21
+    },
+    {
+      "name": "datacollection",
+      "ordinal": 21
+    },
+    {
+      "name": "BugReporting",
+      "ordinal": 22
+    },
+    {
+      "name": "bugReporting",
+      "ordinal": 22
+    },
+    {
+      "name": "bugreporting",
+      "ordinal": 22
+    },
+    {
+      "name": "Discovery",
+      "ordinal": 23
+    },
+    {
+      "name": "discovery",
+      "ordinal": 23
+    },
+    {
+      "name": "PlayerSettings",
+      "ordinal": 24
+    },
+    {
+      "name": "playerSettings",
+      "ordinal": 24
+    },
+    {
+      "name": "playersettings",
+      "ordinal": 24
+    },
+    {
+      "name": "Studio",
+      "ordinal": 25
+    },
+    {
+      "name": "studio",
+      "ordinal": 25
+    },
+    {
+      "name": "GameLogs",
+      "ordinal": 26
+    },
+    {
+      "name": "gameLogs",
+      "ordinal": 26
+    },
+    {
+      "name": "gamelogs",
+      "ordinal": 26
+    },
+    {
+      "name": "Strings",
+      "ordinal": 27
+    },
+    {
+      "name": "strings",
+      "ordinal": 27
+    },
+    {
+      "name": "Econ",
+      "ordinal": 28
+    },
+    {
+      "name": "econ",
+      "ordinal": 28
+    },
+    {
+      "name": "StringsCDN",
+      "ordinal": 29
+    },
+    {
+      "name": "stringsCDN",
+      "ordinal": 29
+    },
+    {
+      "name": "stringscdn",
+      "ordinal": 29
+    },
+    {
+      "name": "Data",
+      "ordinal": 30
+    },
+    {
+      "name": "data",
+      "ordinal": 30
+    },
+    {
+      "name": "Cards",
+      "ordinal": 31
+    },
+    {
+      "name": "cards",
+      "ordinal": 31
+    }
+  ],
+  "source": "Native constructor instructions with explicit runtime/encoding callbacks",
+  "supportedProfile": "Valid UTF-8 JSON objects with plain ASCII alias keys, string/null known values, and unknown values skipped; bounded System.Text.Json adapter is not the original parser.",
+  "gameIntegration": false
+}

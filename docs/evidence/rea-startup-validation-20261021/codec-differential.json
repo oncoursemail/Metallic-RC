@@ -1,0 +1,166 @@
+{
+  "status": "exact_native_instruction_differential_passed",
+  "createdUtc": "2026-10-21T01:08:37.792913+00:00",
+  "cases": 5912,
+  "operations": {
+    "read": 2239,
+    "write": 3673
+  },
+  "outcomes": {
+    "bounds": 2733,
+    "ok": 3144,
+    "null": 35
+  },
+  "mismatches": 0,
+  "partialWriteFailures": 657,
+  "wrongUpfrontCheckRewriteRejectedCases": 657,
+  "executedGuestInstructionCount": 159391,
+  "executedGuestMethodInstructions": {
+    "387023": 50930,
+    "387055": 89779,
+    "380444": 7346,
+    "380446": 8568
+  },
+  "exactNativeSourceSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "sourceMethodRanges": [
+    {
+      "methodIndex": 387023,
+      "rva": "0x2b91ef0",
+      "bytes": 109,
+      "fileOffset": 45680880,
+      "sha256": "38b354614ad73ea05a13e8aa7a3cefdf88d566928e05700e80c8b69762b96951"
+    },
+    {
+      "methodIndex": 387055,
+      "rva": "0x2b92120",
+      "bytes": 121,
+      "fileOffset": 45681440,
+      "sha256": "e8ec6e19843897f2b5797d56595151271fbc5d63cce955c3893ae51136165a2c"
+    },
+    {
+      "methodIndex": 380446,
+      "rva": "0x9af2590",
+      "bytes": 23,
+      "fileOffset": 162467728,
+      "sha256": "23bf16a8b7d644610527504dac978e4563a0ddc1a57b0f7dbb84552b7292bccc"
+    },
+    {
+      "methodIndex": 380444,
+      "rva": "0x1ccbc30",
+      "bytes": 3,
+      "fileOffset": 30189104,
+      "sha256": "58367ffa2a0179375018fa0f5c26da24391e42ebe0ed8fdda35a21fc7bdc396f"
+    }
+  ],
+  "managedCodecSha256": "b2f244ef17d1c756ee3197d4c8d3ccc2568ad741b7ca9bf4d7da83a2be7723a2",
+  "inputsSha256": "0a200ce720e0d8e078b7d931b266a4d8fbe483416fe32c3d246aa9aee2c4b33c",
+  "emulatedOutputsSha256": "c56298b625bbd4ee912728a9d158a30233055b0d3d74046f2eaa5a85961543e2",
+  "managedOutputsSha256": "98a75823ceb2c55bd9e1179385d34951b793256ab7f32b4175a7bfeac81f9b35",
+  "emulatorVersion": "2.1.4",
+  "seconds": 6.930006199996569,
+  "partialWriteExamples": [
+    {
+      "input": {
+        "id": 97,
+        "operation": "write",
+        "bytesHex": "f5",
+        "index": 0,
+        "value": 0
+      },
+      "native": {
+        "id": 97,
+        "status": "bounds",
+        "value": null,
+        "bytesHex": "00",
+        "writes": [
+          {
+            "offset": 0,
+            "bytes": 1,
+            "value": 0
+          }
+        ],
+        "instructions": 21,
+        "failureHelper": "0x180c40390"
+      },
+      "managed": {
+        "id": 97,
+        "status": "bounds",
+        "value": null,
+        "bytesHex": "f5",
+        "exceptionType": "System.IndexOutOfRangeException"
+      }
+    },
+    {
+      "input": {
+        "id": 98,
+        "operation": "write",
+        "bytesHex": "f5",
+        "index": 0,
+        "value": 1
+      },
+      "native": {
+        "id": 98,
+        "status": "bounds",
+        "value": null,
+        "bytesHex": "01",
+        "writes": [
+          {
+            "offset": 0,
+            "bytes": 1,
+            "value": 1
+          }
+        ],
+        "instructions": 21,
+        "failureHelper": "0x180c40390"
+      },
+      "managed": {
+        "id": 98,
+        "status": "bounds",
+        "value": null,
+        "bytesHex": "f5",
+        "exceptionType": "System.IndexOutOfRangeException"
+      }
+    },
+    {
+      "input": {
+        "id": 99,
+        "operation": "write",
+        "bytesHex": "f5",
+        "index": 0,
+        "value": -1
+      },
+      "native": {
+        "id": 99,
+        "status": "bounds",
+        "value": null,
+        "bytesHex": "ff",
+        "writes": [
+          {
+            "offset": 0,
+            "bytes": 1,
+            "value": 255
+          }
+        ],
+        "instructions": 21,
+        "failureHelper": "0x180c40390"
+      },
+      "managed": {
+        "id": 99,
+        "status": "bounds",
+        "value": null,
+        "bytesHex": "f5",
+        "exceptionType": "System.IndexOutOfRangeException"
+      }
+    }
+  ],
+  "originalGameLaunched": false,
+  "originalNativeBytesExecutedDirectlyByHost": false,
+  "originalInstructionBytesEvaluatedInsideCpuEmulator": true,
+  "originalCodeModified": false,
+  "limitations": [
+    "Synthetic single-threaded guest memory uses the observed x64 Windows IL2CPP array/span layout.",
+    "Range/null helper entry is observed and stops emulation; the original exception implementation, type and unwind behavior are NOT emulated.",
+    "No OS calls, game process, Unity engine, account, remote endpoint, or recovered game assembly is loaded.",
+    "Two codec methods and two helper spans only; no full circuit compiler or full-game equivalence claim."
+  ]
+}

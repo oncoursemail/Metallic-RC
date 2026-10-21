@@ -1,0 +1,10 @@
+{
+  "status": "syntax_parse_passed",
+  "generatedFiles": 419,
+  "syntaxErrors": 0,
+  "parserVersion": "5.9.0.0",
+  "languageVersion": "Preview",
+  "semanticCompilationPerformed": false,
+  "targetCodeExecuted": false,
+  "limit": "Syntax acceptance is not type checking, a successful Unity build, or gameplay equivalence."
+}
