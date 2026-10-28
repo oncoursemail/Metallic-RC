@@ -10,6 +10,7 @@ on:
       - 'tests/Metallic.RC.RoomCleanup.Tests/**'
       - 'tests/Metallic.RC.LoginContract.Tests/**'
       - 'tests/Metallic.RC.SelfAccountPrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountNullablePrefix.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -26,6 +27,7 @@ on:
       - 'tests/Metallic.RC.RoomCleanup.Tests/**'
       - 'tests/Metallic.RC.LoginContract.Tests/**'
       - 'tests/Metallic.RC.SelfAccountPrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountNullablePrefix.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -88,6 +90,10 @@ jobs:
         run: dotnet build tests/Metallic.RC.SelfAccountPrefix.Tests/Metallic.RC.SelfAccountPrefix.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify presence, primitive types and outside-profile decisions without game inputs
         run: dotnet tests/Metallic.RC.SelfAccountPrefix.Tests/bin/Release/net10.0/Metallic.RC.SelfAccountPrefix.Tests.dll --self-test artifacts/backend/self-account-prefix.json
+      - name: Build the explicit default-resolver nullable prefix checks
+        run: dotnet build tests/Metallic.RC.SelfAccountNullablePrefix.Tests/Metallic.RC.SelfAccountNullablePrefix.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify nullable presence and type boundaries without game inputs
+        run: dotnet tests/Metallic.RC.SelfAccountNullablePrefix.Tests/bin/Release/net10.0/Metallic.RC.SelfAccountNullablePrefix.Tests.dll --self-test artifacts/backend/self-account-nullable-prefix.json
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

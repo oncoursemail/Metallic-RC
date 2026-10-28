@@ -62,7 +62,13 @@ public static class SelfAccountPrefixContract
         return new ReadOnlyDictionary<string,int>(aliases);
     }
 
-    public static SelfAccountPrefixResult Read(ReadOnlySpan<byte> utf8)
+    public static SelfAccountPrefixResult Read(ReadOnlySpan<byte> utf8) => ReadCore(utf8,false);
+
+    // Explicit profile for the captured default resolver's Nullable<Int32/Boolean> readers.
+    // Caller-supplied resolvers, dates, enums and account construction remain outside it.
+    public static SelfAccountPrefixResult ReadWithDefaultNullablePrimitives(ReadOnlySpan<byte> utf8) => ReadCore(utf8,true);
+
+    private static SelfAccountPrefixResult ReadCore(ReadOnlySpan<byte> utf8,bool defaultNullablePrimitives)
     {
         if (utf8.Length > MaxJsonBytes) throw new SelfAccountPrefixException("response_too_large");
         if (utf8.IsEmpty) throw new SelfAccountPrefixException("missing_json_value");
@@ -121,8 +127,20 @@ public static class SelfAccountPrefixContract
                             return new("known_value_type_error");
                         value = reader.TokenType == JsonTokenType.True;
                         break;
+                    case 4 when defaultNullablePrimitives:
+                        if (reader.TokenType == JsonTokenType.Null) value = null;
+                        else if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out int parentAccountId))
+                            value = parentAccountId;
+                        else return new("known_value_type_error");
+                        break;
+                    case 5 or 19 when defaultNullablePrimitives:
+                        if (reader.TokenType == JsonTokenType.Null) value = null;
+                        else if (reader.TokenType is JsonTokenType.True or JsonTokenType.False)
+                            value = reader.TokenType == JsonTokenType.True;
+                        else return new("known_value_type_error");
+                        break;
                     default:
-                        // No date, enum or nullable nested formatter behavior is invented.
+                        // The original profile stops on every nested value, including null.
                         return new("nested_value_outside_profile");
                 }
                 fields[Names[index]] = value;
