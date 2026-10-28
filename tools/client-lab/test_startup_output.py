@@ -164,7 +164,7 @@ class OutputChecks(unittest.TestCase):
 class WorkerChecks(unittest.TestCase):
     def attempt(self,*,image_ok=True,job_ok=True,off_timeout=False,version='17.24.3'):
         with tempfile.TemporaryDirectory(prefix='startup-output-offline-') as temp:
-            lab=Path(temp);run=lab/'runs'/'synthetic';run.mkdir(parents=True)
+            lab=Path(temp).resolve();run=lab/'runs'/'synthetic';run.mkdir(parents=True)
             state={'phase':'preflight','errors':[],'events':[],'cleanup':{},'processResumed':False}
             observed=[];device=Device();fake_frida=SimpleNamespace(__version__=version,get_local_device=lambda:device)
             class PhaseTimeout(TimeoutError):pass
