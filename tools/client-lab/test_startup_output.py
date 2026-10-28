@@ -205,6 +205,7 @@ class WorkerChecks(unittest.TestCase):
             original_stdout,original_stderr=sys.stdout,sys.stderr
             try:
                 with (patch.object(runner,'modules',return_value=fake_modules),
+                      patch.object(runner,'GAME',lab/'owned-game'),
                       patch.object(runner,'backend_health',return_value={'instanceId':'synthetic'}),
                       patch.object(Path,'open',side_effect=lambda *args,**kwargs:io.StringIO()),
                       patch.dict(sys.modules,{'frida':fake_frida})):
