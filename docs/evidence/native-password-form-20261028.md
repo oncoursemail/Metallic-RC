@@ -32,6 +32,14 @@ capture. Some control-flow continuations remain unresolved. In particular,
 helper's handling of a surrogate pair across its chunk boundary is not proved.
 This patch makes no claim of complete malformed-input parity with the client.
 
+The captured `System.Uri.EscapeDataString` entry itself (method 241957,
+RVA `0xAC45550`) starts with a NOP and a relative jump outside the admitted image.
+The retained 56-byte range matches SHA-256
+`6ae0a4af0ad25c6d51d6328fda74eae4fd6fcc0279c8c6d7e2541ac0de55e6d0`.
+Its complete runtime escaping behavior is therefore unavailable from this entry.
+The decoder's unreserved-byte admission is an authored bounded subset; it does
+not prove that every input emitted by the historical URI runtime is accepted.
+
 The closed field-name sets match the earlier
 [login findings](native-login-20261021/native-login-findings.json):
 
