@@ -84,6 +84,8 @@ jobs:
         run: python -B tools/client-lab/test_progress_store.py
       - name: Test bounded owned-process output summaries without native access
         run: python -B tools/client-lab/test_startup_output.py
+      - name: Test candidate profile refresh against synthetic pinned data
+        run: python -B tools/client-lab/test_profile_refresh.py
       - name: Retain authored-service evidence
         if: always()
         uses: actions/upload-artifact@v4
