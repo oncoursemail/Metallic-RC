@@ -14,4 +14,5 @@
   <Project Path="tests/Metallic.RC.LoginContract.Tests/Metallic.RC.LoginContract.Tests.csproj" />
   <Project Path="tests/Metallic.RC.SelfAccountPrefix.Tests/Metallic.RC.SelfAccountPrefix.Tests.csproj" />
   <Project Path="tests/Metallic.RC.SelfAccountNullablePrefix.Tests/Metallic.RC.SelfAccountNullablePrefix.Tests.csproj" />
+  <Project Path="tests/Metallic.RC.SelfAccountNumericPrefix.Tests/Metallic.RC.SelfAccountNumericPrefix.Tests.csproj" />
 </Solution>
