@@ -21,7 +21,9 @@ python -B tests/Metallic.RC.SigningProfile.Tests/generate_vectors.py --check
 
 The solution includes this project. The existing backend CI now builds/runs it on Windows and Linux and checks the Python oracle; workflow execution remains pending until CI runs. No existing fixture or test was modified.
 
-These vectors establish agreement with the authored formula and standard cryptographic implementations. Native method 149436 was not executed or emulated for this candidate; no original-client equivalence, login, account, service, or game success is claimed. No client binaries or private analysis artifacts are included.
+These authored vectors establish agreement with the formula and standard cryptographic implementations. A separate private follow-up replayed the exact 546-byte native signer in a bounded Unicorn CPU guest for all eight cases: captured hashing inputs and returned signatures matched. It counted 1,829 native instructions separately from 157 modeled callback entries. Three controls detected guest-memory full-body/omitted-length mutations and a modeled endian mutation. Crypto, ASCII, allocation, conversion and disposal helpers remained models. This replay is separate from CI's authored C# checks; no original-client equivalence, login, account, service, or game success is claimed. No client binaries or private analysis artifacts are included.
+
+The subsequent [token-consumer closure evidence](evidence/NATIVE_TOKEN_CONSUMER_CLOSURE_20261028.md) documents six additional synthetic CPU-guest cases. Neither follow-up changes the signer source or enables authentication.
 
 ## Private static provenance
 
