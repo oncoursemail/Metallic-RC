@@ -26,11 +26,23 @@ function isAllowedSocket(address, length) {
   return false;
 }
 function installNetwork(module) {
-  if (module.name.toLowerCase() !== 'ws2_32.dll' || installed.has('winsock')) return;
-  const setError = new NativeFunction(module.getExportByName('WSASetLastError'),'void',['int']);
+  if (stopped || module.name.toLowerCase() !== 'ws2_32.dll' || installed.has('winsock')) return;
+  try {
+  const exports = new Map();
+  for (const name of ['WSASetLastError','connect','WSAConnect','sendto','WSASendTo','getaddrinfo','GetAddrInfoW','WSAIoctl']) {
+    const location = module.findExportByName(name);
+    if (!location || location.isNull()) throw new Error('Required Winsock export unavailable: '+name);
+    exports.set(name,location);
+  }
+  if (new Set([...exports.values()].map(location=>location.toString())).size !== exports.size)
+    throw new Error('Required Winsock exports share a guard location');
+  const setError = new NativeFunction(exports.get('WSASetLastError'),'void',['int']);
   function wrap(name, signature, addressIndex, lengthIndex, zeroMeansFailure=false, supplied=null) {
-    const location = supplied || module.findExportByName(name);
-    if (!location || installed.has(location.toString())) return;
+    const location = supplied || exports.get(name);
+    if (!location || location.isNull()) throw new Error('Network guard location unavailable: '+name);
+    if (supplied && [...exports.values()].some(required=>required.toString()===location.toString()))
+      throw new Error('ConnectEx extension aliases a required Winsock export');
+    if (installed.has(location.toString())) return false;
     const original = new SystemFunction(location,'int',signature);
     const callback = new NativeCallback(function(...args) {
       let allowed=false;
@@ -39,13 +51,14 @@ function installNetwork(module) {
       const result=original(...args);this.lastError=result.lastError;return result.value;
     },'int',signature);
     Interceptor.replace(location,callback);kept.push(callback,original);installed.add(location.toString());
+    return true;
   }
   wrap('connect',['pointer','pointer','int'],1,2);
   wrap('WSAConnect',['pointer','pointer','int','pointer','pointer','pointer','pointer'],1,2);
   wrap('sendto',['pointer','pointer','int','int','pointer','int'],4,5);
   wrap('WSASendTo',['pointer','pointer','uint','pointer','uint','pointer','int','pointer','pointer'],5,6);
   for(const [name,wide] of [['getaddrinfo',false],['GetAddrInfoW',true]]) {
-    const location=module.findExportByName(name);if(!location)continue;
+    const location=exports.get(name);
     const signature=['pointer','pointer','pointer','pointer'];const original=new SystemFunction(location,'int',signature);
     const callback=new NativeCallback(function(node,service,hints,result) {
       let host='';try{if(!node.isNull())host=wide?node.readUtf16String():node.readUtf8String();}catch(_){}
@@ -55,8 +68,8 @@ function installNetwork(module) {
     Interceptor.replace(location,callback);kept.push(callback,original);installed.add(location.toString());
   }
   // ConnectEx may be returned as an extension function rather than an export.
-  const ioctl=module.findExportByName('WSAIoctl');
-  if(ioctl)kept.push(Interceptor.attach(ioctl,{
+  const ioctl=exports.get('WSAIoctl');
+  const listener=Interceptor.attach(ioctl,{
     onEnter(args){
       this.output=null;
       if(args[1].toUInt32()===0xc8000006 && args[3].toUInt32()===16 && args[5].toUInt32()>=Process.pointerSize) {
@@ -66,9 +79,12 @@ function installNetwork(module) {
         }catch(_){}
       }
     },
-    onLeave(ret){if(this.output && ret.toInt32()===0){try{wrap('ConnectEx',['pointer','pointer','int','pointer','uint','pointer','pointer'],1,2,true,this.output.readPointer());Interceptor.flush();event('connectex_guard_installed');}catch(e){failure('connectex_guard',e);}}}
-  }));
-  installed.add('winsock');Interceptor.flush();event('winsock_guards_installed');
+    onLeave(ret){if(!stopped && this.output && ret.toInt32()===0){try{if(wrap('ConnectEx',['pointer','pointer','int','pointer','uint','pointer','pointer'],1,2,true,this.output.readPointer())){Interceptor.flush();event('connectex_guard_installed');}}catch(e){failure('connectex_guard',e);}}}
+  });
+  if(!listener || typeof listener.detach!=='function')throw new Error('Winsock extension observer unavailable');
+  kept.push(listener);
+  Interceptor.flush();installed.add('winsock');event('winsock_guards_installed');
+  }catch(e){failure('network_guard_install',e);}
 }
 function readManagedString(pointer,limit=8192) {
   if(pointer.isNull())return null;
@@ -137,5 +153,5 @@ const timer=setInterval(()=>{
   if(stopped)return;
   const module=Process.findModuleByName('GameAssembly.dll');if(module)installClient(module);
 },10);
-rpc.exports={status(){return{ready,stopped,routeCount,networkGuards:installed.has('winsock'),pid:Process.id};}};
+rpc.exports={status(){return{ready,stopped,routeCount,networkGuards:!stopped && installed.has('winsock'),pid:Process.id};}};
 event('agent_loaded',{pid:Process.id,fixtureOnly:!!CONFIG.fixtureOnly});
