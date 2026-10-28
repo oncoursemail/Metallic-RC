@@ -14,6 +14,7 @@ on:
       - 'tests/Metallic.RC.SelfAccountNumericPrefix.Tests/**'
       - 'tests/Metallic.RC.SelfAccountResponse.Tests/**'
       - 'tests/Metallic.RC.NativeIdentity.Tests/**'
+      - 'tests/Metallic.RC.CredentialCheck.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -34,6 +35,7 @@ on:
       - 'tests/Metallic.RC.SelfAccountNumericPrefix.Tests/**'
       - 'tests/Metallic.RC.SelfAccountResponse.Tests/**'
       - 'tests/Metallic.RC.NativeIdentity.Tests/**'
+      - 'tests/Metallic.RC.CredentialCheck.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -112,6 +114,10 @@ jobs:
         run: dotnet build tests/Metallic.RC.NativeIdentity.Tests/Metallic.RC.NativeIdentity.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify opt-in migration, identity consistency and fail-closed corruption handling
         run: dotnet tests/Metallic.RC.NativeIdentity.Tests/bin/Release/net10.0/Metallic.RC.NativeIdentity.Tests.dll --self-test artifacts/backend/native-identity.json
+      - name: Build the credential-only verification checks
+        run: dotnet build tests/Metallic.RC.CredentialCheck.Tests/Metallic.RC.CredentialCheck.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify credential checking without session or native identity issuance
+        run: dotnet tests/Metallic.RC.CredentialCheck.Tests/bin/Release/net10.0/Metallic.RC.CredentialCheck.Tests.dll --self-test artifacts/backend/credential-check.json
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
