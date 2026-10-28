@@ -109,15 +109,25 @@ public sealed class RoomHub(BackendStore store, IHostApplicationLifetime lifetim
         catch(Exception ex)when(ex is WebSocketException or OperationCanceledException or BackendFault or IOException) { }
         finally
         {
-            peer.Cancellation.Cancel();peer.Socket?.Abort();
-            try{await Task.WhenAll(sending,monitoring);}catch(Exception ex)when(ex is WebSocketException or OperationCanceledException or BackendFault or IOException){}
-            lock(gate)
+            try
             {
-                live.Peers.Remove(principal.AccountId);peerCount--;
-                if(peer.Ready)Broadcast(live,new{type="left",epoch=live.Epoch,revision=++live.Revision,accountId=principal.AccountId});
-                if(live.Peers.Count==0)rooms.Remove(room.Id);
+                peer.Cancellation.Cancel();peer.Socket?.Abort();
+                try{await Task.WhenAll(sending,monitoring);}catch(Exception ex)when(ex is WebSocketException or OperationCanceledException or BackendFault or IOException){}
             }
-            peer.Dispose();
+            finally
+            {
+                // An unexpected sender/monitor failure must not retain a room slot.
+                try
+                {
+                    lock(gate)
+                    {
+                        live.Peers.Remove(principal.AccountId);peerCount--;
+                        try{if(peer.Ready)Broadcast(live,new{type="left",epoch=live.Epoch,revision=++live.Revision,accountId=principal.AccountId});}
+                        finally{if(live.Peers.Count==0)rooms.Remove(room.Id);}
+                    }
+                }
+                finally{peer.Dispose();}
+            }
         }
     }
     private static bool Finite(double value)=>double.IsFinite(value)&&Math.Abs(value)<=10000;
