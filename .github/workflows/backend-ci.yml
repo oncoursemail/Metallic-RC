@@ -6,6 +6,7 @@ on:
       - 'src/Metallic.RC.Backend/**'
       - 'src/Metallic.RC.Compatibility/**'
       - 'tests/Metallic.RC.Backend.Tests/**'
+      - 'tests/Metallic.RC.PoseContract.Tests/**'
       - 'tests/Metallic.RC.LoginContract.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
@@ -19,6 +20,7 @@ on:
       - 'src/Metallic.RC.Backend/**'
       - 'src/Metallic.RC.Compatibility/**'
       - 'tests/Metallic.RC.Backend.Tests/**'
+      - 'tests/Metallic.RC.PoseContract.Tests/**'
       - 'tests/Metallic.RC.LoginContract.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
@@ -66,6 +68,10 @@ jobs:
           & dotnet tests/Metallic.RC.Backend.Tests/bin/Release/net10.0/Metallic.RC.Backend.Tests.dll artifacts/backend/results.json 2>&1 |
               Tee-Object -FilePath artifacts/backend/transport.log
           if ($LASTEXITCODE -ne 0) { throw 'Owned-backend integration tests failed.' }
+      - name: Build the missing-field pose regression with locked dependencies
+        run: dotnet build tests/Metallic.RC.PoseContract.Tests/Metallic.RC.PoseContract.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify rejected poses do not mutate or broadcast room state
+        run: dotnet tests/Metallic.RC.PoseContract.Tests/bin/Release/net10.0/Metallic.RC.PoseContract.Tests.dll artifacts/backend/pose-contract.json
       - name: Restore and build the authored login response profile tests
         run: dotnet build tests/Metallic.RC.LoginContract.Tests/Metallic.RC.LoginContract.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify login profile decisions without game inputs

@@ -53,7 +53,7 @@ The upgrade path is `/metallic/v1/rooms/{id}/socket`. The first message is a `sn
 {"type":"pose","sequence":1,"x":1.25,"y":2,"z":-3}
 ```
 
-Sequences must increase per connection. Coordinates must be finite and within the declared bounds. The server checks room privacy, capacity, duplicate membership, frame size, and message rate. Slow peers have bounded output queues and are disconnected rather than allowing memory growth. Limits include 32 members per room, 128 active rooms, 256 active connections, a 4 KiB frame limit, and 60 messages/second per peer.
+Every pose must explicitly supply type, sequence, x, y and z. Missing fields return invalid_json before changing room state; explicit zero coordinates remain valid. Sequences must increase per connection. Coordinates must be finite and within the declared bounds. The server checks room privacy, capacity, duplicate membership, frame size, and message rate. Slow peers have bounded output queues and are disconnected rather than allowing memory growth. Limits include 32 members per room, 128 active rooms, 256 active connections, a 4 KiB frame limit, and 60 messages/second per peer.
 
 This is authenticated presence and pose replication, **not an authoritative Rec Room gameplay/physics server, cheat prevention system, or voice service**.
 

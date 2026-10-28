@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Channels;
 
 namespace Metallic.RC.Backend;
@@ -33,7 +34,12 @@ public sealed class RoomHub(BackendStore store, IHostApplicationLifetime lifetim
         }
         public void Dispose(){Cancellation.Cancel();Outgoing.Writer.TryComplete();Socket?.Abort();Socket?.Dispose();Cancellation.Dispose();}
     }
-    private sealed record PoseMessage(string Type,long Sequence,double X,double Y,double Z);
+    private sealed record PoseMessage(
+        [property: JsonRequired] string Type,
+        [property: JsonRequired] long Sequence,
+        [property: JsonRequired] double X,
+        [property: JsonRequired] double Y,
+        [property: JsonRequired] double Z);
     public void Revoke(string tokenHash)
     {
         lock(gate)
