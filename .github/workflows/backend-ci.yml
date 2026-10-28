@@ -12,6 +12,7 @@ on:
       - 'tests/Metallic.RC.SelfAccountPrefix.Tests/**'
       - 'tests/Metallic.RC.SelfAccountNullablePrefix.Tests/**'
       - 'tests/Metallic.RC.SelfAccountNumericPrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountResponse.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -30,6 +31,7 @@ on:
       - 'tests/Metallic.RC.SelfAccountPrefix.Tests/**'
       - 'tests/Metallic.RC.SelfAccountNullablePrefix.Tests/**'
       - 'tests/Metallic.RC.SelfAccountNumericPrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountResponse.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -100,6 +102,10 @@ jobs:
         run: dotnet build tests/Metallic.RC.SelfAccountNumericPrefix.Tests/Metallic.RC.SelfAccountNumericPrefix.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify numeric enum and UTC-tick profile boundaries without game inputs
         run: dotnet tests/Metallic.RC.SelfAccountNumericPrefix.Tests/bin/Release/net10.0/Metallic.RC.SelfAccountNumericPrefix.Tests.dll --self-test artifacts/backend/self-account-numeric-prefix.json
+      - name: Build the explicit SelfAccount response writer checks
+        run: dotnet build tests/Metallic.RC.SelfAccountResponse.Tests/Metallic.RC.SelfAccountResponse.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify required response inputs, Unicode admission and output bounds
+        run: dotnet tests/Metallic.RC.SelfAccountResponse.Tests/bin/Release/net10.0/Metallic.RC.SelfAccountResponse.Tests.dll --self-test artifacts/backend/self-account-response.json
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
