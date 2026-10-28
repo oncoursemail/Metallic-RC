@@ -108,7 +108,8 @@ public sealed class BackendStore : IDisposable
         }
         return new(id, username, display, 1);
     }
-    public SessionView Login(LoginRequest request)
+    // Password verification only: no session, identity allocation or profile write.
+    internal AccountView VerifyCredentials(LoginRequest request)
     {
         string username = Username(request.Username); Password(request.Password);
         AccountView? account = null; string hash = dummyHash;
@@ -120,6 +121,11 @@ public sealed class BackendStore : IDisposable
         }
         var checkedPassword = passwords.VerifyHashedPassword(account?.Id ?? "dummy", hash, request.Password);
         if (account is null || checkedPassword == PasswordVerificationResult.Failed) throw new BackendFault(401, "invalid_credentials");
+        return account;
+    }
+    public SessionView Login(LoginRequest request)
+    {
+        var account = VerifyCredentials(request);
         string token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var expires = DateTimeOffset.UtcNow.AddHours(1);
         lock (gate)
