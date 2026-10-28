@@ -1,0 +1,42 @@
+﻿[
+  {
+    "bodyLength": null,
+    "signature": "TENLn7CD6l60Kf1q9ckkYaCcChy2MAszhGnbsIE3GAs=",
+    "messageSha256": "d63bb01cc4a46fd2d99afe112578c84e3af1489203c65730861f26ae38570b3d"
+  },
+  {
+    "bodyLength": 0,
+    "signature": "TENLn7CD6l60Kf1q9ckkYaCcChy2MAszhGnbsIE3GAs=",
+    "messageSha256": "d63bb01cc4a46fd2d99afe112578c84e3af1489203c65730861f26ae38570b3d"
+  },
+  {
+    "bodyLength": 2048,
+    "signature": "IpH+20jZal1pBK0FqK1JqEF0MuM9T5hLFcoszrdKw94=",
+    "messageSha256": "0081691e2377c8af59b2a4e68f604f82e189c8e430d606c840969ae4e54dc9c9"
+  },
+  {
+    "bodyLength": 2049,
+    "signature": "oa6dFhJvcYoUd72rwqxjJxVhH/AQLhEIhqaP4hZ5cKY=",
+    "messageSha256": "3dee27c7ca43da2d9981c7715ea0fea89aaf6628d6f0684c55b2c4eaf77093b2"
+  },
+  {
+    "bodyLength": 2063,
+    "signature": "mPDCTrVQJaq/oe4/X87sPo0naxgz7ir8A5x3FWQ/hko=",
+    "messageSha256": "367fadacbde2ec8a20126edfd5343cfeca40c74e73b63ecf643f8cc8cfe206b0"
+  },
+  {
+    "bodyLength": 2064,
+    "signature": "QHVF/Ps31XrZWDS0VdJqQx/gIy+zfFuXZq+fwbREwxQ=",
+    "messageSha256": "4dfa8c9f4761e4cc75f4542e05262817e84cba69f37389397f0761f4f960e19f"
+  },
+  {
+    "bodyLength": 4096,
+    "signature": "jWiupZA8qKWHM0oO0/0xKpIPU+3mL+JR3yo9y3KpMyc=",
+    "messageSha256": "9f34755ece1b9f38df588a08cf805542840d9a780ad2476f367452ba024587bc"
+  },
+  {
+    "bodyLength": 65536,
+    "signature": "lvShKWIg+Ry4t16BcHbBiAKoStcuY/JjuG8VHlSGbjE=",
+    "messageSha256": "9b13e29320c8a20ea35eca37fd4bd5daaf1fdb6916f47b7d207098afbc743d8f"
+  }
+]

@@ -1,0 +1,62 @@
+{
+  "schema": "sanitized-native-token-consumer-evidence-20261028",
+  "steamBuildId": "23191908",
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "unicornVersion": "2.1.4",
+  "signerReplay": {
+    "positiveCases": 8,
+    "nativeInstructions": 1829,
+    "modeledCallbackEntries": 157,
+    "negativeControlsDetected": 3,
+    "nativeMethod": 149436,
+    "nativeBodyBytes": 546,
+    "nativeBodySha256": "fb68323b14b17a74fa715f4d23c4e1b7c4f20c807c6375434c86240f25b389c4",
+    "probeSha256": "da53e1704a8b4593c8e622485437e36724317157f94089e2274d551f9b63dc5b",
+    "privateSummarySha256": "e82e90099cc356bc1056fdd9e75ebcc7f77dd05f276c706a180dc6899beac3f6",
+    "privateCounterAuditSha256": "96eea959313a1f76edf9d009e3f7d6a893e3cf0fbf58f5978921757ae1c22fb9"
+  },
+  "tokenConsumerReplay": {
+    "positiveCases": 6,
+    "nativeInstructions": 38300,
+    "modeledCallbackEntries": 962,
+    "negativeNativeBoundaries": 2,
+    "negativeCasesIncludedInPositiveInstructionTotal": false,
+    "methods": [149439, 149440, 149438, 152769],
+    "probeSha256": "8dac431fa2f0c5397c6df64636b2346f26643c166dc83c7f6f6c064a1824da30",
+    "privateSummarySha256": "46f1ded6ce7b8ffb9fa7c09fa76d0dcae98b777bbd76ff3ac62035f968424994",
+    "privateCounterAuditSha256": "977556b8bab99142542977c47a4919043fc75554fd66afbd0d699958140962eb",
+    "independentReview": {
+      "status": "independent_token_consumer_replay_passed",
+      "positiveCases": 6,
+      "negativeNativeBoundaries": 2,
+      "selectedMethodInstructionsExcludingCallbacks": 38300,
+      "byteExactTokenAndKeyAssertionsPassed": true,
+      "protectedInputIdentitiesUnchanged": true,
+      "callbacksReadExpectedVectors": false,
+      "privateAggregateSha256": "a81f8c920448f0e7929eb370d0f7ff727c7d84c63aacdb6ffe7724af6fc55ce9",
+      "sameModeledHelperAndGlobalCoverageLimitsApply": true
+    }
+  },
+  "observations": {
+    "setterSupportsExercisedPayloadWithoutRoleClaims": true,
+    "subjectReaderUsesStringInt32Claim": true,
+    "twoSegmentsReachedExercisedPaths": true,
+    "globalTokenValidationAbsenceEstablished": false,
+    "vendorJwtSignatureFormatEstablished": false,
+    "serverExpiryOrRefreshPolicyEstablished": false,
+    "fullAccountOrLoginSuccessEstablished": false
+  },
+  "models": [
+    "text/Base64/JSON/int conversion",
+    "dictionary and nullable construction",
+    "clock, mask generation and byte buffer pools",
+    "permission side effects, metadata/allocation/GC and cleanup",
+    "signer crypto operations"
+  ],
+  "originalClientProcessExecuted": false,
+  "originalClientDataPagesMapped": false,
+  "realTokensOrCredentialsUsed": false,
+  "productionSourceChangedByThisEvidenceUpdate": false,
+  "routeOrAuthenticationEnabled": false,
+  "privateNativeCodeOrFixtureBodiesIncluded": false
+}
