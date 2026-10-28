@@ -4,7 +4,7 @@ window that starts after an unbounded attach. UAC waiting is outside this budget
 No security/authentication bypass, automatic retry, persistent hooks, or game-file edits.
 """
 from __future__ import annotations
-import argparse,datetime,hashlib,importlib.util,json,os,pathlib,struct,subprocess,sys,time,types,urllib.request
+import argparse,datetime,hashlib,importlib.util,json,os,pathlib,struct,subprocess,sys,threading,time,types,urllib.request
 
 ROOT=pathlib.Path(__file__).resolve().parent
 GAME=pathlib.Path(r'C:\Program Files (x86)\Steam\steamapps\common\RecRoom')
@@ -42,6 +42,79 @@ def validate(path):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
+class StartupOutput:
+    """Bounded fingerprints after process admission, never output text or retained byte buffers."""
+    LIMIT_BYTES=65536
+
+    def __init__(self):
+        self._lock=threading.Lock();self._pid=None;self._closed=False;self._device=None
+        self._subscription='not_started';self._unsubscribe='not_started'
+        self._drops={'beforeBind':0,'unowned':0,'malformed':0}
+        self._streams={fd:{'byteCount':0,'prefixBytes':0,'events':0,'eof':False,'afterEofEvents':0,
+                          'hash':hashlib.sha256()} for fd in (1,2)}
+        self.callback=self.on_output
+
+    def subscribe(self,device):
+        with self._lock:
+            if self._closed or self._device is not None:raise RuntimeError('Output subscription already used')
+            self._device=device;self._subscription='subscribing'
+        try:device.on('output',self.callback)
+        except BaseException:
+            with self._lock:self._subscription='failed'
+            raise
+        with self._lock:self._subscription='subscribed'
+
+    def bind(self,pid):
+        with self._lock:
+            if type(pid) is not int or pid<=0 or self._pid is not None or self._closed:
+                raise ValueError('Output requires one admitted process identity')
+            self._pid=pid
+
+    def on_output(self,pid,fd,data):
+        # Frida DeviceOutputCallback is (int, int, bytes). No ledger, disk or SDK calls here.
+        with self._lock:
+            if self._closed:return
+            if self._pid is None:self._drops['beforeBind']+=1;return
+            if type(pid) is not int or type(fd) is not int or fd not in (1,2) or type(data) is not bytes:
+                self._drops['malformed']+=1;return
+            if pid!=self._pid:self._drops['unowned']+=1;return
+            stream=self._streams[fd]
+            if stream['eof']:stream['afterEofEvents']+=1;return
+            stream['events']+=1
+            if not data:stream['eof']=True;return
+            stream['byteCount']+=len(data)
+            count=min(len(data),self.LIMIT_BYTES-stream['prefixBytes'])
+            if count:
+                stream['hash'].update(memoryview(data)[:count]);stream['prefixBytes']+=count
+
+    def seal(self):
+        with self._lock:self._closed=True
+
+    def close(self):
+        # off() may invoke callbacks or cleanup again; do not hold the callback lock over the SDK call.
+        with self._lock:
+            self._closed=True
+            if self._unsubscribe in ('complete','not_subscribed'):return True
+            if self._unsubscribe in ('in_progress','failed'):return False
+            if self._device is None:self._unsubscribe='not_subscribed';return True
+            self._unsubscribe='in_progress';device=self._device
+        try:device.off('output',self.callback)
+        except BaseException:
+            with self._lock:self._unsubscribe='failed'
+            raise
+        with self._lock:self._unsubscribe='complete';self._device=None
+        return True
+
+    def snapshot(self):
+        with self._lock:
+            streams={str(fd):{key:value for key,value in row.items() if key!='hash'} |
+                     {'prefixSha256':row['hash'].hexdigest(),'truncated':row['byteCount']>row['prefixBytes']}
+                     for fd,row in self._streams.items()}
+            return {'ownedPid':self._pid,'limitBytesPerStream':self.LIMIT_BYTES,'closed':self._closed,
+                    'subscription':self._subscription,'unsubscribe':self._unsubscribe,
+                    'droppedEvents':dict(self._drops),'streams':streams}
+
+
 def backend_health():
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     with opener.open('http://127.0.0.1:4187/healthz',timeout=3) as response:
@@ -78,6 +151,7 @@ def worker(args,manifest):
         'steamBuildId':'23191908','runDirectory':str(run),'gameFilesPatched':False,'machineDnsChanged':False,'certificateChecksBypassed':False,'authenticationChecksBypassed':False,'existingProcessesTouched':False,
         'jobMembershipVerified':True,'gameMayWriteOrdinaryLocalPreferencesAndCaches':True})
     state=ledger.state;api=recovery.Win32();reader=capture.WindowsReader();mapping=None;game=None;session=None;script=None;frida=None;result=1
+    output=StartupOutput()
     try:
         if not api.is_elevated():raise PermissionError('Separate Windows approval required')
         if reader.processes():raise RuntimeError('Existing Rec Room process; no launch')
@@ -88,7 +162,9 @@ def worker(args,manifest):
         ledger.completed()
         mapping=api.create_new_section();state['sharedSectionCreated']=True;ledger.save()
         if reader.processes():raise RuntimeError('Existing game appeared before controlled launch')
-        device=ledger.call(frida,'device',8,frida.get_local_device)
+        def output_device():
+            device=frida.get_local_device();output.subscribe(device);return device
+        device=ledger.call(frida,'device',8,output_device)
         command=[str(GAME/'RecRoom.exe'),'+forcemode:screen','-screen-fullscreen','0','-screen-width','1280','-screen-height','720','-logFile',str(run/'private-player.log')]
         allowed=['SystemRoot','WINDIR','PATH','COMSPEC','TEMP','TMP','LOCALAPPDATA','APPDATA','USERPROFILE','HOMEDRIVE','HOMEPATH','ProgramData','ProgramFiles','ProgramFiles(x86)','PUBLIC','USERNAME','USERDOMAIN','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE']
         env={name:os.environ[name] for name in allowed if name in os.environ}
@@ -98,9 +174,10 @@ def worker(args,manifest):
         if pathlib.Path(game.image()).resolve()!=GAME/'RecRoom.exe':raise RuntimeError('Spawned process image mismatch')
         if not win.current_job_membership(args.job,game,assign=True):raise RuntimeError('Game process containment failed')
         state['retainedProcessHandleVerified']=True;state['gameJobMembershipVerified']=True
+        output.bind(pid)
         try:state['beforeAttach']=game.diagnostics()
         except Exception as error:state['beforeAttach']={'diagnosticQueryError':type(error).__name__}
-        state['attachmentAttempted']=True;ledger.save()
+        state['startupOutputBeforeAttach']=output.snapshot();state['attachmentAttempted']=True;ledger.save()
         session=ledger.call(frida,'attach',15,lambda:device.attach(pid))
         state['attached']=True;ledger.save()
         identity=json.loads(pathlib.Path(manifest['methodIdentities']).read_text())
@@ -152,6 +229,15 @@ def worker(args,manifest):
                 try:control.cancelled_call(frida,'detach',1,session.detach)
                 except Exception:state['cleanup']['detachIncomplete']=True
         finally:
+            output.seal()
+            try:
+                if frida and output.snapshot()['subscription']!='not_started':
+                    state['cleanup']['startupOutputUnsubscribed']=control.cancelled_call(frida,'output_unsubscribe',min(1,max(0,args.deadline-time.monotonic())),output.close)
+                else:state['cleanup']['startupOutputUnsubscribed']=output.close()
+            except Exception as error:
+                state['cleanup']['startupOutputUnsubscribeIncomplete']=True
+                state['cleanup']['startupOutputUnsubscribeErrorType']=type(error).__name__
+            state['startupOutput']=output.snapshot()
             if mapping:state['cleanup']['sharedSectionHandleClosed']=bool(api.close(mapping))
             if state.get('receiptPersistenceFailed'):result=1
             state['finishedUtc']=utc();state['runnerResultCode']=result
