@@ -12,4 +12,5 @@
   <Project Path="tests/Metallic.RC.PoseContract.Tests/Metallic.RC.PoseContract.Tests.csproj" />
   <Project Path="tests/Metallic.RC.RoomCleanup.Tests/Metallic.RC.RoomCleanup.Tests.csproj" />
   <Project Path="tests/Metallic.RC.LoginContract.Tests/Metallic.RC.LoginContract.Tests.csproj" />
+  <Project Path="tests/Metallic.RC.SelfAccountPrefix.Tests/Metallic.RC.SelfAccountPrefix.Tests.csproj" />
 </Solution>
