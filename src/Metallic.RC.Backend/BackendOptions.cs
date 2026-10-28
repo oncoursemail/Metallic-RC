@@ -29,11 +29,20 @@ public sealed class BackendFault(int status, string code) : Exception(code)
     public int Status { get; } = status;
     public string Code { get; } = code;
 }
-public sealed record RegisterRequest(string Username, string Password, string DisplayName);
-public sealed record LoginRequest(string Username, string Password);
+public sealed record RegisterRequest(string Username, string Password, string DisplayName)
+{
+    public override string ToString() => "RegisterRequest { values redacted }";
+}
+public sealed record LoginRequest(string Username, string Password)
+{
+    public override string ToString() => "LoginRequest { values redacted }";
+}
 public sealed record ProfileWrite(string DisplayName);
 public sealed record RoomWrite(string Name, int Capacity, bool IsPublic);
 public sealed record AccountView(string Id, string Username, string DisplayName, long Revision);
 public sealed record RoomView(string Id, string OwnerId, string Name, int Capacity, bool IsPublic, long Revision);
-public sealed record SessionView(AccountView Account, string AccessToken, DateTimeOffset ExpiresAt);
+public sealed record SessionView(AccountView Account, string AccessToken, DateTimeOffset ExpiresAt)
+{
+    public override string ToString() => "SessionView { values redacted }";
+}
 public sealed record Principal(string AccountId, string TokenHash, DateTimeOffset ExpiresAt);
