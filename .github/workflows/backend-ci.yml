@@ -7,6 +7,7 @@ on:
       - 'src/Metallic.RC.Compatibility/**'
       - 'tests/Metallic.RC.Backend.Tests/**'
       - 'tests/Metallic.RC.PoseContract.Tests/**'
+      - 'tests/Metallic.RC.RoomCleanup.Tests/**'
       - 'tests/Metallic.RC.LoginContract.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
@@ -21,6 +22,7 @@ on:
       - 'src/Metallic.RC.Compatibility/**'
       - 'tests/Metallic.RC.Backend.Tests/**'
       - 'tests/Metallic.RC.PoseContract.Tests/**'
+      - 'tests/Metallic.RC.RoomCleanup.Tests/**'
       - 'tests/Metallic.RC.LoginContract.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
@@ -72,6 +74,10 @@ jobs:
         run: dotnet build tests/Metallic.RC.PoseContract.Tests/Metallic.RC.PoseContract.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify rejected poses do not mutate or broadcast room state
         run: dotnet tests/Metallic.RC.PoseContract.Tests/bin/Release/net10.0/Metallic.RC.PoseContract.Tests.dll artifacts/backend/pose-contract.json
+      - name: Build the room-cleanup regression with locked dependencies
+        run: dotnet build tests/Metallic.RC.RoomCleanup.Tests/Metallic.RC.RoomCleanup.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify storage faults release room membership and allow reconnect
+        run: dotnet tests/Metallic.RC.RoomCleanup.Tests/bin/Release/net10.0/Metallic.RC.RoomCleanup.Tests.dll artifacts/backend/room-cleanup.json
       - name: Restore and build the authored login response profile tests
         run: dotnet build tests/Metallic.RC.LoginContract.Tests/Metallic.RC.LoginContract.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify login profile decisions without game inputs

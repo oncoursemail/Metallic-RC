@@ -45,6 +45,8 @@ An online SQLite backup runs every three hours while this service remains runnin
 
 Live room membership and pose snapshots are intentionally transient. A server restart preserves accounts/rooms/sessions but creates a fresh live-room epoch. It does not pretend to restore full original-game physics or a multiplayer simulation.
 
+Connection cleanup releases membership and capacity even when a session monitor fails with an unexpected storage exception. The failed socket is not treated as successful, and restoring storage allows the account to reconnect without restarting the host. See [the isolated storage-fault regression](../../docs/evidence/ROOM_CLEANUP_2026-10-28.md).
+
 ## Owned room protocol v1
 
 The upgrade path is `/metallic/v1/rooms/{id}/socket`. The first message is a `snapshot`; subsequent events include `joined`, `pose`, `left`, and `error`. Events carry a server-side room epoch/revision. Actor identity is determined from the session and cannot be supplied in a pose message.
