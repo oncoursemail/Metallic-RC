@@ -1,0 +1,138 @@
+{
+  "schema": "sanitized-self-account-constructed-storage-v6",
+  "build": "23191908",
+  "evidenceOnly": true,
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "metadataSha256": "d675ea92bfb0086c0238e56702e91413fcc663c81fce364253749edbf6fcec9f",
+  "sourceWriterOutputSha256": "48afc8718341ffac1cc662f0a1d97f6b766b70ccd8aa15fc5b47c0add0ccc797",
+  "sourceModelSha256": "cbe7e06074cf325962c918c7fc582f77207becedb96c2d130e26b1427b17926e",
+  "frozenV6ManifestSha256": "a6a7f11d24add06efc16bdf5292c0e519970975f63b4fe39248e0b0f2ba26716",
+  "comparisons": [
+    {
+      "variant": "actual",
+      "cases": 512,
+      "finalObjectValueMismatches": 0,
+      "selfAccountAllocations": 1024,
+      "actualPropertyGetterExecutions": 9216,
+      "originalInlineFieldReadExecutions": 1024,
+      "constructionSteps": 2023874,
+      "canonicalAssignmentOrderCases": 512,
+      "storageChecks": {
+        "nonnull_string_stored_as_native_cipher_bytes": 2393,
+        "native_no_instance_predicate_fake_copy_inactive": 2966,
+        "int_native_protected_storage_not_plaintext": 907,
+        "bool_native_protected_storage_not_plaintext": 1024,
+        "empty_string_native_wrapper": 573,
+        "null_string_storage": 618,
+        "nullable_int_null": 117
+      },
+      "receiptSha256": "5c6267530e5f8e40e479d65ac191c41c9ad48bf03866fc597be6d78164d73c0e"
+    },
+    {
+      "variant": "swap-getter-bindings",
+      "cases": 64,
+      "finalObjectValueMismatches": 58,
+      "selfAccountAllocations": 128,
+      "actualPropertyGetterExecutions": 1152,
+      "originalInlineFieldReadExecutions": 128,
+      "constructionSteps": 251309,
+      "canonicalAssignmentOrderCases": 64,
+      "storageChecks": {
+        "nonnull_string_stored_as_native_cipher_bytes": 297,
+        "native_no_instance_predicate_fake_copy_inactive": 365,
+        "int_native_protected_storage_not_plaintext": 113,
+        "bool_native_protected_storage_not_plaintext": 128,
+        "empty_string_native_wrapper": 68,
+        "null_string_storage": 83,
+        "nullable_int_null": 15
+      },
+      "receiptSha256": "2b5b6a4154b0a2d2538568deb826ce370e84212ccaf5eac91636274d97bd9866"
+    }
+  ],
+  "completionAudit": {
+    "schema": "frozen-v6-getter-completion-audit",
+    "cases": 512,
+    "completedActualPropertyGetterReturns": 9216,
+    "completedOriginalFormatterInlineReads": 1024,
+    "valueMismatches": 0,
+    "frozenManifestSha256": "a6a7f11d24add06efc16bdf5292c0e519970975f63b4fe39248e0b0f2ba26716",
+    "auditScriptSha256": "2a1f554374fe93b9e5cf36931b6caeb2d5668ad8a53513b1d3edf2f572c35f19",
+    "frozenProbeHashes": {
+      "storage_construction_probe.py": "a8317cd5f6368dac959f944fef91a6913447324c617f7a1c8cbfcecb5bd32f70",
+      "object_roundtrip_probe.py": "58813901b08b813c84b1c7bc411247cad4a402cc311f3f79a93d1f68562f57e6",
+      "compare_object_roundtrip_v6.py": "ef852772ada164f87975c8def72f2b6469c4b398351b4ef4c5ed26f5e935902c"
+    },
+    "nativeModelLimitsUnchanged": true,
+    "originalGameExecuted": false
+  },
+  "completionAuditReceiptSha256": "0e1aeeaa68bc6084007a3bb1a1be2e527711b118972f0d739f59cdbbb01f3331",
+  "independentReview": {
+    "status": "independent_v6_object_storage_audit_passed",
+    "privateAggregateSha256": "9439549f93e81551cbb87f377772a80cc32d44fa713cfa615198c319f4ea76e8",
+    "cases": 512,
+    "finalObjectValueMismatches": 0,
+    "completedActualGetterReturns": 9216,
+    "completedOriginalInlineReads": 1024,
+    "actualReturnedBirthdayUtcKindChecks": 341,
+    "getterBindingControlCases": 64,
+    "getterBindingControlDifferences": 58,
+    "sparseObservationCases": 23,
+    "protectedInputsUnchanged": true,
+    "sameDeclaredRuntimeAndDomainLimitsApply": true
+  },
+  "sparseObservations": {
+    "cases": 23,
+    "statusCounts": {
+      "root_null": 1,
+      "root_empty_object_null": 1,
+      "constructed_object_values_observed": 21
+    },
+    "categoryCounts": {
+      "rootNull": 1,
+      "emptyObject": 1,
+      "unknownOnly": 1,
+      "singleOmittedField": 20
+    },
+    "defaultsAddedToBackend": false
+  },
+  "unavailablePropertyGetters": [
+    {
+      "methodIndex": 146330,
+      "name": "get_JuniorState",
+      "firstSixBytesSha256": "40e5df8bd8f6585a324ebf53ad8df65ab468793642e597df0d4cd3d9c8288c56"
+    },
+    {
+      "methodIndex": 146301,
+      "name": "get_CreatedAt",
+      "firstSixBytesSha256": "1ca63c1fade24150064b80c083a9df6d9b7b141960a4a8dd38c444962ce4f015"
+    }
+  ],
+  "distinctObservations": {
+    "actualPropertyGettersPerObject": 18,
+    "originalFormatterInlineReadsPerObject": 2,
+    "unavailableGettersRestored": false
+  },
+  "guestModels": [
+    "zeroed typed allocator/GC",
+    "synthetic DI container and OnlineRestrictions object",
+    "UTF16 string and array primitives/Buffer.BlockCopy",
+    "bounded seeded random Next(min,max)",
+    "fresh isolated type-static detector instance pointer absent",
+    "prior metadata and token/default-resolver/cross-guest models"
+  ],
+  "perCallInstructionLimit": 30000,
+  "probeHashes": {
+    "storage_construction_probe.py": "a8317cd5f6368dac959f944fef91a6913447324c617f7a1c8cbfcecb5bd32f70",
+    "object_roundtrip_probe.py": "58813901b08b813c84b1c7bc411247cad4a402cc311f3f79a93d1f68562f57e6",
+    "compare_object_roundtrip_v6.py": "ef852772ada164f87975c8def72f2b6469c4b398351b4ef4c5ed26f5e935902c"
+  },
+  "responseWriterSha256": "0120298a1653a5680636ebdcf6f763a57a2fbbf1a232949b49f8b9c4c803e1d2",
+  "responseHarnessSha256": "339f71546f64b536b1dab790601fc40265b45f77b8d94cbd3220b4b05abce65b",
+  "activeDetectorBehaviorVerified": false,
+  "completeLiveDomainAccountBehaviorVerified": false,
+  "originalGameExecuted": false,
+  "nativeAuthenticationVerified": false,
+  "settingsOrProtectionsChanged": false,
+  "plaintextProtectedStorageSubstitution": false,
+  "routesOrDeploymentChanged": false
+}
