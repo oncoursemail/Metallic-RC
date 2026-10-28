@@ -9,5 +9,6 @@
   <Project Path="tests/Metallic.RC.Compatibility.Tests/Metallic.RC.Compatibility.Tests.csproj" />
   <Project Path="src/Metallic.RC.Backend/Metallic.RC.Backend.csproj" />
   <Project Path="tests/Metallic.RC.Backend.Tests/Metallic.RC.Backend.Tests.csproj" />
+  <Project Path="tests/Metallic.RC.PoseContract.Tests/Metallic.RC.PoseContract.Tests.csproj" />
   <Project Path="tests/Metallic.RC.LoginContract.Tests/Metallic.RC.LoginContract.Tests.csproj" />
 </Solution>
