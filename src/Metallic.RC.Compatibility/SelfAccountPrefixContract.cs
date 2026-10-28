@@ -17,6 +17,15 @@ public sealed class SelfAccountPrefixResult
     public override string ToString() => $"SelfAccountPrefixResult {{ status: {Status}; values redacted }}";
 }
 
+// Diagnostic native-prefix data; this is not a wire-date representation.
+public sealed record SelfAccountDateTimePrefixValue
+{
+    internal SelfAccountDateTimePrefixValue(long ticks) { Ticks = ticks; }
+    public long Ticks { get; }
+    public DateTimeKind Kind => DateTimeKind.Utc;
+    public override string ToString() => "SelfAccountDateTimePrefixValue { values redacted }";
+}
+
 // Captured build 23191908's property dispatch and primitive local stores only.
 // This stops before account construction, defaults, setters and authentication.
 public static class SelfAccountPrefixContract
@@ -25,6 +34,7 @@ public static class SelfAccountPrefixContract
     public const int MaxDepth = 32;
     public const int MaxProperties = 512;
     private static readonly UTF8Encoding StrictUtf8 = new(false,true);
+    private const long MaxDateTimeTicks = 3_155_378_975_999_999_999;
 
     private static readonly string[] Names =
     [
@@ -62,13 +72,17 @@ public static class SelfAccountPrefixContract
         return new ReadOnlyDictionary<string,int>(aliases);
     }
 
-    public static SelfAccountPrefixResult Read(ReadOnlySpan<byte> utf8) => ReadCore(utf8,false);
+    public static SelfAccountPrefixResult Read(ReadOnlySpan<byte> utf8) => ReadCore(utf8,false,false);
 
     // Explicit profile for the captured default resolver's Nullable<Int32/Boolean> readers.
     // Caller-supplied resolvers, dates, enums and account construction remain outside it.
-    public static SelfAccountPrefixResult ReadWithDefaultNullablePrimitives(ReadOnlySpan<byte> utf8) => ReadCore(utf8,true);
+    public static SelfAccountPrefixResult ReadWithDefaultNullablePrimitives(ReadOnlySpan<byte> utf8) => ReadCore(utf8,true,false);
 
-    private static SelfAccountPrefixResult ReadCore(ReadOnlySpan<byte> utf8,bool defaultNullablePrimitives)
+    // Explicit numeric-only extension: Int32 enum values and UTC DateTime ticks.
+    // Enum names and all nonnumeric date inputs, except Birthday null, stay outside.
+    public static SelfAccountPrefixResult ReadWithDefaultNumericScalars(ReadOnlySpan<byte> utf8) => ReadCore(utf8,true,true);
+
+    private static SelfAccountPrefixResult ReadCore(ReadOnlySpan<byte> utf8,bool defaultNullablePrimitives,bool defaultNumericScalars)
     {
         if (utf8.Length > MaxJsonBytes) throw new SelfAccountPrefixException("response_too_large");
         if (utf8.IsEmpty) throw new SelfAccountPrefixException("missing_json_value");
@@ -138,6 +152,22 @@ public static class SelfAccountPrefixContract
                         else if (reader.TokenType is JsonTokenType.True or JsonTokenType.False)
                             value = reader.TokenType == JsonTokenType.True;
                         else return new("known_value_type_error");
+                        break;
+                    case 2 when defaultNumericScalars && reader.TokenType == JsonTokenType.Null:
+                        value = null;
+                        break;
+                    case 2 or 17 when defaultNumericScalars:
+                        if (reader.TokenType != JsonTokenType.Number)
+                            return new("nested_value_outside_profile");
+                        if (!reader.TryGetInt64(out long ticks)) return new("known_value_type_error");
+                        if (ticks < 0 || ticks > MaxDateTimeTicks) return new("known_value_range_error");
+                        value = new SelfAccountDateTimePrefixValue(ticks);
+                        break;
+                    case 3 or 15 or 16 when defaultNumericScalars:
+                        if (reader.TokenType == JsonTokenType.String) return new("nested_value_outside_profile");
+                        if (reader.TokenType != JsonTokenType.Number || !reader.TryGetInt32(out int enumNumber))
+                            return new("known_value_type_error");
+                        value = enumNumber;
                         break;
                     default:
                         // The original profile stops on every nested value, including null.
