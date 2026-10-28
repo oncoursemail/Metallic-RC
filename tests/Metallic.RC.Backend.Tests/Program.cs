@@ -69,6 +69,7 @@ async Task Send(ClientWebSocket socket,string json)
 {using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(5));await socket.SendAsync(Encoding.UTF8.GetBytes(json),WebSocketMessageType.Text,true,timeout.Token);}
 try
 {
+    CredentialFormattingChecks.Run(Check);
     await Start(data);string admin=File.ReadAllText(Path.Combine(data,"admin.key")).Trim();
     var health=await Request("GET","/healthz");Check(health.Status==200&&health.Body.GetProperty("service").GetString()=="metallic-rc-backend","real HTTP health");
     var capabilities=await Request("GET","/metallic/v1/capabilities");Check(!capabilities.Body.GetProperty("compatibility").GetProperty("actualGameClientVerified").GetBoolean(),"native compatibility not invented");
