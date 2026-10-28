@@ -18,11 +18,13 @@ public sealed class BackendStore : IDisposable
     private readonly PasswordHasher<string> passwords = new(Options.Create(new PasswordHasherOptions { IterationCount = 600000 }));
     private readonly string dummyHash;
     private readonly byte[] adminHash;
+    private readonly bool nativeIdentityEnabled;
     private bool disposed;
     public string InstanceId { get; } = Guid.NewGuid().ToString("N");
 
     public BackendStore(BackendOptions options)
     {
+        nativeIdentityEnabled = options.EnableNativeIdentityMapping;
         directory = options.DataDirectory;
         BackendFiles.Prepare(directory);
         owner = new FileStream(Path.Combine(directory, "backend.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -37,7 +39,7 @@ public sealed class BackendStore : IDisposable
             using var db = Open();
             Execute(db, "PRAGMA journal_mode=WAL;");
             long version = Convert.ToInt64(Scalar(db, "PRAGMA user_version;"), CultureInfo.InvariantCulture);
-            if (version is not (0 or 1)) throw new IOException("Unsupported backend database version; not changing it.");
+            if (version is not (0 or 1 or 2)) throw new IOException("Unsupported backend database version; not changing it.");
             if (version == 0)
             {
                 using var transaction = db.BeginTransaction();
@@ -49,8 +51,17 @@ public sealed class BackendStore : IDisposable
                     PRAGMA user_version=1;
                     """, transaction);
                 transaction.Commit();
+                version = 1;
             }
             if (!Equals(Scalar(db, "PRAGMA quick_check;"), "ok")) throw new IOException("Backend database integrity check failed; original preserved.");
+            if (version == 1 && nativeIdentityEnabled)
+            {
+                NativeIdentityMap.Migrate(db);
+                version = 2;
+            }
+            // A previously opted-in database remains usable by the owned APIs
+            // when this feature is off, but an invalid mapping is never adopted.
+            if (version == 2) NativeIdentityMap.Validate(db, null);
             dummyHash = passwords.HashPassword("dummy", Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
         }
         catch { owner.Dispose(); throw; }
@@ -147,6 +158,30 @@ public sealed class BackendStore : IDisposable
         {
             using var db=Open();using var cmd=Command(db,"SELECT id,username,display_name,revision FROM accounts WHERE id=$id",null,("$id",id));using var rd=cmd.ExecuteReader();
             if(!rd.Read())throw new BackendFault(404,"account_not_found");return new(rd.GetString(0),rd.GetString(1),rd.GetString(2),rd.GetInt64(3));
+        }
+    }
+    public int GetOrCreateNativeAccountId(string accountId)
+    {
+        if (!nativeIdentityEnabled) throw new BackendFault(409, "native_identity_disabled");
+        if (!NativeIdentityMap.IsAccountId(accountId)) throw new BackendFault(400, "invalid_account_id");
+        lock (gate)
+        {
+            using var db = Open(); using var transaction = db.BeginTransaction();
+            int id = NativeIdentityMap.GetOrCreate(db, transaction, accountId);
+            transaction.Commit();
+            return id;
+        }
+    }
+    public string AccountIdForNative(int nativeId)
+    {
+        if (!nativeIdentityEnabled) throw new BackendFault(409, "native_identity_disabled");
+        if (nativeId <= 0) throw new BackendFault(400, "invalid_native_account_id");
+        lock (gate)
+        {
+            using var db = Open(); using var transaction = db.BeginTransaction();
+            string id = NativeIdentityMap.Owner(db, transaction, nativeId);
+            transaction.Commit();
+            return id;
         }
     }
     public AccountView UpdateProfile(Principal user, ProfileWrite request, long revision)

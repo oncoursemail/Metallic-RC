@@ -2,6 +2,8 @@ namespace Metallic.RC.Backend;
 
 public sealed record BackendOptions(int Port, string DataDirectory)
 {
+    // Embedding/test opt-in only; the CLI and native routes do not enable it.
+    public bool EnableNativeIdentityMapping { get; init; }
     public const int DefaultPort = 4187;
     public const int MaxRequestBytes = 65536;
     public static BackendOptions Parse(string[] args)
