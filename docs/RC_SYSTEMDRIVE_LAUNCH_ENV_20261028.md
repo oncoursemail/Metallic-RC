@@ -40,8 +40,34 @@ Static analysis separately identified a Release-launcher path through the
 ProgramData known folder to a Referee launcher log. Its traced title/message
 differs from the owner's photographed Referee Error dialog. The missing variable
 is therefore a reproduced launch-environment defect, **not a confirmed complete
-explanation of that dialog**. Original-client startup, attachment and log
-creation have not been retested by this candidate.
+explanation of that dialog**. A later separately authorized native run advanced
+through attachment and resume, then crashed before discovery; details follow.
+
+## Authorized native result, 29 October
+
+One owner-authorized run used candidate manifest SHA-256
+`b46b58e23819a0dc01bae8be6f33d025b583f38a417a2dd4e9889b16a1d6876b`
+and runner SHA-256
+`9f175658ba57321a8ac393addf39ca5f811cad39e172998011f94302c60aa144`.
+The unchanged controller required normal Windows UAC approval. Attachment
+completed in 6.766 seconds; the agent loaded, installed its network guards,
+verified five method identities and resumed the new owned process. This is
+progress beyond the earlier attach timeout, not proof of complete error recovery.
+
+After 37.014 seconds of observation the client exited with `0xC0000005`.
+PID-correlated Windows Application events identify `frida-agent.dll` at RVA
+`0x133d9e`. The reported instruction is in an exception-handler prologue and
+may describe a secondary failure; no original trigger, register state or stack
+trace was recovered. No native HTTP, URI-routing or discovery event was captured.
+The legacy `runtimeRoutingHookUsed` receipt flag records adapter readiness,
+not proof that a request was rewritten. An absent event does not prove that a
+callback was never entered before the fault.
+
+The supervisor finished in 46.136 seconds with result 2, an empty owned job,
+and both original executable hashes unchanged. Native discovery, login,
+gameplay, voice and successful log initialization remain unverified. No automatic
+native retry followed. Private logs and crash artifacts are retained locally;
+they are not release attachments.
 
 ## Scope and checks
 
