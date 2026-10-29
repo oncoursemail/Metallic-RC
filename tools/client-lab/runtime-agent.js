@@ -125,7 +125,7 @@ function installClient(module) {
           if(request.add(97).readU8()!==0){const redirected=request.add(104).readPointer();if(!redirected.isNull())uri=redirected;}
           const value=readManagedString(uri.add(16).readPointer());
           const local=(value||'').startsWith(MetallicRoutePolicy.origin(CONFIG.port)+'/');
-          event('native_http_request',{method:request.add(24).readS32(),ownedOrigin:local,path:MetallicRoutePolicy.diagnosticPath(value)});
+          event('native_http_request',{method:request.add(24).readU8(),ownedOrigin:local,path:MetallicRoutePolicy.diagnosticPath(value)});
         }catch(e){failure('http_observer',e);}
       }
     }));

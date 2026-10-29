@@ -74,7 +74,7 @@ jobs:
         with:
           node-version: '22'
       - name: Verify pure temporary-route policy
-        run: node --test tools/client-lab/route-policy.test.js tools/client-lab/runtime-agent.test.js tools/client-lab/runtime-readiness.test.js
+        run: node --test tools/client-lab/route-policy.test.js tools/client-lab/runtime-agent.test.js tools/client-lab/runtime-readiness.test.js tools/client-lab/runtime-method.test.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
