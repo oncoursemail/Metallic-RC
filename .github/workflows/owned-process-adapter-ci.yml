@@ -79,3 +79,4 @@ jobs:
           } else {
             throw "Owned-worker controls failed (exit=$code; error=$safeError)."
           }
+          exit 0
