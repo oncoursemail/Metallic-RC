@@ -1,0 +1,43 @@
+name: Guarded network protocol rules
+
+on:
+  pull_request:
+    paths:
+      - 'tools/client-lab/guarded-medium-control/src/network_protocol.rs'
+      - '.github/workflows/guarded-network-protocol-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/client-lab/guarded-medium-control/src/network_protocol.rs'
+      - '.github/workflows/guarded-network-protocol-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guarded-network-protocol-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rules:
+    name: Pure protocol rules (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile and test the isolated pure module
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $suffix = if ($IsWindows) { '.exe' } else { '' }
+          $test = Join-Path $env:RUNNER_TEMP "metallic-network-protocol-checks$suffix"
+          rustc --edition=2021 -D warnings --test tools/client-lab/guarded-medium-control/src/network_protocol.rs -o $test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $test --test-threads=1
+          exit $LASTEXITCODE
