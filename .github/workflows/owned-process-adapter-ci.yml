@@ -57,10 +57,16 @@ jobs:
           $workerPin = (Get-FileHash './target/release/metallic-owned-adapter-worker.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
           $lines = & './target/release/metallic-owned-adapter-check.exe' --self-test $workerPin 2>&1
           $code = $LASTEXITCODE
-          $result = ($lines | ForEach-Object { $_.ToString() }) -join "`n" | ConvertFrom-Json
+          try {
+            $result = ($lines | ForEach-Object { $_.ToString() }) -join "`n" | ConvertFrom-Json -ErrorAction Stop
+          } catch {
+            throw "Owned-check receipt parse failed (exit=$code)."
+          }
+          $safeError = 'unavailable'
+          if ($result.error -is [string] -and $result.error -cmatch '\A[a-z][a-z0-9_]{0,79}\z') { $safeError = $result.error }
           if ($result.originalClientTested -isnot [bool] -or $result.originalClientTested -ne $false -or
               $result.executionReady -isnot [bool] -or $result.executionReady -ne $false -or $result.ok -isnot [bool]) {
-            throw 'Unexpected owned-check receipt types.'
+            throw "Unexpected owned-check receipt types (exit=$code; error=$safeError)."
           }
           $names = @($result.PSObject.Properties.Name | Sort-Object) -join ','
           if ($code -eq 1 -and $result.ok -eq $false -and $result.error -is [string] -and $result.error -ceq 'non_admin_fixture_required' -and
@@ -71,5 +77,5 @@ jobs:
                     $names -ceq 'checks,executionReady,ok,originalClientTested,scope') {
             Write-Output 'PASS: nine authored-worker controls under the actual standard-user token.'
           } else {
-            throw 'Owned-worker controls failed or returned an unexpected receipt.'
+            throw "Owned-worker controls failed (exit=$code; error=$safeError)."
           }

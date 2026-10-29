@@ -24,11 +24,25 @@ pub fn environment_block(rows:impl IntoIterator<Item=(String,String)>)->Result<(
     if block.is_empty(){block.push(0)}block.push(0);Ok((block,count,drive))
 }
 
+pub fn verify_wrong_pin_refusal<T>(outcome:Result<T>)->Result<()>{
+    match outcome{
+        Err("worker_pin_mismatch")=>Ok(()),
+        Err("non_admin_fixture_required")=>Err("non_admin_fixture_required"),
+        _=>Err("wrong_pin_refusal_not_verified"),
+    }
+}
+
 #[cfg(windows)] mod windows;
 #[cfg(windows)] pub use windows::{Prepared,Receipt,retained_worker,wait_retained,check_drain_failure};
 
 #[cfg(test)]mod tests{
     use super::*;
+    #[test]fn wrong_pin_outcomes_preserve_only_exact_pre_admission_refusal(){
+        assert_eq!(verify_wrong_pin_refusal::<()>(Err("worker_pin_mismatch")),Ok(()));
+        assert_eq!(verify_wrong_pin_refusal::<()>(Err("non_admin_fixture_required")),Err("non_admin_fixture_required"));
+        assert_eq!(verify_wrong_pin_refusal(Ok(())),Err("wrong_pin_refusal_not_verified"));
+        assert_eq!(verify_wrong_pin_refusal::<()>(Err("other_failure")),Err("wrong_pin_refusal_not_verified"));
+    }
     #[test]fn pin_requires_exact_hex(){assert!(digest("").is_err());assert!(digest(&"z".repeat(64)).is_err());assert_eq!(digest(&"a1".repeat(32)).unwrap(),[0xa1;32]);}
     #[test]fn unicode_environment_is_closed_and_double_terminated(){
         let (b,n,drive)=environment_block([(String::from("Path"),String::from("owned")),("SYSTEMDRIVE".into(),"C:".into()),("SECRET_TOKEN".into(),"omit".into()),("TEMP".into(),"synthetic-猫".into())]).unwrap();
