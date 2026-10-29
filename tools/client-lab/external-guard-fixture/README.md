@@ -81,10 +81,12 @@ cargo test --offline --locked --lib
 target/debug/metallic-external-guard-fixture.exe --plan
 ```
 
-Sixteen pure fake-API tests cover four-filter order, partial admission failures,
+Eighteen pure fake-API tests cover four-filter order, partial admission failures,
 readback field mismatch, pending-child refusal, deletion/read/close failures,
 closed roles, monotonic deadline latching, timeout setup admission, strict
-Winsock classification and crash/unknown exit refusal. These do
+Winsock classification and crash/unknown exit refusal. Readback failures now name
+the first mismatched field using a static category. Every field remains checked,
+including a final exact equality check; no flags are masked or tolerated. These do
 not call WFP or create sockets/children. Only the pure plan was executed.
 Rustfmt is unavailable in the existing toolchain; no component was installed.
 

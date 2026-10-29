@@ -40,6 +40,23 @@ pub struct Rule {
     pub app_equal: bool,
 }
 
+/// Report only a static first-mismatch category, never observed path/blob data.
+/// The final equality check preserves exact acceptance if Rule gains a field.
+pub fn check_readback(expected:&Rule, actual:Option<&Rule>)->Result<()> {
+    let actual=actual.ok_or("readback_missing")?;
+    if actual.id!=expected.id{return Err("readback_id_mismatch")}
+    if actual.key!=expected.key{return Err("readback_key_mismatch")}
+    if actual.sublayer!=expected.sublayer{return Err("readback_sublayer_mismatch")}
+    if actual.layer!=expected.layer{return Err("readback_layer_mismatch")}
+    if actual.app_id!=expected.app_id{return Err("readback_app_id_mismatch")}
+    if actual.block!=expected.block{return Err("readback_action_mismatch")}
+    if actual.flags!=expected.flags{return Err("readback_flags_mismatch")}
+    if actual.conditions!=expected.conditions{return Err("readback_condition_count_mismatch")}
+    if actual.app_equal!=expected.app_equal{return Err("readback_match_type_mismatch")}
+    if actual!=expected{return Err("readback_other_mismatch")}
+    Ok(())
+}
+
 pub trait Api {
     fn open_dynamic(&mut self) -> Result<()>;
     fn begin(&mut self) -> Result<()>;
@@ -71,7 +88,7 @@ pub fn install(api: &mut impl Api) -> Result<Vec<Rule>> {
         api.commit()?;
         committed = true;
         for rule in &rules {
-            if api.read(rule.id)?.as_ref() != Some(rule) { return Err("readback_mismatch"); }
+            check_readback(rule,api.read(rule.id)?.as_ref())?;
         }
         Ok(rules)
     })();
@@ -160,8 +177,22 @@ mod tests {
             let mut f=Fake { fail:Some(step), ..Default::default() }; assert!(install(&mut f).is_err()); assert_eq!(f.events.last().unwrap(),"close"); assert!(f.rules.is_empty());
         }
     }
-    #[test] fn readback_mismatch_fails() { let mut f=Fake{mismatch:true,..Default::default()}; assert!(install(&mut f).is_err()); assert!(f.rules.is_empty()); }
-    #[test] fn each_readback_field_is_checked(){for wrong_field in 1..=8{let mut f=Fake{wrong_field,..Default::default()};assert!(install(&mut f).is_err());assert!(f.rules.is_empty());}}
+    #[test] fn readback_mismatch_fails() { let mut f=Fake{mismatch:true,..Default::default()}; assert_eq!(install(&mut f),Err("readback_action_mismatch")); assert!(f.rules.is_empty()); }
+    #[test] fn each_readback_field_is_checked(){
+        for (wrong_field,category) in [(1,"readback_id_mismatch"),(2,"readback_key_mismatch"),(3,"readback_sublayer_mismatch"),(4,"readback_layer_mismatch"),(5,"readback_app_id_mismatch"),(6,"readback_flags_mismatch"),(7,"readback_condition_count_mismatch"),(8,"readback_match_type_mismatch")]{
+            let mut f=Fake{wrong_field,..Default::default()};assert_eq!(install(&mut f),Err(category));assert!(f.rules.is_empty());assert_eq!(f.events.last().unwrap(),"close");
+        }
+    }
+    #[test] fn absent_and_equal_readbacks_keep_exact_acceptance(){
+        let mut f=Fake::default();let r=install(&mut f).unwrap().remove(0);
+        assert_eq!(check_readback(&r,None),Err("readback_missing"));assert_eq!(check_readback(&r,Some(&r)),Ok(()));
+    }
+    #[test] fn first_mismatch_stays_static_and_contains_no_observed_values(){
+        let mut f=Fake::default();let r=install(&mut f).unwrap().remove(0);let mut actual=r.clone();
+        actual.app_id=b"synthetic-private-path-marker".to_vec();actual.flags=u32::MAX;
+        assert_eq!(check_readback(&r,Some(&actual)),Err("readback_app_id_mismatch"));
+        actual.app_id=r.app_id.clone();assert_eq!(check_readback(&r,Some(&actual)),Err("readback_flags_mismatch"));
+    }
     #[test] fn children_pending_does_not_remove_guard() { let mut f=Fake::default();let rules=install(&mut f).unwrap();let n=f.events.len();assert!(cleanup(&mut f,&rules,false).is_err());assert_eq!(n,f.events.len()); }
     #[test] fn cleanup_verifies_all_absent() { let mut f=Fake::default();let rules=install(&mut f).unwrap();cleanup(&mut f,&rules,true).unwrap();assert!(f.rules.is_empty()); }
     #[test] fn deletion_failure_is_not_success() { let mut f=Fake::default();let rules=install(&mut f).unwrap();f.fail=Some("delete");assert!(cleanup(&mut f,&rules,true).is_err());assert_eq!(f.events.last().unwrap(),"close"); }

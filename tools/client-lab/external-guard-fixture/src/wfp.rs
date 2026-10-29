@@ -9,7 +9,7 @@ fn bytes(g: GUID) -> [u8;16] {
 }
 fn unique() -> Result<GUID> { let mut g=GUID::from_u128(0);let code=unsafe{UuidCreate(&mut g)};if code==0||code==1824{Ok(g)}else{Err("guid_failed")} }
 fn layer(l:Layer)->GUID { match l { Layer::Connect4=>FWPM_LAYER_ALE_AUTH_CONNECT_V4,Layer::Connect6=>FWPM_LAYER_ALE_AUTH_CONNECT_V6,Layer::Receive4=>FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4,Layer::Receive6=>FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6 } }
-fn from_layer(g:GUID)->Result<Layer> { for l in metallic_external_guard_fixture::LAYERS{if bytes(g)==bytes(layer(l)){return Ok(l)}}Err("unexpected_layer") }
+fn from_layer(g:GUID)->Result<Layer> { for l in metallic_external_guard_fixture::LAYERS{if bytes(g)==bytes(layer(l)){return Ok(l)}}Err("readback_layer_unknown") }
 
 pub struct Native { engine:HANDLE, sublayer:GUID, app:Vec<u8>, budget:Budget }
 impl Native {
@@ -55,12 +55,14 @@ impl Api for Native {
         check(code)?;
         let result=(||{
             if p.is_null(){return Err("empty_readback")};let f=unsafe{&*p};
-            if f.numFilterConditions!=1||f.filterCondition.is_null(){return Err("condition_count_mismatch")}
+            if f.numFilterConditions!=1{return Err("readback_condition_count_mismatch")}
+            if f.filterCondition.is_null(){return Err("readback_condition_pointer_missing")}
             let c=unsafe{&*f.filterCondition};
-            if bytes(c.fieldKey)!=bytes(FWPM_CONDITION_ALE_APP_ID)||c.conditionValue.r#type!=FWP_BYTE_BLOB_TYPE{return Err("condition_type_mismatch")}
+            if bytes(c.fieldKey)!=bytes(FWPM_CONDITION_ALE_APP_ID){return Err("readback_condition_key_mismatch")}
+            if c.conditionValue.r#type!=FWP_BYTE_BLOB_TYPE{return Err("readback_condition_value_type_mismatch")}
             let b=unsafe{c.conditionValue.Anonymous.byteBlob};
-            if b.is_null(){return Err("empty_readback_blob")};let b=unsafe{&*b};
-            if b.size==0||b.size>32768||b.data.is_null(){return Err("readback_blob_bound")}
+            if b.is_null(){return Err("readback_app_id_blob_missing")};let b=unsafe{&*b};
+            if b.size==0||b.size>32768||b.data.is_null(){return Err("readback_app_id_blob_bound")}
             Ok(Some(Rule{id:f.filterId,key:bytes(f.filterKey),sublayer:bytes(f.subLayerKey),layer:from_layer(f.layerKey)?,app_id:unsafe{slice::from_raw_parts(b.data,b.size as usize)}.to_vec(),block:f.action.r#type==FWP_ACTION_BLOCK,flags:f.flags,conditions:f.numFilterConditions,app_equal:c.matchType==FWP_MATCH_EQUAL}))
         })();
         unsafe{FwpmFreeMemory0(&mut p as *mut _ as *mut *mut c_void)};self.budget.check()?;result

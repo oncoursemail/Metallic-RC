@@ -24,3 +24,15 @@ git diff --check
 ```
 
 All 10 authored test methods passed, including missing/invalid `LOCALAPPDATA`, case-insensitive lookup and mismatched-owner lab rejection. They cover exact argv and pin declarations, path and budget rejection, environment selection without value disclosure, guard/image/job/resume/cleanup ordering, refusal of input authority claims, bounded/duplicate JSON, and rejection of execution flags before file access. The pure planner is tested with file opens forbidden; the CLI uses only temporary authored candidate data. No actual candidate profile, original-client process, external fixture, WFP session, service, account or UAC operation was created or executed.
+
+Subsequent diagnostic preparation (board 339): an independently arriving failure
+artifact contains `readback_mismatch`; its invoking process exit status is not
+known. It is preserved as diagnostic data, never admitted as a passing receipt.
+The fixture now reports static first-field mismatch categories for missing
+readback, ID, key, sublayer, layer, App-ID equality, action, flags, condition count
+and match type. Native pointer/type checks also have distinct static categories.
+Exact acceptance, filter policy, admission ordering and cleanup are unchanged,
+with a final whole-rule equality check retained. There is no flag mask or inferred
+normalization. All 18 pure tests and the offline locked Windows Release build
+pass, with independent review. Only the inert plan was executed for this revised
+binary during preparation. The actual mismatched field is not yet established.
