@@ -20,8 +20,9 @@ node --test tools/client-lab/runtime-agent.test.js tools/client-lab/runtime-read
 The existing Windows/Linux backend workflow includes the new method suite in
 its Node command. No workflow permissions, events or execution scope changed.
 
-This does **not** fix or explain the recorded access violation. The affected HTTP
-callback produced no event during that run. The check uses synthetic memory and
+This has **not been verified as a fix** for the recorded access violation. No HTTP
+event was captured during that run; this does not prove whether callback entry
+occurred before the fault. The check uses synthetic memory and
 does not establish original-client discovery, login, gameplay, or crash recovery.
 No original client was executed for this change. Existing pinned sources and
 candidate profiles remain unchanged; this work is isolated from them.
