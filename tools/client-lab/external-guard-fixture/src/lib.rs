@@ -159,6 +159,31 @@ impl ProbePhase {
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct ProbeFailure { pub phase:ProbePhase, pub protocol:Probe, pub actual:Option<i32>, pub udp:Option<kernel::Observation> }
+fn udp_timeout_metadata(info:&ProbeFailure)->Option<kernel::Observation>{
+    use kernel::{Operation,Record};
+    let family=match info.protocol{Probe::Udp4=>4,Probe::Udp6=>6,_=>return None};
+    if info.phase!=ProbePhase::Blocked||reported_socket_error(info.actual)!=Some(10060){return None}
+    let observation=info.udp?;let record=observation.record?;
+    if record.family!=family||record.operation!=Operation::Receive||record.sent!=4||
+        Record::decode(&record.encode(),info.protocol,record.destination_port)!=Some(record)||
+        observation.start==0||observation.end<observation.start||observation.end-observation.start>100_000_000{return None}
+    Some(observation)
+}
+/// The native callback must correlate this observation with current verified rules.
+pub fn confirmed_blocked_udp(info:&ProbeFailure)->bool{
+    matches!(udp_timeout_metadata(info),Some(observation)if observation.stats.status==kernel::Status::Matched&&observation.stats.outbound>0&&observation.stats.api.is_none())
+}
+pub fn resolve_probe(info:&mut ProbeFailure,diagnose:impl FnOnce(kernel::Observation)->kernel::Stats)->Result<()>{
+    if accepted_probe_exit(info.actual,info.phase.expected()){return Ok(())}
+    if let Some(observation)=udp_timeout_metadata(info){
+        info.udp.as_mut().unwrap().stats=diagnose(observation);
+        if confirmed_blocked_udp(info){return Ok(())}
+    }
+    Err("probe_outcome_mismatch")
+}
+pub fn run_probe_phase(phase:ProbePhase,mut attempt:impl FnMut(Probe,ProbePhase)->Result<()>)->Result<()>{
+    for protocol in PROBES{attempt(protocol,phase)?;}Ok(())
+}
 pub fn finish_probe(outcome:Result<()>,context:&mut Option<ProbeFailure>)->Result<()>{
     if outcome.is_ok(){*context=None;}outcome
 }
@@ -334,5 +359,99 @@ mod tests {
             assert!(!report.contains("childReportedSocketError"));
             if actual.is_none(){assert!(report.contains("\"actualChildExit\":null"));}
         }
+    }
+
+    fn timeout_info(protocol:Probe)->ProbeFailure{
+        use kernel::{Observation,Operation,Record,Stats,Status};
+        ProbeFailure{phase:ProbePhase::Blocked,protocol,actual:Some(75596),udp:Some(Observation{
+            record:Some(Record{family:if protocol==Probe::Udp6{6}else{4},operation:Operation::Receive,source_port:42123,destination_port:52123,sent:4}),
+            start:100,end:200,stats:Stats{status:Status::Matched,outbound:1,inbound:0,api:None},
+        })}
+    }
+    #[test]fn confirmed_udp_timeout_retains_raw_code_and_requires_each_family(){
+        for protocol in [Probe::Udp4,Probe::Udp6]{
+            let mut info=timeout_info(protocol);let original=info;
+            assert!(confirmed_blocked_udp(&info));assert!(!accepted_probe_exit(info.actual,20));
+            assert_eq!(reported_socket_error(info.actual),Some(10060));
+            let mut calls=0;assert_eq!(resolve_probe(&mut info,|observation|{calls+=1;observation.stats}),Ok(()));
+            assert_eq!(calls,1);assert_eq!(info,original);
+            assert!(failure_report("probe_outcome_mismatch",Some(64),Some(info)).starts_with("{\"ok\":false,"));
+        }
+    }
+    #[test]fn every_timeout_evidence_field_is_required(){
+        use kernel::{ApiFailure,ApiStage,Operation,Status};
+        for index in 0..24{
+            let mut info=timeout_info(Probe::Udp4);
+            match index{
+                0=>info.phase=ProbePhase::Before,1=>info.phase=ProbePhase::After,2=>info.protocol=Probe::Tcp4,3=>info.protocol=Probe::Tcp6,
+                4=>info.actual=None,5=>info.actual=Some(10060),6=>info.actual=Some(0x10000|10013),7=>info.udp=None,
+                8=>info.udp.as_mut().unwrap().record=None,
+                9=>info.udp.as_mut().unwrap().record.as_mut().unwrap().family=6,
+                10=>info.udp.as_mut().unwrap().record.as_mut().unwrap().source_port=0,
+                11=>info.udp.as_mut().unwrap().record.as_mut().unwrap().destination_port=0,
+                12=>info.udp.as_mut().unwrap().record.as_mut().unwrap().operation=Operation::Reply,
+                13=>info.udp.as_mut().unwrap().record.as_mut().unwrap().operation=Operation::Complete,
+                14=>info.udp.as_mut().unwrap().record.as_mut().unwrap().sent=3,
+                15=>info.udp.as_mut().unwrap().record.as_mut().unwrap().sent=5,
+                16=>info.udp.as_mut().unwrap().start=0,17=>info.udp.as_mut().unwrap().end=99,
+                18=>info.udp.as_mut().unwrap().end=100_000_101,
+                19=>info.udp.as_mut().unwrap().stats.outbound=0,
+                20=>{let stats=&mut info.udp.as_mut().unwrap().stats;stats.outbound=0;stats.inbound=1;},
+                21=>info.udp.as_mut().unwrap().stats.status=Status::Inconclusive,
+                22=>info.udp.as_mut().unwrap().stats.api=Some(ApiFailure{stage:ApiStage::EnumPage,code:5}),
+                23=>info.udp.as_mut().unwrap().stats.api=Some(ApiFailure{stage:ApiStage::EnumPage,code:0}),_=>unreachable!(),
+            }
+            assert!(!confirmed_blocked_udp(&info),"accepted mutation {index}");
+        }
+        for status in [Status::Unavailable,Status::Disabled,Status::Inconclusive,Status::Capped,Status::Deadline]{let mut info=timeout_info(Probe::Udp4);info.udp.as_mut().unwrap().stats.status=status;assert!(!confirmed_blocked_udp(&info));}
+        for operation in [Operation::Bind,Operation::ReadTimeout,Operation::WriteTimeout,Operation::Connect,Operation::LocalAddress,Operation::Send,Operation::Reply,Operation::Complete]{let mut info=timeout_info(Probe::Udp6);info.udp.as_mut().unwrap().record.as_mut().unwrap().operation=operation;assert!(!confirmed_blocked_udp(&info));}
+        let mut info=timeout_info(Probe::Udp6);info.udp.as_mut().unwrap().record.as_mut().unwrap().family=4;assert!(!confirmed_blocked_udp(&info));
+    }
+    #[test]fn every_other_tag_and_crash_remains_ineligible_for_kernel_confirmation(){
+        let mut info=timeout_info(Probe::Udp4);
+        for error in 1..=65535{info.actual=Some(0x10000|error);assert_eq!(confirmed_blocked_udp(&info),error==10060);}
+        for actual in [None,Some(0),Some(20),Some(21),Some(124),Some(-1),Some(0xc0000005u32 as i32),Some(0x20001)]{info.actual=actual;assert!(!confirmed_blocked_udp(&info));}
+    }
+    #[test]fn resolver_uses_fresh_diagnostic_and_never_queries_other_phases_or_protocols(){
+        use kernel::{Stats,Status};
+        let mut info=timeout_info(Probe::Udp4);let mut calls=0;
+        assert_eq!(resolve_probe(&mut info,|_|{calls+=1;Stats::empty(Status::Unavailable)}),Err("probe_outcome_mismatch"));
+        assert_eq!(calls,1);assert_eq!(info.actual,Some(75596));assert_eq!(info.udp.unwrap().stats.status,Status::Unavailable);
+        for protocol in PROBES{for phase in [ProbePhase::Before,ProbePhase::After]{
+            let mut info=timeout_info(protocol);info.phase=phase;
+            assert_eq!(resolve_probe(&mut info,|_|panic!("nonblocked diagnostic")),Err("probe_outcome_mismatch"));
+            info.actual=Some(0);assert_eq!(resolve_probe(&mut info,|_|panic!("positive diagnostic")),Ok(()));
+        }}
+        for protocol in [Probe::Tcp4,Probe::Tcp6]{let mut info=timeout_info(protocol);assert_eq!(resolve_probe(&mut info,|_|panic!("TCP diagnostic")),Err("probe_outcome_mismatch"));}
+        for protocol in PROBES{let mut info=timeout_info(protocol);info.actual=Some(20);assert_eq!(resolve_probe(&mut info,|_|panic!("explicit deny diagnostic")),Ok(()));}
+    }
+    fn fake_probe_cycle(missing:Option<Probe>,cleanup_failure:bool)->(Result<()>,Vec<(ProbePhase,Probe)>,Vec<String>){
+        use kernel::{Stats,Status};
+        let mut calls=Vec::new();let mut api=Fake::default();
+        let before=run_probe_phase(ProbePhase::Before,|protocol,phase|{calls.push((phase,protocol));let mut info=timeout_info(protocol);info.phase=phase;info.actual=Some(0);resolve_probe(&mut info,|_|panic!("before diagnostic"))});
+        assert_eq!(before,Ok(()));let rules=install(&mut api).unwrap();
+        let blocked=run_probe_phase(ProbePhase::Blocked,|protocol,phase|{
+            calls.push((phase,protocol));let mut info=timeout_info(protocol);if protocol.tcp(){info.actual=Some(20);}
+            resolve_probe(&mut info,|observation|{
+                let layer=kernel::wanted_layer(observation.record.unwrap().family,true).unwrap();assert_eq!(rules.iter().filter(|rule|rule.layer==layer).count(),1);
+                if missing==Some(protocol){Stats::empty(Status::Inconclusive)}else{observation.stats}
+            })
+        });
+        if cleanup_failure{api.fail=Some("delete");}let removed=cleanup(&mut api,&rules,true);
+        let result=(||{blocked?;removed?;assert!(api.rules.is_empty());run_probe_phase(ProbePhase::After,|protocol,phase|{
+            calls.push((phase,protocol));let mut info=timeout_info(protocol);info.phase=phase;info.actual=Some(0);resolve_probe(&mut info,|_|panic!("after diagnostic"))
+        })})();(result,calls,api.events)
+    }
+    #[test]fn shared_phase_path_continues_both_confirmed_udp_probes_cleanup_and_all_after_positives(){
+        let(result,calls,events)=fake_probe_cycle(None,false);assert_eq!(result,Ok(()));
+        let expected:Vec<_>=[ProbePhase::Before,ProbePhase::Blocked,ProbePhase::After].into_iter().flat_map(|phase|PROBES.map(|protocol|(phase,protocol))).collect();
+        assert_eq!(calls,expected);assert_eq!(events.iter().filter(|event|event.as_str()=="delete").count(),4);assert_eq!(events.last().unwrap(),"close");
+    }
+    #[test]fn missing_outbound_evidence_or_cleanup_failure_cannot_reach_after_positives(){
+        for(missing,want_calls)in[(Some(Probe::Udp4),7),(Some(Probe::Udp6),8)]{
+            let(result,calls,events)=fake_probe_cycle(missing,false);assert_eq!(result,Err("probe_outcome_mismatch"));assert_eq!(calls.len(),want_calls);
+            assert!(!calls.iter().any(|(phase,_)|*phase==ProbePhase::After));assert_eq!(events.last().unwrap(),"close");
+        }
+        let(result,calls,events)=fake_probe_cycle(None,true);assert_eq!(result,Err("filter_cleanup_unverified"));assert_eq!(calls.len(),8);assert_eq!(events.last().unwrap(),"close");
     }
 }

@@ -108,8 +108,9 @@ not call WFP or create sockets/children. Only the pure plan was executed.
 Failure-only probe metadata names the closed before/blocked/after phase and
 TCP/UDP IPv4/IPv6 protocol, plus the retained child exit or null. Canonical tagged
 errors may be decoded as `childReportedSocketError`; this is the authored child's
-diagnostic namespace, not independent OS attestation. Success still requires
-exact child exit 0 or 20 for the corresponding phase. All 65,535 raw-error tags
+diagnostic namespace, not independent OS attestation. The existing child-exit path still requires exact exit 0 or 20 for the
+corresponding phase. The separately verified blocked-UDP path below preserves
+the raw timeout code and requires current outbound kernel evidence. All 65,535 raw-error tags
 are checked for canonical decoding and refusal by the pass predicate.
 The separate Windows binary tests use only authored loopback TCP sockets, with
 no WFP or native fixture role. They exercise the actual accepted-stream helper:
@@ -123,9 +124,9 @@ mismatches. They do not enter a fixture/probe role or call WFP.
 
 ## Read-only UDP drop diagnostics
 
-A UDP timeout remains failure. After a failed blocked UDP probe, optional
+A UDP timeout alone remains failure. For eligible blocked UDP receive timeouts,
 diagnostics read existing event-collection state and inspect only exact scoped
-`Enum2` drop events. Collection must already be enabled; this program never calls
+`Enum2` drop events before deciding that probe. Collection must already be enabled; this program never calls
 `SetOption`, changes auditing/providers or enables global collection.
 
 Queries require this executable's exact App-ID, UDP, loopback family/addresses,
@@ -141,8 +142,22 @@ a shared 64 KiB event-data budget and two-second cooperative deadline. Synchrono
 Windows RPC calls are not cancelled by that deadline; the existing 90/130-second
 watchdogs remain. Arrays are freed and enumeration handles are destroyed on exit.
 Missing, disabled, unsupported or incomplete observations remain unavailable or
-inconclusive. Even a matched event does not turn this revision's failed probe
-into a pass or change the successful nine-field schema.
+inconclusive. A timeout can satisfy only the blocked UDP phase when all of these hold:
+canonical child-reported 10060 (raw exit 75596); matching IPv4/IPv6 metadata;
+nonzero source and destination ports; exact receive operation after sending
+four bytes; valid bounded probe times; and completed matched diagnostics with
+at least one outbound drop and no API failure. The native reader must match
+this run's current verified filter, layer, App-ID and complete tuple. Inbound-only
+matches, timeouts alone, disabled collection, unavailable/capped/deadline results
+and API errors remain failures. No raw child code is rewritten to 20.
+
+The existing successful nine-field schema remains unchanged. Success still
+requires all four before positives, all four blocked probes (including UDP6),
+empty owned children/job before verified filter removal, and all four after
+positives. The resolver queries current evidence for each eligible blocked UDP
+probe; a successful UDP4 confirmation does not skip UDP6 or cleanup. Before/after
+positives and TCP never use kernel evidence as an alternative to their expected
+exit. No original-client readiness or full sandbox claim follows from this test.
 API failures include only a closed collection/layer/enumeration stage and the
 actual returned unsigned error code. These fields contain no exception text.
 Rustfmt is unavailable in the existing toolchain; no component was installed.
@@ -152,3 +167,19 @@ Microsoft references: [dynamic session lifetime](https://learn.microsoft.com/en-
 [ALE layers](https://learn.microsoft.com/en-us/windows/win32/fwp/ale-layers),
 [filter readback](https://learn.microsoft.com/en-us/windows/win32/api/fwpmu/nf-fwpmu-fwpmfiltergetbyid0),
 [arbitration](https://learn.microsoft.com/en-us/windows/win32/fwp/filter-arbitration).
+
+The source change was prompted by an actual authored-fixture observation: exact
+flags 64/64, blocked UDP4 raw exit 75596 / receive timeout 10060, send bytes 4,
+and a matched current-filter outbound kernel drop (one outbound, zero inbound).
+That earlier revision correctly remained failure under its strict exit-only
+policy; it is evidence for the added narrow predicate, not a passing four-probe
+run. The new source has not been run with WFP here.
+
+Local validation: locked offline release build and 39 pure/mock library tests
+passed, retaining every existing assertion and adding six evidence/lifecycle
+tests. They exercise both families, every required metadata/stat field, every
+bounded raw error tag, fresh re-query rather than stale counts, and the shared
+phase path through UDP6, fake cleanup and all after positives. Missing outbound
+evidence or failed cleanup cannot reach after positives. The two existing owned
+TCP controls and three anonymous-pipe controls also passed without WFP or
+privileged process roles.

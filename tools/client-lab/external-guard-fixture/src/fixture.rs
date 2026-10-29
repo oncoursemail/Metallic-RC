@@ -1,5 +1,5 @@
 //! Native fixture orchestration; never called by plan or unit-test roles.
-use metallic_external_guard_fixture::{accepted_probe_exit, classify_probe, cleanup, finish_probe, install, timeouts_ready, Budget, Probe, ProbeFailure, ProbePhase, Result, PROBES};
+use metallic_external_guard_fixture::{classify_probe, cleanup, finish_probe, install, resolve_probe, run_probe_phase, timeouts_ready, Budget, Probe, ProbeFailure, ProbePhase, Result};
 use std::{io::{Read, Write}, net::{SocketAddr, TcpListener, TcpStream, UdpSocket}, os::windows::{io::AsRawHandle, process::CommandExt}, process::{Child, Command, Stdio}, ptr, sync::mpsc, thread, time::{Duration, Instant}};
 use windows_sys::Win32::{Foundation::{CloseHandle, GetLastError, HANDLE}, System::{JobObjects::*, Threading::CreateMutexW}};
 use crate::wfp::Native;
@@ -229,9 +229,8 @@ mod tests {
     }
 }
 
-fn probe(job:&Job,children:&mut Children,p:Probe,phase:ProbePhase,budget:&Budget,failure:&mut Option<ProbeFailure>)->Result<()>{
+fn probe(job:&Job,children:&mut Children,p:Probe,phase:ProbePhase,budget:&Budget,failure:&mut Option<ProbeFailure>,guard:Option<(&Native,&[metallic_external_guard_fixture::Rule])>)->Result<()>{
     *failure=Some(ProbeFailure{phase,protocol:p,actual:None,udp:None});
-    let expected=phase.expected();
     budget.check()?;
     let(port,stop,server)=listener(p)?;
     let outcome=(||{
@@ -248,7 +247,12 @@ fn probe(job:&Job,children:&mut Children,p:Probe,phase:ProbePhase,budget:&Budget
             if let Some(status)=child.try_wait().map_err(|_|"probe_wait_failed")?{
                 let udp=if p.tcp(){None}else{Some(Observation{record:if status.code().is_some(){child.stdout.take().and_then(|mut pipe|read_metadata(&mut pipe,p,port))}else{None},start,end:utc_ticks().unwrap_or(0),..Default::default()})};
                 *failure=Some(ProbeFailure{phase,protocol:p,actual:status.code(),udp});
-                budget.check()?;return if accepted_probe_exit(status.code(),expected){Ok(())}else{Err("probe_outcome_mismatch")}
+                budget.check()?;
+                let decision=resolve_probe(failure.as_mut().ok_or("probe_context_missing")?,|observation|match guard{
+                    Some((api,rules))=>api.diagnose_udp(rules,observation),
+                    None=>metallic_external_guard_fixture::kernel::Stats::empty(metallic_external_guard_fixture::kernel::Status::Unavailable),
+                });
+                budget.check()?;return decision
             }pause();
         }
         Err("probe_deadline")
@@ -265,15 +269,13 @@ pub fn run(observed_flags:&mut Option<u32>,probe_failure:&mut Option<ProbeFailur
     let budget=Budget::default();let job=Job::new()?;let mut watchdog=Watchdog::start(&job,budget.clone());
     let mut children=Children::default();let mut api=Native::new(budget.clone())?;let mut rules=None;
     let outcome=(||{
-        for p in PROBES{probe(&job,&mut children,p,ProbePhase::Before,&budget,probe_failure)?;}
+        run_probe_phase(ProbePhase::Before,|p,phase|probe(&job,&mut children,p,phase,&budget,probe_failure,None))?;
         if !children.empty()||!job.empty(){return Err("baseline_children_pending")}
         rules=Some(install(&mut api)?);
-        budget.check()?;for p in PROBES{probe(&job,&mut children,p,ProbePhase::Blocked,&budget,probe_failure)?;}
+        budget.check()?;let verified=rules.as_deref().ok_or("verified_rules_missing")?;
+        run_probe_phase(ProbePhase::Blocked,|p,phase|probe(&job,&mut children,p,phase,&budget,probe_failure,Some((&api,verified))))?;
         Ok(())
     })();
-    if outcome.is_err(){if let (Some(rules),Some(failure))=(&rules,probe_failure.as_mut()){
-        if failure.phase==ProbePhase::Blocked{if let Some(observation)=failure.udp.as_mut(){observation.stats=api.diagnose_udp(rules,*observation);}}
-    }}
     *observed_flags=api.last_observed_flags();
     children.stop();let _=job.stop();
     let end=Instant::now()+Duration::from_secs(3);
@@ -284,7 +286,7 @@ pub fn run(observed_flags:&mut Option<u32>,probe_failure:&mut Option<ProbeFailur
         loop{thread::sleep(Duration::from_millis(100));}
     }
     let removed=if let Some(rules)=&rules{cleanup(&mut api,rules,true)}else{Ok(())};
-    let after=(||{outcome?;removed?;budget.check()?;for p in PROBES{probe(&job,&mut children,p,ProbePhase::After,&budget,probe_failure)?;}budget.check()})();
+    let after=(||{outcome?;removed?;budget.check()?;run_probe_phase(ProbePhase::After,|p,phase|probe(&job,&mut children,p,phase,&budget,probe_failure,None))?;budget.check()})();
     children.stop();let _=job.stop();let end=Instant::now()+Duration::from_secs(3);
     while Instant::now()<end&&(!children.empty()||!job.empty()){pause();}
     if !children.empty()||!job.empty(){loop{thread::sleep(Duration::from_millis(100));}}
