@@ -50,9 +50,10 @@ One owner-authorized run used candidate manifest SHA-256
 and runner SHA-256
 `9f175658ba57321a8ac393addf39ca5f811cad39e172998011f94302c60aa144`.
 The unchanged controller required normal Windows UAC approval. Attachment
-completed in 6.766 seconds; the agent loaded, installed its network guards,
-verified five method identities and resumed the new owned process. This is
-progress beyond the earlier attach timeout, not proof of complete error recovery.
+completed in 6.766 seconds. The agent loaded and installed its network guards
+before the new owned process resumed. About 4.8 seconds after resume, the client
+adapter reported five matching method prefixes. This is progress beyond the
+earlier attach timeout, not proof of complete error recovery.
 
 After 37.014 seconds of observation the client exited with `0xC0000005`.
 PID-correlated Windows Application events identify `frida-agent.dll` at RVA
