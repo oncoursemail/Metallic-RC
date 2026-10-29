@@ -1,0 +1,41 @@
+name: Pure pristine baseline variants
+
+on:
+  pull_request:
+    paths:
+      - 'tools/client-lab/pristine-baselines.py'
+      - 'tools/client-lab/test_pristine_baselines.py'
+      - 'tools/client-lab/pristine-control.py'
+      - 'tools/client-lab/test_pristine_control.py'
+      - '.github/workflows/pristine-baselines-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/client-lab/pristine-baselines.py'
+      - 'tools/client-lab/test_pristine_baselines.py'
+      - 'tools/client-lab/pristine-control.py'
+      - 'tools/client-lab/test_pristine_control.py'
+      - '.github/workflows/pristine-baselines-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pure-plans:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify v2 baseline variants
+        run: python -I -S -B -m unittest discover -s tools/client-lab -p test_pristine_baselines.py -v
+      - name: Verify unchanged v1 planner
+        run: python -I -S -B -m unittest discover -s tools/client-lab -p test_pristine_control.py -v
