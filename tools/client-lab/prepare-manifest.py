@@ -20,11 +20,15 @@ def unique_object(pairs):
         result[key]=value
     return result
 
-def refresh(previous,output):
+def refresh(previous,output,client_adapter_mode=None):
     previous=Path(previous);output=Path(output)
     if identity(previous.resolve())==identity(output.resolve()) or output.exists():
         raise FileExistsError('Choose a new path; earlier manifests are retained')
     m=json.loads(previous.read_text(encoding='utf8'),object_pairs_hook=unique_object)
+    previous_mode=m.get('clientAdapterMode','full') if isinstance(m,dict) else None
+    if type(previous_mode) is not str or previous_mode not in ('full','network-only'):raise ValueError('Invalid clientAdapterMode')
+    mode=previous_mode if client_adapter_mode is None else client_adapter_mode
+    if type(mode) is not str or mode not in ('full','network-only'):raise ValueError('Invalid clientAdapterMode')
     if not isinstance(m,dict) or type(m.get('schemaVersion')) is not int or m['schemaVersion'] not in (1,2,3) or m.get('steamBuildId')!='23191908' or type(m.get('port')) is not int or m['port']!=4187:
         raise ValueError('Expected build 23191908 profile on the fixed loopback port')
     if not isinstance(m.get('files'),list) or not m['files']:
@@ -69,15 +73,16 @@ def refresh(previous,output):
         path=ROOT/name;key=identity(path)
         if key in new_keys:raise ValueError('New authored path collides with a retained input')
         new_keys.add(key);new_pins[name]={'path':str(path),'sha256':sha(path),'bytes':path.stat().st_size};rows.append(new_pins[name])
-    m.update(schemaVersion=3,agent=str(ROOT/'runtime-agent.js'),policy=str(ROOT/'route-policy.js'),runnerPath=str(ROOT/'run-native-client.py'),runnerSha256=new_pins['run-native-client.py']['sha256'],files=rows,
+    m.update(schemaVersion=3,clientAdapterMode=mode,agent=str(ROOT/'runtime-agent.js'),policy=str(ROOT/'route-policy.js'),runnerPath=str(ROOT/'run-native-client.py'),runnerSha256=new_pins['run-native-client.py']['sha256'],files=rows,
              progressTransport='sqlite-wal-single-publisher',maxProgressSnapshotBytes=2_097_152,maxProgressGenerations=4096,
              budgets={'totalWorkerSeconds':90,'startupSeconds':30,'attachSeconds':15,'outerSupervisorWaitSeconds':130})
     m['scope']='One separately approved exact-build test. Transactional progress; final JSON written once after cleanup. Same reviewed temporary routing/network guards. No existing-process, game-file, DNS, certificate/authentication or security-policy changes.'
     with output.open('x',encoding='utf8',newline='\n')as f:f.write(json.dumps(m,indent=2)+'\n')
-    return {'status':'v3_candidate_manifest_created','runnerSha256':m['runnerSha256'],'manifestSha256':sha(output),'pinnedFiles':len(rows),'gameLaunched':False,'approvedForExecution':False}
+    return {'status':'v3_candidate_manifest_created','runnerSha256':m['runnerSha256'],'manifestSha256':sha(output),'pinnedFiles':len(rows),'gameLaunched':False,'approvedForExecution':False,'clientAdapterMode':mode}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--previous',required=True,type=Path);parser.add_argument('--output',required=True,type=Path)
-    args=parser.parse_args();print(json.dumps(refresh(args.previous,args.output)))
+    parser.add_argument('--client-adapter-mode',choices=('full','network-only'))
+    args=parser.parse_args();print(json.dumps(refresh(args.previous,args.output,args.client_adapter_mode)))
 if __name__=='__main__':main()

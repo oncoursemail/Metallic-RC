@@ -17,8 +17,17 @@ def source_module(name,path):
     module=types.ModuleType(name);module.__file__=str(path);sys.modules[name]=module
     exec(compile(pathlib.Path(path).read_bytes(),str(path),'exec'),module.__dict__);return module
 
+def client_adapter_mode(manifest):
+    mode=manifest.get('clientAdapterMode','full')
+    if type(mode) is not str or mode not in ('full','network-only'):raise ValueError('Invalid clientAdapterMode')
+    return mode
+
+def agent_config(manifest,identity):
+    return {'port':4187,'buildId':'23191908','methods':identity['methods'],'fixtureOnly':False,'clientAdapterMode':client_adapter_mode(manifest)}
+
 def validate(path):
     manifest=json.loads(path.read_text(encoding='utf8'))
+    client_adapter_mode(manifest)
     if manifest.get('schemaVersion')!=3 or manifest.get('steamBuildId')!='23191908' or manifest.get('port')!=4187:raise ValueError('Manifest requires reviewed v3 profile for build 23191908')
     if pathlib.Path(manifest['gameRoot']).resolve()!=GAME:raise ValueError('Unreviewed game installation')
     root=pathlib.Path(manifest['labRoot']).resolve()
@@ -141,6 +150,7 @@ def modules(manifest):
     return win,control,recovery,capture
 
 def worker(args,manifest):
+    mode=client_adapter_mode(manifest)
     win,control,recovery,capture=modules(manifest)
     if not win.current_job_membership(args.job):raise RuntimeError('Worker is not in the supervising job; no game launch')
     run=pathlib.Path(args.run_dir).resolve();lab=pathlib.Path(manifest['labRoot']).resolve()
@@ -149,8 +159,9 @@ def worker(args,manifest):
     sys.stderr=(run/'worker.stderr.log').open('w',encoding='utf8',buffering=1)
     ledger=control.Ledger(run/'receipt.json',args.started,args.deadline,args.startup_deadline,{
         'steamBuildId':'23191908','runDirectory':str(run),'gameFilesPatched':False,'machineDnsChanged':False,'certificateChecksBypassed':False,'authenticationChecksBypassed':False,'existingProcessesTouched':False,
-        'jobMembershipVerified':True,'gameMayWriteOrdinaryLocalPreferencesAndCaches':True})
+        'jobMembershipVerified':True,'gameMayWriteOrdinaryLocalPreferencesAndCaches':True,'clientAdapterMode':mode})
     state=ledger.state;api=recovery.Win32();reader=capture.WindowsReader();mapping=None;game=None;session=None;script=None;frida=None;result=1
+    state['runtimeRoutingRequested']=mode=='full';ledger.save()
     output=StartupOutput()
     try:
         if not api.is_elevated():raise PermissionError('Separate Windows approval required')
@@ -181,7 +192,7 @@ def worker(args,manifest):
         session=ledger.call(frida,'attach',15,lambda:device.attach(pid))
         state['attached']=True;ledger.save()
         identity=json.loads(pathlib.Path(manifest['methodIdentities']).read_text())
-        config={'port':4187,'buildId':'23191908','methods':identity['methods'],'fixtureOnly':False}
+        config=agent_config(manifest,identity)
         code='const CONFIG='+json.dumps(config)+';\n'+pathlib.Path(manifest['policy']).read_text()+'\n'+pathlib.Path(manifest['agent']).read_text()
         def message(value,data):
             if value.get('type')=='send':ledger.event(value.get('payload'))
@@ -189,7 +200,7 @@ def worker(args,manifest):
         script=ledger.call(frida,'create_script',5,lambda:session.create_script(code));script.on('message',message)
         ledger.call(frida,'load_script',5,script.load)
         ready=ledger.call(frida,'status_rpc',3,lambda:script.exports_sync.status())
-        if ready.get('stopped') or not ready.get('networkGuards') or not state['agentLoaded']:
+        if ready.get('stopped') or not ready.get('networkGuards') or not state['agentLoaded'] or ready.get('clientAdapterMode')!=mode:
             raise RuntimeError('Network guard or agent readiness not established; game will NOT resume')
         ledger.call(frida,'resume',5,lambda:device.resume(pid))
         state['processResumed']=True;state['status']='observing_original_client'
@@ -202,7 +213,7 @@ def worker(args,manifest):
         if game.poll() is None:
             state['agentStatus']=ledger.call(frida,'status_rpc',3,lambda:script.exports_sync.status(),startup=False)
         if state.get('agentFailed') or state.get('agentStatus',{}).get('stopped'):raise RuntimeError('Agent failure prevents a successful result')
-        state['nativeDiscoveryParsed']=any(e.get('kind')=='native_discovery_deserialized' and e.get('response') and e.get('localServiceFields')==31 and not e.get('statusNonempty') for e in state['events'])
+        state['nativeDiscoveryParsed']=mode=='full' and any(e.get('kind')=='native_discovery_deserialized' and e.get('response') and e.get('localServiceFields')==31 and not e.get('statusNonempty') for e in state['events'])
         state['nativeRequestsObserved']=sum(e.get('kind')=='native_http_request' for e in state['events'])
         state['status']='native_discovery_verified' if state['nativeDiscoveryParsed'] else 'no_native_discovery_proof'
         result=0 if state['nativeDiscoveryParsed'] else 2
@@ -266,11 +277,11 @@ def main():
     if capture.WindowsReader().processes():raise RuntimeError('Existing Rec Room process; it is not touched')
     health=backend_health()
     if not args.run:
-        print(json.dumps({'status':'preflight_passed','gameWillNotRun':True,'elevated':api.is_elevated(),'schemaVersion':3,'backendInstance':health['instanceId'],'pinnedFiles':len(manifest['files']),'totalBudgetSeconds':args.seconds,'attachLimitSeconds':15,'startupLimitSeconds':30}));return 0
+        print(json.dumps({'status':'preflight_passed','gameWillNotRun':True,'elevated':api.is_elevated(),'schemaVersion':3,'backendInstance':health['instanceId'],'pinnedFiles':len(manifest['files']),'totalBudgetSeconds':args.seconds,'attachLimitSeconds':15,'startupLimitSeconds':30,'clientAdapterMode':client_adapter_mode(manifest)}));return 0
     if not api.is_elevated():raise PermissionError('Approve Windows elevation separately; no self-elevation')
     run=pathlib.Path(manifest['labRoot'])/'runs'/datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ');private_folder(run)
     started=time.monotonic();deadline=started+args.seconds;startup_deadline=min(deadline,started+30)
-    record={'startedUtc':utc(),'status':'starting_worker','totalBudgetSeconds':args.seconds,'startupLimitSeconds':min(30,args.seconds),'attachLimitSeconds':15,'manifestSha256':sha(args.manifest),'runnerSha256':sha(__file__),'existingProcessesTouched':False}
+    record={'startedUtc':utc(),'status':'starting_worker','totalBudgetSeconds':args.seconds,'startupLimitSeconds':min(30,args.seconds),'attachLimitSeconds':15,'manifestSha256':sha(args.manifest),'runnerSha256':sha(__file__),'existingProcessesTouched':False,'clientAdapterMode':client_adapter_mode(manifest)}
     control.write_json(run/'supervisor.start.json',record)
     with win.OwnedJob() as job:
         process=None
@@ -299,7 +310,7 @@ def main():
         receipt['receiptPersistenceFailed']=True;record['receiptExportError']=type(error).__name__
     record['resultCode']=control.final_result_code(record.get('resultCode'),receipt,record['jobEmpty'],all(x['matches'] for x in record['originalHashesAfter']))
     control.write_json(run/'supervisor.json',record)
-    print(json.dumps({'status':receipt.get('status',record['status']),'supervisorStatus':record['status'],'receipt':str(run/'receipt.json'),'supervisor':str(run/'supervisor.json'),'failedPhase':receipt.get('failedPhase') or record.get('workerPhase'),'resultCode':record.get('resultCode',1),'jobEmpty':record['jobEmpty'],'nativeDiscoveryParsed':receipt.get('nativeDiscoveryParsed',False),'nativeLoginVerified':False}),flush=True)
+    print(json.dumps({'status':receipt.get('status',record['status']),'supervisorStatus':record['status'],'receipt':str(run/'receipt.json'),'supervisor':str(run/'supervisor.json'),'failedPhase':receipt.get('failedPhase') or record.get('workerPhase'),'resultCode':record.get('resultCode',1),'jobEmpty':record['jobEmpty'],'nativeDiscoveryParsed':receipt.get('nativeDiscoveryParsed',False),'nativeLoginVerified':False,'clientAdapterMode':client_adapter_mode(manifest)}),flush=True)
     return record.get('resultCode',1)
 
 if __name__=='__main__':

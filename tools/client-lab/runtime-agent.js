@@ -12,6 +12,8 @@ function failure(scope, error) {
   // One failure must remain observable even after ordinary diagnostics hit their cap.
   send({kind:'agent_failure', timeMs:Date.now(), scope, error:String(error).slice(0,160)});
 }
+const clientAdapterMode=Object.prototype.hasOwnProperty.call(CONFIG,'clientAdapterMode')?CONFIG.clientAdapterMode:'full';
+if(clientAdapterMode!=='full' && clientAdapterMode!=='network-only')failure('client_adapter_mode','Unsupported client adapter mode');
 function isAllowedSocket(address, length) {
   if (address.isNull() || length < 8) return false;
   const family = address.readU16();
@@ -97,7 +99,7 @@ function prefixMatches(base,method) {
   return Checksum.compute('sha256',address.readByteArray(32))===method.prefixSha256;
 }
 function installClient(module) {
-  if(ready||stopped||CONFIG.fixtureOnly)return;
+  if(ready||stopped||CONFIG.fixtureOnly||clientAdapterMode==='network-only')return;
   try {
     const methods=CONFIG.methods,base=module.base;
     const needed=['210451','241858','241859','129313','126411'];
@@ -146,12 +148,12 @@ function installClient(module) {
     ready=true;Interceptor.flush();event('client_route_adapter_ready',{buildId:CONFIG.buildId,methodsVerified:needed.length,port:CONFIG.port});
   }catch(e){failure('client_adapter_install',e);}
 }
-const observer=Process.attachModuleObserver({onAdded(module){
+const observer=stopped?null:Process.attachModuleObserver({onAdded(module){
   try{installNetwork(module);if(module.name.toLowerCase()==='gameassembly.dll')installClient(module);}catch(e){failure('module_observer',e);}
 }});kept.push(observer);
-const timer=setInterval(()=>{
+const timer=stopped||clientAdapterMode==='network-only'?null:setInterval(()=>{
   if(stopped)return;
   const module=Process.findModuleByName('GameAssembly.dll');if(module)installClient(module);
 },10);
-rpc.exports={status(){return{ready,stopped,routeCount,networkGuards:!stopped && installed.has('winsock'),pid:Process.id};}};
-event('agent_loaded',{pid:Process.id,fixtureOnly:!!CONFIG.fixtureOnly});
+rpc.exports={status(){return{ready,stopped,routeCount,networkGuards:!stopped && installed.has('winsock'),pid:Process.id,clientAdapterMode};}};
+if(!stopped)event('agent_loaded',{pid:Process.id,fixtureOnly:!!CONFIG.fixtureOnly,clientAdapterMode});
