@@ -5,8 +5,10 @@ select another executable. The default and `--plan` roles only print a closed
 plan with `executionReady:false`, `approvalGranted:false` and
 `filtersInstalled:false`. No WFP session is opened in those roles.
 
-**Native execution is pending separate owner approval and review.** No native
-fixture or game run was performed while preparing this crate. The program never
+Native execution must remain within the owner's current authorization and the
+reviewed test scope, with normal Windows consent retained. Preparation checks
+do not establish native success; attempted-run evidence is recorded separately.
+The program never
 self-elevates, changes ACLs, starts services, adds persistent rules, or modifies
 an original client. A permitted future run needs normal Windows approval through
 the separately reviewed controller; permission failures remain failures.
@@ -44,9 +46,14 @@ using the same executable path, including the controller and its probe children.
    job must be empty before a success result can be written.
 
 The only spawn target is `current_exe()`. Children wait for a pipe handshake until
-assigned to a KILL_ON_JOB_CLOSE job. Child stdout/stderr are null, with no pipe
-draining deadlock. The internal `--probe tcp4|tcp6|udp4|udp6 PORT` role accepts
+assigned to a KILL_ON_JOB_CLOSE job. Child stderr is null; the bounded UDP
+diagnostic pipe is described below. The internal `--probe tcp4|tcp6|udp4|udp6 PORT` role accepts
 only loopback and the fixed marker; it has no WFP or command/target-path API.
+TCP child stdout and stderr are null. UDP stdout carries only a fixed 32-byte
+diagnostic frame, explicitly flushed; the parent inspects it only after a known
+retained process exit and an exact available-byte count. It never waits for EOF.
+Short, extra or invalid metadata is unavailable. A producer write/flush failure
+adds a generic failure rather than reporting successful diagnostic transport.
 That internal role can be manually invoked against a loopback port if its stdin
 handshake is supplied; it is not an authentication boundary.
 
@@ -81,9 +88,10 @@ cargo build --offline --locked
 cargo test --offline --locked --lib
 target/debug/metallic-external-guard-fixture.exe --plan
 cargo test --offline --locked --bin metallic-external-guard-fixture accepted_stream_
+cargo test --offline --locked --bin metallic-external-guard-fixture udp_metadata_pipe_
 ```
 
-Twenty-five pure fake-API tests cover four-filter order, partial admission failures,
+Thirty-three pure fake-API tests cover four-filter order, partial admission failures,
 readback field mismatch, pending-child refusal, deletion/read/close failures,
 closed roles, monotonic deadline latching, timeout setup admission, strict
 Winsock classification and crash/unknown exit refusal. Readback failures now name
@@ -109,6 +117,34 @@ explicit blocking mode precedes finite read/write timeouts, and a delayed marker
 must be awaited. The nonblocking listener is unchanged. Timeout bounds are
 checked separately. This guards against inherited nonblocking mode causing an
 early `WouldBlock` and connection drop. See [Winsock accept inheritance](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-accept).
+Three additional Windows binary tests use owned anonymous pipes to check exact
+32-byte records after writer close, short/extra data, failed reads and destination
+mismatches. They do not enter a fixture/probe role or call WFP.
+
+## Read-only UDP drop diagnostics
+
+A UDP timeout remains failure. After a failed blocked UDP probe, optional
+diagnostics read existing event-collection state and inspect only exact scoped
+`Enum2` drop events. Collection must already be enabled; this program never calls
+`SetOption`, changes auditing/providers or enables global collection.
+
+Queries require this executable's exact App-ID, UDP, loopback family/addresses,
+both owned ports, event type and probe time window. Returned events must also
+match this run's filter ID, resolved layer ID, required header fields and exact
+direction. Child-outbound and server-inbound counts stay separate. Metadata is
+producer-reported, with no PID attestation. No App-ID/path, SID, payload or other
+application data is emitted. One header encoding is used; mismatches remain
+inconclusive rather than trying another byte order.
+
+Enumeration inspects at most two pages of eight events for each direction, with
+a shared 64 KiB event-data budget and two-second cooperative deadline. Synchronous
+Windows RPC calls are not cancelled by that deadline; the existing 90/130-second
+watchdogs remain. Arrays are freed and enumeration handles are destroyed on exit.
+Missing, disabled, unsupported or incomplete observations remain unavailable or
+inconclusive. Even a matched event does not turn this revision's failed probe
+into a pass or change the successful nine-field schema.
+API failures include only a closed collection/layer/enumeration stage and the
+actual returned unsigned error code. These fields contain no exception text.
 Rustfmt is unavailable in the existing toolchain; no component was installed.
 
 Microsoft references: [dynamic session lifetime](https://learn.microsoft.com/en-us/windows/win32/fwp/object-management),

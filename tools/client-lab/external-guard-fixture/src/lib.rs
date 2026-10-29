@@ -1,5 +1,6 @@
 //! Fixture policy and lifecycle. Unit tests use only the fake API below.
 pub type Result<T> = std::result::Result<T, &'static str>;
+pub mod kernel;
 use std::{sync::{Arc,atomic::{AtomicBool,Ordering}},time::{Duration,Instant}};
 // Explicit INDEXED-only profile; every additional or missing bit is refused.
 pub const REQUESTED_FILTER_FLAGS:u32=0x40;
@@ -14,6 +15,11 @@ pub fn failure_report(error:&'static str,observed_flags:Option<u32>,probe:Option
         let actual=probe.actual.map(|code|code.to_string()).unwrap_or_else(||"null".to_owned());
         numeric.push_str(&format!(",\"probePhase\":\"{}\",\"probeProtocol\":\"{}\",\"expectedChildExit\":{},\"actualChildExit\":{actual}",probe.phase.name(),probe.protocol.name(),probe.phase.expected()));
         if let Some(error)=reported_socket_error(probe.actual){numeric.push_str(&format!(",\"childReportedSocketError\":{error}"));}
+        if let Some(udp)=probe.udp{
+            numeric.push_str(&format!(",\"kernelDiagnostic\":\"{}\",\"kernelOutboundDrops\":{},\"kernelInboundDrops\":{}",udp.stats.status.name(),udp.stats.outbound,udp.stats.inbound));
+            if let Some(api)=udp.stats.api{numeric.push_str(&format!(",\"kernelApiStage\":\"{}\",\"kernelApiCode\":{}",api.stage.name(),api.code));}
+            if let Some(record)=udp.record{numeric.push_str(&format!(",\"udpOperation\":\"{}\",\"udpSendBytes\":{}",record.operation.name(),record.sent));}
+        }
     }
     format!("{{\"ok\":false,\"error\":\"{error}\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false{numeric}}}")
 }
@@ -152,7 +158,7 @@ impl ProbePhase {
     pub fn expected(self)->i32{match self{Self::Blocked=>20,_=>0}}
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct ProbeFailure { pub phase:ProbePhase, pub protocol:Probe, pub actual:Option<i32> }
+pub struct ProbeFailure { pub phase:ProbePhase, pub protocol:Probe, pub actual:Option<i32>, pub udp:Option<kernel::Observation> }
 pub fn finish_probe(outcome:Result<()>,context:&mut Option<ProbeFailure>)->Result<()>{
     if outcome.is_ok(){*context=None;}outcome
 }
@@ -289,20 +295,42 @@ mod tests {
         for code in [None,Some(0x10000),Some(0x20001),Some(-1),Some(0xc0000005u32 as i32),Some(21),Some(1),Some(20)]{assert_eq!(reported_socket_error(code),None);}
     }
     #[test] fn probe_failure_context_clears_only_after_complete_success(){
-        let info=ProbeFailure{phase:ProbePhase::Before,protocol:Probe::Tcp6,actual:None};
+        let info=ProbeFailure{phase:ProbePhase::Before,protocol:Probe::Tcp6,actual:None,udp:None};
         let mut context=Some(info);assert_eq!(finish_probe(Err("probe_deadline"),&mut context),Err("probe_deadline"));assert_eq!(context,Some(info));
         context.as_mut().unwrap().actual=Some(0);finish_probe(Ok(()),&mut context).unwrap();assert_eq!(context,None);
         let report=failure_report("readback_flags_mismatch",Some(64),context);assert!(!report.contains("probePhase"));
     }
+    #[test] fn kernel_diagnostics_never_promote_failure_or_expose_tuple(){
+        use kernel::{Observation,Operation,Record,Stats,Status};
+        for status in [Status::Unavailable,Status::Disabled,Status::Inconclusive,Status::Matched,Status::Capped,Status::Deadline]{
+            let udp=Observation{record:Some(Record{family:4,operation:Operation::Receive,source_port:42123,destination_port:52123,sent:4}),start:100,end:200,stats:Stats{status,outbound:1,inbound:2,api:None}};
+            let info=ProbeFailure{phase:ProbePhase::Blocked,protocol:Probe::Udp4,actual:Some(75596),udp:Some(udp)};
+            let report=failure_report("probe_outcome_mismatch",Some(64),Some(info));
+            assert!(report.starts_with("{\"ok\":false,"));assert!(report.contains("\"cleanupVerified\":false"));
+            assert!(report.contains("\"kernelOutboundDrops\":1"));assert!(report.contains("\"kernelInboundDrops\":2"));
+            assert!(report.contains("\"udpSendBytes\":4"));assert!(!report.contains("42123"));assert!(!report.contains("52123"));assert!(report.len()<2048);
+            assert!(!accepted_probe_exit(info.actual,20));let mut context=Some(info);assert!(finish_probe(Err("probe_outcome_mismatch"),&mut context).is_err());assert_eq!(context,Some(info));
+        }
+    }
+    #[test] fn kernel_api_failure_fields_are_closed_unsigned_json_and_optional(){
+        use kernel::{ApiFailure,ApiStage,Observation,Stats,Status};
+        let mut probe=ProbeFailure{phase:ProbePhase::Blocked,protocol:Probe::Udp4,actual:Some(75596),udp:Some(Observation::default())};
+        let report=failure_report("probe_outcome_mismatch",None,Some(probe));assert!(!report.contains("kernelApiStage"));assert!(!report.contains("kernelApiCode"));
+        for(stage,name)in[(ApiStage::CollectionGet,"collection_get"),(ApiStage::LayerGet,"layer_get"),(ApiStage::EnumCreate,"enum_create"),(ApiStage::EnumPage,"enum_page"),(ApiStage::EnumDestroy,"enum_destroy")]{for code in [5,50,0x8032000d,u32::MAX]{
+            probe.udp.as_mut().unwrap().stats=Stats{api:Some(ApiFailure{stage,code}),..Stats::empty(Status::Unavailable)};
+            let report=failure_report("probe_outcome_mismatch",None,Some(probe));assert!(report.contains(&format!("\"kernelApiStage\":\"{name}\",\"kernelApiCode\":{code}")));
+            assert!(!report.contains(&format!("\"kernelApiCode\":\"{code}\"")));assert!(report.starts_with("{\"ok\":false,"));assert!(report.len()<2048);assert!(!accepted_probe_exit(probe.actual,20));
+        }}
+    }
     #[test] fn probe_failure_report_uses_closed_phase_protocol_and_retained_exit(){
         for phase in [ProbePhase::Before,ProbePhase::Blocked,ProbePhase::After]{for protocol in PROBES{
-            let code=classify_probe(Err(Some(10060)));let info=ProbeFailure{phase,protocol,actual:Some(code)};
+            let code=classify_probe(Err(Some(10060)));let info=ProbeFailure{phase,protocol,actual:Some(code),udp:None};
             let report=failure_report("probe_outcome_mismatch",Some(64),Some(info));
             assert!(report.contains(&format!("\"probePhase\":\"{}\"",phase.name())));assert!(report.contains(&format!("\"probeProtocol\":\"{}\"",protocol.name())));
             assert!(report.contains(&format!("\"expectedChildExit\":{}",phase.expected())));assert!(report.contains("\"actualChildExit\":75596"));assert!(report.contains("\"childReportedSocketError\":10060"));assert!(report.starts_with("{\"ok\":false,"));assert!(report.len()<2048);
         }}
         for actual in [None,Some(21),Some(0xc0000005u32 as i32),Some(0x10000|10013)]{
-            let report=failure_report("probe_outcome_mismatch",None,Some(ProbeFailure{phase:ProbePhase::Blocked,protocol:Probe::Udp4,actual}));
+            let report=failure_report("probe_outcome_mismatch",None,Some(ProbeFailure{phase:ProbePhase::Blocked,protocol:Probe::Udp4,actual,udp:None}));
             assert!(!report.contains("childReportedSocketError"));
             if actual.is_none(){assert!(report.contains("\"actualChildExit\":null"));}
         }

@@ -3,6 +3,8 @@ use metallic_external_guard_fixture::{accepted_probe_exit, classify_probe, clean
 use std::{io::{Read, Write}, net::{SocketAddr, TcpListener, TcpStream, UdpSocket}, os::windows::{io::AsRawHandle, process::CommandExt}, process::{Child, Command, Stdio}, ptr, sync::mpsc, thread, time::{Duration, Instant}};
 use windows_sys::Win32::{Foundation::{CloseHandle, GetLastError, HANDLE}, System::{JobObjects::*, Threading::CreateMutexW}};
 use crate::wfp::Native;
+use metallic_external_guard_fixture::kernel::{Observation,Operation,Record,FRAME_BYTES};
+use windows_sys::Win32::System::Pipes::PeekNamedPipe;
 
 fn pause(){thread::sleep(Duration::from_millis(10));}
 fn os_ok(ok:i32)->Result<()>{if ok!=0{Ok(())}else{Err("owned_windows_operation_failed")}}
@@ -69,18 +71,48 @@ pub fn child(probe:Probe,port:u16)->i32{
     thread::spawn(move||{let mut b=[0];let ok=std::io::stdin().read_exact(&mut b).is_ok()&&b==[b'G'];let _=tx.send(ok);});
     if rx.recv_timeout(Duration::from_millis(500))!=Ok(true){return 1}
     let address=SocketAddr::new(probe.host().parse().unwrap(),port);
+    let mut metadata=Record::new(probe,port);
     let exchanged=(||->std::io::Result<bool>{
         if probe.tcp(){
             let mut s=TcpStream::connect_timeout(&address,Duration::from_millis(200))?;
             s.set_read_timeout(Some(Duration::from_millis(200)))?;s.set_write_timeout(Some(Duration::from_millis(200)))?;
             s.write_all(b"MRC1")?;let mut b=[0;4];s.read_exact(&mut b)?;Ok(b==*b"MRC1")
         }else{
+            let record=metadata.as_mut().unwrap();
             let bind=SocketAddr::new(probe.host().parse().unwrap(),0);let s=UdpSocket::bind(bind)?;
-            s.set_read_timeout(Some(Duration::from_millis(200)))?;s.set_write_timeout(Some(Duration::from_millis(200)))?;
-            s.connect(address)?;s.send(b"MRC1")?;let mut b=[0;4];Ok(s.recv(&mut b)?==4&&b==*b"MRC1")
+            record.source_port=s.local_addr()?.port();
+            record.operation=Operation::ReadTimeout;s.set_read_timeout(Some(Duration::from_millis(200)))?;
+            record.operation=Operation::WriteTimeout;s.set_write_timeout(Some(Duration::from_millis(200)))?;
+            record.operation=Operation::Connect;s.connect(address)?;
+            record.operation=Operation::LocalAddress;let local=s.local_addr()?;
+            if local.ip()!=bind.ip()||local.port()!=record.source_port{return Ok(false)}
+            record.operation=Operation::Send;record.sent=s.send(b"MRC1")?.try_into().unwrap_or(u8::MAX);
+            if record.sent!=4{return Ok(false)}
+            record.operation=Operation::Receive;let mut b=[0;4];let n=s.recv(&mut b)?;
+            record.operation=Operation::Reply;let ok=n==4&&b==*b"MRC1";
+            if ok{record.operation=Operation::Complete;}Ok(ok)
         }
     })();
-    classify_probe(exchanged.map_err(|error|error.raw_os_error()))
+    let code=classify_probe(exchanged.map_err(|error|error.raw_os_error()));
+    // One tiny frame, explicitly flushed before process::exit; no new success
+    // path. A failed write/flush is an explicit generic failure.
+    if let Some(record)=metadata{if std::io::stdout().write_all(&record.encode()).and_then(|_|std::io::stdout().flush()).is_err(){return 21}}
+    code
+}
+
+fn utc_ticks()->Option<u64>{
+    let since=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?;
+    since.as_secs().checked_add(11644473600)?.checked_mul(10_000_000)?.checked_add(since.subsec_nanos()as u64/100)
+}
+fn read_metadata<R:Read+AsRawHandle>(pipe:&mut R,probe:Probe,port:u16)->Option<Record>{
+    let mut available=0;
+    if unsafe{PeekNamedPipe(pipe.as_raw_handle() as HANDLE,ptr::null_mut(),0,ptr::null_mut(),&mut available,ptr::null_mut())}==0||available!=FRAME_BYTES as u32{return None}
+    let mut frame=[0;FRAME_BYTES];pipe.read_exact(&mut frame).ok()?;
+    let mut trailing=0;
+    if unsafe{PeekNamedPipe(pipe.as_raw_handle() as HANDLE,ptr::null_mut(),0,ptr::null_mut(),&mut trailing,ptr::null_mut())}!=0{
+        if trailing!=0{return None}
+    }else if unsafe{GetLastError()}!=109{return None}
+    Record::decode(&frame,probe,port)
 }
 
 fn listener(probe:Probe)->Result<(u16,mpsc::Sender<()>,thread::JoinHandle<Result<()>>)>{
@@ -172,10 +204,33 @@ mod tests {
         assert_eq!(accepted.read_timeout().unwrap(),Some(Duration::from_millis(100)));
         assert_eq!(accepted.write_timeout().unwrap(),Some(Duration::from_millis(100)));
     }
+    fn owned_pipe(bytes:&[u8])->std::fs::File{
+        use std::os::windows::io::FromRawHandle;
+        let(mut read,mut write)=(ptr::null_mut(),ptr::null_mut());
+        assert_ne!(unsafe{windows_sys::Win32::System::Pipes::CreatePipe(&mut read,&mut write,ptr::null(),0)},0);
+        let mut writer=unsafe{std::fs::File::from_raw_handle(write as _)};writer.write_all(bytes).unwrap();drop(writer);
+        unsafe{std::fs::File::from_raw_handle(read as _)}
+    }
+    #[test]fn udp_metadata_pipe_exact_closed_writer(){
+        let record=Record{family:4,operation:Operation::Receive,source_port:42123,destination_port:52123,sent:4};
+        let mut pipe=owned_pipe(&record.encode());assert_eq!(read_metadata(&mut pipe,Probe::Udp4,52123),Some(record));
+    }
+    #[test]fn udp_metadata_pipe_short_or_extra_is_unavailable(){
+        let frame=Record{family:4,operation:Operation::Receive,source_port:42123,destination_port:52123,sent:4}.encode();
+        for bytes in [vec![],vec![0],frame[..31].to_vec(),[frame.as_slice(),&[0]].concat(),[frame,frame].concat()]{let mut pipe=owned_pipe(&bytes);assert_eq!(read_metadata(&mut pipe,Probe::Udp4,52123),None);}
+    }
+    #[test]fn udp_metadata_pipe_read_failure_and_wrong_destination_are_unavailable(){
+        struct FailedRead(std::fs::File);
+        impl Read for FailedRead{fn read(&mut self,_:&mut[u8])->std::io::Result<usize>{Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof))}}
+        impl AsRawHandle for FailedRead{fn as_raw_handle(&self)->std::os::windows::io::RawHandle{self.0.as_raw_handle()}}
+        let frame=Record{family:4,operation:Operation::Receive,source_port:42123,destination_port:52123,sent:4}.encode();
+        let mut failed=FailedRead(owned_pipe(&frame));assert_eq!(read_metadata(&mut failed,Probe::Udp4,52123),None);
+        let mut pipe=owned_pipe(&frame);assert_eq!(read_metadata(&mut pipe,Probe::Udp4,52124),None);
+    }
 }
 
 fn probe(job:&Job,children:&mut Children,p:Probe,phase:ProbePhase,budget:&Budget,failure:&mut Option<ProbeFailure>)->Result<()>{
-    *failure=Some(ProbeFailure{phase,protocol:p,actual:None});
+    *failure=Some(ProbeFailure{phase,protocol:p,actual:None,udp:None});
     let expected=phase.expected();
     budget.check()?;
     let(port,stop,server)=listener(p)?;
@@ -183,14 +238,16 @@ fn probe(job:&Job,children:&mut Children,p:Probe,phase:ProbePhase,budget:&Budget
         // This is the only spawn target. The child waits for G until assigned.
         let exe=std::env::current_exe().map_err(|_|"current_exe_failed")?;
         budget.check()?;
-        children.0.push(Command::new(exe).args(["--probe",p.name(),&port.to_string()]).creation_flags(0x08000000).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().map_err(|_|"probe_spawn_failed")?);
+        children.0.push(Command::new(exe).args(["--probe",p.name(),&port.to_string()]).creation_flags(0x08000000).stdin(Stdio::piped()).stdout(if p.tcp(){Stdio::null()}else{Stdio::piped()}).stderr(Stdio::null()).spawn().map_err(|_|"probe_spawn_failed")?);
         let child=children.0.last_mut().unwrap();job.assign(child)?;
         budget.check()?;
+        let start=utc_ticks().unwrap_or(0);
         child.stdin.take().ok_or("probe_input_missing")?.write_all(b"G").map_err(|_|"probe_handshake_failed")?;
         let end=Instant::now()+Duration::from_secs(2);
         while Instant::now()<end{
             if let Some(status)=child.try_wait().map_err(|_|"probe_wait_failed")?{
-                *failure=Some(ProbeFailure{phase,protocol:p,actual:status.code()});
+                let udp=if p.tcp(){None}else{Some(Observation{record:if status.code().is_some(){child.stdout.take().and_then(|mut pipe|read_metadata(&mut pipe,p,port))}else{None},start,end:utc_ticks().unwrap_or(0),..Default::default()})};
+                *failure=Some(ProbeFailure{phase,protocol:p,actual:status.code(),udp});
                 budget.check()?;return if accepted_probe_exit(status.code(),expected){Ok(())}else{Err("probe_outcome_mismatch")}
             }pause();
         }
@@ -214,6 +271,9 @@ pub fn run(observed_flags:&mut Option<u32>,probe_failure:&mut Option<ProbeFailur
         budget.check()?;for p in PROBES{probe(&job,&mut children,p,ProbePhase::Blocked,&budget,probe_failure)?;}
         Ok(())
     })();
+    if outcome.is_err(){if let (Some(rules),Some(failure))=(&rules,probe_failure.as_mut()){
+        if failure.phase==ProbePhase::Blocked{if let Some(observation)=failure.udp.as_mut(){observation.stats=api.diagnose_udp(rules,*observation);}}
+    }}
     *observed_flags=api.last_observed_flags();
     children.stop();let _=job.stop();
     let end=Instant::now()+Duration::from_secs(3);

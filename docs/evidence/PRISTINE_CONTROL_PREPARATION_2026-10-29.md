@@ -75,3 +75,22 @@ Windows binary loopback tests and all 25 pure tests pass, with no WFP or fixture
 role used by those controls. The Windows-only CI step names those socket tests
 explicitly. This reproduces a real harness defect, but does not attribute the
 earlier unphased native failure to it without further evidence.
+
+The next controlled run isolated blocked UDP4: expected child exit 20, actual
+75596, canonically reported socket error 10060. TCP4/TCP6 blocked probes preceded
+it successfully. This remains failure; a UDP timeout does not identify a WFP drop.
+
+A subsequent diagnostic-only revision reads existing event-collection state and
+uses exact scoped Enum2 queries for this fixture's App-ID, UDP tuple, time window
+and owned filters/layers. It never enables collection or changes global settings.
+Bounded 32-byte child metadata supplies the actual local port and send operation;
+the parent inspects it only after a known retained child exit. Wrong, partial or
+extra records are unavailable. Read-only event matching uses one encoding and
+reports separate inbound/outbound counts, with no PID attestation or payload data.
+Neither matched events nor missing observations change strict failure into success.
+All 33 pure tests, five owned TCP/pipe controls and the offline locked build pass,
+with independent source review. Those controls do not execute WFP or establish a
+live kernel match. Enumeration has bounded pages/inspection and a cooperative
+two-second deadline; synchronous RPCs remain covered by the original watchdogs.
+Failure-only API diagnostics identify the closed query stage and actual returned
+unsigned code, distinguishing unsupported/denied API calls from empty results.

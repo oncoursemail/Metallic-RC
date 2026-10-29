@@ -16,6 +16,13 @@ pub struct Native { engine:HANDLE, sublayer:GUID, app:Vec<u8>, budget:Budget, ob
 impl Native {
     pub fn new(budget:Budget) -> Result<Self> { budget.check()?;let result=Self{engine:ptr::null_mut(),sublayer:unique()?,app:Vec::new(),budget,observed_flags:None};result.budget.check()?;Ok(result) }
     pub fn last_observed_flags(&self)->Option<u32>{self.observed_flags}
+    pub fn diagnose_udp(&self,rules:&[Rule],observation:metallic_external_guard_fixture::kernel::Observation)->metallic_external_guard_fixture::kernel::Stats{
+        use metallic_external_guard_fixture::kernel::{Stats,Status};
+        match observation.record{
+            Some(record)=>metallic_external_guard_fixture::kernel::observe(self.engine as usize,&self.app,rules,record,observation.start,observation.end,&self.budget),
+            None=>Stats::empty(Status::Unavailable),
+        }
+    }
 }
 impl Api for Native {
     fn open_dynamic(&mut self)->Result<()> {
