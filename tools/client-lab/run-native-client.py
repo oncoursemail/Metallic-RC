@@ -166,7 +166,7 @@ def worker(args,manifest):
             device=frida.get_local_device();output.subscribe(device);return device
         device=ledger.call(frida,'device',8,output_device)
         command=[str(GAME/'RecRoom.exe'),'+forcemode:screen','-screen-fullscreen','0','-screen-width','1280','-screen-height','720','-logFile',str(run/'private-player.log')]
-        allowed=['SystemRoot','WINDIR','PATH','COMSPEC','TEMP','TMP','LOCALAPPDATA','APPDATA','USERPROFILE','HOMEDRIVE','HOMEPATH','ProgramData','ProgramFiles','ProgramFiles(x86)','PUBLIC','USERNAME','USERDOMAIN','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE']
+        allowed=['SystemRoot','SystemDrive','WINDIR','PATH','COMSPEC','TEMP','TMP','LOCALAPPDATA','APPDATA','USERPROFILE','HOMEDRIVE','HOMEPATH','ProgramData','ProgramFiles','ProgramFiles(x86)','PUBLIC','USERNAME','USERDOMAIN','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE']
         env={name:os.environ[name] for name in allowed if name in os.environ}
         pid=ledger.call(frida,'spawn',12,lambda:device.spawn(command,cwd=str(GAME),envp=env,stdio='pipe'))
         state['ownedPid']=pid;state['command']=command;ledger.save()

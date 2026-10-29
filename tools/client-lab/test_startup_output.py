@@ -178,6 +178,15 @@ class WorkerChecks(unittest.TestCase):
                 def call(self,frida,name,limit,operation,**kwargs):state['phase']=name;return operation()
             def spawn(*args,**kwargs):
                 self.assertTrue(device.callbacks);self.assertEqual(kwargs['stdio'],'pipe')
+                command=args[0]
+                self.assertEqual(kwargs['cwd'],str(runner.GAME))
+                self.assertEqual(Path(command[0]),runner.GAME/'RecRoom.exe')
+                self.assertEqual(command[1:8],['+forcemode:screen','-screen-fullscreen','0','-screen-width','1280','-screen-height','720'])
+                self.assertEqual(command.count('-logFile'),1)
+                self.assertEqual(Path(command[command.index('-logFile')+1]),run/'private-player.log')
+                self.assertTrue((run/'private-player.log').is_absolute())
+                device.spawn_environment_names=set(kwargs['envp'])
+                device.spawn_system_drive=kwargs['envp'].get('SystemDrive')
                 device.callbacks[0](7,1,b'before admitted');return 7
             def attach(pid):
                 self.assertEqual(pid,7);observed.append(dict(state['startupOutputBeforeAttach']))
@@ -214,6 +223,15 @@ class WorkerChecks(unittest.TestCase):
                 sys.stdout,sys.stderr=original_stdout,original_stderr
                 if sys.path and sys.path[0]==str(lab):sys.path.pop(0)
             return result,state,observed,device
+
+    def test_child_environment_retains_system_drive_without_unrestricted_inheritance(self):
+        with patch.dict(runner.os.environ,{'SystemDrive':'Q:','RC_UNAPPROVED_LAUNCH_ENV':'synthetic-excluded'}):
+            result,state,_observed,device=self.attempt()
+        self.assertEqual(device.spawn_system_drive,'Q:')
+        self.assertNotIn('RC_UNAPPROVED_LAUNCH_ENV',device.spawn_environment_names)
+        self.assertEqual(result,1)
+        self.assertEqual(state['errors'][0]['message'],'synthetic attachment failure')
+        self.assertFalse(state['processResumed'])
 
     def test_actual_worker_binds_only_after_admission_and_receipts_bracket_attach_cleanup(self):
         result,state,observed,device=self.attempt()
