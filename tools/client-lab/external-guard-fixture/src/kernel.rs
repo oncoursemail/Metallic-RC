@@ -1,4 +1,5 @@
-//! Scoped diagnostic correlation only. No result here changes probe acceptance.
+//! Scoped kernel correlation. The caller applies a separate blocked-UDP gate
+//! requiring complete fresh outbound evidence; a timeout alone never suffices.
 use crate::{Layer, Probe};
 
 pub const FRAME_BYTES:usize=32;
