@@ -1,6 +1,16 @@
 //! Fixture policy and lifecycle. Unit tests use only the fake API below.
 pub type Result<T> = std::result::Result<T, &'static str>;
 use std::{sync::{Arc,atomic::{AtomicBool,Ordering}},time::{Duration,Instant}};
+pub const REQUESTED_FILTER_FLAGS:u32=0;
+
+/// Failure-only, bounded numeric metadata. No observed path/blob is accepted.
+pub fn failure_report(error:&'static str,observed_flags:Option<u32>)->String {
+    let numeric=match observed_flags {
+        Some(flags)=>format!(",\"requestedFlags\":{REQUESTED_FILTER_FLAGS},\"observedFlags\":{flags}"),
+        None=>String::new(),
+    };
+    format!("{{\"ok\":false,\"error\":\"{error}\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false{numeric}}}")
+}
 
 #[derive(Clone)]
 pub struct Budget { start:Instant, expired:Arc<AtomicBool> }
@@ -81,7 +91,7 @@ pub fn install(api: &mut impl Api) -> Result<Vec<Rule>> {
         let mut rules = Vec::new();
         for layer in LAYERS {
             let rule=api.add(layer)?;
-            if rule.id==0 || rule.layer!=layer || !rule.block || rule.flags!=0 || rule.conditions!=1 || !rule.app_equal || rule.app_id.is_empty() || rule.app_id.len()>32768 { return Err("rule_policy_mismatch"); }
+            if rule.id==0 || rule.layer!=layer || !rule.block || rule.flags!=REQUESTED_FILTER_FLAGS || rule.conditions!=1 || !rule.app_equal || rule.app_id.is_empty() || rule.app_id.len()>32768 { return Err("rule_policy_mismatch"); }
             if rules.iter().any(|r:&Rule|r.id==rule.id||r.key==rule.key||r.app_id!=rule.app_id||r.sublayer!=rule.sublayer){return Err("rule_identity_mismatch")}
             rules.push(rule);
         }
@@ -151,7 +161,7 @@ mod tests {
         fn add_sublayer(&mut self) -> Result<()> { self.event("sublayer") }
         fn add(&mut self, layer: Layer) -> Result<Rule> {
             self.event(&format!("add_{}", self.rules.len()))?;
-            let r = Rule { id: self.rules.len() as u64+1, key: [self.rules.len() as u8;16], sublayer:[9;16], layer, app_id: vec![4,2], block:true, flags:0, conditions:1, app_equal:true };
+            let r = Rule { id: self.rules.len() as u64+1, key: [self.rules.len() as u8;16], sublayer:[9;16], layer, app_id: vec![4,2], block:true, flags:REQUESTED_FILTER_FLAGS, conditions:1, app_equal:true };
             self.rules.push(r.clone()); Ok(r)
         }
         fn commit(&mut self) -> Result<()> { self.event("commit") }
@@ -212,5 +222,16 @@ mod tests {
         assert!(accepted_probe_exit(Some(0),0));assert!(accepted_probe_exit(Some(20),20));
         for code in [None,Some(1),Some(21),Some(124),Some(0xc0000005u32 as i32)]{assert!(!accepted_probe_exit(code,20));assert!(!accepted_probe_exit(code,0));}
         assert!(!accepted_probe_exit(Some(21),21));assert!(!accepted_probe_exit(Some(0),20));assert!(!accepted_probe_exit(Some(20),0));
+    }
+    #[test] fn failure_without_observation_preserves_original_schema(){
+        assert_eq!(REQUESTED_FILTER_FLAGS,0);
+        assert_eq!(failure_report("readback_missing",None),"{\"ok\":false,\"error\":\"readback_missing\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false}");
+    }
+    #[test] fn numeric_failure_metadata_is_bounded_unsigned_and_never_success(){
+        for (flags,decimal) in [(0,"0"),(64,"64"),(u32::MAX,"4294967295")] {
+            let report=failure_report("readback_flags_mismatch",Some(flags));
+            assert_eq!(report,format!("{{\"ok\":false,\"error\":\"readback_flags_mismatch\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false,\"requestedFlags\":0,\"observedFlags\":{decimal}}}"));
+            assert!(report.len()<2048);
+        }
     }
 }

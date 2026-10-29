@@ -132,7 +132,8 @@ fn probe(job:&Job,children:&mut Children,p:Probe,expected:i32,budget:&Budget)->R
     budget.check()?;outcome
 }
 
-pub fn run()->Result<()>{
+pub fn run(observed_flags:&mut Option<u32>)->Result<()>{
+    *observed_flags=None;
     let _single=Lock::take()?;
     let budget=Budget::default();let job=Job::new()?;let mut watchdog=Watchdog::start(&job,budget.clone());
     let mut children=Children::default();let mut api=Native::new(budget.clone())?;let mut rules=None;
@@ -143,6 +144,7 @@ pub fn run()->Result<()>{
         budget.check()?;for p in PROBES{probe(&job,&mut children,p,20,&budget)?;}
         Ok(())
     })();
+    *observed_flags=api.last_observed_flags();
     children.stop();let _=job.stop();
     let end=Instant::now()+Duration::from_secs(3);
     while Instant::now()<end&&(!children.empty()||!job.empty()){pause();}
@@ -156,5 +158,6 @@ pub fn run()->Result<()>{
     children.stop();let _=job.stop();let end=Instant::now()+Duration::from_secs(3);
     while Instant::now()<end&&(!children.empty()||!job.empty()){pause();}
     if !children.empty()||!job.empty(){loop{thread::sleep(Duration::from_millis(100));}}
+    *observed_flags=api.last_observed_flags();
     watchdog.finish()?;budget.check()?;after
 }

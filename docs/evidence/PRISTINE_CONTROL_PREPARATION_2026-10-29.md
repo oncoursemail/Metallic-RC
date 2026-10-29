@@ -36,3 +36,12 @@ with a final whole-rule equality check retained. There is no flag mask or inferr
 normalization. All 18 pure tests and the offline locked Windows Release build
 pass, with independent review. Only the inert plan was executed for this revised
 binary during preparation. The actual mismatched field is not yet established.
+
+The next controlled authored-fixture run identified `readback_flags_mismatch`
+and returned failure. It did not establish the returned numeric flags or verify
+blocking/cleanup. A subsequent diagnostic-only revision records that unsigned
+value in the failure result, when an actual readback exists, alongside the
+unchanged requested zero. No observed value changes the policy, and the successful
+nine-field schema is untouched. All 20 pure tests and the offline locked Windows
+Release build pass. These checks do not establish the actual returned value;
+that remains a native-test question.

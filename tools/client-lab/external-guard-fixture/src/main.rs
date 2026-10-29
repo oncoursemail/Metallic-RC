@@ -14,10 +14,11 @@ use metallic_external_guard_fixture::{role, Role};
         Some(f)=>f,None=>{eprintln!("{{\"ok\":false,\"error\":\"new_report_required\"}}");std::process::exit(1)}
     };
     if file.write_all(b"{\"ok\":false,\"status\":\"fixture_pending\",\"cleanupVerified\":false}").and_then(|_|file.sync_all()).is_err(){std::process::exit(1)}
-    let outcome=fixture::run();
+    let mut observed_flags=None;
+    let outcome=fixture::run(&mut observed_flags);
     let (summary,code)=match outcome{
         Ok(())=>("{\"ok\":true,\"scope\":\"owned_fixture_only\",\"beforePositive\":4,\"blocked\":4,\"afterPositive\":4,\"cleanupVerified\":true,\"originalClientTested\":false,\"executionReady\":false,\"fullSandboxClaimed\":false}".to_owned(),0),
-        Err(error)=>(format!("{{\"ok\":false,\"error\":\"{error}\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false}}"),1)
+        Err(error)=>(metallic_external_guard_fixture::failure_report(error,observed_flags),1)
     };
     if summary.len()>2048||file.seek(SeekFrom::Start(0)).and_then(|_|file.write_all(summary.as_bytes())).and_then(|_|file.set_len(summary.len() as u64)).and_then(|_|file.sync_all()).is_err(){std::process::exit(1)}
     println!("{summary}");std::process::exit(code)

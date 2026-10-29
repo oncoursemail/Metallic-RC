@@ -1,5 +1,5 @@
 //! Windows API adapter. Called only from the explicit native fixture role.
-use metallic_external_guard_fixture::{Api, Budget, Layer, Result, Rule};
+use metallic_external_guard_fixture::{Api, Budget, Layer, Result, Rule, REQUESTED_FILTER_FLAGS};
 use std::{ffi::c_void, ptr, slice};
 use windows_sys::{core::GUID, Win32::{Foundation::HANDLE, NetworkManagement::WindowsFilteringPlatform::*, System::Rpc::{UuidCreate, RPC_C_AUTHN_WINNT}}};
 
@@ -11,9 +11,10 @@ fn unique() -> Result<GUID> { let mut g=GUID::from_u128(0);let code=unsafe{UuidC
 fn layer(l:Layer)->GUID { match l { Layer::Connect4=>FWPM_LAYER_ALE_AUTH_CONNECT_V4,Layer::Connect6=>FWPM_LAYER_ALE_AUTH_CONNECT_V6,Layer::Receive4=>FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4,Layer::Receive6=>FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6 } }
 fn from_layer(g:GUID)->Result<Layer> { for l in metallic_external_guard_fixture::LAYERS{if bytes(g)==bytes(layer(l)){return Ok(l)}}Err("readback_layer_unknown") }
 
-pub struct Native { engine:HANDLE, sublayer:GUID, app:Vec<u8>, budget:Budget }
+pub struct Native { engine:HANDLE, sublayer:GUID, app:Vec<u8>, budget:Budget, observed_flags:Option<u32> }
 impl Native {
-    pub fn new(budget:Budget) -> Result<Self> { budget.check()?;let result=Self{engine:ptr::null_mut(),sublayer:unique()?,app:Vec::new(),budget};result.budget.check()?;Ok(result) }
+    pub fn new(budget:Budget) -> Result<Self> { budget.check()?;let result=Self{engine:ptr::null_mut(),sublayer:unique()?,app:Vec::new(),budget,observed_flags:None};result.budget.check()?;Ok(result) }
+    pub fn last_observed_flags(&self)->Option<u32>{self.observed_flags}
 }
 impl Api for Native {
     fn open_dynamic(&mut self)->Result<()> {
@@ -42,10 +43,10 @@ impl Api for Native {
         let mut blob=FWP_BYTE_BLOB{size:self.app.len() as u32,data:self.app.as_mut_ptr()};
         let mut cond=FWPM_FILTER_CONDITION0{fieldKey:FWPM_CONDITION_ALE_APP_ID,matchType:FWP_MATCH_EQUAL,conditionValue:FWP_CONDITION_VALUE0{r#type:FWP_BYTE_BLOB_TYPE,Anonymous:FWP_CONDITION_VALUE0_0{byteBlob:&mut blob}}};
         let mut title:Vec<u16>="Metallic OWNED fixture BLOCK".encode_utf16().chain(Some(0)).collect();
-        let f=FWPM_FILTER0{filterKey:key,displayData:FWPM_DISPLAY_DATA0{name:title.as_mut_ptr(),description:ptr::null_mut()},layerKey:layer(l),subLayerKey:self.sublayer,numFilterConditions:1,filterCondition:&mut cond,action:FWPM_ACTION0{r#type:FWP_ACTION_BLOCK,..Default::default()},..Default::default()};
+        let f=FWPM_FILTER0{filterKey:key,flags:REQUESTED_FILTER_FLAGS,displayData:FWPM_DISPLAY_DATA0{name:title.as_mut_ptr(),description:ptr::null_mut()},layerKey:layer(l),subLayerKey:self.sublayer,numFilterConditions:1,filterCondition:&mut cond,action:FWPM_ACTION0{r#type:FWP_ACTION_BLOCK,..Default::default()},..Default::default()};
         let mut id=0;check(unsafe{FwpmFilterAdd0(self.engine,&f,ptr::null_mut(),&mut id)})?;
         self.budget.check()?;
-        Ok(Rule{id,key:bytes(key),sublayer:bytes(self.sublayer),layer:l,app_id:self.app.clone(),block:true,flags:0,conditions:1,app_equal:true})
+        Ok(Rule{id,key:bytes(key),sublayer:bytes(self.sublayer),layer:l,app_id:self.app.clone(),block:true,flags:REQUESTED_FILTER_FLAGS,conditions:1,app_equal:true})
     }
     fn commit(&mut self)->Result<()>{self.budget.check()?;check(unsafe{FwpmTransactionCommit0(self.engine)})?;self.budget.check()}
     fn read(&mut self,id:u64)->Result<Option<Rule>> {
@@ -55,6 +56,7 @@ impl Api for Native {
         check(code)?;
         let result=(||{
             if p.is_null(){return Err("empty_readback")};let f=unsafe{&*p};
+            self.observed_flags=Some(f.flags);
             if f.numFilterConditions!=1{return Err("readback_condition_count_mismatch")}
             if f.filterCondition.is_null(){return Err("readback_condition_pointer_missing")}
             let c=unsafe{&*f.filterCondition};
