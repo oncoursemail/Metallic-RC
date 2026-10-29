@@ -91,7 +91,7 @@ class ManifestTests(unittest.TestCase):
 
 
 class WorkerTests(unittest.TestCase):
-    def attempt(self,mode=None,*,discovery=False,guard=True,stopped=False,rpc_mode=None):
+    def attempt(self,mode=None,*,discovery=False,guard=True,stopped=False,rpc_mode=None,exit_code=3221225477,late_exit=None,diagnostics_error=False):
         with tempfile.TemporaryDirectory(prefix='rc-mode-worker-authored-') as temp:
             lab=Path(temp).resolve();run=lab/'runs'/'synthetic';run.mkdir(parents=True)
             identity=lab/'identity.json';identity.write_text('{"methods":{}}')
@@ -119,9 +119,18 @@ class WorkerTests(unittest.TestCase):
             class Game:
                 pid=7
                 def image(self):return runner.GAME/'RecRoom.exe'
-                def diagnostics(self):return {'exitCodeBeforeCleanup':3221225477,'synthetic':True}
-                def poll(self):return 3221225477
+                def __init__(self):self.exit_code=exit_code;self.diagnostic_calls=0
+                def diagnostics(self):
+                    self.diagnostic_calls+=1
+                    if self.diagnostic_calls==2:
+                        if diagnostics_error:raise RuntimeError('Authored diagnostic query failure')
+                        if late_exit is not None:self.exit_code=late_exit
+                    return {'exitCodeBeforeCleanup':self.exit_code,'synthetic':True}
+                def poll(self):return self.exit_code
+                def wait(self,seconds):return self.exit_code
+                def terminate(self):self.exit_code=124;observed['terminated']=True
                 def close(self):observed['gameClosed']=True
+            owned_game=Game()
             class Script:
                 def __init__(self):self.exports_sync=SimpleNamespace(status=lambda:{'networkGuards':guard,'stopped':stopped,'clientAdapterMode':effective if rpc_mode is None else rpc_mode})
                 def on(self,signal,callback):self.callback=callback
@@ -143,11 +152,11 @@ class WorkerTests(unittest.TestCase):
             device=SimpleNamespace(on=lambda signal,callback:callbacks.append(callback),off=lambda signal,callback:callbacks.remove(callback),
                 spawn=spawn,attach=lambda pid:session,resume=resume)
             fake_frida=SimpleNamespace(__version__='17.24.3',get_local_device=lambda:device)
-            fake_modules=(SimpleNamespace(current_job_membership=lambda *a,**k:True,retain_process=lambda pid:Game()),
+            fake_modules=(SimpleNamespace(current_job_membership=lambda *a,**k:True,retain_process=lambda pid:owned_game),
                 SimpleNamespace(Ledger=Ledger,PhaseTimeout=PhaseTimeout,cancelled_call=lambda f,n,s,operation:operation()),
-                SimpleNamespace(Win32=lambda:SimpleNamespace(is_elevated=lambda:True,create_new_section=lambda:1,close=lambda h:True)),
+                SimpleNamespace(Win32=lambda:SimpleNamespace(is_elevated=lambda:True,create_new_section=lambda:1,close=lambda h:True,request_window_close=lambda pid:0)),
                 SimpleNamespace(WindowsReader=lambda:SimpleNamespace(processes=lambda:[])))
-            args=SimpleNamespace(job='synthetic',run_dir=str(run),started=time.monotonic(),deadline=time.monotonic()+20,startup_deadline=time.monotonic()+10)
+            args=SimpleNamespace(job='synthetic',run_dir=str(run),started=time.monotonic(),deadline=time.monotonic()+5.02,startup_deadline=time.monotonic()+5)
             stdout,stderr,paths=sys.stdout,sys.stderr,list(sys.path)
             try:
                 with patch.object(runner,'modules',return_value=fake_modules),patch.object(runner,'GAME',lab/'owned-game'),patch.object(runner,'backend_health',return_value={'instanceId':'synthetic'}),patch.dict(sys.modules,{'frida':fake_frida}):
@@ -161,23 +170,55 @@ class WorkerTests(unittest.TestCase):
 
     def test_network_only_never_promotes_discovery_shaped_event_and_preserves_exit(self):
         result,state,observed=self.attempt('network-only',discovery=True)
-        self.assertEqual(result,2);self.assertEqual(state['status'],'no_native_discovery_proof');self.assertFalse(state['nativeDiscoveryParsed'])
+        self.assertEqual(result,1);self.assertEqual(state['status'],'native_client_exited_nonzero');self.assertFalse(state['nativeDiscoveryParsed'])
         self.assertFalse(state['nativeLoginVerified']);self.assertFalse(state['nativeRoomJoinVerified']);self.assertFalse(state['runtimeRoutingRequested'])
         self.assertEqual(state['clientAdapterMode'],'network-only');self.assertTrue(observed['resumed']);self.assertIs(observed['config']['fixtureOnly'],False)
         self.assertEqual(observed['config']['clientAdapterMode'],'network-only')
         self.assertEqual(state['beforeProcessCleanup']['exitCodeBeforeCleanup'],3221225477);self.assertEqual(state['cleanup']['exitCode'],3221225477)
         self.assertTrue(observed['gameClosed']);self.assertTrue(observed['unloaded']);self.assertTrue(observed['detached'])
 
+    def test_network_only_ignores_discovery_event_when_live_or_cleanly_exited(self):
+        for exit_code in (None,0):
+            with self.subTest(exit_code=exit_code):
+                result,state,_observed=self.attempt('network-only',discovery=True,exit_code=exit_code)
+                self.assertTrue(any(event['kind']=='native_discovery_deserialized' for event in state['events']))
+                self.assertEqual(result,2);self.assertEqual(state['status'],'no_native_discovery_proof')
+                self.assertFalse(state['nativeDiscoveryParsed'])
+                self.assertEqual(state['clientExitCodeBeforeCleanup'],exit_code)
+
     def test_full_default_and_explicit_full_preserve_existing_discovery_semantics(self):
         for mode in (None,'full'):
-            result,state,observed=self.attempt(mode,discovery=True)
+            result,state,observed=self.attempt(mode,discovery=True,exit_code=0)
             self.assertEqual(result,0);self.assertTrue(state['nativeDiscoveryParsed']);self.assertEqual(state['clientAdapterMode'],'full')
             self.assertTrue(state['runtimeRoutingRequested']);self.assertEqual(observed['config']['clientAdapterMode'],'full')
 
     def test_clean_admission_without_discovery_is_still_result_two(self):
         for mode in (None,'full','network-only'):
-            result,state,_observed=self.attempt(mode)
+            result,state,_observed=self.attempt(mode,exit_code=None)
             self.assertEqual(result,2);self.assertFalse(state['nativeDiscoveryParsed'])
+
+    def test_discovery_event_does_not_turn_native_crash_into_success(self):
+        result,state,observed=self.attempt('full',discovery=True)
+        self.assertTrue(state['nativeDiscoveryParsed'])
+        self.assertEqual(state['beforeProcessCleanup']['exitCodeBeforeCleanup'],3221225477)
+        self.assertEqual(result,1)
+        self.assertEqual(state['status'],'native_client_exited_nonzero')
+
+    def test_cleanup_termination_does_not_erase_live_discovery_proof(self):
+        result,state,observed=self.attempt('full',discovery=True,exit_code=None)
+        self.assertEqual(result,0);self.assertTrue(state['nativeDiscoveryParsed'])
+        self.assertIsNone(state['clientExitCodeBeforeCleanup']);self.assertIsNone(state['beforeProcessCleanup']['exitCodeBeforeCleanup'])
+        self.assertEqual(state['cleanup']['exitCode'],124);self.assertTrue(observed['terminated'])
+
+    def test_exit_after_observation_is_rechecked_before_cleanup(self):
+        result,state,_observed=self.attempt('full',discovery=True,exit_code=0,late_exit=3221225477)
+        self.assertEqual(result,1);self.assertTrue(state['nativeDiscoveryParsed'])
+        self.assertEqual(state['clientExitCodeBeforeCleanup'],3221225477)
+
+    def test_unavailable_precleanup_diagnostics_cannot_claim_success(self):
+        result,state,_observed=self.attempt('full',discovery=True,exit_code=0,diagnostics_error=True)
+        self.assertEqual(result,1);self.assertTrue(state['nativeDiscoveryParsed'])
+        self.assertEqual(state['status'],'native_client_exit_unverified')
 
     def test_partial_guards_stopped_or_mismatched_agent_mode_never_resume(self):
         for options in [{'guard':False},{'stopped':True},{'rpc_mode':'full'}]:

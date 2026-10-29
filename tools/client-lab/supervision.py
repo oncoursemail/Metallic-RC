@@ -137,4 +137,8 @@ def final_result_code(worker_code,receipt,job_empty,hashes_match):
     required=('nativeDiscoveryParsed','attached','agentLoaded','processResumed','runtimeRoutingHookUsed','gameJobMembershipVerified')
     if receipt.get('agentFailed') or receipt.get('errors') or receipt.get('status')!='native_discovery_verified':return 2
     if not all(receipt.get(key) is True for key in required):return 2
+    diagnostics=receipt.get('beforeProcessCleanup')
+    if 'clientExitCodeBeforeCleanup' not in receipt or not isinstance(diagnostics,dict) or 'exitCodeBeforeCleanup' not in diagnostics:return 1
+    early_codes=(receipt.get('clientExitCodeBeforeCleanup'),diagnostics['exitCodeBeforeCleanup'])
+    if any(code is not None and (type(code) is not int or code!=0) for code in early_codes):return 1
     return 0
