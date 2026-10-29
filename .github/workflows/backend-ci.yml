@@ -88,6 +88,18 @@ jobs:
         run: python -B tools/client-lab/test_profile_refresh.py
       - name: Test diagnostic adapter modes without native access
         run: python -B tools/client-lab/test_client_adapter_mode.py
+      - name: Test nonexecuting control preparation
+        run: python -B tools/client-lab/test_pristine_control.py
+      - name: Test external guard policy with fake APIs only
+        run: cargo test --locked --manifest-path tools/client-lab/external-guard-fixture/Cargo.toml --lib
+      - name: Print inert fixture plan without opening WFP
+        run: cargo run --locked --manifest-path tools/client-lab/external-guard-fixture/Cargo.toml -- --plan
+      - name: Test bounded accepted TCP streams with owned loopback sockets
+        if: runner.os == 'Windows'
+        run: cargo test --locked --manifest-path tools/client-lab/external-guard-fixture/Cargo.toml --bin metallic-external-guard-fixture accepted_stream_
+      - name: Test bounded UDP diagnostic pipes without WFP
+        if: runner.os == 'Windows'
+        run: cargo test --locked --manifest-path tools/client-lab/external-guard-fixture/Cargo.toml --bin metallic-external-guard-fixture udp_metadata_pipe_
       - name: Retain authored-service evidence
         if: always()
         uses: actions/upload-artifact@v4
