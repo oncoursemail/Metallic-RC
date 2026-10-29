@@ -1,6 +1,6 @@
 # Candidate client-adapter diagnostic mode
 
-Board claim 328. Branch: `codex/rc-client-adapter-mode-20261029`, based on the source from PR 95. This is a diagnostic source candidate. No active profile was changed, and no native test or elevation was requested for this change.
+Board claim 328. Branch: `codex/rc-client-adapter-mode-20261029`, based on the source from PR 95. This is a diagnostic source candidate. At source preparation no active profile was changed or native test requested. The later separately authorized run is recorded below.
 
 The optional manifest field `clientAdapterMode` accepts exactly `full` or `network-only`. Omission preserves the existing `full` behavior. Other values and types fail before pinned inputs are admitted; the worker independently validates the mode. Candidate preparation preserves a valid existing mode, defaults an omitted mode to `full`, and supports an explicit reviewed choice through `--client-adapter-mode`. It still requires a new output file and verifies the previous input pins. Tests use authored temporary manifests and inert files only.
 
@@ -24,3 +24,43 @@ Results on this candidate: 87 JavaScript tests passed; all 81 Python unittest me
 Independent peer review passed: all 87 JavaScript tests plus 10 adapter-mode, 18 profile-refresh and 15 startup-output Python tests passed. The parent separately reran all 81 Python tests and 87 JavaScript tests. The peer confirmed unchanged Winsock guard source and the preserved target, environment, deadline, job and UAC controls. Neither reviewer ran the original client for this change.
 
 Data-only candidates may now be prepared for separate review. Any eventual native test requires its own owner approval; earlier one-run approvals do not authorize another attempt.
+
+## Separately authorized network-only run
+
+After independent source and exact-profile review, the owner approved one
+network-only attempt. Both hosted Windows/Linux checks passed at source head
+`f7fe981`. A Windows CI fixture failure had first been reproduced using an actual
+owned short-path alias and fixed by resolving only the synthetic fixture root;
+production and profile pins were unchanged. The parent reran all 81 Python tests
+after that fix, and the alias replay passed.
+
+The run used manifest SHA-256
+`206f66f42ac74245227f3765c2b2115d09afd683b24c5449da552cb2277d0239`
+and runner SHA-256
+`94d9fae60be99656ce0d53c7619b26510b76d211ba67c927ee18e24c35012415`.
+Normal UAC and the unchanged 90/30/15/130-second budgets remained in force.
+Attachment took 4.711 seconds; the network guards loaded and the process resumed.
+Both receipt and supervisor identified network-only mode. Managed routing was
+not requested or admitted; only guard-installed and agent-loaded events occurred.
+
+This was a crash, not a 90-second timeout: the client exited `0xC0000005` after
+6.742 seconds of observation, with total supervisor time 12.974 seconds and
+result 2. A PID-correlated Windows Application event identifies `Referee.dll`
+version 2.1.1.1 at RVA `0x62bb0b`. The module matches the admitted installed file,
+SHA-256 `5868c90a7c67757f3b678aa356cbd933d646c9749e0acaa31b7dcc9eaee12ead`.
+Unlike the earlier full-mode crash record, this event names Referee rather than
+Frida. A common underlying cause has not been established. The managed-client
+hooks are not necessary for this new failure; no conclusion rules out separate
+problems in those hooks or identifies the original trigger.
+
+The fault RVA lies in a PE virtual section beyond that section's stored bytes.
+The installed file cannot establish the actual runtime instruction there; no
+guessed raw-offset or zero-filled decoding is treated as crash evidence. No live
+memory capture or protection/authentication changes were attempted.
+
+The owned job was empty after cleanup and both original executable hashes
+matched. Script unload was incomplete after process death; this is retained as
+a cleanup diagnostic, not hidden as a successful unload. There is no discovery,
+login, room-join, gameplay or voice proof. The authorization was consumed; the
+full companion profile and any further attempt remain unapproved. Private logs
+and vendor artifacts were not uploaded.
