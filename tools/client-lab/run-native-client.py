@@ -228,7 +228,16 @@ def worker(args,manifest):
             if game:
                 try:state['beforeProcessCleanup']=game.diagnostics()
                 except Exception as error:state['beforeProcessCleanup']={'diagnosticQueryError':type(error).__name__}
-                if game.poll() is None:
+                exit_before_cleanup=game.poll()
+                state['clientExitCodeBeforeCleanup']=exit_before_cleanup
+                diagnostics=state['beforeProcessCleanup']
+                diagnostic_exit=diagnostics.get('exitCodeBeforeCleanup') if isinstance(diagnostics,dict) else None
+                early_codes=(exit_before_cleanup,diagnostic_exit)
+                if any(code not in (None,0) for code in early_codes) and result in (0,2):
+                    state['status']='native_client_exited_nonzero';result=1
+                elif result==0 and (not isinstance(diagnostics,dict) or 'exitCodeBeforeCleanup' not in diagnostics or any(code is not None and type(code) is not int for code in early_codes)):
+                    state['status']='native_client_exit_unverified';result=1
+                if exit_before_cleanup is None:
                     if state['processResumed']:
                         state['cleanup']['windowCloseRequests']=api.request_window_close(game.pid);game.wait(1)
                     if game.poll() is None:game.terminate();game.wait(2);state['cleanup']['ownedProcessTerminated']=True

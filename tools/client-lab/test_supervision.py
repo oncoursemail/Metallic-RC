@@ -63,12 +63,39 @@ class AcceptanceTests(unittest.TestCase):
         from supervision import final_result_code
         receipt={k:True for k in ('nativeDiscoveryParsed','attached','agentLoaded','processResumed','runtimeRoutingHookUsed','gameJobMembershipVerified')}
         receipt['status']='native_discovery_verified'
+        receipt['beforeProcessCleanup']={'exitCodeBeforeCleanup':None}
+        receipt['clientExitCodeBeforeCleanup']=None
         self.assertEqual(final_result_code(0,receipt,True,True),0)
         for key in ('attached','processResumed','gameJobMembershipVerified'):
             bad={**receipt,key:False};self.assertEqual(final_result_code(0,bad,True,True),2)
         self.assertEqual(final_result_code(0,{**receipt,'agentFailed':True},True,True),2)
         self.assertEqual(final_result_code(0,receipt,False,True),1)
         self.assertEqual(final_result_code(0,receipt,True,False),1)
+    def test_native_crash_receipt_cannot_pass_with_discovery_event(self):
+        from supervision import final_result_code
+        receipt={k:True for k in ('nativeDiscoveryParsed','attached','agentLoaded','processResumed','runtimeRoutingHookUsed','gameJobMembershipVerified')}
+        receipt.update(status='native_discovery_verified',beforeProcessCleanup={'exitCodeBeforeCleanup':3221225477})
+        self.assertEqual(final_result_code(0,receipt,True,True),1)
+
+    def test_precleanup_exit_gate_preserves_cleanup_and_timeout_semantics(self):
+        from supervision import final_result_code
+        receipt={k:True for k in ('nativeDiscoveryParsed','attached','agentLoaded','processResumed','runtimeRoutingHookUsed','gameJobMembershipVerified')}
+        receipt.update(status='native_discovery_verified',beforeProcessCleanup={'exitCodeBeforeCleanup':None},clientExitCodeBeforeCleanup=None,cleanup={'exitCode':124})
+        self.assertEqual(final_result_code(0,receipt,True,True),0)
+        for code in (0xc0000005,-1073741819,1):
+            with self.subTest(code=code):
+                self.assertEqual(final_result_code(0,{**receipt,'clientExitCodeBeforeCleanup':code},True,True),1)
+                self.assertEqual(final_result_code(0,{**receipt,'beforeProcessCleanup':{'exitCodeBeforeCleanup':code}},True,True),1)
+                self.assertEqual(final_result_code(124,{**receipt,'clientExitCodeBeforeCleanup':code},True,True),124)
+        for diagnostics in (None,{},[],{'diagnosticQueryError':'Authored'},{'exitCodeBeforeCleanup':False},{'exitCodeBeforeCleanup':'0'}):
+            with self.subTest(diagnostics=diagnostics):
+                self.assertEqual(final_result_code(0,{**receipt,'beforeProcessCleanup':diagnostics},True,True),1)
+        missing=dict(receipt);missing.pop('beforeProcessCleanup')
+        self.assertEqual(final_result_code(0,missing,True,True),1)
+        missing_poll=dict(receipt);missing_poll.pop('clientExitCodeBeforeCleanup')
+        self.assertEqual(final_result_code(0,missing_poll,True,True),1)
+        self.assertEqual(final_result_code(0,{**receipt,'beforeProcessCleanup':{'exitCodeBeforeCleanup':0},'clientExitCodeBeforeCleanup':0},True,True),0)
+
     def test_timeout_exit_code_survives(self):
         from supervision import final_result_code
         self.assertEqual(final_result_code(124,{},True,True),124)
