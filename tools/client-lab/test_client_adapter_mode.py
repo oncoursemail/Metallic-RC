@@ -177,6 +177,15 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(state['beforeProcessCleanup']['exitCodeBeforeCleanup'],3221225477);self.assertEqual(state['cleanup']['exitCode'],3221225477)
         self.assertTrue(observed['gameClosed']);self.assertTrue(observed['unloaded']);self.assertTrue(observed['detached'])
 
+    def test_network_only_ignores_discovery_event_when_live_or_cleanly_exited(self):
+        for exit_code in (None,0):
+            with self.subTest(exit_code=exit_code):
+                result,state,_observed=self.attempt('network-only',discovery=True,exit_code=exit_code)
+                self.assertTrue(any(event['kind']=='native_discovery_deserialized' for event in state['events']))
+                self.assertEqual(result,2);self.assertEqual(state['status'],'no_native_discovery_proof')
+                self.assertFalse(state['nativeDiscoveryParsed'])
+                self.assertEqual(state['clientExitCodeBeforeCleanup'],exit_code)
+
     def test_full_default_and_explicit_full_preserve_existing_discovery_semantics(self):
         for mode in (None,'full'):
             result,state,observed=self.attempt(mode,discovery=True,exit_code=0)
