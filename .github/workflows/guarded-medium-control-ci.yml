@@ -1,0 +1,103 @@
+name: Guarded medium preparation
+
+on:
+  pull_request:
+    paths:
+      - 'tools/client-lab/guarded-medium-control/**'
+      - 'tools/client-lab/external-guard-fixture/**'
+      - '.github/workflows/guarded-medium-control-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/client-lab/guarded-medium-control/**'
+      - 'tools/client-lab/external-guard-fixture/**'
+      - '.github/workflows/guarded-medium-control-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guarded-medium-preparation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preparation:
+    name: Owned preparation (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: tools/client-lab/guarded-medium-control
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build locked binaries without invoking active roles
+        run: cargo build --locked --release --bins
+      - name: Test pure rules and owned platform transport
+        run: cargo test --locked --lib -- --test-threads=1
+      - name: Inspect actual Windows guard PE without executing it
+        if: runner.os == 'Windows'
+        run: cargo test --locked --test guard_pe
+      - name: Verify both inert plans
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $suffix = if ($IsWindows) { '.exe' } else { '' }
+          $control = @(& "./target/release/metallic-medium-control$suffix" --plan)
+          if ($LASTEXITCODE -ne 0 -or $control.Count -ne 1 -or $control[0] -cne '{"scope":"authored_lifecycle_preparation_only","guardWillNotRun":true,"targetWillNotRun":true,"targetNetworkVerified":false,"originalClientImplemented":false,"executionReady":false}') {
+            throw 'Unexpected controller plan.'
+          }
+          $guard = @(& "./target/release/metallic-medium-guard$suffix" --plan)
+          if ($LASTEXITCODE -ne 0 -or $guard.Count -ne 1 -or $guard[0] -cne '{"guardWillNotRun":true,"originalClientImplemented":false,"targetNetworkVerified":false,"executionReady":false}') {
+            throw 'Unexpected guard plan.'
+          }
+          exit 0
+      - name: Check Windows refusal or ten standard-user worker controls
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          # This identifies this build; it is not independent attestation.
+          $pin = (Get-FileHash './target/release/metallic-medium-worker.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          $lines = @(& './target/release/metallic-medium-control.exe' --self-test $pin 2>&1)
+          $code = $LASTEXITCODE
+          $raw = ($lines | ForEach-Object { $_.ToString() }) -join "`n"
+          if ($raw.Length -eq 0 -or $raw.Length -gt 4096) { throw 'Unexpected receipt length.' }
+          $keys = [regex]::Matches($raw, '"((?:[^"\\]|\\.)*)"\s*:')
+          $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+          if ($keys.Count -ne 5) { throw 'Unexpected receipt field count.' }
+          foreach ($key in $keys) {
+            $name = $key.Groups[1].Value
+            if ($name -notmatch '\A[A-Za-z]+\z' -or -not $seen.Add($name)) { throw 'Duplicate or escaped receipt field.' }
+          }
+          try {
+            $result = $raw | ConvertFrom-Json -NoEnumerate -ErrorAction Stop
+          } catch {
+            throw "Owned-check receipt parse failed (exit=$code)."
+          }
+          if ($result -isnot [pscustomobject]) { throw 'Unexpected receipt object.' }
+          $names = @($result.PSObject.Properties.Name | Sort-Object) -join ','
+          if ($code -eq 1 -and $names -ceq 'cleanupVerified,error,executionReady,ok,targetNetworkVerified' -and
+              $result.ok -is [bool] -and $result.ok -eq $false -and
+              $result.cleanupVerified -is [bool] -and $result.cleanupVerified -eq $false -and
+              $result.targetNetworkVerified -is [bool] -and $result.targetNetworkVerified -eq $false -and
+              $result.executionReady -is [bool] -and $result.executionReady -eq $false -and
+              $result.error -is [string] -and $result.error -ceq 'non_admin_fixture_required') {
+            Write-Output 'PASS: elevated-token refusal; ten standard-user worker controls did not run here.'
+          } elseif ($code -eq 0 -and $names -ceq 'checks,executionReady,ok,originalClientTested,scope' -and
+                    $result.ok -is [bool] -and $result.ok -eq $true -and
+                    ($result.checks -is [int] -or $result.checks -is [long]) -and $result.checks -eq 10 -and
+                    $result.originalClientTested -is [bool] -and $result.originalClientTested -eq $false -and
+                    $result.executionReady -is [bool] -and $result.executionReady -eq $false -and
+                    $result.scope -is [string] -and $result.scope -ceq 'authored_sibling_worker_only') {
+            Write-Output 'PASS: ten standard-user authored-worker controls.'
+          } else {
+            throw "Unexpected owned-worker result (exit=$code)."
+          }
+          exit 0
