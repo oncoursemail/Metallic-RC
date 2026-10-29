@@ -43,9 +43,18 @@ pub(crate) fn lock_ancestors(path:&Path)->Result<Vec<Handle>>{
     if !path.is_absolute()||!matches!(path.components().next(),Some(Component::Prefix(p))if matches!(p.kind(),Prefix::Disk(_)|Prefix::VerbatimDisk(_)))||path.components().any(|c|matches!(c,Component::ParentDir)){return Err("local_absolute_directory_required")}
     path.ancestors().collect::<Vec<_>>().into_iter().rev().map(lock_directory).collect()
 }
+fn token_profile_directory()->Result<PathBuf>{
+    let mut raw=ptr::null_mut();yes(unsafe{OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&mut raw)})?;let token=Handle::new(raw)?;
+    let mut count=0u32;let first=unsafe{windows_sys::Win32::UI::Shell::GetUserProfileDirectoryW(token.0,ptr::null_mut(),&mut count)};let error=if first==0{unsafe{GetLastError()}}else{0};
+    if first!=0||error!=ERROR_INSUFFICIENT_BUFFER||!(2..=32768).contains(&count){return Err("token_profile_size_refused")}
+    let mut text=vec![0u16;count as usize];let capacity=count;
+    yes(unsafe{windows_sys::Win32::UI::Shell::GetUserProfileDirectoryW(token.0,text.as_mut_ptr(),&mut count)})?;
+    if count<2||count>capacity||text[(count-1)as usize]!=0||text[..(count-1)as usize].contains(&0){return Err("token_profile_bounds")}
+    let path=PathBuf::from(std::ffi::OsString::from_wide(&text[..(count-1)as usize]));
+    if !path.is_absolute(){return Err("absolute_token_profile_required")}Ok(path)
+}
 pub(crate) fn private_directory()->Result<(PathBuf,Vec<Handle>)>{
-    let local=std::env::var_os("LOCALAPPDATA").ok_or("localappdata_required")?;let base=PathBuf::from(local);
-    if !base.is_absolute(){return Err("absolute_localappdata_required")}
+    let base=token_profile_directory()?.join("AppData").join("Local");
     let security=Security::owner()?;let sa=security.attributes(false);
     let mut locks=lock_ancestors(&base)?;let mut path=base;
     for name in ["Metallic-RC","guarded-medium-control-checks"]{
@@ -253,4 +262,29 @@ pub fn check_worker_identity(pin:[u8;32])->Result<()>{
  if verify_peer(retain()?,stamp,&image,&owner,true).is_ok(){return Err("wrong_elevation_accepted")}
  let own=lock_image(&std::env::current_exe().map_err(|_|"checker_image_unavailable")?)?;if verify_peer(retain()?,stamp,&own,&owner,false).is_ok(){return Err("wrong_image_accepted")}
  let receipt=target.finish(Duration::ZERO)?;if receipt.resumed||!receipt.job_empty||receipt.stdout.bytes!=0||!receipt.stdout.eof||!receipt.stderr.eof{return Err("admission_test_cleanup_failed")}Ok(())
+}
+
+#[cfg(test)]mod profile_tests{
+ use super::*;
+ struct Restore{key:&'static str,value:Option<std::ffi::OsString>}
+ impl Restore{fn set(key:&'static str,path:&Path)->Self{let value=std::env::var_os(key);std::env::set_var(key,path);Self{key,value}}}
+ impl Drop for Restore{fn drop(&mut self){if let Some(value)=&self.value{std::env::set_var(self.key,value)}else{std::env::remove_var(self.key)}}}
+ struct Spoof(PathBuf);
+ impl Drop for Spoof{fn drop(&mut self){let _=std::fs::remove_dir(self.0.join("Metallic-RC").join("guarded-medium-control-checks"));let _=std::fs::remove_dir(self.0.join("Metallic-RC"));let _=std::fs::remove_dir(&self.0);}}
+ struct Output{path:PathBuf,locks:Option<Vec<Handle>>}
+ impl Drop for Output{fn drop(&mut self){drop(self.locks.take());let _=std::fs::remove_file(self.path.join("authored-profile-probe.tmp"));let _=std::fs::remove_dir(&self.path);}}
+ #[test]fn output_root_ignores_spoofed_environment_and_restores_it(){
+  let token=token_facts(unsafe{GetCurrentProcess()}).unwrap();println!("owned profile-root test token elevated: {}",token.elevated);
+  let trusted=token_profile_directory().unwrap().join("AppData").join("Local").join("Metallic-RC").join("guarded-medium-control-checks");
+  let nonce=SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();let spoof=Spoof(std::env::temp_dir().join(format!("metallic-authored-profile-spoof-{}-{nonce}",std::process::id())));std::fs::create_dir(&spoof.0).unwrap();
+  let previous_local=std::env::var_os("LOCALAPPDATA");let previous_user=std::env::var_os("USERPROFILE");let actual;
+  {
+   let _local=Restore::set("LOCALAPPDATA",&spoof.0);let _user=Restore::set("USERPROFILE",&spoof.0);
+   let(path,locks)=private_directory().unwrap();actual=path.clone();let owned=Output{path,locks:Some(locks)};
+   let mut marker=std::fs::OpenOptions::new().write(true).create_new(true).open(owned.path.join("authored-profile-probe.tmp")).unwrap();marker.write_all(b"authored synthetic output").unwrap();drop(marker);
+   assert!(owned.path.parent()==Some(trusted.as_path()),"output escaped token-derived root");
+   assert!(std::fs::read_dir(&spoof.0).unwrap().next().is_none(),"spoof directory was touched");
+  }
+  assert!(!actual.exists(),"owned output was not cleaned");assert!(std::env::var_os("LOCALAPPDATA")==previous_local,"LOCALAPPDATA was not restored");assert!(std::env::var_os("USERPROFILE")==previous_user,"USERPROFILE was not restored");assert!(std::fs::read_dir(&spoof.0).unwrap().next().is_none());
+ }
 }

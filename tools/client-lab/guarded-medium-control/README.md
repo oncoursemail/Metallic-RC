@@ -120,7 +120,7 @@ Only these nonprivileged checks are preparation commands:
 
 ```powershell
 cargo build --offline --locked --release --bins
-cargo test --offline --locked --lib
+cargo test --offline --locked --lib -- --test-threads=1
 cargo test --offline --locked --test guard_pe
 .\target\release\metallic-medium-control.exe --plan
 .\target\release\metallic-medium-control.exe --self-test $reviewedWorkerSha256
@@ -160,13 +160,16 @@ zero close failures; no tolerance is added for owned leaks. Reader threads join
 before resource checks. These observations are not a universal process-leak or
 cross-integrity security proof.
 
-After high token and self-image admission, pre-Ready failures now finalize their
-owner-only private receipt with a static error and stage (for example,
-filter_install). This includes parent/worker identity, pipe and installation
-errors. It adds no ready-file authority or arbitrary output path. The post-Ready
+After high token/self-image admission and authenticated caller admission,
+pre-Ready failures finalize their owner-only private receipt with a static error
+and stage (for example, filter_install). Caller admission includes the retained
+pinned launcher stamp/image, same SID/session, expected medium token and actual
+pipe-server PID. It precedes every high diagnostic directory/file creation.
+Failures in that preauthentication path exit without a private receipt; stderr
+and nonzero exit are not success. Later worker/installation failures are recorded.
+This adds no ready-file authority or arbitrary output path. The post-Ready
 STOPWAIT lifetime remains inside the same guard scope; labeling a failure does
-not drop live guards early. Failures before the guard admits its own high token
-and image can still lack a private receipt.
+not drop live guards early.
 
 Focused transport command (no guard or WFP role):
 
@@ -175,6 +178,34 @@ cargo test --offline --locked --lib ipc::tests -- --test-threads=1
 ```
 
 On Windows, the full library test command now includes 14 pure checks and these
-five actual pipe controls, for 19 tests. The data-only actual-PE check and ten
+five actual pipe controls plus the profile-root regression, for 20 tests. The data-only actual-PE check and ten
 non-admin worker controls remain separate. None of these invokes UAC, WFP or the
 privileged pair.
+
+## Token-derived output root
+
+Review found that trusting LOCALAPPDATA could redirect elevated output creation.
+The new non-admin regression reproduced that baseline defect using only an
+authored temporary directory. Production output now opens the current process
+token with TOKEN_QUERY and calls GetUserProfileDirectoryW with a bounded Unicode
+buffer, then appends exactly AppData/Local/Metallic-RC/guarded-medium-control-checks.
+It never reads LOCALAPPDATA or USERPROFILE to choose the output root. Existing
+local-drive/no-reparse ancestor locks, owner-only new directories and create-new
+files remain. Unsupported/redirection layouts fail closed; this is the fixed
+profile-relative suffix, not an arbitrary known-folder or environment fallback.
+
+The actual regression passed with the observed local token not elevated: it
+sets both LOCALAPPDATA and USERPROFILE to an authored empty temporary directory,
+creates/writes a synthetic output only under the token-derived root, confirms
+the spoof directory remains untouched, cleans its owned leaf, and restores the
+original environment through RAII even on failure. It never tests a protected
+folder. Tests run serially because this regression changes process environment.
+An elevated hosted test can exercise its own token profile without impersonation
+or a guard role; that is not proof of high/medium pipe isolation.
+
+The admitted high guard now verifies caller ownership/session/image and OS pipe
+peer before creating its private output. No BFE ACL, profile registry entry,
+privilege, service or machine setting is changed. Old private staged images were
+not executed and are not approval for this source revision.
+
+Primary API: [GetUserProfileDirectoryW](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-getuserprofiledirectoryw).

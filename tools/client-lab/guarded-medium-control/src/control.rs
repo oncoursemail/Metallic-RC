@@ -39,15 +39,17 @@ pub fn guard(n:[u8;16],parent:Stamp,launcher_pin:[u8;32],worker_pin:[u8;32],guar
  require_supported_os()?;process::yes(unsafe{SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)})?;hard_deadline()?;
  let owner=process::token_facts(unsafe{GetCurrentProcess()})?;if !owner.elevated||owner.integrity!=12288{return Err("high_integrity_required")}
  let(_,guard_image,_guard_locks)=process::fixed_image(Image::Guard,guard_pin)?;process::verify_guard_load_flags(&guard_image)?;process::image_matches(unsafe{GetCurrentProcess()},&guard_image)?;
+ // Caller admission precedes every high diagnostic directory/file creation.
+ let(_,launcher_image,_launcher_locks)=process::fixed_image(Image::Launcher,launcher_pin)?;
+ let launcher=process::open_peer(parent,&launcher_image,&owner,false)?;
+ let pipe=Pipe::client(n)?;peer_on_pipe(&pipe,&launcher)?;
  let(mut output,_output_locks)=own_output()?;let mut stage="admitted";
- let result=guard_admitted(n,parent,launcher_pin,worker_pin,&owner,&mut stage);
+ let result=guard_admitted(n,worker_pin,&owner,&launcher,&pipe,&mut stage);
  report(&mut output,&result,true,stage)?;result
 }
-fn guard_admitted(n:[u8;16],parent:Stamp,launcher_pin:[u8;32],worker_pin:[u8;32],owner:&process::TokenFacts,stage:&mut &'static str)->Result<()>{
- *stage="parent_image";
- let(_,launcher_image,_launcher_locks)=process::fixed_image(Image::Launcher,launcher_pin)?;*stage="parent_peer";let launcher=process::open_peer(parent,&launcher_image,&owner,false)?;
+fn guard_admitted(n:[u8;16],worker_pin:[u8;32],owner:&process::TokenFacts,launcher:&Peer,pipe:&Pipe,stage:&mut &'static str)->Result<()>{
  *stage="worker_image";
- let(worker_path,worker_image,_worker_locks)=process::fixed_image(Image::Worker,worker_pin)?;*stage="pipe_open";let pipe=Pipe::client(n)?;peer_on_pipe(&pipe,&launcher)?;
+ let(worker_path,worker_image,_worker_locks)=process::fixed_image(Image::Worker,worker_pin)?;
  *stage="hello_send";let own=process::process_stamp(unsafe{GetCurrentProcess()})?;pipe.send(Frame::new(Tag::Hello,n,0,own,0))?;
  *stage="filter_create";
  let budget=metallic_external_guard_fixture::Budget::default();let mut api=crate::wfp::Native::new(budget.clone(),worker_path)?;
@@ -55,26 +57,26 @@ fn guard_admitted(n:[u8;16],parent:Stamp,launcher_pin:[u8;32],worker_pin:[u8;32]
  let rules=metallic_external_guard_fixture::install(&mut api)?;let mut target:Option<Peer>=None;
  let result=(||{
   *stage="live_ready";
-  peer_on_pipe(&pipe,&launcher)?;pipe.send(Frame::new(Tag::Ready,n,1,EMPTY,4))?;
-  let registration=pipe.receive()?;peer_on_pipe(&pipe,&launcher)?;
+  peer_on_pipe(pipe,launcher)?;pipe.send(Frame::new(Tag::Ready,n,1,EMPTY,4))?;
+  let registration=pipe.receive()?;peer_on_pipe(pipe,launcher)?;
   if registration.tag==Tag::Cancel{registration.expect(n,Tag::Cancel,2,EMPTY)?;return Err("cancelled_before_target")}
   registration.expect(n,Tag::Register,2,registration.stamp)?;
   *stage="target_registration";
-  let verified=process::open_peer(registration.stamp,&worker_image,&owner,false)?;
+  let verified=process::open_peer(registration.stamp,&worker_image,owner,false)?;
   if verified.stamp.created<launcher.stamp.created{return Err("target_creation_order_refused")}
   target=Some(verified);
   // The real query/synchronize handle is retained before Ack can permit resume.
   *stage="target_ack";
   pipe.send(Frame::new(Tag::Ack,n,3,target.as_ref().unwrap().stamp,0))?;
   *stage="target_done";
-  let done=pipe.receive()?;peer_on_pipe(&pipe,&launcher)?;done.expect(n,Tag::Done,4,target.as_ref().unwrap().stamp)?;
+  let done=pipe.receive()?;peer_on_pipe(pipe,launcher)?;done.expect(n,Tag::Done,4,target.as_ref().unwrap().stamp)?;
   Ok(())
  })();
  // Any post-Ready failure retains guards while the known target (or the
  // launcher if registration was lost) can still be alive. Never accept a PID-only claim.
  let failure_stage=*stage;*stage="stopwait";
  let mut retention=GuardRetention::new(target.as_ref().map(|target|target.stamp));
- let (waited,subject)=if let Some(target)=target.as_ref(){(target,Recovery::WaitTargetExit)}else{(&launcher,Recovery::WaitLauncherExit)};
+ let (waited,subject)=if let Some(target)=target.as_ref(){(target,Recovery::WaitTargetExit)}else{(launcher,Recovery::WaitLauncherExit)};
  loop{if retention.observe(subject,process::exited(waited).ok()){break}std::thread::sleep(Duration::from_millis(5));}
  // Only the independent 130-second hard exit may end an unverified wait.
  // It leaves failure/pending evidence and is not atomic lifetime containment.
