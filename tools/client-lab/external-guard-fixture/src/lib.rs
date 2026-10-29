@@ -5,11 +5,16 @@ use std::{sync::{Arc,atomic::{AtomicBool,Ordering}},time::{Duration,Instant}};
 pub const REQUESTED_FILTER_FLAGS:u32=0x40;
 
 /// Failure-only, bounded numeric metadata. No observed path/blob is accepted.
-pub fn failure_report(error:&'static str,observed_flags:Option<u32>)->String {
-    let numeric=match observed_flags {
+pub fn failure_report(error:&'static str,observed_flags:Option<u32>,probe:Option<ProbeFailure>)->String {
+    let mut numeric=match observed_flags {
         Some(flags)=>format!(",\"requestedFlags\":{REQUESTED_FILTER_FLAGS},\"observedFlags\":{flags}"),
         None=>String::new(),
     };
+    if let Some(probe)=probe {
+        let actual=probe.actual.map(|code|code.to_string()).unwrap_or_else(||"null".to_owned());
+        numeric.push_str(&format!(",\"probePhase\":\"{}\",\"probeProtocol\":\"{}\",\"expectedChildExit\":{},\"actualChildExit\":{actual}",probe.phase.name(),probe.protocol.name(),probe.phase.expected()));
+        if let Some(error)=reported_socket_error(probe.actual){numeric.push_str(&format!(",\"childReportedSocketError\":{error}"));}
+    }
     format!("{{\"ok\":false,\"error\":\"{error}\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false{numeric}}}")
 }
 
@@ -28,7 +33,15 @@ pub fn timeouts_ready(read_ready:bool,write_ready:bool)->Result<()>{if read_read
 /// Only an explicit Winsock access-denied error is a blocked observation.
 /// Missing replies, timeouts, refusal and protocol failures are inconclusive.
 pub fn classify_probe(exchange:std::result::Result<bool,Option<i32>>)->i32{
-    match exchange{Ok(true)=>0,Err(Some(10013))=>20,_=>21}
+    match exchange{Ok(true)=>0,Err(Some(10013))=>20,Err(Some(error)) if (1..=65535).contains(&error)=>0x10000|error,_=>21}
+}
+/// This is the authored child's diagnostic namespace, not OS attestation.
+pub fn reported_socket_error(actual:Option<i32>)->Option<u16>{
+    let code=actual?;
+    if !(0x10001..=0x1ffff).contains(&code){return None}
+    let error=code&0xffff;
+    if classify_probe(Err(Some(error)))!=code{return None}
+    Some(error as u16)
 }
 pub fn accepted_probe_exit(actual:Option<i32>,expected:i32)->bool{
     matches!(expected,0|20)&&actual==Some(expected)
@@ -132,6 +145,18 @@ impl Probe {
     pub fn tcp(self) -> bool { matches!(self, Self::Tcp4 | Self::Tcp6) }
 }
 
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum ProbePhase { Before, Blocked, After }
+impl ProbePhase {
+    pub fn name(self)->&'static str{match self{Self::Before=>"before",Self::Blocked=>"blocked",Self::After=>"after"}}
+    pub fn expected(self)->i32{match self{Self::Blocked=>20,_=>0}}
+}
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct ProbeFailure { pub phase:ProbePhase, pub protocol:Probe, pub actual:Option<i32> }
+pub fn finish_probe(outcome:Result<()>,context:&mut Option<ProbeFailure>)->Result<()>{
+    if outcome.is_ok(){*context=None;}outcome
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Role { Plan, Fixture, Probe(Probe, u16) }
 pub fn role(args: &[String]) -> Result<Role> {
@@ -216,7 +241,8 @@ mod tests {
     #[test] fn blocking_io_requires_both_timeouts(){for a in [false,true]{for b in [false,true]{assert_eq!(timeouts_ready(a,b).is_ok(),a&&b);}}}
     #[test] fn only_explicit_winsock_access_denied_counts_as_block(){
         assert_eq!(classify_probe(Err(Some(10013))),20);
-        for error in [Some(10060),Some(10061),Some(10035),Some(5),None]{assert_eq!(classify_probe(Err(error)),21);}
+        for error in [10060,10061,10035,5]{assert_eq!(classify_probe(Err(Some(error))),0x10000|error);}
+        for error in [Some(0),Some(-1),Some(65536),None]{assert_eq!(classify_probe(Err(error)),21);}
         assert_eq!(classify_probe(Ok(false)),21);assert_eq!(classify_probe(Ok(true)),0);
     }
     #[test] fn unexpected_or_crash_child_exits_never_pass(){
@@ -226,11 +252,11 @@ mod tests {
     }
     #[test] fn failure_without_observation_preserves_original_schema(){
         assert_eq!(REQUESTED_FILTER_FLAGS,0x40);
-        assert_eq!(failure_report("readback_missing",None),"{\"ok\":false,\"error\":\"readback_missing\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false}");
+        assert_eq!(failure_report("readback_missing",None,None),"{\"ok\":false,\"error\":\"readback_missing\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false}");
     }
     #[test] fn numeric_failure_metadata_is_bounded_unsigned_and_never_success(){
         for (flags,decimal) in [(0,"0"),(64,"64"),(u32::MAX,"4294967295")] {
-            let report=failure_report("readback_flags_mismatch",Some(flags));
+            let report=failure_report("readback_flags_mismatch",Some(flags),None);
             assert_eq!(report,format!("{{\"ok\":false,\"error\":\"readback_flags_mismatch\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false,\"requestedFlags\":64,\"observedFlags\":{decimal}}}"));
             assert!(report.len()<2048);
         }
@@ -251,6 +277,34 @@ mod tests {
             assert_eq!(f.events.last().unwrap(),"close");
             let mut actual=expected.clone();actual.flags=flags;
             assert_eq!(check_readback(&expected,Some(&actual)),Err("readback_flags_mismatch"));
+        }
+    }
+    #[test] fn all_bounded_errors_use_canonical_tags_and_never_pass(){
+        for error in 1..=65535{
+            let code=classify_probe(Err(Some(error)));let tag=0x10000|error;
+            assert!(!accepted_probe_exit(Some(tag),0));assert!(!accepted_probe_exit(Some(tag),20));
+            if error==10013{assert_eq!(code,20);assert_eq!(reported_socket_error(Some(tag)),None);}
+            else{assert_eq!(code,tag);assert_eq!(reported_socket_error(Some(code)),Some(error as u16));}
+        }
+        for code in [None,Some(0x10000),Some(0x20001),Some(-1),Some(0xc0000005u32 as i32),Some(21),Some(1),Some(20)]{assert_eq!(reported_socket_error(code),None);}
+    }
+    #[test] fn probe_failure_context_clears_only_after_complete_success(){
+        let info=ProbeFailure{phase:ProbePhase::Before,protocol:Probe::Tcp6,actual:None};
+        let mut context=Some(info);assert_eq!(finish_probe(Err("probe_deadline"),&mut context),Err("probe_deadline"));assert_eq!(context,Some(info));
+        context.as_mut().unwrap().actual=Some(0);finish_probe(Ok(()),&mut context).unwrap();assert_eq!(context,None);
+        let report=failure_report("readback_flags_mismatch",Some(64),context);assert!(!report.contains("probePhase"));
+    }
+    #[test] fn probe_failure_report_uses_closed_phase_protocol_and_retained_exit(){
+        for phase in [ProbePhase::Before,ProbePhase::Blocked,ProbePhase::After]{for protocol in PROBES{
+            let code=classify_probe(Err(Some(10060)));let info=ProbeFailure{phase,protocol,actual:Some(code)};
+            let report=failure_report("probe_outcome_mismatch",Some(64),Some(info));
+            assert!(report.contains(&format!("\"probePhase\":\"{}\"",phase.name())));assert!(report.contains(&format!("\"probeProtocol\":\"{}\"",protocol.name())));
+            assert!(report.contains(&format!("\"expectedChildExit\":{}",phase.expected())));assert!(report.contains("\"actualChildExit\":75596"));assert!(report.contains("\"childReportedSocketError\":10060"));assert!(report.starts_with("{\"ok\":false,"));assert!(report.len()<2048);
+        }}
+        for actual in [None,Some(21),Some(0xc0000005u32 as i32),Some(0x10000|10013)]{
+            let report=failure_report("probe_outcome_mismatch",None,Some(ProbeFailure{phase:ProbePhase::Blocked,protocol:Probe::Udp4,actual}));
+            assert!(!report.contains("childReportedSocketError"));
+            if actual.is_none(){assert!(report.contains("\"actualChildExit\":null"));}
         }
     }
 }

@@ -56,3 +56,22 @@ Release build pass; independent review is required before the next native run.
 This changes the requested fixture profile based on the current observation; it
 does not claim that every Windows system automatically adds indexing, or that a
 native fixture has passed. See [Microsoft's flag definitions](https://learn.microsoft.com/en-us/windows/win32/api/fwpmtypes/ns-fwpmtypes-fwpm_filter0).
+
+The controlled explicit-profile run matched requested/observed flags `64` but
+failed `probe_outcome_mismatch`, without phase or child-exit details. The next
+diagnostic adds typed phase/protocol and retained exit information only to failure
+reports. Non-permission socket errors use a bounded canonical diagnostic exit;
+only exact 0/20 can pass. Tagged 10013, crashes, unknown statuses and malformed
+tags remain refused. No pipe, target, filter policy, lifecycle or successful
+result schema changes. All 25 pure tests and the offline locked Release build
+pass; this does not establish the actual failed phase or network cause.
+
+A separate source audit identified an accepted-stream race: Windows accepted
+sockets inherit the nonblocking listener's mode. The actual server helper now
+sets accepted streams blocking before admitting finite read/write timeouts; the
+production timeout remains 100 ms. An authored delayed-marker control failed
+with `WouldBlock` before that mode reset and passed afterward. Both separate
+Windows binary loopback tests and all 25 pure tests pass, with no WFP or fixture
+role used by those controls. The Windows-only CI step names those socket tests
+explicitly. This reproduces a real harness defect, but does not attribute the
+earlier unphased native failure to it without further evidence.

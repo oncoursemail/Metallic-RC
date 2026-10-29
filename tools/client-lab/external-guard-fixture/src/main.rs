@@ -15,10 +15,11 @@ use metallic_external_guard_fixture::{role, Role};
     };
     if file.write_all(b"{\"ok\":false,\"status\":\"fixture_pending\",\"cleanupVerified\":false}").and_then(|_|file.sync_all()).is_err(){std::process::exit(1)}
     let mut observed_flags=None;
-    let outcome=fixture::run(&mut observed_flags);
+    let mut probe_failure=None;
+    let outcome=fixture::run(&mut observed_flags,&mut probe_failure);
     let (summary,code)=match outcome{
         Ok(())=>("{\"ok\":true,\"scope\":\"owned_fixture_only\",\"beforePositive\":4,\"blocked\":4,\"afterPositive\":4,\"cleanupVerified\":true,\"originalClientTested\":false,\"executionReady\":false,\"fullSandboxClaimed\":false}".to_owned(),0),
-        Err(error)=>(metallic_external_guard_fixture::failure_report(error,observed_flags),1)
+        Err(error)=>(metallic_external_guard_fixture::failure_report(error,observed_flags,probe_failure),1)
     };
     if summary.len()>2048||file.seek(SeekFrom::Start(0)).and_then(|_|file.write_all(summary.as_bytes())).and_then(|_|file.set_len(summary.len() as u64)).and_then(|_|file.sync_all()).is_err(){std::process::exit(1)}
     println!("{summary}");std::process::exit(code)

@@ -33,9 +33,10 @@ using the same executable path, including the controller and its probe children.
    Every ID, unique key, sublayer, layer, blob, action, flag and condition is read
    back before blocked probes may start. There are no destination exemptions.
 3. Four fresh children must report explicit Winsock `WSAEACCES` (10013), encoded
-   as exit 20. Only that error counts as a blocked observation. A missing/bad
-   reply, timeout (10060), connection refusal (10061), or unknown error uses exit
-   21 and fails the phase. Handshake failures use 1. Crashes never pass.
+   as exit 20. Only that error counts as a blocked observation. Other positive
+   raw errors in 1..65535 use a canonical `0x10000 | error` diagnostic exit and
+   fail the phase. A missing/bad reply or unknown error uses exit 21. Handshake
+   failures use 1. Crashes never pass. Tagged 10013 is noncanonical and rejected.
 4. The controller stops and confirms all tracked children and the owned Windows
    job empty before deleting filters. All four exact runtime IDs must be absent,
    the sublayer deleted, and the dynamic session closed successfully.
@@ -79,9 +80,10 @@ The existing MSVC Rust toolchain compiled the Windows API adapter successfully.
 cargo build --offline --locked
 cargo test --offline --locked --lib
 target/debug/metallic-external-guard-fixture.exe --plan
+cargo test --offline --locked --bin metallic-external-guard-fixture accepted_stream_
 ```
 
-Twenty-two pure fake-API tests cover four-filter order, partial admission failures,
+Twenty-five pure fake-API tests cover four-filter order, partial admission failures,
 readback field mismatch, pending-child refusal, deletion/read/close failures,
 closed roles, monotonic deadline latching, timeout setup admission, strict
 Winsock classification and crash/unknown exit refusal. Readback failures now name
@@ -95,6 +97,18 @@ policy share that exact value. Zero, disabled flags and every additional bit are
 rejected; there is no mask or fallback. No path or App-ID blob is emitted,
 and the successful nine-field result schema is unchanged. These tests do
 not call WFP or create sockets/children. Only the pure plan was executed.
+Failure-only probe metadata names the closed before/blocked/after phase and
+TCP/UDP IPv4/IPv6 protocol, plus the retained child exit or null. Canonical tagged
+errors may be decoded as `childReportedSocketError`; this is the authored child's
+diagnostic namespace, not independent OS attestation. Success still requires
+exact child exit 0 or 20 for the corresponding phase. All 65,535 raw-error tags
+are checked for canonical decoding and refusal by the pass predicate.
+The separate Windows binary tests use only authored loopback TCP sockets, with
+no WFP or native fixture role. They exercise the actual accepted-stream helper:
+explicit blocking mode precedes finite read/write timeouts, and a delayed marker
+must be awaited. The nonblocking listener is unchanged. Timeout bounds are
+checked separately. This guards against inherited nonblocking mode causing an
+early `WouldBlock` and connection drop. See [Winsock accept inheritance](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-accept).
 Rustfmt is unavailable in the existing toolchain; no component was installed.
 
 Microsoft references: [dynamic session lifetime](https://learn.microsoft.com/en-us/windows/win32/fwp/object-management),
