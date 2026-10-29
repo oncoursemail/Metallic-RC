@@ -1,7 +1,8 @@
 //! Fixture policy and lifecycle. Unit tests use only the fake API below.
 pub type Result<T> = std::result::Result<T, &'static str>;
 use std::{sync::{Arc,atomic::{AtomicBool,Ordering}},time::{Duration,Instant}};
-pub const REQUESTED_FILTER_FLAGS:u32=0;
+// Explicit INDEXED-only profile; every additional or missing bit is refused.
+pub const REQUESTED_FILTER_FLAGS:u32=0x40;
 
 /// Failure-only, bounded numeric metadata. No observed path/blob is accepted.
 pub fn failure_report(error:&'static str,observed_flags:Option<u32>)->String {
@@ -151,7 +152,7 @@ pub fn role(args: &[String]) -> Result<Role> {
 mod tests {
     use super::*;
     #[derive(Default)]
-    struct Fake { events: Vec<String>, rules: Vec<Rule>, fail: Option<&'static str>, mismatch: bool, wrong_field:u8 }
+    struct Fake { events: Vec<String>, rules: Vec<Rule>, fail: Option<&'static str>, mismatch: bool, wrong_field:u8, admission_flags:Option<u32> }
     impl Fake {
         fn event(&mut self, name: &str) -> Result<()> { self.events.push(name.into()); if self.fail == Some(name) { Err("injected") } else { Ok(()) } }
     }
@@ -161,7 +162,7 @@ mod tests {
         fn add_sublayer(&mut self) -> Result<()> { self.event("sublayer") }
         fn add(&mut self, layer: Layer) -> Result<Rule> {
             self.event(&format!("add_{}", self.rules.len()))?;
-            let r = Rule { id: self.rules.len() as u64+1, key: [self.rules.len() as u8;16], sublayer:[9;16], layer, app_id: vec![4,2], block:true, flags:REQUESTED_FILTER_FLAGS, conditions:1, app_equal:true };
+            let r = Rule { id: self.rules.len() as u64+1, key: [self.rules.len() as u8;16], sublayer:[9;16], layer, app_id: vec![4,2], block:true, flags:self.admission_flags.unwrap_or(REQUESTED_FILTER_FLAGS), conditions:1, app_equal:true };
             self.rules.push(r.clone()); Ok(r)
         }
         fn commit(&mut self) -> Result<()> { self.event("commit") }
@@ -224,14 +225,32 @@ mod tests {
         assert!(!accepted_probe_exit(Some(21),21));assert!(!accepted_probe_exit(Some(0),20));assert!(!accepted_probe_exit(Some(20),0));
     }
     #[test] fn failure_without_observation_preserves_original_schema(){
-        assert_eq!(REQUESTED_FILTER_FLAGS,0);
+        assert_eq!(REQUESTED_FILTER_FLAGS,0x40);
         assert_eq!(failure_report("readback_missing",None),"{\"ok\":false,\"error\":\"readback_missing\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false}");
     }
     #[test] fn numeric_failure_metadata_is_bounded_unsigned_and_never_success(){
         for (flags,decimal) in [(0,"0"),(64,"64"),(u32::MAX,"4294967295")] {
             let report=failure_report("readback_flags_mismatch",Some(flags));
-            assert_eq!(report,format!("{{\"ok\":false,\"error\":\"readback_flags_mismatch\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false,\"requestedFlags\":0,\"observedFlags\":{decimal}}}"));
+            assert_eq!(report,format!("{{\"ok\":false,\"error\":\"readback_flags_mismatch\",\"cleanupVerified\":false,\"originalClientTested\":false,\"executionReady\":false,\"requestedFlags\":64,\"observedFlags\":{decimal}}}"));
             assert!(report.len()<2048);
+        }
+    }
+    #[test] fn indexed_only_profile_is_accepted_in_admission_and_readback(){
+        let mut f=Fake{admission_flags:Some(0x40),..Default::default()};
+        let rules=install(&mut f).unwrap();assert_eq!(rules.len(),4);
+        for r in &rules{assert_eq!(r.flags,0x40);assert_eq!(check_readback(r,Some(r)),Ok(()));}
+    }
+    #[test] fn all_missing_extra_and_unknown_flag_bits_are_rejected(){
+        let mut valid=Fake::default();let expected=install(&mut valid).unwrap().remove(0);
+        let mut invalid=vec![0,0x20,0x41,0x60,u32::MAX];
+        for bit in 0..32{let value=1u32<<bit;if value!=0x40{invalid.push(value);invalid.push(0x40|value);}}
+        for flags in invalid{
+            let mut f=Fake{admission_flags:Some(flags),..Default::default()};
+            assert_eq!(install(&mut f),Err("rule_policy_mismatch"));
+            assert!(f.rules.is_empty());assert!(!f.events.iter().any(|e|e=="commit"));
+            assert_eq!(f.events.last().unwrap(),"close");
+            let mut actual=expected.clone();actual.flags=flags;
+            assert_eq!(check_readback(&expected,Some(&actual)),Err("readback_flags_mismatch"));
         }
     }
 }

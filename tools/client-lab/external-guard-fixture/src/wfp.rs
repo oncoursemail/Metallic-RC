@@ -2,6 +2,7 @@
 use metallic_external_guard_fixture::{Api, Budget, Layer, Result, Rule, REQUESTED_FILTER_FLAGS};
 use std::{ffi::c_void, ptr, slice};
 use windows_sys::{core::GUID, Win32::{Foundation::HANDLE, NetworkManagement::WindowsFilteringPlatform::*, System::Rpc::{UuidCreate, RPC_C_AUTHN_WINNT}}};
+const _:()=assert!(REQUESTED_FILTER_FLAGS==FWPM_FILTER_FLAG_INDEXED);
 
 fn check(code: u32) -> Result<()> { if code == 0 { Ok(()) } else { Err("wfp_api_failed") } }
 fn bytes(g: GUID) -> [u8;16] {

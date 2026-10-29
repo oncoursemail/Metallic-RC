@@ -45,3 +45,14 @@ unchanged requested zero. No observed value changes the policy, and the successf
 nine-field schema is untouched. All 20 pure tests and the offline locked Windows
 Release build pass. These checks do not establish the actual returned value;
 that remains a native-test question.
+
+That controlled numeric run returned failure with requested flags `0` and
+observed flags `64`. The next profile explicitly requests Microsoft's documented
+`FWPM_FILTER_FLAG_INDEXED` optimization and requires exactly that value (`0x40`),
+with an SDK compile-time check. It retains every other comparison and rejects
+zero, disabled/persistent/unknown bits and all combinations containing an extra
+bit. No returned flag is masked. All 22 pure tests and the offline locked Windows
+Release build pass; independent review is required before the next native run.
+This changes the requested fixture profile based on the current observation; it
+does not claim that every Windows system automatically adds indexing, or that a
+native fixture has passed. See [Microsoft's flag definitions](https://learn.microsoft.com/en-us/windows/win32/api/fwpmtypes/ns-fwpmtypes-fwpm_filter0).

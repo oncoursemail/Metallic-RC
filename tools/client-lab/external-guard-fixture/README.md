@@ -81,7 +81,7 @@ cargo test --offline --locked --lib
 target/debug/metallic-external-guard-fixture.exe --plan
 ```
 
-Twenty pure fake-API tests cover four-filter order, partial admission failures,
+Twenty-two pure fake-API tests cover four-filter order, partial admission failures,
 readback field mismatch, pending-child refusal, deletion/read/close failures,
 closed roles, monotonic deadline latching, timeout setup admission, strict
 Winsock classification and crash/unknown exit refusal. Readback failures now name
@@ -89,7 +89,10 @@ the first mismatched field using a static category. Every field remains checked,
 including a final exact equality check; no flags are masked or tolerated.
 A failure may include bounded unsigned
 `requestedFlags` and `observedFlags` diagnostics from the last actual readback.
-The requested flag value remains exactly zero. No path or App-ID blob is emitted,
+The fixture now explicitly requests exactly `FWPM_FILTER_FLAG_INDEXED` (`0x40`),
+with a compile-time SDK equality check. The input, expected rule and admission
+policy share that exact value. Zero, disabled flags and every additional bit are
+rejected; there is no mask or fallback. No path or App-ID blob is emitted,
 and the successful nine-field result schema is unchanged. These tests do
 not call WFP or create sockets/children. Only the pure plan was executed.
 Rustfmt is unavailable in the existing toolchain; no component was installed.
