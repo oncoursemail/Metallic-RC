@@ -25,7 +25,7 @@ prepare=load('mode_preparer',ROOT/'prepare-manifest.py')
 class ManifestTests(unittest.TestCase):
     def setUp(self):
         temporary=tempfile.TemporaryDirectory(prefix='rc-mode-authored-');self.addCleanup(temporary.cleanup)
-        self.root=Path(temporary.name);self.game=self.root/'game';self.game.mkdir()
+        self.root=Path(temporary.name).resolve();self.game=self.root/'game';self.game.mkdir()
         self.files=[ROOT/name for name in prepare.AUTHORED]
         for relative in ['game/RecRoom.exe','game/GameAssembly.dll','identity.json','recovery.py','capture.py',
                          'vendor/frida/__init__.py','vendor/frida/aio.py','vendor/frida/_frida.pyd']:
