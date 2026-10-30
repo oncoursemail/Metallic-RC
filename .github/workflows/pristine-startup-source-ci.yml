@@ -1,0 +1,59 @@
+name: Pristine startup source preparation
+
+on:
+  pull_request:
+    paths:
+      - 'tools/client-lab/pristine-startup/**'
+      - 'tools/client-lab/guarded-medium-control/src/protocol.rs'
+      - 'tools/client-lab/guarded-medium-control/src/pe.rs'
+      - 'tools/client-lab/guarded-medium-control/src/ipc.rs'
+      - 'tools/client-lab/guarded-medium-control/src/wfp.rs'
+      - 'tools/client-lab/external-guard-fixture/**'
+      - '.github/workflows/pristine-startup-source-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/client-lab/pristine-startup/**'
+      - 'tools/client-lab/guarded-medium-control/src/protocol.rs'
+      - 'tools/client-lab/guarded-medium-control/src/pe.rs'
+      - 'tools/client-lab/guarded-medium-control/src/ipc.rs'
+      - 'tools/client-lab/guarded-medium-control/src/wfp.rs'
+      - 'tools/client-lab/external-guard-fixture/**'
+      - '.github/workflows/pristine-startup-source-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pristine-startup-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preparation:
+    name: Closed source checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 6
+    defaults:
+      run:
+        working-directory: tools/client-lab/pristine-startup
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build inert binaries with locked dependencies
+        run: cargo build --locked --release --bins
+      - name: Check closed admission and pure fixed-target rules
+        run: cargo test --locked --lib pristine_
+      - name: Check shared pure protocol rules
+        run: cargo test --locked --lib protocol::tests
+      - name: Check shared pure PE rules
+        run: cargo test --locked --lib pe::tests
+      - name: Execute only inert and refusal entrypoint tests
+        run: cargo test --locked --test closed_entrypoints
+      - name: Inspect actual Windows guard PE without executing it
+        if: runner.os == 'Windows'
+        run: cargo test --locked --test guard_pe
