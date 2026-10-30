@@ -43,6 +43,8 @@ jobs:
       - name: Inspect actual Windows guard PE without executing it
         if: runner.os == 'Windows'
         run: cargo test --locked --test guard_pe
+      - name: Test only inert plans and malformed network-role refusals
+        run: cargo test --locked --test network_entrypoints
       - name: Verify both inert plans
         shell: pwsh
         run: |
@@ -55,6 +57,25 @@ jobs:
           $guard = @(& "./target/release/metallic-medium-guard$suffix" --plan)
           if ($LASTEXITCODE -ne 0 -or $guard.Count -ne 1 -or $guard[0] -cne '{"guardWillNotRun":true,"originalClientImplemented":false,"targetNetworkVerified":false,"executionReady":false}') {
             throw 'Unexpected guard plan.'
+          }
+          exit 0
+      - name: Verify four standard-user network workers or exact hosted refusal
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $pin = (Get-FileHash './target/release/metallic-medium-worker.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          $lines = @(& './target/release/metallic-medium-control.exe' --network-self-test $pin 2>&1)
+          $code = $LASTEXITCODE
+          $raw = ($lines | ForEach-Object { $_.ToString() }) -join "`n"
+          if ($lines.Count -ne 1) { throw 'Unexpected network-worker receipt count.' }
+          if ($code -eq 0 -and $raw -ceq '{"ok":true,"scope":"authored_medium_positive_probes_only","checks":4,"originalClientTested":false,"executionReady":false}') {
+            Write-Output 'PASS: four actual standard-user network workers.'
+          } elseif ($code -eq 1 -and $raw -ceq '{"ok":false,"error":"non_admin_fixture_required","cleanupVerified":false,"targetNetworkVerified":false,"executionReady":false}') {
+            Write-Output 'PASS: elevated-token refusal; network workers did not run here.'
+          } else {
+            throw "Unexpected network-worker result (exit=$code)."
           }
           exit 0
       - name: Check Windows refusal or ten standard-user worker controls

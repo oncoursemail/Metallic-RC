@@ -15,7 +15,19 @@ fn from_layer(g:GUID)->Result<Layer> { for l in metallic_external_guard_fixture:
 pub struct Native { engine:HANDLE, sublayer:GUID, app:Vec<u8>, target:std::path::PathBuf, budget:Budget }
 impl Native {
     pub fn new(budget:Budget,target:std::path::PathBuf) -> Result<Self> { budget.check()?;let result=Self{engine:ptr::null_mut(),sublayer:unique()?,app:Vec::new(),target,budget};result.budget.check()?;Ok(result) }
-
+    pub fn scope(&self,rules:&[Rule])->Result<([u64;4],[u16;4])>{
+        if rules.len()!=4{return Err("four_current_rules_required")}
+        let mut filter_ids=[0;4];
+        for(index,rule)in rules.iter().enumerate(){
+            if rule.layer!=metallic_external_guard_fixture::LAYERS[index]||rule.app_id!=self.app||rule.id==0{return Err("current_rule_scope_mismatch")}
+            filter_ids[index]=rule.id;
+        }
+        let layer_ids=metallic_external_guard_fixture::kernel::resolved_layer_ids(self.engine as usize,&self.budget).map_err(|_|"known_filter_layers_unavailable")?;
+        Ok((filter_ids,layer_ids))
+    }
+    pub fn outbound(&self,rules:&[Rule],record:metallic_external_guard_fixture::kernel::Record,begin:u64,end:u64)->metallic_external_guard_fixture::kernel::OutboundObservation{
+        metallic_external_guard_fixture::kernel::observe_outbound(self.engine as usize,&self.app,rules,record,begin,end,&self.budget)
+    }
 }
 impl Api for Native {
     fn open_dynamic(&mut self)->Result<()> {

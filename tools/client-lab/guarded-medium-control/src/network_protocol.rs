@@ -329,6 +329,23 @@ pub enum Host {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Outcome { AccessDenied, OutboundUdpDrop }
+/// The executable helper supplies actual retained-process facts and an actual
+/// complete native event. This never promotes a timeout or wire claim alone.
+pub fn blocked_outcome(probe:Probe,root:Root,ack_utc:u64,scope:GuardScope,raw_exit:i32,record:Option<UdpRecord>,exit:ExitFacts)->Result<Outcome>{
+    if !root.valid()||!scope.valid()||exit.stamp!=root.stamp||exit.actual_exit!=Some(raw_exit){return Err("retained_exit_mismatch")}
+    if raw_exit==20{return Ok(Outcome::AccessDenied)}
+    if raw_exit!=(0x10000|10060)||!probe.udp(){return Err("blocked_result_not_verified")}
+    let(Some(record),Some(event))=(record,exit.drop)else{return Err("blocked_result_not_verified")};
+    let family=probe.family();let slot=if family==4{0}else{1};
+    let matched=record.valid(probe,root)&&record.operation==6&&record.sent==4&&ack_utc!=0&&exit.observed_utc>=ack_utc&&
+        exit.observed_utc-ack_utc<=100_000_000&&event.classify_drop&&event.presence&PRESENCE==PRESENCE&&
+        event.app_matches&&event.family==family&&event.protocol==17&&event.local_loopback&&event.remote_loopback&&
+        event.local_port==record.source_port&&event.remote_port==record.destination_port&&
+        event.timestamp>=ack_utc&&event.timestamp<=exit.observed_utc&&
+        event.filter_id==scope.filter_ids[slot]&&event.layer_id==scope.layer_ids[slot]&&event.direction==0x3901&&
+        event.is_loopback&&event.complete&&event.api_error.is_none();
+    if matched{Ok(Outcome::OutboundUdpDrop)}else{Err("blocked_result_not_verified")}
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage { Before, NeedGuards, Register, Ack, Running, ProbeDone, Next, Release, Released, After, Complete, Failed }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -412,10 +429,7 @@ impl Planner {
                 self.ack_utc = utc; self.stage = Stage::Running; Ok(Action::ResumeOnce(self.current.unwrap()))
             }
             (Stage::Running, Kind::Result, Host::Exit(exit)) if self.root_matches(f) => {
-                if exit.stamp != self.current.unwrap().stamp || exit.actual_exit != Some(f.raw_exit) { return Err("retained_exit_mismatch"); }
-                let outcome = if f.raw_exit == 20 { Outcome::AccessDenied }
-                    else if self.udp_confirmed(f, exit) { Outcome::OutboundUdpDrop }
-                    else { return Err("blocked_result_not_verified"); };
+                let outcome=blocked_outcome(f.probe.unwrap(),self.current.unwrap(),self.ack_utc,self.guard.ok_or("guard_required")?,f.raw_exit,f.udp,exit)?;
                 self.outcomes[self.index] = Some(outcome); self.stage = Stage::ProbeDone; Ok(Action::ProbeAccepted(outcome))
             }
             (Stage::ProbeDone, Kind::ProbeDone, Host::Cleanup(cleanup)) if self.root_matches(f) && cleanup.verified() => {
@@ -438,17 +452,5 @@ impl Planner {
             }
             _ => Err("batch_state_refused"),
         }
-    }
-    fn udp_confirmed(&self, f: Frame, exit: ExitFacts) -> bool {
-        if f.raw_exit != (0x10000 | 10060) || !f.probe.unwrap().udp() { return false; }
-        let (Some(record), Some(event), Some(scope)) = (f.udp, exit.drop, self.guard) else { return false; };
-        let family = f.probe.unwrap().family(); let slot = if family == 4 { 0 } else { 1 };
-        record.operation == 6 && record.sent == 4 && self.ack_utc != 0 && exit.observed_utc >= self.ack_utc &&
-        exit.observed_utc-self.ack_utc <= 100_000_000 && event.classify_drop && event.presence & PRESENCE == PRESENCE &&
-        event.app_matches && event.family == family && event.protocol == 17 && event.local_loopback && event.remote_loopback &&
-        event.local_port == record.source_port && event.remote_port == record.destination_port &&
-        event.timestamp >= self.ack_utc && event.timestamp <= exit.observed_utc &&
-        event.filter_id == scope.filter_ids[slot] && event.layer_id == scope.layer_ids[slot] &&
-        event.direction == 0x3901 && event.is_loopback && event.complete && event.api_error.is_none()
     }
 }
