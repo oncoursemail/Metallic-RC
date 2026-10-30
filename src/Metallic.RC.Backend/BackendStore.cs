@@ -27,6 +27,9 @@ public sealed partial class BackendStore : IDisposable
         nativeIdentityEnabled = options.EnableNativeIdentityMapping;
         nativeSessionsEnabled = options.EnableNativeSessions;
         nativeProfilesEnabled = options.EnableNativeAccountProfiles;
+        nativeGatewayEnabled = options.EnableNativeGateway;
+        if (nativeGatewayEnabled && (!nativeIdentityEnabled || !nativeSessionsEnabled || !nativeProfilesEnabled))
+            throw new ArgumentException("Native gateway requires explicit identity, session and profile options.");
         if (nativeSessionsEnabled && !nativeIdentityEnabled)
             throw new ArgumentException("Native sessions require explicit native identity mapping.");
         if (nativeProfilesEnabled && !nativeIdentityEnabled)
@@ -45,10 +48,12 @@ public sealed partial class BackendStore : IDisposable
             using var db = Open();
             Execute(db, "PRAGMA journal_mode=WAL;");
             long version = Convert.ToInt64(Scalar(db, "PRAGMA user_version;"), CultureInfo.InvariantCulture);
-            if (version is not (0 or 1 or 2 or 3 or 4)) throw new IOException("Unsupported backend database version; not changing it.");
-            if (nativeProfilesEnabled && version is not (3 or 4))
+            if (version is not (0 or 1 or 2 or 3 or 4 or 5)) throw new IOException("Unsupported backend database version; not changing it.");
+            if (nativeGatewayEnabled && version is not (4 or 5))
+                throw new IOException("Native gateway requires an existing validated v4 profile database.");
+            if (nativeProfilesEnabled && version is not (3 or 4 or 5))
                 throw new IOException("Native profiles require an existing validated v3 session database.");
-            if (nativeSessionsEnabled && version is not (2 or 3 or 4))
+            if (nativeSessionsEnabled && version is not (2 or 3 or 4 or 5))
                 throw new IOException("Native sessions require an existing validated v2 identity database.");
             if (version == 0)
             {
@@ -71,11 +76,13 @@ public sealed partial class BackendStore : IDisposable
             }
             // A previously opted-in database remains usable by the owned APIs
             // when this feature is off, but an invalid mapping is never adopted.
-            if (version is 2 or 3 or 4) NativeIdentityMap.Validate(db, null);
+            if (version is 2 or 3 or 4 or 5) NativeIdentityMap.Validate(db, null);
             if (version == 2 && nativeSessionsEnabled) { NativeSessions.Migrate(db); version = 3; }
-            if (version is 3 or 4) NativeSessions.Validate(db, null);
+            if (version is 3 or 4 or 5) NativeSessions.Validate(db, null);
             if (version == 3 && nativeProfilesEnabled) { NativeAccountProfiles.Migrate(db); version = 4; }
-            if (version == 4) NativeAccountProfiles.Validate(db, null, allPayloads: true);
+            if (version is 4 or 5) NativeAccountProfiles.Validate(db, null, allPayloads: true);
+            if (version == 4 && nativeGatewayEnabled) { NativeGatewayKeys.Migrate(db); version = 5; }
+            if (version == 5) NativeGatewayKeys.Validate(db, null);
             dummyHash = passwords.HashPassword("dummy", Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
         }
         catch { owner.Dispose(); throw; }
@@ -126,16 +133,30 @@ public sealed partial class BackendStore : IDisposable
     internal AccountView VerifyCredentials(LoginRequest request)
     {
         string username = Username(request.Username); Password(request.Password);
-        AccountView? account = null; string hash = dummyHash;
+        (AccountView? Account,string Hash) record;
         lock (gate)
         {
-            using var db = Open(); using var command = Command(db, "SELECT id,username,display_name,revision,password_hash FROM accounts WHERE username=$user", null, ("$user",username));
-            using var reader = command.ExecuteReader();
-            if (reader.Read()) { account = new(reader.GetString(0),reader.GetString(1),reader.GetString(2),reader.GetInt64(3)); hash = reader.GetString(4); }
+            using var db = Open(); record=CredentialRecord(db,null,username);
         }
-        var checkedPassword = passwords.VerifyHashedPassword(account?.Id ?? "dummy", hash, request.Password);
+        return CheckedCredential(record.Account,record.Hash,request.Password);
+    }
+    private (AccountView? Account,string Hash) CredentialRecord(SqliteConnection db,SqliteTransaction? tx,string username)
+    {
+        using var command=Command(db,"SELECT id,username,display_name,revision,password_hash FROM accounts WHERE username=$user",tx,("$user",username));
+        using var reader=command.ExecuteReader();
+        return reader.Read()?(new AccountView(reader.GetString(0),reader.GetString(1),reader.GetString(2),reader.GetInt64(3)),reader.GetString(4)):(null,dummyHash);
+    }
+    private AccountView CheckedCredential(AccountView? account,string hash,string password)
+    {
+        var checkedPassword = passwords.VerifyHashedPassword(account?.Id ?? "dummy", hash, password);
         if (account is null || checkedPassword == PasswordVerificationResult.Failed) throw new BackendFault(401, "invalid_credentials");
         return account;
+    }
+    private AccountView VerifyCredentialsInTransaction(LoginRequest request,SqliteConnection db,SqliteTransaction tx)
+    {
+        string username=Username(request.Username);Password(request.Password);
+        var record=CredentialRecord(db,tx,username);
+        return CheckedCredential(record.Account,record.Hash,request.Password);
     }
     public SessionView Login(LoginRequest request)
     {
