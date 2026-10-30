@@ -43,8 +43,25 @@ impl Scope{
     pub fn valid(&self)->bool{self.start>0&&self.end>=self.start&&self.end-self.start<=100_000_000&&self.record.source_port>0&&self.record.destination_port>0&&self.record.sent==4&&(self.record.operation as u8)>=Operation::Receive as u8&&self.filter_id>0&&self.layer_id>0&&matches!(self.record.family,4|6)}
     pub fn ports(&self)->(u16,u16){if self.outbound{(self.record.source_port,self.record.destination_port)}else{(self.record.destination_port,self.record.source_port)}}
 }
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct Event{pub drop:bool,pub presence:u32,pub family:u8,pub protocol:u8,pub local_loopback:bool,pub remote_loopback:bool,pub local_port:u16,pub remote_port:u16,pub app_equal:bool,pub timestamp:u64,pub filter_id:u64,pub layer_id:u16,pub direction:u32,pub is_loopback:bool}
+/// A sanitized actual event from one fully completed outbound query. No sample
+/// survives an API error, partial enumeration, cap, deadline or scope mismatch.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct OutboundObservation { pub stats:Stats, pub event:Option<Event> }
+impl OutboundObservation {
+    pub fn unavailable(status:Status)->Self{Self{stats:Stats::empty(status),event:None}}
+}
+#[cfg(any(windows,test))]
+fn finish_outbound(result:std::result::Result<(u16,Option<Event>),Stats>,scope:Scope)->OutboundObservation{
+    match result {
+        Err(stats)=>OutboundObservation{stats,event:None},
+        Ok((0,None)) if scope.outbound&&scope.valid()=>OutboundObservation::unavailable(Status::Inconclusive),
+        Ok((count,Some(event))) if count>0&&scope.outbound&&matches(event,scope)=>
+            OutboundObservation{stats:Stats{status:Status::Matched,outbound:count,inbound:0,api:None},event:Some(event)},
+        _=>OutboundObservation::unavailable(Status::Unavailable),
+    }
+}
 pub fn matches(event:Event,scope:Scope)->bool{
     let(local,remote)=scope.ports();scope.valid()&&event.drop&&event.presence&0x13f==0x13f&&event.family==scope.record.family&&event.protocol==17&&event.local_loopback&&event.remote_loopback&&event.local_port==local&&event.remote_port==remote&&event.app_equal&&event.timestamp>=scope.start&&event.timestamp<=scope.end&&event.filter_id==scope.filter_id&&event.layer_id==scope.layer_id&&event.direction==if scope.outbound{0x3901}else{0x3900}&&event.is_loopback
 }
@@ -76,7 +93,7 @@ mod native{
         if p.is_null(){return Err(Stats::empty(Status::Unavailable))}let value=unsafe{&*p};if !same(value.layerKey,key)||value.layerId==0{return Err(Stats::empty(Status::Unavailable))}let id=value.layerId;
         drop(memory);if !allowed(start,budget){return Err(Stats::empty(Status::Deadline))}Ok(id)
     }
-    fn query(engine:HANDLE,app:&[u8],scope:Scope,start:Instant,budget:&Budget,bytes:&mut usize)->std::result::Result<u16,Stats>{
+    fn query(engine:HANDLE,app:&[u8],scope:Scope,start:Instant,budget:&Budget,bytes:&mut usize)->std::result::Result<(u16,Option<Event>),Stats>{
         if !scope.valid()||!allowed(start,budget){return Err(Stats::empty(Status::Deadline))}
         let(mut app_bytes,mut loop6)=(app.to_vec(),FWP_BYTE_ARRAY16{byteArray16:[0;16]});loop6.byteArray16[15]=1;
         let mut blob=FWP_BYTE_BLOB{size:app_bytes.len()as u32,data:app_bytes.as_mut_ptr()};
@@ -98,7 +115,7 @@ mod native{
         if !allowed(start,budget){return Err(Stats::empty(Status::Deadline))}
         if handle.is_null(){return Err(Stats::empty(Status::Unavailable))}
         let result=(||{
-            let mut count=0u16;
+            let mut count=0u16;let mut sample=None;
             for _ in 0..2{
                 if !allowed(start,budget){return Err(Stats::empty(Status::Deadline))}
                 let mut entries=ptr::null_mut();let mut returned=0;
@@ -128,9 +145,9 @@ mod native{
                         _=>continue,
                     };
                     let event=Event{drop:true,presence:h.flags,family,protocol:h.ipProtocol,local_loopback,remote_loopback,local_port:h.localPort,remote_port:h.remotePort,app_equal,timestamp,filter_id:drop.filterId,layer_id:drop.layerId,direction:drop.msFwpDirection,is_loopback:drop.isLoopback==1};
-                    if matches(event,scope){count+=1;}
+                    if matches(event,scope){count+=1;if sample.is_none(){sample=Some(event);}}
                 }
-                if returned<8{return Ok(count)}
+                if returned<8{return Ok((count,sample))}
             }
             Err(Stats::empty(Status::Capped))
         })();
@@ -154,9 +171,39 @@ mod native{
             let matching:Vec<_>=rules.iter().filter(|r|r.layer==layer&&r.app_id==app).collect();if matching.len()!=1{return Stats::empty(Status::Unavailable)}
             let layer_id=match layer_id(engine,layer,start,budget){Ok(id)=>id,Err(stats)=>return stats};
             let scope=Scope{record,start:begin,end,filter_id:matching[0].id,layer_id,outbound};if !scope.valid(){return Stats::empty(Status::Unavailable)}
-            match query(engine,app,scope,start,budget,&mut bytes){Ok(n)=>if outbound{stats.outbound=n}else{stats.inbound=n},Err(stats)=>return stats}
+            match query(engine,app,scope,start,budget,&mut bytes){Ok((n,_))=>if outbound{stats.outbound=n}else{stats.inbound=n},Err(stats)=>return stats}
         }
         if !allowed(start,budget){return Stats::empty(Status::Deadline)}if stats.outbound>0||stats.inbound>0{stats.status=Status::Matched;}stats
+    }
+    /// Resolve the four known layers from this engine; no configuration write.
+    pub fn resolved_layer_ids(engine:usize,budget:&Budget)->std::result::Result<[u16;4],Stats>{
+        let start=Instant::now();let engine=engine as HANDLE;
+        if engine.is_null(){return Err(Stats::empty(Status::Unavailable))}
+        let mut ids=[0;4];for(i,layer)in crate::LAYERS.into_iter().enumerate(){ids[i]=layer_id(engine,layer,start,budget)?;}
+        if !allowed(start,budget){return Err(Stats::empty(Status::Deadline))}Ok(ids)
+    }
+    /// Worker-side outbound CONNECT evidence only. The launcher listener's
+    /// inbound packets cannot satisfy this API. Return actual decoded fields,
+    /// never reconstructed fields invented from a count or a requested tuple.
+    pub fn observe_outbound(engine:usize,app:&[u8],rules:&[Rule],record:Record,begin:u64,end:u64,budget:&Budget)->OutboundObservation{
+        let start=Instant::now();let engine=engine as HANDLE;
+        let unavailable=||OutboundObservation::unavailable(Status::Unavailable);
+        if engine.is_null()||app.is_empty()||app.len()>32768||rules.len()!=4||!(Scope{record,start:begin,end,filter_id:1,layer_id:1,outbound:true}).valid(){return unavailable()}
+        let mut value=ptr::null_mut();let code=unsafe{FwpmEngineGetOption0(engine,FWPM_ENGINE_COLLECT_NET_EVENTS,&mut value)};
+        let memory=Memory(value as *mut c_void);
+        if code!=0{return OutboundObservation{stats:api_failure(ApiStage::CollectionGet,code,start,budget),event:None}}
+        if !allowed(start,budget){return OutboundObservation::unavailable(Status::Deadline)}
+        if value.is_null(){return unavailable()}
+        let value=unsafe{&*value};if value.r#type!=FWP_UINT32{return unavailable()}
+        let collection=unsafe{value.Anonymous.uint32};drop(memory);
+        if !allowed(start,budget){return OutboundObservation::unavailable(Status::Deadline)}
+        match collection{0=>return OutboundObservation::unavailable(Status::Disabled),1=>{},_=>return unavailable()}
+        let layer=match wanted_layer(record.family,true){Some(layer)=>layer,None=>return unavailable()};
+        let matching:Vec<_>=rules.iter().filter(|rule|rule.layer==layer&&rule.app_id==app).collect();
+        if matching.len()!=1{return unavailable()}
+        let layer_id=match layer_id(engine,layer,start,budget){Ok(id)=>id,Err(stats)=>return OutboundObservation{stats,event:None}};
+        let scope=Scope{record,start:begin,end,filter_id:matching[0].id,layer_id,outbound:true};let mut bytes=0;
+        finish_outbound(query(engine,app,scope,start,budget,&mut bytes),scope)
     }
     #[cfg(test)] mod tests{
         use super::*;
@@ -169,13 +216,26 @@ mod native{
         }
     }
 }
-#[cfg(windows)] pub use native::observe;
+#[cfg(windows)] pub use native::{observe,observe_outbound,resolved_layer_ids};
 
 #[cfg(test)] mod tests{
     use super::*;
     fn record()->Record{Record{family:4,operation:Operation::Receive,source_port:42123,destination_port:52123,sent:4}}
     fn scope()->Scope{Scope{record:record(),start:100,end:200,filter_id:99,layer_id:48,outbound:true}}
     fn event()->Event{Event{drop:true,presence:0x13f,family:4,protocol:17,local_loopback:true,remote_loopback:true,local_port:42123,remote_port:52123,app_equal:true,timestamp:150,filter_id:99,layer_id:48,direction:0x3901,is_loopback:true}}
+    #[test]fn completed_outbound_query_preserves_actual_sample_and_never_synthesizes_it(){
+        let observed=finish_outbound(Ok((2,Some(event()))),scope());
+        assert_eq!(observed.event,Some(event()));assert_eq!(observed.stats,Stats{status:Status::Matched,outbound:2,inbound:0,api:None});
+        for result in [Ok((0,Some(event()))),Ok((1,None))]{let observed=finish_outbound(result,scope());assert_eq!(observed.event,None);assert_eq!(observed.stats.status,Status::Unavailable);}
+        let empty=finish_outbound(Ok((0,None)),scope());assert_eq!(empty.event,None);assert_eq!(empty.stats.status,Status::Inconclusive);
+        let mut wrong=event();wrong.timestamp=201;assert_eq!(finish_outbound(Ok((1,Some(wrong))),scope()).event,None);
+        let mut inbound=scope();inbound.outbound=false;assert_eq!(finish_outbound(Ok((1,Some(event()))),inbound).event,None);
+    }
+    #[test]fn incomplete_outbound_queries_discard_samples_and_preserve_failure_metadata(){
+        for status in [Status::Unavailable,Status::Disabled,Status::Inconclusive,Status::Capped,Status::Deadline]{let stats=Stats::empty(status);assert_eq!(finish_outbound(Err(stats),scope()),OutboundObservation{stats,event:None});}
+        let stats=Stats{api:Some(ApiFailure{stage:ApiStage::EnumDestroy,code:5}),..Stats::empty(Status::Unavailable)};
+        assert_eq!(finish_outbound(Err(stats),scope()),OutboundObservation{stats,event:None});
+    }
     #[test]fn fixed_metadata_roundtrip_and_invalid_frames(){let b=record().encode();assert_eq!(Record::decode(&b,Probe::Udp4,52123),Some(record()));for n in [0,1,31,33,64]{assert_eq!(Record::decode(&vec![0;n],Probe::Udp4,52123),None);}for i in [0,1,2,3,4,5,6,7,10,12,31]{let mut bad=b;bad[i]=255;assert_eq!(Record::decode(&bad,Probe::Udp4,52123),None);}let mut bad=b;bad[8]=0;bad[9]=0;assert_eq!(Record::decode(&bad,Probe::Udp4,52123),None);assert_eq!(Record::decode(&b,Probe::Udp6,52123),None);assert_eq!(Record::decode(&b,Probe::Tcp4,52123),None);}
     #[test]fn exact_match_and_every_required_event_field(){assert!(matches(event(),scope()));for i in 0..15{let mut e=event();match i{0=>e.drop=false,1=>e.presence=0,2=>e.family=6,3=>e.protocol=6,4=>e.local_loopback=false,5=>e.remote_loopback=false,6=>e.local_port+=1,7=>e.remote_port+=1,8=>e.app_equal=false,9=>e.timestamp=99,10=>e.timestamp=201,11=>e.filter_id+=1,12=>e.layer_id+=1,13=>e.direction=0,14=>e.is_loopback=false,_=>{}}assert!(!matches(e,scope()));}}
     #[test]fn orientation_and_inbound_are_not_outbound_proof(){let mut s=scope();s.outbound=false;let mut e=event();assert!(!matches(e,s));e.local_port=52123;e.remote_port=42123;e.direction=0x3900;assert!(matches(e,s));assert!(!matches(e,scope()));}

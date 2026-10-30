@@ -32,6 +32,20 @@ impl Pipe{
  pub fn peer_pid(&self)->Result<u32>{let mut pid=0;yes(unsafe{if self.server{GetNamedPipeClientProcessId(self.handle.0,&mut pid)}else{GetNamedPipeServerProcessId(self.handle.0,&mut pid)}})?;if pid==0{return Err("pipe_peer_required")}Ok(pid)}
  pub fn send(&self,frame:Frame)->Result<()>{Frame::decode(&frame.encode())?;let mut op=self.operation()?;op.buffer[..BYTES].copy_from_slice(&frame.encode());let result=unsafe{WriteFile(op.pipe.0,op.buffer.as_ptr(),BYTES as u32,ptr::null_mut(),&mut op.overlapped)};let error=if result==0{unsafe{GetLastError()}}else{0};let(_,n)=Self::complete(op,result,error,5000)?;if n!=BYTES as u32{return Err("pipe_frame_write_bound")}Ok(())}
  pub fn receive(&self)->Result<Frame>{self.receive_for(15000)}
+ // Fixed-size transport only; the network adapter must validate its closed
+ // codec before send and immediately after receive. No arbitrary-size API.
+ pub fn send_network_bytes(&self,bytes:[u8;128])->Result<()>{
+  let mut op=self.operation()?;op.buffer[..bytes.len()].copy_from_slice(&bytes);
+  let result=unsafe{WriteFile(op.pipe.0,op.buffer.as_ptr(),bytes.len()as u32,ptr::null_mut(),&mut op.overlapped)};let error=if result==0{unsafe{GetLastError()}}else{0};
+  let(_,n)=Self::complete(op,result,error,5000)?;if n!=bytes.len()as u32{return Err("pipe_network_write_bound")}Ok(())
+ }
+ pub fn receive_network_bytes(&self)->Result<[u8;128]>{self.receive_network_for(15000)}
+ fn receive_network_for(&self,timeout_ms:u32)->Result<[u8;128]>{
+  if !(1..=15000).contains(&timeout_ms){return Err("pipe_wait_bound")}
+  let mut op=self.operation()?;let result=unsafe{ReadFile(op.pipe.0,op.buffer.as_mut_ptr(),128,ptr::null_mut(),&mut op.overlapped)};let error=if result==0{unsafe{GetLastError()}}else{0};
+  let(op,n)=Self::complete(op,result,error,timeout_ms)?;if n!=128{return Err("pipe_network_read_bound")}
+  Ok(op.buffer[..128].try_into().unwrap())
+ }
  fn receive_for(&self,timeout_ms:u32)->Result<Frame>{if !(1..=15000).contains(&timeout_ms){return Err("pipe_wait_bound")}let mut op=self.operation()?;let result=unsafe{ReadFile(op.pipe.0,op.buffer.as_mut_ptr(),BYTES as u32,ptr::null_mut(),&mut op.overlapped)};let error=if result==0{unsafe{GetLastError()}}else{0};let(op,n)=Self::complete(op,result,error,timeout_ms)?;if n!=BYTES as u32{return Err("pipe_frame_read_bound")}Frame::decode(&op.buffer[..BYTES])}
 }
 
@@ -70,4 +84,15 @@ impl Pipe{
   let _serial=SERIAL.lock().unwrap();let before=start();let(server,client,n)=pair();let began=Instant::now();let cancelled=server.receive_for(40);let elapsed=began.elapsed();let invalid=server.receive_for(0);let expected=Frame::new(Tag::Hello,n,0,Stamp{pid:1,created:2},0);let sent=client.send(expected);let next=server.receive_for(1000);drop((server,client));finished(before);assert_eq!(cancelled,Err("private_pipe_deadline"));assert!(elapsed<Duration::from_secs(3));assert_eq!(invalid,Err("pipe_wait_bound"));assert_eq!(sent,Ok(()));assert_eq!(next,Ok(expected));
  }
  #[test]fn private_pipe_connect_cancel_is_confirmed_before_resources_drop(){let _serial=SERIAL.lock().unwrap();let before=start();let server=Pipe::server(random_nonce()).unwrap();let invalid=server.accept_for(0);let began=Instant::now();let cancelled=server.accept_for(40);let elapsed=began.elapsed();drop(server);finished(before);assert_eq!(invalid,Err("pipe_wait_bound"));assert_eq!(cancelled,Err("private_pipe_deadline"));assert!(elapsed<Duration::from_secs(3));}
+ #[test]fn network_pipe_roundtrip_cancellation_and_wrong_size_are_closed(){
+  let _serial=SERIAL.lock().unwrap();let before=start();let(server,client,n)=pair();
+  let frame=[7;128];
+  assert_eq!(server.receive_network_for(10),Err("private_pipe_deadline"));
+  assert_eq!(client.send_network_bytes(frame),Ok(()));assert_eq!(server.receive_network_for(1000),Ok(frame));
+  let short=Frame::new(Tag::Ready,n,1,EMPTY,4).encode();assert_eq!(raw(&client,&short),Ok(()));assert!(server.receive_network_for(1000).is_err());
+  let mut extra=frame.to_vec();extra.push(0);assert_eq!(raw(&client,&extra),Ok(()));assert!(server.receive_network_for(1000).is_err());
+  // A message larger than the supplied buffer may remain pending. Closing both
+  // ends is required here; never reinterpret its tail as a new valid frame.
+  drop((server,client));finished(before);
+ }
 }

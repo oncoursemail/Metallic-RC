@@ -105,7 +105,7 @@ fn pipe()->Result<(File,Handle)>{
     yes(unsafe{SetHandleInformation(read.as_raw_handle()as HANDLE,HANDLE_FLAG_INHERIT,0)})?;let mut flags=0;yes(unsafe{GetHandleInformation(read.as_raw_handle()as HANDLE,&mut flags)})?;if flags&HANDLE_FLAG_INHERIT!=0{return Err("parent_pipe_inheritance_refused")}Ok((read,write))
 }
 
-#[derive(Debug)]pub struct Capture{pub bytes:u64,pub prefix_bytes:usize,pub sha256:[u8;32],pub eof:bool,pub expected:bool}
+#[derive(Debug)]pub struct Capture{pub bytes:u64,pub prefix_bytes:usize,pub sha256:[u8;32],pub eof:bool,pub expected:bool,pub metadata:Option<[u8;32]>}
 #[derive(Default)]struct DrainMetrics{started:AtomicU64,active:AtomicU64,eof:AtomicU64,bytes:AtomicU64}
 struct ActiveDrain(Arc<DrainMetrics>);
 impl Drop for ActiveDrain{fn drop(&mut self){self.0.active.fetch_sub(1,Ordering::SeqCst);}}
@@ -122,7 +122,8 @@ impl Drain{
                     let n=file.read(&mut buffer[..(available as usize).min(4096)]).map_err(|_|"output_read_failed")?;if n==0{eof=true;break}
                     c.fetch_add(n as u64,Ordering::SeqCst);metrics.bytes.fetch_add(n as u64,Ordering::SeqCst);let keep=n.min(65536-prefix.len());prefix.extend_from_slice(&buffer[..keep]);
                 }
-                Ok(Capture{bytes:c.load(Ordering::SeqCst),prefix_bytes:prefix.len(),sha256:hash(&prefix)?,eof,expected:prefix==expected})
+                let bytes=c.load(Ordering::SeqCst);let metadata=crate::network_probe::exact_metadata(bytes,&prefix,eof);
+                Ok(Capture{bytes,prefix_bytes:prefix.len(),sha256:hash(&prefix)?,eof,expected:prefix==expected,metadata})
             })();if matches!(&result,Ok(capture)if capture.eof){metrics.eof.fetch_add(1,Ordering::SeqCst);}let _=tx.send(result);
         };
         let spawned=if injected_failure{Err(std::io::Error::from(std::io::ErrorKind::Other))}else{thread::Builder::new().name("owned-output-drain".into()).spawn(operation)};

@@ -9,3 +9,11 @@
  let at=offset.expect("file-backed load config");assert_eq!(&bytes[at..at+2],&0x800u16.to_le_bytes());
  for flag in [0u16,0x200,0x801,0x1000]{let mut changed=bytes.clone();changed[at..at+2].copy_from_slice(&flag.to_le_bytes());assert!(metallic_guarded_medium_control::pe::guard_system32_imports(&changed).is_err());}
 }
+#[cfg(windows)]#[test]fn actual_worker_has_windows_gui_subsystem(){
+ let path=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/release/metallic-medium-worker.exe");
+ let bytes=std::fs::read(path).expect("build the reviewed worker before this metadata check");
+ assert_eq!(&bytes[..2],b"MZ");let pe=u32::from_le_bytes(bytes[0x3c..0x40].try_into().unwrap())as usize;
+ assert_eq!(&bytes[pe..pe+4],b"PE\0\0");let opt=pe+24;
+ assert_eq!(u16::from_le_bytes(bytes[opt..opt+2].try_into().unwrap()),0x20b);
+ assert_eq!(u16::from_le_bytes(bytes[opt+68..opt+70].try_into().unwrap()),2);
+}

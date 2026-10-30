@@ -4,9 +4,9 @@ pub const WORKER:&str="metallic-medium-worker.exe";
 pub type Result<T>=std::result::Result<T,&'static str>;
 
 #[derive(Clone,Copy,Debug)]
-pub enum Scenario { Marker, Environment, Flood, Wait, Grandchild }
+pub enum Scenario { Marker, Environment, Flood, Wait, Grandchild, Network(metallic_external_guard_fixture::Probe,u16) }
 impl Scenario {
-    pub fn argument(self)->&'static str{match self{Self::Marker=>"--marker",Self::Environment=>"--environment",Self::Flood=>"--flood",Self::Wait=>"--wait",Self::Grandchild=>"--grandchild"}}
+    pub fn argument(self)->String{match self{Self::Marker=>"--marker".into(),Self::Environment=>"--environment".into(),Self::Flood=>"--flood".into(),Self::Wait=>"--wait".into(),Self::Grandchild=>"--grandchild".into(),Self::Network(probe,port)=>format!("--network-probe {} {port}",probe.name())}}
 }
 pub fn digest(text:&str)->Result<[u8;32]>{
     if text.len()!=64||!text.bytes().all(|c|c.is_ascii_hexdigit()){return Err("reviewed_worker_sha256_required")}
@@ -34,10 +34,17 @@ pub fn verify_wrong_pin_refusal<T>(outcome:Result<T>)->Result<()>{
 
 pub mod protocol;
 pub mod pe;
+pub mod network_protocol;
+pub mod network_probe;
 #[cfg(windows)] mod process;
 #[cfg(windows)] mod ipc;
 #[cfg(windows)] mod wfp;
 #[cfg(windows)] pub mod control;
+// Closed authored-worker roles only; no original-client target or commands.
+#[cfg(windows)] mod network_control;
+#[cfg(windows)] pub use network_control::check_network_workers;
+#[cfg(windows)] pub fn run_network_control(launcher:[u8;32],worker:[u8;32],guard:[u8;32])->Result<()>{network_control::launcher(launcher,worker,guard)}
+#[cfg(windows)] pub fn run_network_guard(nonce:[u8;16],parent:protocol::Stamp,launcher:[u8;32],worker:[u8;32],guard:[u8;32])->Result<()>{network_control::guard(nonce,parent,launcher,worker,guard)}
 #[cfg(windows)] pub use process::{Prepared,Receipt,retained_worker,wait_retained,check_drain_failure,check_worker_identity};
 
 #[cfg(test)]mod tests{
