@@ -6,6 +6,8 @@ public sealed record BackendOptions(int Port, string DataDirectory)
     public bool EnableNativeIdentityMapping { get; init; }
     // Embedding-only opt-in, after the separate v2 identity migration.
     public bool EnableNativeSessions { get; init; }
+    // Explicit owner-entered profile storage; no native route activation.
+    public bool EnableNativeAccountProfiles { get; init; }
     public const int DefaultPort = 4187;
     public const int MaxRequestBytes = 65536;
     public static BackendOptions Parse(string[] args)

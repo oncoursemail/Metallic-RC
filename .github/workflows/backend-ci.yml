@@ -16,6 +16,7 @@ on:
       - 'tests/Metallic.RC.NativeIdentity.Tests/**'
       - 'tests/Metallic.RC.CredentialCheck.Tests/**'
       - 'tests/Metallic.RC.NativeSessions.Tests/**'
+      - 'tests/Metallic.RC.NativeAccountProfiles.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -38,6 +39,7 @@ on:
       - 'tests/Metallic.RC.NativeIdentity.Tests/**'
       - 'tests/Metallic.RC.CredentialCheck.Tests/**'
       - 'tests/Metallic.RC.NativeSessions.Tests/**'
+      - 'tests/Metallic.RC.NativeAccountProfiles.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -124,6 +126,10 @@ jobs:
         run: dotnet build tests/Metallic.RC.NativeSessions.Tests/Metallic.RC.NativeSessions.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify exact binding, refresh replay, expiry and backup without native routes
         run: dotnet tests/Metallic.RC.NativeSessions.Tests/bin/Release/net10.0/Metallic.RC.NativeSessions.Tests.dll --self-test artifacts/backend/native-sessions.json
+      - name: Build the explicit native account profile persistence checks
+        run: dotnet build tests/Metallic.RC.NativeAccountProfiles.Tests/Metallic.RC.NativeAccountProfiles.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify profile authority, canonical storage, stale refusal and backup without native routes
+        run: dotnet tests/Metallic.RC.NativeAccountProfiles.Tests/bin/Release/net10.0/Metallic.RC.NativeAccountProfiles.Tests.dll --self-test artifacts/backend/native-account-profiles.json
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

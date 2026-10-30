@@ -26,8 +26,11 @@ public sealed partial class BackendStore : IDisposable
     {
         nativeIdentityEnabled = options.EnableNativeIdentityMapping;
         nativeSessionsEnabled = options.EnableNativeSessions;
+        nativeProfilesEnabled = options.EnableNativeAccountProfiles;
         if (nativeSessionsEnabled && !nativeIdentityEnabled)
             throw new ArgumentException("Native sessions require explicit native identity mapping.");
+        if (nativeProfilesEnabled && !nativeIdentityEnabled)
+            throw new ArgumentException("Native profiles require explicit native identity mapping.");
         directory = options.DataDirectory;
         BackendFiles.Prepare(directory);
         owner = new FileStream(Path.Combine(directory, "backend.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -42,8 +45,10 @@ public sealed partial class BackendStore : IDisposable
             using var db = Open();
             Execute(db, "PRAGMA journal_mode=WAL;");
             long version = Convert.ToInt64(Scalar(db, "PRAGMA user_version;"), CultureInfo.InvariantCulture);
-            if (version is not (0 or 1 or 2 or 3)) throw new IOException("Unsupported backend database version; not changing it.");
-            if (nativeSessionsEnabled && version is not (2 or 3))
+            if (version is not (0 or 1 or 2 or 3 or 4)) throw new IOException("Unsupported backend database version; not changing it.");
+            if (nativeProfilesEnabled && version is not (3 or 4))
+                throw new IOException("Native profiles require an existing validated v3 session database.");
+            if (nativeSessionsEnabled && version is not (2 or 3 or 4))
                 throw new IOException("Native sessions require an existing validated v2 identity database.");
             if (version == 0)
             {
@@ -66,9 +71,11 @@ public sealed partial class BackendStore : IDisposable
             }
             // A previously opted-in database remains usable by the owned APIs
             // when this feature is off, but an invalid mapping is never adopted.
-            if (version is 2 or 3) NativeIdentityMap.Validate(db, null);
+            if (version is 2 or 3 or 4) NativeIdentityMap.Validate(db, null);
             if (version == 2 && nativeSessionsEnabled) { NativeSessions.Migrate(db); version = 3; }
-            if (version == 3) NativeSessions.Validate(db, null);
+            if (version is 3 or 4) NativeSessions.Validate(db, null);
+            if (version == 3 && nativeProfilesEnabled) { NativeAccountProfiles.Migrate(db); version = 4; }
+            if (version == 4) NativeAccountProfiles.Validate(db, null, allPayloads: true);
             dummyHash = passwords.HashPassword("dummy", Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
         }
         catch { owner.Dispose(); throw; }
