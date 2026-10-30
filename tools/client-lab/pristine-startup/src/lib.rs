@@ -1,7 +1,7 @@
-//! Closed source candidate for one pristine installed-build startup observation.
+//! Fixed installed-build startup observation, with inert default entrypoints.
 pub type Result<T> = std::result::Result<T, &'static str>;
 pub const ENVIRONMENT: [&str; 20] = ["SystemRoot", "SystemDrive", "WINDIR", "PATH", "COMSPEC", "TEMP", "TMP", "LOCALAPPDATA", "APPDATA", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "ProgramData", "ProgramFiles", "ProgramFiles(x86)", "PUBLIC", "USERNAME", "USERDOMAIN", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE"];
-pub const PLAN: &str = r#"{"scope":"pristine_startup_source_candidate","steamBuildId":"23191908","variant":"no-authored-section","executorSourcePrepared":true,"gameWillNotRun":true,"guardWillNotRun":true,"targetNetworkVerified":false,"originalClientTested":false,"startupVerified":false,"executionReady":false,"blockingReasons":["original_target_guard_profile_not_verified","guard_receipt_provenance_not_verified","independent_original_executor_source_admission_missing"]}"#;
+pub const PLAN: &str = r#"{"scope":"pristine_startup_observation_profile","steamBuildId":"23191908","variant":"no-authored-section","gameWillNotRun":true,"guardWillNotRun":true,"fixedRoleAvailable":true,"originalAppIdReadbackVerified":false,"originalTrafficBlockedObserved":null,"targetNetworkVerified":false,"originalClientTested":false,"startupVerified":false,"executionReady":false,"requires":["reviewed_source_and_exact_artifact_pair","fixed_role_and_self_image_pins","normal_windows_consent","original_four_image_pins_and_live_appid_rule_readback","authenticated_target_ack_before_resume"]}"#;
 
 pub mod admission;
 pub mod originals;
@@ -12,6 +12,62 @@ pub mod originals;
 #[cfg(windows)] #[path = "../../guarded-medium-control/src/wfp.rs"] mod wfp;
 #[cfg(windows)] #[allow(dead_code)] mod process;
 #[cfg(windows)] #[allow(dead_code)] mod control;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Entry { Launcher, Guard }
+
+pub enum Invocation {
+    Plan(&'static str),
+    Refused(&'static str),
+    Completed(Result<()>),
+}
+
+/// Only these compiled roles can reach the fixed controller. Environment,
+/// receipt files and readiness booleans never provide source admission.
+pub fn entry(executable: Entry, args: &[String]) -> Invocation {
+    if args.is_empty() || args == ["--plan"] {
+        return Invocation::Plan(PLAN);
+    }
+    let request = match admission::parse(executable, args) {
+        Ok(request) => request,
+        Err(error) => return Invocation::Refused(error),
+    };
+    #[cfg(windows)] {
+        let (permit, request) = admission::admit_fixed(request);
+        let outcome = match request {
+            admission::Request::Launcher(pins) => control::launcher(permit, pins.launcher, pins.guard),
+            admission::Request::Guard { nonce, parent, pins } => control::guard(permit, nonce, parent, pins.launcher, pins.guard),
+        };
+        Invocation::Completed(outcome)
+    }
+    #[cfg(not(windows))] {
+        let _ = request;
+        Invocation::Refused("windows_required_for_fixed_observation")
+    }
+}
+
+pub fn main_for(executable: Entry) {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match entry(executable, &args) {
+        Invocation::Plan(plan) => println!("{plan}"),
+        Invocation::Refused(error) => {
+            eprintln!("{{\"ok\":false,\"error\":\"{error}\",\"gameWillNotRun\":true,\"guardWillNotRun\":true,\"executionReady\":false}}");
+            std::process::exit(1);
+        }
+        Invocation::Completed(Ok(())) => println!("{{\"ok\":true,\"scope\":\"pristine_startup_cleanup_only\",\"startupVerified\":false,\"loginVerified\":false,\"executionReady\":false}}"),
+        Invocation::Completed(Err(error)) => {
+            // A runtime error can follow target creation/resume. Never label it
+            // as an invocation where the original could not have run.
+            eprintln!("{{\"ok\":false,\"error\":\"{error}\",\"scope\":\"fixed_pristine_startup_attempt\",\"startupVerified\":false,\"loginVerified\":false,\"executionReady\":false}}");
+            std::process::exit(1);
+        }
+    }
+}
+
+pub(crate) fn cleanup_accepted(resumed: bool, exit_code: Option<u32>, job_empty: bool,
+    total_processes: u32, stdout_eof: bool, stderr_eof: bool) -> bool {
+    resumed && exit_code.is_some() && job_empty && total_processes == 1 && stdout_eof && stderr_eof
+}
 
 pub fn digest(text: &str) -> Result<[u8; 32]> {
     if text.len() != 64 || !text.bytes().all(|c| c.is_ascii_hexdigit()) { return Err("reviewed_image_sha256_required"); }
@@ -34,7 +90,7 @@ pub fn environment_block(rows: impl IntoIterator<Item=(String, String)>) -> Resu
     Ok(block)
 }
 
-/// Mere CLI data cannot construct an execution permit. No active route exists.
+/// Legacy plan/refusal helper; it never admits a runtime role.
 pub fn closed_entrypoint(args: &[String]) -> Result<&'static str> {
     if args.is_empty() || args == ["--plan"] { return Ok(PLAN); }
     admission::require_execution().map(|_| PLAN)
@@ -78,5 +134,19 @@ pub(crate) fn remaining_observation(elapsed: std::time::Duration) -> Result<std:
         assert_eq!(remaining_observation(Duration::ZERO),Ok(Duration::from_secs(80)));
         assert_eq!(remaining_observation(Duration::from_secs(79)),Ok(Duration::from_secs(1)));
         for seconds in [80,81,90,130] { assert_eq!(remaining_observation(Duration::from_secs(seconds)),Err("original_startup_budget_exhausted")); }
+    }
+    #[test] fn pristine_cleanup_rejects_every_missing_fact_and_extra_job_process() {
+        assert!(cleanup_accepted(true, Some(0), true, 1, true, true));
+        // A forced final exit can establish cleanup, never successful startup.
+        assert!(cleanup_accepted(true, Some(124), true, 1, true, true));
+        for (resumed, exit, empty, count, stdout, stderr) in [
+            (false, Some(0), true, 1, true, true),
+            (true, None, true, 1, true, true),
+            (true, Some(0), false, 1, true, true),
+            (true, Some(0), true, 0, true, true),
+            (true, Some(0), true, 2, true, true),
+            (true, Some(0), true, 1, false, true),
+            (true, Some(0), true, 1, true, false),
+        ] { assert!(!cleanup_accepted(resumed, exit, empty, count, stdout, stderr)); }
     }
 }

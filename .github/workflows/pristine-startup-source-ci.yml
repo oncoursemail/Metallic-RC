@@ -54,6 +54,8 @@ jobs:
         run: cargo test --locked --lib pe::tests
       - name: Execute only inert and refusal entrypoint tests
         run: cargo test --locked --test closed_entrypoints
+      - name: Check closed observation-role refusals without starting either role
+        run: cargo test --locked --test role_refusals
       - name: Inspect actual Windows guard PE without executing it
         if: runner.os == 'Windows'
         run: cargo test --locked --test guard_pe

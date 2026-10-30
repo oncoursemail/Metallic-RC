@@ -136,12 +136,12 @@ impl Drain{
 }
 impl Drop for Drain{fn drop(&mut self){self.stop.store(true,Ordering::SeqCst);}}
 
-pub struct Receipt{pub resumed:bool,pub before_cleanup:Option<u32>,pub exit_code:Option<u32>,pub job_empty:bool,pub stdout:Capture,pub stderr:Capture,pub total_processes:u32,pub input_idle_hint:bool,pub log_limit:bool}
+pub struct Receipt{pub stamp:crate::protocol::Stamp,pub resumed:bool,pub before_cleanup:Option<u32>,pub exit_code:Option<u32>,pub job_empty:bool,pub stdout:Capture,pub stderr:Capture,pub total_processes:u32,pub input_idle_hint:bool,pub log_limit:bool}
 impl Receipt{
  pub fn json(&self)->String{
   let h=|b:[u8;32]|b.iter().map(|v|format!("{v:02x}")).collect::<String>();let exit=|v:Option<u32>|v.map(|n|n.to_string()).unwrap_or("null".into());
   let state=match crate::observation(self.before_cleanup){crate::Observation::RunningBeforeCleanup=>"running_before_forced_cleanup",crate::Observation::ExitedCleanly=>"exited_cleanly_before_cleanup",crate::Observation::Crashed(_)=>"nonzero_exit_before_cleanup"};
-  format!("{{\"scope\":\"pristine_startup_observation_only\",\"observation\":\"{state}\",\"resumed\":{},\"preCleanupExitCode\":{},\"postCleanupExitCode\":{},\"forcedCleanup\":{},\"inputIdleHint\":{},\"logLimitObserved\":{},\"jobEmpty\":{},\"totalProcesses\":{},\"stdoutBytes\":{},\"stdoutPrefixSha256\":\"{}\",\"stderrBytes\":{},\"stderrPrefixSha256\":\"{}\",\"startupVerified\":false,\"loginVerified\":false,\"executionReady\":false}}",self.resumed,exit(self.before_cleanup),exit(self.exit_code),self.before_cleanup.is_none(),self.input_idle_hint,self.log_limit,self.job_empty,self.total_processes,self.stdout.bytes,h(self.stdout.sha256),self.stderr.bytes,h(self.stderr.sha256))
+  format!("{{\"scope\":\"pristine_startup_observation_only\",\"targetPid\":{},\"targetCreated100ns\":\"{}\",\"stdoutEof\":{},\"stderrEof\":{},\"observation\":\"{state}\",\"resumed\":{},\"preCleanupExitCode\":{},\"postCleanupExitCode\":{},\"forcedCleanup\":{},\"inputIdleHint\":{},\"logLimitObserved\":{},\"jobEmpty\":{},\"totalProcesses\":{},\"stdoutBytes\":{},\"stdoutPrefixSha256\":\"{}\",\"stderrBytes\":{},\"stderrPrefixSha256\":\"{}\",\"startupVerified\":false,\"loginVerified\":false,\"executionReady\":false}}",self.stamp.pid,self.stamp.created,self.stdout.eof,self.stderr.eof,self.resumed,exit(self.before_cleanup),exit(self.exit_code),self.before_cleanup.is_none(),self.input_idle_hint,self.log_limit,self.job_empty,self.total_processes,self.stdout.bytes,h(self.stdout.sha256),self.stderr.bytes,h(self.stderr.sha256))
  }
 }
 pub struct Prepared{process:Handle,thread:Handle,job:Handle,_pin:File,_originals:crate::originals::Originals,_private_directories:Vec<Handle>,stdout:Option<Drain>,stderr:Option<Drain>,directory:PathBuf,resumed:bool,assigned:bool,cleaned:bool}
@@ -206,7 +206,7 @@ impl Prepared{
             thread::sleep(Duration::from_millis(5));
         }
         let before=self.poll()?;self.stop()?;
-        let receipt=Receipt{resumed:self.resumed,before_cleanup:before,exit_code:self.poll()?,job_empty:self.accounting()?.ActiveProcesses==0,total_processes:self.accounting()?.TotalProcesses,stdout:self.stdout.take().ok_or("stdout_missing")?.finish()?,stderr:self.stderr.take().ok_or("stderr_missing")?.finish()?,input_idle_hint,log_limit};
+        let receipt=Receipt{stamp:self.stamp()?,resumed:self.resumed,before_cleanup:before,exit_code:self.poll()?,job_empty:self.accounting()?.ActiveProcesses==0,total_processes:self.accounting()?.TotalProcesses,stdout:self.stdout.take().ok_or("stdout_missing")?.finish()?,stderr:self.stderr.take().ok_or("stderr_missing")?.finish()?,input_idle_hint,log_limit};
         let mut output=std::fs::OpenOptions::new().create_new(true).write(true).open(self.directory.join("summary.json")).map_err(|_|"private_receipt_create_failed")?;output.write_all(receipt.json().as_bytes()).and_then(|_|output.sync_all()).map_err(|_|"private_receipt_write_failed")?;Ok(receipt)
     }
 
