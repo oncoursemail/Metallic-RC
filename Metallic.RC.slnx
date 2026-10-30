@@ -18,4 +18,5 @@
   <Project Path="tests/Metallic.RC.SelfAccountResponse.Tests/Metallic.RC.SelfAccountResponse.Tests.csproj" />
   <Project Path="tests/Metallic.RC.NativeIdentity.Tests/Metallic.RC.NativeIdentity.Tests.csproj" />
   <Project Path="tests/Metallic.RC.CredentialCheck.Tests/Metallic.RC.CredentialCheck.Tests.csproj" />
+  <Project Path="tests/Metallic.RC.NativeSessions.Tests/Metallic.RC.NativeSessions.Tests.csproj" />
 </Solution>

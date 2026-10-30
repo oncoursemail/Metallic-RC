@@ -15,6 +15,7 @@ on:
       - 'tests/Metallic.RC.SelfAccountResponse.Tests/**'
       - 'tests/Metallic.RC.NativeIdentity.Tests/**'
       - 'tests/Metallic.RC.CredentialCheck.Tests/**'
+      - 'tests/Metallic.RC.NativeSessions.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -36,6 +37,7 @@ on:
       - 'tests/Metallic.RC.SelfAccountResponse.Tests/**'
       - 'tests/Metallic.RC.NativeIdentity.Tests/**'
       - 'tests/Metallic.RC.CredentialCheck.Tests/**'
+      - 'tests/Metallic.RC.NativeSessions.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -118,6 +120,10 @@ jobs:
         run: dotnet build tests/Metallic.RC.CredentialCheck.Tests/Metallic.RC.CredentialCheck.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify credential checking without session or native identity issuance
         run: dotnet tests/Metallic.RC.CredentialCheck.Tests/bin/Release/net10.0/Metallic.RC.CredentialCheck.Tests.dll --self-test artifacts/backend/credential-check.json
+      - name: Build the default-off durable native session checks
+        run: dotnet build tests/Metallic.RC.NativeSessions.Tests/Metallic.RC.NativeSessions.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify exact binding, refresh replay, expiry and backup without native routes
+        run: dotnet tests/Metallic.RC.NativeSessions.Tests/bin/Release/net10.0/Metallic.RC.NativeSessions.Tests.dll --self-test artifacts/backend/native-sessions.json
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
