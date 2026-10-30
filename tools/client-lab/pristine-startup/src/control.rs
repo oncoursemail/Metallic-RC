@@ -8,39 +8,55 @@ pub fn nonce_text(n:[u8;16])->String{n.iter().map(|b|format!("{b:02x}")).collect
 pub fn parse_nonce(s:&str)->Result<[u8;16]>{if s.len()!=32||!s.bytes().all(|b|b.is_ascii_hexdigit()){return Err("closed_nonce_required")}let mut n=[0;16];for(i,b)in n.iter_mut().enumerate(){*b=u8::from_str_radix(&s[i*2..i*2+2],16).map_err(|_|"closed_nonce_required")?;}if n==[0;16]{return Err("nonce_unavailable")}Ok(n)}
 fn pin_text(n:[u8;32])->String{n.iter().map(|b|format!("{b:02x}")).collect()}
 fn own_output()->Result<(File,Vec<Handle>)>{let(dir,locks)=process::private_directory()?;let mut file=std::fs::OpenOptions::new().create_new(true).write(true).open(dir.join("pristine-startup.json")).map_err(|_|"private_output_create_failed")?;file.write_all(b"{\"ok\":false,\"status\":\"pending\",\"executionReady\":false,\"targetNetworkVerified\":false}").and_then(|_|file.sync_all()).map_err(|_|"private_output_write_failed")?;Ok((file,locks))}
-fn report(file:&mut File,result:&Result<()>,guard:bool,stage:&'static str)->Result<()>{use std::io::{Seek,SeekFrom};let text=match result{Ok(())=>format!("{{\"ok\":true,\"scope\":\"pristine_startup_cleanup_only\",\"stage\":\"{stage}\",\"guard\":{guard},\"cleanupVerified\":true,\"targetNetworkVerified\":false,\"startupVerified\":false,\"loginVerified\":false,\"executionReady\":false}}"),Err(reason)=>format!("{{\"ok\":false,\"error\":\"{reason}\",\"stage\":\"{stage}\",\"cleanupVerified\":false,\"targetNetworkVerified\":false,\"startupVerified\":false,\"loginVerified\":false,\"executionReady\":false}}")};file.seek(SeekFrom::Start(0)).and_then(|_|file.write_all(text.as_bytes())).and_then(|_|file.set_len(text.len()as u64)).and_then(|_|file.sync_all()).map_err(|_|"private_output_write_failed")}
+#[derive(Default)]
+struct ReportFacts {
+    readback: bool,
+    cleanup: bool,
+    target: Option<Stamp>,
+    resumed: Option<bool>,
+}
+fn report(file:&mut File,result:&Result<()>,guard:bool,stage:&'static str,facts:&ReportFacts)->Result<()> {
+    use std::io::{Seek,SeekFrom};
+    let error=match result { Ok(())=>"null".to_string(), Err(reason)=>format!("\"{reason}\"") };
+    let pid=facts.target.map(|s|s.pid.to_string()).unwrap_or_else(||"null".into());
+    // FILETIME is encoded as decimal text to preserve all64 bits in JSON readers.
+    let created=facts.target.map(|s|format!("\"{}\"",s.created)).unwrap_or_else(||"null".into());
+    let resumed=facts.resumed.map(|v|v.to_string()).unwrap_or_else(||"null".into());
+    let text=format!("{{\"ok\":{},\"error\":{error},\"scope\":\"pristine_startup_observation_only\",\"stage\":\"{stage}\",\"guard\":{guard},\"cleanupVerified\":{},\"originalAppIdReadbackVerified\":{},\"guardReadbackAcknowledged\":{},\"targetPid\":{pid},\"targetCreated100ns\":{created},\"targetResumed\":{resumed},\"originalTrafficBlockedObserved\":null,\"targetNetworkVerified\":false,\"startupVerified\":false,\"loginVerified\":false,\"executionReady\":false}}",result.is_ok(),facts.cleanup,guard&&facts.readback,!guard&&facts.readback);
+    file.seek(SeekFrom::Start(0)).and_then(|_|file.write_all(text.as_bytes())).and_then(|_|file.set_len(text.len()as u64)).and_then(|_|file.sync_all()).map_err(|_|"private_output_write_failed")
+}
 fn wait_exit(peer:&Peer,until:Instant)->Result<()>{while Instant::now()<until{if process::exited(peer)?{return Ok(())}std::thread::sleep(Duration::from_millis(5));}Err("retained_exit_unverified")}
 fn peer_on_pipe(pipe:&Pipe,expected:&Peer)->Result<()>{if pipe.peer_pid()?!=expected.stamp.pid||process::exited(expected)?{return Err("os_pipe_peer_refused")}Ok(())}
 /// Explicit role only. This is the sole normal-UAC call; no alternate targets.
-pub(crate) fn launcher(launcher_pin:[u8;32],guard_pin:[u8;32])->Result<()>{
- let permit=crate::admission::require_execution()?;
+pub(crate) fn launcher(permit:crate::admission::Permit,launcher_pin:[u8;32],guard_pin:[u8;32])->Result<()>{
  require_supported_os()?;process::non_admin()?;let owner=process::token_facts(unsafe{GetCurrentProcess()})?;if owner.integrity!=8192{return Err("medium_integrity_required")}
  let(_,launcher_image,_launcher_locks)=process::fixed_image(Image::Launcher,launcher_pin)?;process::image_matches(unsafe{GetCurrentProcess()},&launcher_image)?;
  process::refuse_existing_target()?;
  let originals=crate::originals::Originals::verify(&permit)?;
  let(guard_path,guard_image,_guard_locks)=process::fixed_image(Image::Guard,guard_pin)?;process::verify_guard_load_flags(&guard_image)?;
  let n=nonce()?;let pipe=Pipe::server(n)?;let stamp=process::process_stamp(unsafe{GetCurrentProcess()})?;let(mut output,_output_locks)=own_output()?;
+ let mut facts=ReportFacts{resumed:Some(false),..ReportFacts::default()};
  let result=(||{
-  let parameters=process::wide(format!("--one-shot {} {} {} {} {}",nonce_text(n),stamp.pid,stamp.created,pin_text(launcher_pin),pin_text(guard_pin)));
+  let parameters=process::wide(format!("--guard-observation {} {} {} {} {}",nonce_text(n),stamp.pid,stamp.created,pin_text(launcher_pin),pin_text(guard_pin)));
   let verb=process::wide("runas");let path=process::wide(&guard_path);let directory=process::wide(guard_path.parent().ok_or("guard_parent_required")?);
   let mut info=SHELLEXECUTEINFOW::default();info.cbSize=std::mem::size_of_val(&info)as u32;info.fMask=SEE_MASK_NOCLOSEPROCESS|SEE_MASK_NOASYNC;info.lpVerb=verb.as_ptr();info.lpFile=path.as_ptr();info.lpParameters=parameters.as_ptr();info.lpDirectory=directory.as_ptr();info.nShow=SW_HIDE;
   process::yes(unsafe{ShellExecuteExW(&mut info)})?;
   let retained=Handle::new(info.hProcess)?;let protected_start=Instant::now();hard_deadline()?;let helper_stamp=process::process_stamp(retained.0)?;let helper=process::verify_peer(retained,helper_stamp,&guard_image,&owner,true)?;
   pipe.accept()?;peer_on_pipe(&pipe,&helper)?;let mut session=Launcher::new(n,helper.stamp)?;session.hello(pipe.receive()?)?;session.ready(pipe.receive()?)?;peer_on_pipe(&pipe,&helper)?;
+  facts.readback=true;
   // No target exists before the authenticated live-readback Ready receipt.
-  let mut target=match Prepared::new(&permit,originals){Ok(target)=>target,Err(reason)=>{let _=pipe.send(session.cancel_without_target()?);return Err(reason)}};let target_stamp=target.stamp()?;pipe.send(session.register(target_stamp)?)?;
+  let mut target=match Prepared::new(&permit,originals){Ok(target)=>target,Err(reason)=>{let _=pipe.send(session.cancel_without_target()?);return Err(reason)}};let target_stamp=target.stamp()?;facts.target=Some(target_stamp);pipe.send(session.register(target_stamp)?)?;
   peer_on_pipe(&pipe,&helper)?;session.ack(pipe.receive()?)?;
   let observe=crate::remaining_observation(protected_start.elapsed())?;
-  session.resume_once()?;target.resume()?;
+  session.resume_once()?;target.resume()?;facts.resumed=Some(true);
   let receipt=target.finish(observe)?;
-  let good=receipt.resumed&&receipt.exit_code.is_some()&&receipt.job_empty&&receipt.stdout.eof&&receipt.stderr.eof;
+  let good=crate::cleanup_accepted(receipt.resumed,receipt.exit_code,receipt.job_empty,receipt.total_processes,receipt.stdout.eof,receipt.stderr.eof);
   pipe.send(session.done(good)?)?;peer_on_pipe(&pipe,&helper)?;session.released(pipe.receive()?)?;wait_exit(&helper,Instant::now()+Duration::from_secs(3))?;
-  let mut code=0;process::yes(unsafe{GetExitCodeProcess(helper.handle.0,&mut code)})?;if code!=0{return Err("guard_exit_not_success")}if receipt.log_limit{return Err("original_private_log_limit_observed")}if matches!(crate::observation(receipt.before_cleanup),crate::Observation::Crashed(_)){return Err("original_nonzero_exit_before_cleanup")}Ok(())
- })();report(&mut output,&result,false,"medium_control")?;result
+  let mut code=0;process::yes(unsafe{GetExitCodeProcess(helper.handle.0,&mut code)})?;if code!=0{return Err("guard_exit_not_success")}facts.cleanup=true;if receipt.log_limit{return Err("original_private_log_limit_observed")}if matches!(crate::observation(receipt.before_cleanup),crate::Observation::Crashed(_)){return Err("original_nonzero_exit_before_cleanup")}Ok(())
+ })();report(&mut output,&result,false,"medium_control",&facts)?;result
 }
 /// Source-only until reviewed and explicitly invoked with normal Windows consent.
-pub(crate) fn guard(n:[u8;16],parent:Stamp,launcher_pin:[u8;32],guard_pin:[u8;32])->Result<()>{
- let permit=crate::admission::require_execution()?;
+pub(crate) fn guard(permit:crate::admission::Permit,n:[u8;16],parent:Stamp,launcher_pin:[u8;32],guard_pin:[u8;32])->Result<()>{
  require_supported_os()?;process::yes(unsafe{SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)})?;hard_deadline()?;
  let owner=process::token_facts(unsafe{GetCurrentProcess()})?;if !owner.elevated||owner.integrity!=12288{return Err("high_integrity_required")}
  let(_,guard_image,_guard_locks)=process::fixed_image(Image::Guard,guard_pin)?;process::verify_guard_load_flags(&guard_image)?;process::image_matches(unsafe{GetCurrentProcess()},&guard_image)?;
@@ -48,18 +64,18 @@ pub(crate) fn guard(n:[u8;16],parent:Stamp,launcher_pin:[u8;32],guard_pin:[u8;32
  let(_,launcher_image,_launcher_locks)=process::fixed_image(Image::Launcher,launcher_pin)?;
  let launcher=process::open_peer(parent,&launcher_image,&owner,false)?;
  let pipe=Pipe::client(n)?;peer_on_pipe(&pipe,&launcher)?;
- let(mut output,_output_locks)=own_output()?;let mut stage="admitted";
- let result=guard_admitted(&permit,n,&owner,&launcher,&pipe,&mut stage);
- report(&mut output,&result,true,stage)?;result
+ let(mut output,_output_locks)=own_output()?;let mut stage="admitted";let mut facts=ReportFacts::default();
+ let result=guard_admitted(&permit,n,&owner,&launcher,&pipe,&mut stage,&mut facts);
+ report(&mut output,&result,true,stage,&facts)?;result
 }
-fn guard_admitted(permit:&crate::admission::Permit,n:[u8;16],owner:&process::TokenFacts,launcher:&Peer,pipe:&Pipe,stage:&mut &'static str)->Result<()>{
+fn guard_admitted(permit:&crate::admission::Permit,n:[u8;16],owner:&process::TokenFacts,launcher:&Peer,pipe:&Pipe,stage:&mut &'static str,facts:&mut ReportFacts)->Result<()>{
  *stage="original_images";
  let originals=crate::originals::Originals::verify(permit)?;let target_path=originals.target_path();let target_image=originals.target_image();
  *stage="hello_send";let own=process::process_stamp(unsafe{GetCurrentProcess()})?;pipe.send(Frame::new(Tag::Hello,n,0,own,0))?;
  *stage="filter_create";
  let budget=metallic_external_guard_fixture::Budget::default();let mut api=crate::wfp::Native::new(budget.clone(),target_path)?;
  *stage="filter_install";
- let rules=metallic_external_guard_fixture::install(&mut api)?;let mut target:Option<Peer>=None;
+ let rules=metallic_external_guard_fixture::install(&mut api)?;facts.readback=true;let mut target:Option<Peer>=None;
  let result=(||{
   *stage="live_ready";
   peer_on_pipe(pipe,launcher)?;pipe.send(Frame::new(Tag::Ready,n,1,EMPTY,4))?;
@@ -69,7 +85,7 @@ fn guard_admitted(permit:&crate::admission::Permit,n:[u8;16],owner:&process::Tok
   *stage="target_registration";
   let verified=process::open_peer(registration.stamp,target_image,owner,false)?;
   if verified.stamp.created<launcher.stamp.created{return Err("target_creation_order_refused")}
-  target=Some(verified);
+  facts.target=Some(verified.stamp);target=Some(verified);
   // The real query/synchronize handle is retained before Ack can permit resume.
   *stage="target_ack";
   pipe.send(Frame::new(Tag::Ack,n,3,target.as_ref().unwrap().stamp,0))?;
@@ -90,7 +106,7 @@ fn guard_admitted(permit:&crate::admission::Permit,n:[u8;16],owner:&process::Tok
  *stage="target_exit";
  let target_status=(||{if result.is_ok(){let mut code=0;process::yes(unsafe{GetExitCodeProcess(waited.handle.0,&mut code)})?;if code==259{return Err("target_exit_unverified")}}Ok(())})();
  *stage="filter_cleanup";
- let removed=metallic_external_guard_fixture::cleanup(&mut api,&rules,true);
+ let removed=metallic_external_guard_fixture::cleanup(&mut api,&rules,true);facts.cleanup=removed.is_ok();
  let final_result=result.and(target_status).and(removed);
  if result.is_err(){*stage=failure_stage;}else if target_status.is_err(){*stage="target_exit";}
  if final_result.is_ok(){*stage="released_send";pipe.send(Frame::new(Tag::Released,n,5,target.as_ref().ok_or("target_required")?.stamp,0))?;}

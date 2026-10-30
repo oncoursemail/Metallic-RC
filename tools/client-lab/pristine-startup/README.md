@@ -1,21 +1,84 @@
-# Pristine original startup source candidate
+# Controlled uninjected startup observation
 
-This crate prepares one direct, non-instrumented startup path for the fixed installed Rec Room build23191908. It cannot launch the client or elevated guard. Both binaries expose only an inert default/`--plan`; every other argument returns the same admission refusal before original reads, output creation, IPC, process creation or UAC. The private `Permit` has no constructor: a JSON receipt, CLI flag, environment assertion or hash is never execution authority. Independent original-executor source admission and original-target guard/provenance verification are absent. Adding a runtime route requires a separately reviewed source change.
+This candidate prepares one bounded observation of the fixed installed Rec Room
+build 23191908. Default invocation and `--plan` are inert. The source defines two
+closed Windows roles:
 
-The Windows executor source is compiled and typechecked behind that gate. It uses the four exact file identities from `pristine-baselines.py` atbc6dc3e: RecRoom.exe, GameAssembly.dll, Referee.dll and UnityPlayer.dll. Low and high independently hash all four, check exact sizes, and retain read-locked files and non-reparse ancestor handles. No original path, build, command, filter target or baseline variant comes from CLI data. The fixed target is the installed RecRoom.exe; the high guard's App-ID comes from that path, never an authored-worker path.
+- Launcher: `--observe-no-authored-section <launcherSha> <guardSha>`.
+- Guard, called only by that launcher through normal Windows consent:
+  `--guard-observation <nonce> <parentPid> <created> <launcherSha> <guardSha>`.
 
-The prepared path creates a new owner-only token-profile-derived private directory, uses the fixed screen arguments and game working directory, and selects only the20 approved Unicode environment names. `SystemDrive` is mandatory. It does not create/map an authored global section, inject Frida, hook native methods, patch authentication/TLS, load an external patch, or start/change a service. Existing same-name processes are checked during preflight and again immediately before suspended creation, after normal consent and authenticated Ready. A late refusal uses the existing cancel-without-target path and never terminates another process. Each inventory is a snapshot: another process can start after it, and per-App-ID rules can also affect independently started processes with that image. This is not atomic launch exclusion or tracking of foreign process lifetimes. Vendor objects and services are untouched; this does not assert that they are absent.
+The parser and Windows admission checks produce a typed `Permit` passed into
+the controller. There is no arbitrary executable, path, profile, environment,
+command or receipt option. Hashes identify the reviewed sibling binaries;
+neither a JSON assertion nor an environment value can grant a different scope.
+Malformed roles remain refusals. CI executes inert/refusal tests, never the
+complete admitted observation roles.
 
-The prepared process is suspended with only three stdio handles in an explicit inheritance list. Cleanup owns the retained process immediately after creation. A kill-on-close job, active-process limit1 and restricted-child process attribute precede resume; no breakaway flag is set. Image/file identity and actual medium token/SID/session/creation time are checked before an authenticated high peer may ACK the retained target. The high guard receives QUERY/SYNCH rights only, never the job handle. It retains the target and four exact verified App-ID rules through target-exit/STOPWAIT. Existing-service delegation remains outside that child restriction and per-App-ID rule scope.
+## Identity, guard and process order
 
-The phase1 WFP adapter has a90-second budget. The candidate reserves cleanup time by ending observation at most80 seconds after normal consent returns, minus startup work already elapsed. The input-idle hint window is at most30 seconds after resume; an input-idle hint is not successful game startup. Each process has the inherited130-second hard ceiling. High waits on the retained target before reading Done, allowing reuse of the existing15-second bounded IPC primitive. Unverified soft waits stay STOPWAIT. Hard teardown, creation-to-job assignment and dynamic filter release are explicitly non-atomic limits.
+Low and high independently verify their own and peer images, retained file
+identity, owner SID, session and process creation time. They also verify four
+fixed original images: RecRoom.exe, GameAssembly.dll, Referee.dll and
+UnityPlayer.dll. These pins cover four files, not the complete installation.
+The target path, screen arguments, working directory and 20-name environment
+allowlist come from source; `SystemDrive` is mandatory.
 
-An alive target at the observation boundary is recorded as running before forced cleanup. A natural nonzero exit keeps its pre-cleanup code and returns failure after cleanup. Neither a clean exit nor forced termination establishes startup/login/gameplay. Stream prefixes remain bounded65,536-byte fingerprints; raw output is never printed. The private player log is metadata-monitored with a4MiB stop threshold; a native write can overshoot that sampled threshold. It stays private and is never evidence of startup by itself. Cleanup error/missing exit/drain evidence is not success. `executionReady`, `startupVerified` and `loginVerified` remain false.
+The guard uses the actual fixed RecRoom.exe App-ID. Four exact IPv4/IPv6
+connect/receive-accept BLOCK rules must pass live readback before Ready. Only
+then may the medium launcher create the suspended target. Actual target image,
+file identity, token, SID, session and creation time must match before the high
+peer ACK permits one resume. The target receives only three listed stdio handles.
+A kill-on-close job with active-process limit one and restricted-child policy
+precedes resume. The guard retains only query/synchronize target rights and
+never holds the job handle.
 
-## Reuse and provenance
+`originalAppIdReadbackVerified` describes the installed rule objects. It does
+not establish an observed original-client connection or drop, full isolation,
+successful startup, login or gameplay. Earlier authored-worker tests cover the
+guard mechanism on their own image; they do not supply original-target traffic
+evidence. Startup, login and actual original traffic remain unverified here.
 
-Base820e23f, reviewed PR102. The exact `protocol.rs`, `pe.rs`, `ipc.rs` and `wfp.rs` implementations are referenced from the sibling `guarded-medium-control/src` directory. The existing crate is unchanged. Only its process/controller plumbing is copied here because the original constructors are private and fixed to a sibling authored worker. Worker binaries, worker scenarios, worker self-tests and the authored-control CLI are not copied. The existing external-guard-fixture path dependency supplies unchanged rule policy/readback/cleanup. The new guard retains the `/DEPENDENTLOADFLAG:0x800` build requirement and actual-PE check.
+## Observation and cleanup
 
-## Checks and limits
+Observation ends at most 80 seconds after normal consent returns, subtracting
+startup work already elapsed. The guard adapter retains its 90-second budget;
+each process has a 130-second hard ceiling. An input-idle hint is sampled for
+at most 30 seconds after resume and is not startup success.
 
-Use an offline locked release build, the `pristine_` pure library cases, reused protocol/PE pure cases, actual inert/refusal entrypoint tests, and the data-only actual guard PE test. Shared IPC tests are present through source reuse; they are not part of this source-only run and no cross-integrity or original-target network proof is claimed. No authored marker, fake receipt, pure test or compiled path is an original-client result. No original/UAC/WFP/active guard role has been run for this candidate.
+A natural nonzero exit remains failure. A running target is recorded before
+owned termination; termination does not become a successful launch result.
+Cleanup requires the retained target exit, actual job history of exactly one
+process with none active, drained output and verified guard cleanup. Missing
+exit, accounting, drain or cleanup evidence stays unverified. The high peer
+keeps guards through target-exit/STOPWAIT rather than accepting a PID-only or
+ready-JSON claim.
+
+Stdout/stderr retain bounded 65,536-byte prefix fingerprints, never printed raw
+contents. The private player log is metadata-monitored with a sampled 4 MiB
+stop threshold; a native write can overshoot it. Logs stay private. This path
+creates no authored global section, injects no Frida, installs no hook, changes
+no TLS/authentication code, loads no external patch, starts no service and takes
+no account action. Existing vendor objects and services are untouched; their
+absence is not asserted.
+
+Same-name process checks are snapshots, not atomic exclusion. Another process
+can start afterward, and App-ID rules can affect independently started copies
+of that image. Existing-service delegation, DNS/service mediation and foreign
+process lifetimes remain outside the target job's scope. Creation-to-job
+assignment, hard teardown, owner death and dynamic-filter release have
+non-atomic gaps. This controlled baseline is not equivalent to an ordinary
+Steam launch.
+
+## Review checkpoint
+
+The observation roles for this source/artifact have not run at this checkpoint.
+The owner expects one bounded observation after independent source review,
+fresh hosted CI and an exact artifact gate, retaining normal Windows consent.
+That is not blanket authority for automatic repeated execution or other targets.
+
+The crate reuses the reviewed sibling protocol, PE, IPC and WFP implementations
+and the external fixture's exact rule/readback/cleanup policy. Its source checks
+cover the fixed role parser, pure protocol/PE rules, inert/refusal entrypoints
+and data-only Windows guard PE inspection. No passing source test or rule
+readback establishes original-client startup or backend compatibility.
