@@ -162,6 +162,9 @@ impl Prepared{
         let mut env=environment_block(rows)?;
         let mut startup=STARTUPINFOEXW::default();startup.StartupInfo.cb=std::mem::size_of_val(&startup)as u32;startup.StartupInfo.dwFlags=STARTF_USESTDHANDLES;startup.StartupInfo.hStdInput=stdin.0;startup.StartupInfo.hStdOutput=out_write.0;startup.StartupInfo.hStdError=err_write.0;startup.lpAttributeList=attributes.list;
         let mut line=wide(crate::originals::command_line(log.to_str().ok_or("private_log_unicode_required")?)?);if line.len()>32767{return Err("command_line_bound")}let mut pi=PROCESS_INFORMATION::default();
+        // Consent and local preparation may outlive the preflight inventory.
+        // This remains a snapshot, not an atomic exclusion of another launch.
+        refuse_existing_target()?;
         yes(unsafe{CreateProcessW(wide(&path).as_ptr(),line.as_mut_ptr(),ptr::null(),ptr::null(),1,CREATE_SUSPENDED|CREATE_NO_WINDOW|CREATE_UNICODE_ENVIRONMENT|EXTENDED_STARTUPINFO_PRESENT,env.as_mut_ptr().cast(),wide(crate::originals::GAME).as_ptr(),&startup.StartupInfo,&mut pi)})?;
         // Immediate retained cleanup ownership before any fallible post-create work.
         let mut prepared=Self{process:Handle::owned(pi.hProcess),thread:Handle::owned(pi.hThread),job,_pin:image,_originals:originals,_private_directories:private_directories,stdout:None,stderr:None,directory,resumed:false,assigned:false,cleaned:false};
