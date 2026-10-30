@@ -17,6 +17,7 @@ on:
       - 'tests/Metallic.RC.CredentialCheck.Tests/**'
       - 'tests/Metallic.RC.NativeSessions.Tests/**'
       - 'tests/Metallic.RC.NativeAccountProfiles.Tests/**'
+      - 'tests/Metallic.RC.NativeGateway.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -40,6 +41,7 @@ on:
       - 'tests/Metallic.RC.CredentialCheck.Tests/**'
       - 'tests/Metallic.RC.NativeSessions.Tests/**'
       - 'tests/Metallic.RC.NativeAccountProfiles.Tests/**'
+      - 'tests/Metallic.RC.NativeGateway.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -130,6 +132,10 @@ jobs:
         run: dotnet build tests/Metallic.RC.NativeAccountProfiles.Tests/Metallic.RC.NativeAccountProfiles.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify profile authority, canonical storage, stale refusal and backup without native routes
         run: dotnet tests/Metallic.RC.NativeAccountProfiles.Tests/bin/Release/net10.0/Metallic.RC.NativeAccountProfiles.Tests.dll --self-test artifacts/backend/native-account-profiles.json
+      - name: Build the default-off localhost native gateway integration checks
+        run: dotnet build tests/Metallic.RC.NativeGateway.Tests/Metallic.RC.NativeGateway.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify issued-token signing, raw HTTP admission and atomic state without original clients
+        run: dotnet tests/Metallic.RC.NativeGateway.Tests/bin/Release/net10.0/Metallic.RC.NativeGateway.Tests.dll --self-test artifacts/backend/native-gateway.json
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

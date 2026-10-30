@@ -258,6 +258,13 @@ internal static class NativeSessions
         if (s is null || !Equal(hash,s.Access) || s.Revoked != 0 || s.Created > now || s.AccessExpires <= now || s.Account != account || s.NativeId != nativeId) throw Rejected();
         Binding(db,tx,account,nativeId); return View(s);
     }
+    // Gateway lookup derives identity from exact stored token state, never claims.
+    internal static NativeSessionView AuthenticateIssuedToken(SqliteConnection db, SqliteTransaction tx, string accessToken)
+    {
+        var stored = Find(db,tx,Hash(accessToken));
+        if (stored is null) throw Rejected();
+        return Authenticate(db,tx,accessToken,stored.Account,stored.NativeId);
+    }
     internal static NativeSessionView? Rotate(SqliteConnection db, SqliteTransaction tx, string refreshToken, string account, int nativeId, NativeSessionMaterial material)
     {
         string hash = Hash(refreshToken); var s = Find(db,tx,hash); long now = Now();

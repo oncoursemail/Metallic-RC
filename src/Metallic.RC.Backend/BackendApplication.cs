@@ -125,13 +125,16 @@ public static class BackendApplication
         }).RequireRateLimiting("auth");
         // Verified native LoginResponse error envelope only. Do not process or store
         // production credentials, mint guessed native tokens, or fabricate account success.
-        app.MapPost("/recnet/auth/connect/token", (HttpContext context) =>
+        app.MapPost("/recnet/auth/connect/token", async (HttpContext context) =>
         {
+            if(options.EnableNativeGateway)return await NativeGateway.Token(context,store);
             context.Response.Headers["X-Metallic-Compatibility"] = "login-error-profile-only; build=23191908";
             var reply = new LoginResponseProfile(Error: "native_login_not_implemented",
                 ErrorDescription: "Metallic native token and account integration is not available yet.");
             return Results.Content(System.Text.Encoding.UTF8.GetString(LoginResponseContract.Write(reply)), "application/json; charset=utf-8", statusCode: 501);
         }).RequireRateLimiting("auth");
+        if(options.EnableNativeGateway)
+            app.MapGet(NativeGateway.AccountPath,(HttpContext context)=>NativeGateway.Account(context,store)).RequireRateLimiting("api");
         app.Map("/recnet/{**path}",()=>Json(new{error=new{code="native_contract_not_implemented"},nativeClientVerified=false},501));
         app.MapFallback(()=>Json(new{error=new{code="not_found"}},404));
         return app;
