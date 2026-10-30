@@ -16,6 +16,7 @@ on:
       - 'tests/Metallic.RC.NativeIdentity.Tests/**'
       - 'tests/Metallic.RC.CredentialCheck.Tests/**'
       - 'tests/Metallic.RC.NativeSessions.Tests/**'
+      - 'tests/Metallic.RC.NativeTokenResponse.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -38,6 +39,7 @@ on:
       - 'tests/Metallic.RC.NativeIdentity.Tests/**'
       - 'tests/Metallic.RC.CredentialCheck.Tests/**'
       - 'tests/Metallic.RC.NativeSessions.Tests/**'
+      - 'tests/Metallic.RC.NativeTokenResponse.Tests/**'
       - 'tools/client-lab/**'
       - 'ops/backend/**'
       - 'Directory.Build.props'
@@ -124,6 +126,10 @@ jobs:
         run: dotnet build tests/Metallic.RC.NativeSessions.Tests/Metallic.RC.NativeSessions.Tests.csproj -c Release -p:RestoreLockedMode=true
       - name: Verify exact binding, refresh replay, expiry and backup without native routes
         run: dotnet tests/Metallic.RC.NativeSessions.Tests/bin/Release/net10.0/Metallic.RC.NativeSessions.Tests.dll --self-test artifacts/backend/native-sessions.json
+      - name: Build the inactive Metallic-owned native token producer checks
+        run: dotnet build tests/Metallic.RC.NativeTokenResponse.Tests/Metallic.RC.NativeTokenResponse.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify local token signatures and secret exports without routes or state
+        run: dotnet tests/Metallic.RC.NativeTokenResponse.Tests/bin/Release/net10.0/Metallic.RC.NativeTokenResponse.Tests.dll --self-test artifacts/backend/native-token-response.json
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
