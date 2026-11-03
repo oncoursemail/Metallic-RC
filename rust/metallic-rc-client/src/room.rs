@@ -23,6 +23,8 @@ pub struct Part {
     pub name: String,
     /// index into `RoomData::roots`: the prefab this part belongs to
     pub root: usize,
+    /// the Mesh object's own name (scenes refer to meshes by it)
+    pub mesh: String,
     pub world: Mat4,
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
@@ -266,6 +268,7 @@ impl Builder<'_> {
             self.out.parts.push(Part {
                 name: name.to_string(),
                 root: self.out.roots.len() - 1,
+                mesh: m.name.clone(),
                 world,
                 positions: positions.clone(),
                 normals: normals.clone(),
@@ -279,8 +282,9 @@ impl Builder<'_> {
 }
 
 /// Where to put prefabs that are not authored in place, read from a layout file: one prefab per line,
-/// `name x y z [yaw [pitch [roll]]]`, metres and degrees in the client's (Bevy) space, `#` starts a comment.
-/// A name may appear more than once to place several copies; `name hide` leaves a prefab out.
+/// `name x y z [yaw [pitch [roll]]]` (metres, degrees) or `name x y z qx qy qz qw [sx sy sz]` (a rotation
+/// quaternion and scale, as the generator from the original scene writes them), all in the client's (Bevy) space;
+/// `#` starts a comment. A name may appear more than once to place several copies; `name hide` leaves it out.
 pub fn parse_layout(text: &str) -> Result<Vec<(String, Option<Mat4>)>, String> {
     let mut out = Vec::new();
     for (n, line) in text.lines().enumerate() {
@@ -295,8 +299,15 @@ pub fn parse_layout(text: &str) -> Result<Vec<(String, Option<Mat4>)>, String> {
             continue;
         }
         let v: Vec<f32> = it.map(|x| x.parse().map_err(|_| format!("layout line {}: bad number {x:?}", n + 1))).collect::<Result<_, _>>()?;
+        let pos = Vec3::new(*v.first().unwrap_or(&0.0), *v.get(1).unwrap_or(&0.0), *v.get(2).unwrap_or(&0.0));
+        if v.len() == 7 || v.len() == 10 {
+            let rot = Quat::from_xyzw(v[3], v[4], v[5], v[6]).normalize();
+            let scale = if v.len() == 10 { Vec3::new(v[7], v[8], v[9]) } else { Vec3::ONE };
+            out.push((name, Some(Mat4::from_scale_rotation_translation(scale, rot, pos))));
+            continue;
+        }
         if v.len() < 3 || v.len() > 6 {
-            return Err(format!("layout line {}: want name x y z [yaw [pitch [roll]]]", n + 1));
+            return Err(format!("layout line {}: want name x y z [yaw [pitch [roll]]] or name x y z qx qy qz qw [sx sy sz]", n + 1));
         }
         let deg = |i: usize| v.get(i).copied().unwrap_or(0.0).to_radians();
         let rot = Quat::from_euler(bevy::math::EulerRot::YXZ, deg(3), deg(4), deg(5));

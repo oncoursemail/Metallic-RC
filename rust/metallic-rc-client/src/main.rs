@@ -1,7 +1,7 @@
 //! metallic-rc-client [--server http://127.0.0.1:4200] [--name NAME] [--game-dir DIR] [--headless]
 //!
 //! Logs into metallic-rc-server on a background thread, then walks you around the room it puts you in (screen mode:
-//! WASD, mouse look after a click, Space/Ctrl up/down, Esc frees the mouse). The Dorm's pieces are loaded from the
+//! WASD, Shift sprint, Space jump, F fly (Space/Ctrl up/down), mouse look after a click, Esc frees the mouse). The Dorm's pieces are loaded from the
 //! installed game (`--game-dir`, default: the Steam copies in `room::GAME_DIRS`); until they arrive, or without a
 //! game folder, a stand-in box is shown.
 //! `--headless` only runs the network start-up and prints where it ended up (for scripts and checks).
@@ -31,7 +31,7 @@ struct Args {
 }
 
 fn args() -> Args {
-    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.6, 0.0, 0.0, 0.0] };
+    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.55, 0.0, 0.0, 0.0] };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         match k.as_str() {
@@ -80,7 +80,20 @@ struct StandIn;
 struct Player {
     yaw: f32,
     pitch: f32,
+    /// vertical speed, m/s
+    fall: f32,
+    flying: bool,
 }
+
+// Screen-mode movement constants of the 2026 client (docs/agents/rc-spec/player.md in the private notes).
+const WALK: f32 = 3.0;
+const SPRINT: f32 = 1.5;
+const FLY: f32 = 35.0;
+const JUMP_HEIGHT: f32 = 0.75;
+const GRAVITY: f32 = 9.81;
+const MAX_FALL: f32 = 20.0;
+/// eyes above the feet
+const EYE: f32 = 1.55;
 
 fn main() {
     let a = args();
@@ -161,7 +174,9 @@ fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Me
     let (yaw, pitch) = (yaw.to_radians(), pitch.to_radians());
     commands.spawn((
         Camera3d::default(),
-        Player { yaw, pitch },
+        Projection::Perspective(PerspectiveProjection { fov: 60f32.to_radians(), near: 0.06, ..default() }),
+        // a start view above head height (an overview) starts flying instead of falling to the floor
+        Player { yaw, pitch, fall: 0.0, flying: y > EYE + 0.5 },
         Transform::from_xyz(x, y, z).with_rotation(Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0)),
     ));
     commands.spawn((
@@ -195,16 +210,43 @@ fn look_and_walk(
         p.pitch = (p.pitch - motion.delta.y * 0.002).clamp(-1.5, 1.5);
         t.rotation = Quat::from_euler(EulerRot::YXZ, p.yaw, p.pitch, 0.0);
     }
+    let dt = time.delta_secs();
+    if keys.just_pressed(KeyCode::KeyF) {
+        p.flying = !p.flying;
+        p.fall = 0.0;
+    }
     let forward = Vec3::new(-p.yaw.sin(), 0.0, -p.yaw.cos());
     let right = Vec3::new(p.yaw.cos(), 0.0, -p.yaw.sin());
     let mut go = Vec3::ZERO;
-    for (key, dir) in [(KeyCode::KeyW, forward), (KeyCode::KeyS, -forward), (KeyCode::KeyD, right), (KeyCode::KeyA, -right),
-                       (KeyCode::Space, Vec3::Y), (KeyCode::ControlLeft, -Vec3::Y)] {
+    for (key, dir) in [(KeyCode::KeyW, forward), (KeyCode::KeyS, -forward), (KeyCode::KeyD, right), (KeyCode::KeyA, -right)] {
         if keys.pressed(key) {
             go += dir;
         }
     }
-    t.translation += go.normalize_or_zero() * 3.0 * time.delta_secs();
+    if p.flying {
+        for (key, dir) in [(KeyCode::Space, Vec3::Y), (KeyCode::ControlLeft, -Vec3::Y)] {
+            if keys.pressed(key) {
+                go += dir;
+            }
+        }
+        // full fly speed is for crossing big rooms; Shift gives it, otherwise walking pace
+        let speed = if keys.pressed(KeyCode::ShiftLeft) { FLY } else { WALK };
+        t.translation += go.normalize_or_zero() * speed * dt;
+        return;
+    }
+    let speed = if keys.pressed(KeyCode::ShiftLeft) { WALK * SPRINT } else { WALK };
+    t.translation += go.normalize_or_zero() * speed * dt;
+    // the floor is the only thing to stand on until room collision is in
+    let on_ground = t.translation.y <= EYE + 0.001;
+    if on_ground && keys.just_pressed(KeyCode::Space) {
+        p.fall = (2.0 * GRAVITY * JUMP_HEIGHT).sqrt();
+    }
+    p.fall = (p.fall - GRAVITY * dt).max(-MAX_FALL);
+    t.translation.y += p.fall * dt;
+    if t.translation.y < EYE {
+        t.translation.y = EYE;
+        p.fall = 0.0;
+    }
 }
 
 fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>>) {

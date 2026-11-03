@@ -1,9 +1,10 @@
 //! SerializedFile (the `CAB-*` files in bundles): header, type trees, object table, externals.
 //! Supports format versions 17..=22+ (Unity 2017.x through Unity 6, which writes 22).
 
+use crate::objects::{GameObject, MeshFilter, MeshRenderer, Transform};
 use crate::reader::Reader;
 use crate::value::{self, Value};
-use crate::{format_err, unsupported, Result};
+use crate::{classes, format_err, stripped, unsupported, Result};
 use std::sync::Arc;
 
 /// Unity's shared type-tree string table, addressed by byte offset with the top bit set.
@@ -304,10 +305,71 @@ impl SerializedFile {
         Ok(v)
     }
 
+    fn reader(&self, o: &ObjectInfo) -> Reader<'_> {
+        Reader::new(self.object_bytes(o), self.big_endian)
+    }
+
+    fn check_class(o: &ObjectInfo, want: &[i32]) -> Result<()> {
+        if !want.contains(&o.class_id) {
+            return format_err(format!("object {} is class {}, not {want:?}", o.path_id, o.class_id));
+        }
+        Ok(())
+    }
+
+    /// GameObject from the type tree, or from the 2021.3 player layout when trees are stripped.
+    pub fn game_object(&self, o: &ObjectInfo) -> Result<GameObject> {
+        Self::check_class(o, &[classes::GAME_OBJECT])?;
+        match self.type_of(o).tree {
+            Some(_) => GameObject::from_value(&self.read_value(o)?),
+            None => stripped::game_object(&mut self.reader(o)),
+        }
+    }
+
+    /// Transform or RectTransform (its Transform part when trees are stripped).
+    pub fn transform(&self, o: &ObjectInfo) -> Result<Transform> {
+        Self::check_class(o, &[classes::TRANSFORM, classes::RECT_TRANSFORM])?;
+        match self.type_of(o).tree {
+            Some(_) => Transform::from_value(&self.read_value(o)?),
+            None => stripped::transform(&mut self.reader(o), o.class_id == classes::TRANSFORM),
+        }
+    }
+
+    pub fn mesh_filter(&self, o: &ObjectInfo) -> Result<MeshFilter> {
+        Self::check_class(o, &[classes::MESH_FILTER])?;
+        match self.type_of(o).tree {
+            Some(_) => MeshFilter::from_value(&self.read_value(o)?),
+            None => stripped::mesh_filter(&mut self.reader(o)),
+        }
+    }
+
+    /// MeshRenderer (or SkinnedMeshRenderer with a type tree). Without trees: MeshRenderer only,
+    /// up to `m_Materials`.
+    pub fn mesh_renderer(&self, o: &ObjectInfo) -> Result<MeshRenderer> {
+        match self.type_of(o).tree {
+            Some(_) => {
+                Self::check_class(o, &[classes::MESH_RENDERER, classes::SKINNED_MESH_RENDERER])?;
+                MeshRenderer::from_value(&self.read_value(o)?)
+            }
+            None => {
+                Self::check_class(o, &[classes::MESH_RENDERER])?;
+                stripped::mesh_renderer(&mut self.reader(o), &self.unity_version)
+            }
+        }
+    }
+
     /// Object name without a full read: most named objects start with `m_Name`
     /// (GameObject has it after the component list, so this reads the whole value for it).
+    /// Without type trees, only GameObjects and the classes in [`stripped::starts_with_name`] have names.
     pub fn object_name(&self, o: &ObjectInfo) -> Option<String> {
-        let tree = self.type_of(o).tree.as_ref()?;
+        let Some(tree) = self.type_of(o).tree.as_ref() else {
+            if o.class_id == classes::GAME_OBJECT {
+                return self.game_object(o).ok().map(|g| g.name);
+            }
+            if stripped::starts_with_name(o.class_id) {
+                return self.reader(o).aligned_string().ok();
+            }
+            return None;
+        };
         let first = tree.children(0).next()?;
         if &*tree.nodes[first].name == "m_Name" && &*tree.nodes[first].type_name == "string" {
             return Reader::new(self.object_bytes(o), self.big_endian).aligned_string().ok();

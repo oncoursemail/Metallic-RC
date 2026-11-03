@@ -11,6 +11,7 @@ pub mod catalog;
 pub mod classes;
 pub mod objects;
 pub mod serialized;
+pub mod stripped;
 pub mod texture;
 pub mod value;
 #[cfg(test)]

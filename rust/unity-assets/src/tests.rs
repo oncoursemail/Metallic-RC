@@ -528,3 +528,120 @@ fn catalog_keys_locations_dynamic_strings() {
     assert_eq!(catalog::bundle_file(&e[1].locations[0]), Some("abc.bundle"));
     assert!(Catalog::parse(vec![0; 32]).is_err());
 }
+
+/// A version 22 SerializedFile written without type trees (Unity 2021.3 player layout);
+/// `objs` are (path id, class id, bytes). Objects are stored without trailing padding, as Unity does.
+fn stripped_serialized_file(objs: &[(i64, i32, Vec<u8>)]) -> Vec<u8> {
+    let mut classes: Vec<i32> = objs.iter().map(|o| o.1).collect();
+    classes.dedup();
+    let mut m = W::new(false);
+    m.cstr("2021.3.29f1").i32(19).u8(0);
+    m.i32(classes.len() as i32);
+    for c in &classes {
+        m.i32(*c).u8(0).raw(&(-1i16).to_le_bytes()).raw(&[0; 16]);
+    }
+    let header_len = 48;
+    m.i32(objs.len() as i32);
+    let mut data = W::new(false);
+    for (id, class, bytes) in objs {
+        m.align(4);
+        data.align(8);
+        let at = data.b.len();
+        data.raw(bytes);
+        m.i64(*id).i64(at as i64).u32(bytes.len() as u32).i32(classes.iter().position(|c| c == class).unwrap() as i32);
+    }
+    m.i32(0); // script types
+    m.i32(1).cstr("").raw(&[0; 16]).i32(0).cstr("sharedassets6.assets");
+    m.i32(0); // ref types
+    m.cstr("");
+    let data_offset = (header_len + m.b.len()).div_ceil(16) * 16;
+    let mut f = W::new(true);
+    f.u32(0).u32(0).u32(22).u32(0).u8(0).raw(&[0; 3]);
+    f.u32(m.b.len() as u32).i64((data_offset + data.b.len()) as i64).i64(data_offset as i64).i64(0);
+    f.raw(&m.b).align(16).raw(&data.b);
+    f.b
+}
+
+#[test]
+fn stripped_scene_objects() {
+    let mut go = W::new(false);
+    go.i32(3).i32(0).i64(2).i32(0).i64(3).i32(0).i64(4); // components
+    go.u32(5).string("Bed").u16(0).u8(0); // layer, name, tag, inactive (no trailing pad)
+    let mut tr = W::new(false);
+    tr.i32(0).i64(1);
+    tr.f32(0.0).f32(0.7071).f32(0.0).f32(0.7071); // rotation
+    tr.f32(1.0).f32(2.0).f32(3.0).f32(1.0).f32(1.0).f32(2.0); // position, scale
+    tr.i32(1).i32(0).i64(9); // children
+    tr.i32(0).i64(0); // father
+    let mut rect = W::new(false);
+    rect.raw(&tr.b).f32(0.5).f32(0.5); // RectTransform: Transform part, then anchors (ignored)
+    let mut mf = W::new(false);
+    mf.i32(0).i64(1).i32(1).i64(77);
+    let mut mr = W::new(false);
+    mr.i32(0).i64(1).u8(1).raw(&[0; 9]).align(4); // m_Enabled + 9 flag bytes (2021)
+    mr.u32(1).i32(0).u16(0xffff).u16(0xffff);
+    for _ in 0..8 {
+        mr.f32(0.0);
+    }
+    mr.i32(2).i32(0).i64(5).i32(1).i64(6); // materials
+    mr.u16(0).u16(0).i32(0).i64(0); // static batch info, root (ignored)
+    let mut mesh = W::new(false);
+    mesh.string("Dorm_04").i32(0);
+    let mut mat = W::new(false);
+    mat.string("Wood_Mat").i32(0).i64(0);
+
+    let file = stripped_serialized_file(&[
+        (1, 1, go.b.clone()),
+        (2, 4, tr.b.clone()),
+        (3, 33, mf.b.clone()),
+        (4, 23, mr.b.clone()),
+        (5, 21, mat.b.clone()),
+        (6, 43, mesh.b.clone()),
+        (7, 224, rect.b.clone()),
+    ]);
+    let sf = SerializedFile::parse(file).unwrap();
+    assert!(!sf.type_tree_enabled);
+    assert!(sf.types.iter().all(|t| t.tree.is_none()));
+    assert_eq!(sf.externals[0].path, "sharedassets6.assets");
+    let obj = |id| sf.object(id).unwrap();
+
+    let g = sf.game_object(obj(1)).unwrap();
+    assert_eq!((g.name.as_str(), g.layer, g.active, g.components.len()), ("Bed", 5, false, 3));
+    assert_eq!(g.components[2], PPtr { file_id: 0, path_id: 4 });
+    assert_eq!(sf.object_name(obj(1)).as_deref(), Some("Bed"));
+
+    let t = sf.transform(obj(2)).unwrap();
+    assert_eq!((t.local_position, t.local_scale), ([1.0, 2.0, 3.0], [1.0, 1.0, 2.0]));
+    assert_eq!(t.local_rotation, [0.0, 0.7071, 0.0, 0.7071]);
+    assert_eq!((t.game_object.path_id, t.children[0].path_id), (1, 9));
+    assert!(t.parent.is_null());
+    let r = sf.transform(obj(7)).unwrap();
+    assert_eq!(r.local_position, t.local_position);
+
+    let f = sf.mesh_filter(obj(3)).unwrap();
+    assert_eq!(f.mesh, PPtr { file_id: 1, path_id: 77 });
+    let m = sf.mesh_renderer(obj(4)).unwrap();
+    assert!(m.enabled);
+    assert_eq!(m.materials, vec![PPtr { file_id: 0, path_id: 5 }, PPtr { file_id: 1, path_id: 6 }]);
+
+    assert_eq!(sf.object_name(obj(5)).as_deref(), Some("Wood_Mat"));
+    assert_eq!(sf.object_name(obj(6)).as_deref(), Some("Dorm_04"));
+    assert_eq!(sf.object_name(obj(3)), None);
+    // wrong class, and a value read without a tree, are errors
+    assert!(sf.transform(obj(1)).is_err());
+    assert!(matches!(sf.read_value(obj(1)), Err(Error::Unsupported(_))));
+
+    // a Transform with bytes left over is rejected (RectTransform is not checked for length)
+    let bad = stripped_serialized_file(&[(2, 4, rect.b.clone())]);
+    let sf = SerializedFile::parse(bad).unwrap();
+    assert!(sf.transform(sf.object(2).unwrap()).is_err());
+}
+
+#[test]
+fn renderer_flag_bytes_by_version() {
+    assert_eq!(stripped::renderer_flag_bytes("2021.3.29f1"), 9);
+    assert_eq!(stripped::renderer_flag_bytes("2020.3.1f1"), 8);
+    assert_eq!(stripped::renderer_flag_bytes("2019.4.31f1"), 7);
+    assert_eq!(stripped::renderer_flag_bytes("2018.4.0f1"), 6);
+    assert_eq!(stripped::renderer_flag_bytes("2017.1.0f1"), 5);
+}
