@@ -4043,6 +4043,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tungstenite 0.30.0",
+ "unity-assets",
  "ureq",
 ]
 

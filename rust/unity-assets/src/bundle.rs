@@ -71,6 +71,27 @@ impl Bundle {
     }
 
     pub fn from_bytes(file: Vec<u8>) -> Result<Self> {
+        Self::parse(file, false)
+    }
+
+    /// Only the header and directory, read from the start of the file: enough to index many bundles by their
+    /// node names without reading them whole. Reading data from it fails.
+    pub fn open_head(path: impl AsRef<Path>) -> Result<Self> {
+        use std::io::Read;
+        let mut f = std::fs::File::open(path)?;
+        let len = f.metadata()?.len() as usize;
+        let mut file = Vec::new();
+        let mut want = 4096.min(len);
+        loop {
+            (&mut f).take((want - file.len()) as u64).read_to_end(&mut file)?;
+            match Self::parse(file.clone(), true) {
+                Err(_) if want < len => want = (want * 4).min(len),
+                done => return done,
+            }
+        }
+    }
+
+    fn parse(file: Vec<u8>, head_only: bool) -> Result<Self> {
         let mut r = Reader::new(&file, true);
         let signature = r.cstr()?;
         if signature != "UnityFS" {
@@ -123,7 +144,7 @@ impl Bundle {
             data_pos += compressed as usize;
             data_offset += size as u64;
         }
-        if data_pos > file.len() {
+        if data_pos > file.len() && !head_only {
             return format_err(format!("blocks end at {data_pos}, file is {}", file.len()));
         }
         let node_count = r.len_prefix(21)?;
@@ -176,7 +197,8 @@ impl Bundle {
             if b.data_offset >= end || out.len() as u64 == size {
                 break;
             }
-            let raw = &self.file[b.file_offset..b.file_offset + b.compressed as usize];
+            let raw = self.file.get(b.file_offset..b.file_offset + b.compressed as usize)
+                .ok_or_else(|| Error::Format("block outside the bytes read (bundle opened head only)".into()))?;
             let kind = (b.flags & 0x3f) as u32;
             let tmp;
             let bytes: &[u8] = if kind == 0 {
