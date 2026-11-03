@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "status": "curriculum-prototypes-not-accredited",
+  "workshops": [
+    {
+      "schema": 1,
+      "id": "circuits-systems-101",
+      "title": "Visual Scripting and Systems Thinking",
+      "level": "beginner",
+      "objectives": [
+        "Create a typed interactive graph with validated input and output",
+        "Explain ownership and trusted multiplayer events in a shared room"
+      ],
+      "rubric": [
+        {
+          "criterion": "Graph correctness",
+          "maxPoints": 40
+        },
+        {
+          "criterion": "Reproducible tests",
+          "maxPoints": 40
+        },
+        {
+          "criterion": "Creator explanation",
+          "maxPoints": 20
+        }
+      ]
+    },
+    {
+      "schema": 1,
+      "id": "network-simulation-201",
+      "title": "Authoritative Multiplayer Systems",
+      "level": "advanced",
+      "objectives": [
+        "Profile deterministic server ticks and replication under loss",
+        "Present evidence of failure handling and player-state recovery"
+      ],
+      "rubric": [
+        {
+          "criterion": "Network simulation",
+          "maxPoints": 40
+        },
+        {
+          "criterion": "Performance profiling",
+          "maxPoints": 35
+        },
+        {
+          "criterion": "Code review",
+          "maxPoints": 25
+        }
+      ]
+    },
+    {
+      "schema": 1,
+      "id": "world-design-201",
+      "title": "Spatial World Design and Optimization",
+      "level": "intermediate",
+      "objectives": [
+        "Design original spatial compositions for desktop and virtual reality",
+        "Benchmark geometry, materials and lighting on target hardware"
+      ],
+      "rubric": [
+        {
+          "criterion": "Originality and composition",
+          "maxPoints": 40
+        },
+        {
+          "criterion": "Comfort and accessibility",
+          "maxPoints": 30
+        },
+        {
+          "criterion": "Performance capture",
+          "maxPoints": 30
+        }
+      ]
+    },
+    {
+      "schema": 1,
+      "id": "ai-npc-301",
+      "title": "Safe AI Character Design",
+      "level": "advanced",
+      "objectives": [
+        "Implement bounded and inspectable game-character behavior",
+        "Demonstrate misuse tests for model output and creator permissions"
+      ],
+      "rubric": [
+        {
+          "criterion": "Behavioral state machine",
+          "maxPoints": 40
+        },
+        {
+          "criterion": "Abuse prevention",
+          "maxPoints": 40
+        },
+        {
+          "criterion": "Evidence report",
+          "maxPoints": 20
+        }
+      ]
+    }
+  ]
+}

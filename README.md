@@ -1,4 +1,4 @@
-# Metallic Studios
+# Metallic
 
 > **Project status: Foundation planning — not yet a playable game.**  
 > Independent social multiplayer, VR, and creator platform. The repository starts with a technical roadmap and evidence-based progress tracker; completed features must be proven by merged changes, tests, and working builds.
@@ -14,7 +14,7 @@
 
 ## What we are building
 
-Metallic Studios is intended to be an independent, high-performance social game platform with its own client, dedicated servers, launcher, identity service, creator tools, user-generated rooms, visual scripting, and optional integrations with cooperating community projects.
+Metallic is intended to be an independent, high-performance social game platform with its own client, dedicated servers, launcher, identity service, creator tools, user-generated rooms, visual scripting, and optional integrations with cooperating community projects.
 
 ### Product pillars
 
@@ -42,6 +42,10 @@ Metallic Studios is intended to be an independent, high-performance social game 
 - **[Trusted player-count aggregator service](services/player-count/README.md)** — authenticated, de-duplicated heartbeat aggregation with separate synthetic-actor tracking (local code only; no live count).
 - **[Meta Quest release preparation](docs/META_QUEST_RELEASE.md)** — Horizon Store, channels, ARM64 build quality and verification.
 - **[Live website prototype](docs/site/index.html)** — handcrafted responsive layout reading the generated aggregate progress JSON.
+- **[Metallic Meadow social hub](docs/METALLIC_MEADOW_HUB.md)** — original barn/farm/golf/treehouse world plan, cutscene storyboard, navigation manifest and accessibility gates.
+- **[Creator, teachers, AI companions, achievements, watch and support](docs/METALLIC_CREATOR_LEARNING_AI.md)** — implementation specs and acceptance gates.
+- **[October 2026 expansion research](docs/METALLIC_SYSTEMS_RESEARCH_2026.md)** — source/evidence register and open benchmark questions.
+- **[Game system contracts and tests](game/README.md)** — real dependency-free prototype code, deliberately not a playable client or deployed API.
 - **[Tracked work items](../../issues)** — one issue per verifiable deliverable.
 - **[Pull requests](../../pulls)** — proposed changes and review history.
 
