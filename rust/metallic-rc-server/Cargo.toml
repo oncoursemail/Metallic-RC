@@ -19,6 +19,3 @@ rand = "0.8"
 [dev-dependencies]
 tokio-tungstenite = "0.29"
 futures-util = "0.3"
-
-[profile.release]
-lto = "thin"

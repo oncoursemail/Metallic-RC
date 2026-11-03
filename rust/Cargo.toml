@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["metallic-rc-server", "unity-assets", "metallic-rc-client"]
+
+[profile.release]
+lto = "thin"
+
+# Bevy and the asset decoders are slow unoptimised; the client's own code stays quick to rebuild
+[profile.dev.package."*"]
+opt-level = 2

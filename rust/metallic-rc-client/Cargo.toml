@@ -1,0 +1,17 @@
+[package]
+name = "metallic-rc-client"
+version = "0.1.0"
+edition = "2021"
+description = "Metallic-RC game client in Rust: talks to metallic-rc-server and draws the room"
+publish = false
+
+[dependencies]
+ureq = { version = "3", features = ["json"] }
+tungstenite = "0.30"
+serde_json = "1"
+bevy = "0.20"
+
+[dev-dependencies]
+metallic-rc-server = { path = "../metallic-rc-server" }
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
