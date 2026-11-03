@@ -26,19 +26,25 @@ struct Args {
     name: String,
     headless: bool,
     game_dir: Option<std::path::PathBuf>,
+    /// start position and view: x, y, z, yaw, pitch (metres, degrees)
+    camera: [f32; 5],
 }
 
 fn args() -> Args {
-    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None };
+    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.6, 0.0, 0.0, 0.0] };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         match k.as_str() {
             "--server" => a.server = it.next().unwrap_or_else(|| die("--server needs a URL")),
             "--name" => a.name = it.next().unwrap_or_else(|| die("--name needs a value")),
             "--headless" => a.headless = true,
+            "--camera" => {
+                let v: Vec<f32> = it.next().unwrap_or_default().split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                a.camera = v.try_into().unwrap_or_else(|_| die("--camera wants x,y,z,yaw,pitch"));
+            }
             "--game-dir" => a.game_dir = Some(it.next().unwrap_or_else(|| die("--game-dir needs a folder")).into()),
             "-h" | "--help" => {
-                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--headless]");
+                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--headless]");
                 std::process::exit(0)
             }
             _ => die(&format!("unknown argument {k}")),
@@ -62,6 +68,9 @@ struct StatusText;
 /// The Dorm as the loader thread hands it over; taken once by `spawn_room`.
 #[derive(Resource, Clone)]
 struct Loading(Arc<Mutex<Option<Result<RoomData, String>>>>);
+
+#[derive(Resource)]
+struct Start([f32; 5]);
 
 /// The stand-in room, removed when the real one arrives.
 #[derive(Component)]
@@ -119,6 +128,7 @@ fn main() {
         }))
         .insert_resource(status)
         .insert_resource(loading)
+        .insert_resource(Start(a.camera))
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
         .add_systems(Update, (grab_mouse, look_and_walk, show_status, spawn_room))
@@ -126,7 +136,7 @@ fn main() {
 }
 
 /// A stand-in dorm: floor, four walls, a bed and a desk, lit from the ceiling.
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
+fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let floor = materials.add(Color::srgb(0.55, 0.42, 0.30));
     let wall = materials.add(Color::srgb(0.82, 0.84, 0.88));
     let bed = materials.add(Color::srgb(0.25, 0.45, 0.80));
@@ -147,7 +157,13 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
     commands.spawn((PointLight { intensity: 400_000.0, shadow_maps_enabled: true, ..default() }, Transform::from_xyz(0.0, h - 0.2, 0.0)));
     commands.spawn((DirectionalLight { illuminance: 3000.0, ..default() }, Transform::from_xyz(2.0, 6.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y)));
 
-    commands.spawn((Camera3d::default(), Player::default(), Transform::from_xyz(0.0, 1.6, 2.5)));
+    let [x, y, z, yaw, pitch] = start.0;
+    let (yaw, pitch) = (yaw.to_radians(), pitch.to_radians());
+    commands.spawn((
+        Camera3d::default(),
+        Player { yaw, pitch },
+        Transform::from_xyz(x, y, z).with_rotation(Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0)),
+    ));
     commands.spawn((
         Text::new(""),
         StatusText,
@@ -198,11 +214,16 @@ fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>
     }
 }
 
+/// Our placement of the Dorm pieces the game does not author in place (the original layout is in the scrambled
+/// level files).
+const DORM_LAYOUT: &str = include_str!("../rooms/dorm.layout");
+
 /// The Dorm's pieces, from the Addressables bundle that holds them (found with unity-assets' catalog tool).
 fn load_dorm(game_dir: &std::path::Path) -> Result<RoomData, String> {
     let dir = room::bundle_dir(game_dir);
     let mut lib = room::Library::new(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    room::load_prefabs(&mut lib, &dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"))
+    let layout = room::parse_layout(DORM_LAYOUT)?;
+    room::load_prefabs(&mut lib, &dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"), &layout)
 }
 
 fn spawn_room(

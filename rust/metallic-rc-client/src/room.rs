@@ -278,8 +278,36 @@ impl Builder<'_> {
     }
 }
 
-/// Every root prefab in `bundle` whose name passes `want`, each placed where its own root transform puts it.
-pub fn load_prefabs(lib: &mut Library, dir: &Path, bundle: &str, want: impl Fn(&str) -> bool) -> Result<RoomData, String> {
+/// Where to put prefabs that are not authored in place, read from a layout file: one prefab per line,
+/// `name x y z [yaw [pitch [roll]]]`, metres and degrees in the client's (Bevy) space, `#` starts a comment.
+/// A name may appear more than once to place several copies; `name hide` leaves a prefab out.
+pub fn parse_layout(text: &str) -> Result<Vec<(String, Option<Mat4>)>, String> {
+    let mut out = Vec::new();
+    for (n, line) in text.lines().enumerate() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut it = line.split_whitespace();
+        let name = it.next().unwrap_or_default().to_string();
+        if line.ends_with(" hide") {
+            out.push((name, None));
+            continue;
+        }
+        let v: Vec<f32> = it.map(|x| x.parse().map_err(|_| format!("layout line {}: bad number {x:?}", n + 1))).collect::<Result<_, _>>()?;
+        if v.len() < 3 || v.len() > 6 {
+            return Err(format!("layout line {}: want name x y z [yaw [pitch [roll]]]", n + 1));
+        }
+        let deg = |i: usize| v.get(i).copied().unwrap_or(0.0).to_radians();
+        let rot = Quat::from_euler(bevy::math::EulerRot::YXZ, deg(3), deg(4), deg(5));
+        out.push((name, Some(Mat4::from_rotation_translation(rot, Vec3::new(v[0], v[1], v[2])))));
+    }
+    Ok(out)
+}
+
+/// Every root prefab in `bundle` whose name passes `want`. A prefab named in `layout` is placed there (once per
+/// entry); the others stay where their own root transform puts them.
+pub fn load_prefabs(lib: &mut Library, dir: &Path, bundle: &str, want: impl Fn(&str) -> bool, layout: &[(String, Option<Mat4>)]) -> Result<RoomData, String> {
     let open = lib.open_bundle(&dir.join(bundle))?;
     let mut b = Builder { lib, out: RoomData::default(), materials: HashMap::new() };
     for index in 0..open.files.len() {
@@ -298,9 +326,14 @@ pub fn load_prefabs(lib: &mut Library, dir: &Path, bundle: &str, want: impl Fn(&
             });
             let Some((tf, tid)) = tr else { continue };
             let is_root = value(&tf, tid).ok().and_then(|v| Transform::from_value(&v).ok()).is_some_and(|t| t.parent.path_id == 0);
-            if is_root {
-                b.out.roots.push(name);
-                b.walk(&tf, tid, Mat4::IDENTITY);
+            if !is_root {
+                continue;
+            }
+            let entries: Vec<Option<Mat4>> = layout.iter().filter(|(n, _)| *n == name).map(|(_, m)| *m).collect();
+            let places: Vec<Mat4> = if entries.is_empty() { vec![Mat4::IDENTITY] } else { entries.into_iter().flatten().collect() };
+            for place in places {
+                b.out.roots.push(name.clone());
+                b.walk(&tf, tid, place);
             }
         }
     }

@@ -1,0 +1,50 @@
+# Metallic-RC Dorm layout: where the game's own Dorm prefabs go.
+# The 2026 client keeps this in its scrambled level files, so this file is ours: built from the pieces the game
+# authors in place (floor, floor trims, wall stripe, back wall, pillar: they give the room's edges) and fitted to
+# the 2026 Dorm by eye. Room: x -4.85..4.85, z -2.96..2.96 (the left end, x < -2.46, is a loft alcove z -2.83..2.83).
+# name                          x      y      z     yaw  pitch  roll   (metres, degrees, client space)
+
+# walls: the full-height pieces; their _Up/_Down halves are alternatives and stay out
+(Dorm_Wall_4)                  2.32   0.00  -2.96     0
+(Dorm_Wall_1)                 -4.88   0.00   0.00    90
+(Dorm_Wall_3)                  4.88   0.00  -1.46   -90
+(Dorm_Wall_Loft_1)            -3.88   0.00  -2.83     0
+(Dorm_Wall_Loft_2)            -3.44   0.00   2.83   180
+(Dorm_Wall_1_Up) hide
+(Dorm_Wall_1_Down) hide
+(Dorm_Wall_Loft_1_Up) hide
+(Dorm_Wall_Loft_1_Down) hide
+(Dorm_Wall_Loft_2_Up) hide
+(Dorm_Wall_Loft_2_Down) hide
+
+# ceiling
+(Dorm_Ceiling_Flat)           -1.85   6.30   0.00     0    -90
+(Dorm_Ceiling_Angled)          3.10   6.20   0.00    90    -90
+(Dorm_Fluorescent_Light)      -1.00   6.25   0.00     0
+(Dorm_Fluorescent_Light)       1.50   6.25   0.00     0
+
+# loft over the left alcove, ladder up from the room
+(Dorm_Loft_Floor)             -3.66   2.74   0.00    90
+(Dorm_Loft_Beam)              -2.46   2.74   0.00    90
+(Dorm_Loft_Railing)           -2.50   3.15   0.90    90
+(Dorm_Loft_Shelves)           -3.66   2.79   0.00    90
+(Dorm_Ladder)                 -2.30   0.00  -1.20    90
+
+# furniture
+(Dorm_Bunk_Bed)               -4.10   0.00   1.40    90
+(Dorm_Dresser)                 1.00   0.00  -2.70     0
+(Dorm_Desk_Lamp)               1.40   1.81  -2.75     0
+(Dorm_Rug)                     0.80   0.01   0.00     0
+(Dorm_FreeMirror)              3.20   1.60  -2.92     0
+(Dorm_Mirror_Buttons)          4.40   1.40  -2.92     0
+(Dorm_Help_Buttons)            4.40   1.10  -2.92     0
+(Dorm_Community_Board)         0.30   1.80   2.92   180
+(Dorm_Campus_Map)             -1.70   1.60   2.92   180
+
+# windows
+(Dorm_Window_Small_Frame)      2.50   3.20  -2.96     0
+(Dorm_Window_Small_Panes)      2.50   3.20  -2.96     0
+(Dorm_Window_Large_Frame)      4.88   3.00   0.00   -90
+(Dorm_Window_Large_Panes)      4.88   3.00   0.00   -90
+(Dorm_Skylight_Frame)          3.10   6.10   0.00    90    -90
+(Dorm_Skylight_Window)         3.10   6.10   0.00    90    -90

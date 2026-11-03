@@ -11,7 +11,7 @@ fn main() {
     let mut lib = Library::new(&dir).unwrap();
     println!("indexed {} serialized files in {:?}", lib.bundle_count(), t.elapsed());
     let t = std::time::Instant::now();
-    let r = room::load_prefabs(&mut lib, &dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_")).unwrap();
+    let r = room::load_prefabs(&mut lib, &dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"), &[]).unwrap();
     println!("{} prefabs, {} parts, {} materials ({} textured) in {:?}", r.roots.len(), r.parts.len(), r.materials.len(),
         r.materials.iter().filter(|m| m.texture.is_some()).count(), t.elapsed());
     for p in r.roots.iter().take(80) {
