@@ -18,7 +18,7 @@ fn main() {
     println!("{} prefabs, {} parts, {} materials ({} textured), {} colliders in {:?}", r.roots.len(), r.parts.len(), r.materials.len(),
         r.materials.iter().filter(|m| m.texture.is_some()).count(), r.colliders.len(), t.elapsed());
     for m in &r.materials {
-        println!("material {:56} {:32} roughness {:.2} color {:?} texture {:?}", m.name, m.shader, m.roughness,
+        println!("material {:56} {:32} smoothness {:.2} color {:?} texture {:?}", m.name, m.shader, m.smoothness,
             m.color.map(|c| (c * 100.0).round() / 100.0), m.texture.as_ref().map(|t| (t.0, t.1)));
     }
     for p in r.roots.iter().take(80) {

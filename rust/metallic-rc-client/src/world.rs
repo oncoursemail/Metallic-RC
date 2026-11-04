@@ -404,8 +404,9 @@ impl Plugin for WorldPlugin {
 /// Builds the meshes, materials and lights of `r` as children of one entity per root prefab. Returns the root
 /// entities; `roots[i]` is `None` for a root the caller already has an entity for (`existing`).
 fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option<Entity>,
-         meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, images: &mut Assets<Image>, clips: &mut Assets<audio::Pcm>) -> (Vec<Entity>, Vec<Obb>) {
-    let mats: Vec<Handle<StandardMaterial>> = r.materials.iter().map(|m| materials.add(render::material(m, images))).collect();
+         meshes: &mut Assets<Mesh>, materials: &mut Assets<render::AgMaterial>, images: &mut Assets<Image>, clips: &mut Assets<audio::Pcm>) -> (Vec<Entity>, Vec<Obb>) {
+    let mut textures = render::Textures::default();
+    let mats: Vec<Handle<render::AgMaterial>> = r.materials.iter().map(|m| materials.add(render::material(m, images, &mut textures))).collect();
     let needs_tangents: Vec<bool> = r.materials.iter().map(|m| m.normal_map.is_some()).collect();
     let mut roots: Vec<Entity> = Vec::new();
     for (i, name) in r.roots.iter().enumerate() {
@@ -477,7 +478,7 @@ fn spawn_arrived(
     old: Query<Entity, With<RoomPiece>>,
     cameras: Query<Entity, With<Camera3d>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<render::AgMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut clips: ResMut<Assets<audio::Pcm>>,
     mut ambient: ResMut<GlobalAmbientLight>,
@@ -529,7 +530,7 @@ fn attach_props(
     loader: Option<Res<Loader>>,
     alive: Query<(), With<Prop>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<render::AgMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut clips: ResMut<Assets<audio::Pcm>>,
 ) {

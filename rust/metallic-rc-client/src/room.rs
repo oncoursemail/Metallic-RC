@@ -53,22 +53,28 @@ pub struct RoomMaterial {
     pub name: String,
     /// the shader's name, as the game files give it
     pub shader: String,
-    /// sRGB tint multiplied with the texture (white when the tint is baked into it)
+    /// the family's tint (sRGB; alpha = opacity of transparent materials): `_InstanceColor`, `_BaseColor` or the
+    /// Maker Pen palette colour; the shader multiplies it with the vertex colour
     pub color: [f32; 4],
-    /// albedo: width, height, RGBA8 rows top-down (sRGB); recolour tints and masks are already baked in
+    /// AG lit shaders: the base map's alpha masks the tint (`rgb * lerp(1, tint, a)`) and lights the emission;
+    /// otherwise (URP Lit, unlit) the tint multiplies
+    pub masked: bool,
+    /// `_BaseMap` as stored: width, height, RGBA8 rows top-down (sRGB)
     pub texture: Option<Pixels>,
-    /// 1 - gloss, where there is no gloss map
-    pub roughness: f32,
-    /// per pixel `1 - gloss` in the green channel (Bevy's metallic-roughness layout, metallic 0), linear
-    pub roughness_map: Option<Pixels>,
-    /// Bevy reflectance from the specular colour: F0 = 0.16 * reflectance^2
-    pub reflectance: f32,
+    /// `_SpecGlossMap` as stored (linear): rgb = specular colour (F0), a = gloss
+    pub spec_map: Option<Pixels>,
+    /// linear `_SpecColor`, times the spec map
+    pub spec_color: [f32; 3],
+    /// `_Smoothness`, times the spec map's alpha (the gloss itself for URP Lit without a map)
+    pub smoothness: f32,
     /// tangent-space normals, RGB (linear), from `_BumpMap`
     pub normal_map: Option<Pixels>,
-    /// linear emission, times `emissive_map` when there is one
+    /// linear `_EmissionColor` (when the shader emits), times `emissive_map` when there is one
     pub emissive: [f32; 3],
-    /// sRGB emission colour map (the albedo's masked part for the AG shaders)
+    /// `_EmissionMap` (sRGB)
     pub emissive_map: Option<Pixels>,
+    /// `_EmissivePower`: the masked albedo glows by this much
+    pub emissive_power: f32,
     pub blend: Blend,
     /// drawn without lighting (`AG/Unlit-*`)
     pub unlit: bool,
@@ -212,6 +218,7 @@ struct Source {
     emissive_power: f32,
     /// linear `_EmissionColor`
     emission: [f32; 3],
+    emission_map: Option<Pixels>,
     blend: Blend,
     /// interaction volumes and UI masks: present in the prefab, never seen in the game
     hidden: bool,
@@ -228,8 +235,6 @@ struct Colorable {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Variant {
     Plain,
-    /// a uniform vertex colour, 8 bits per channel, folded into the tint
-    Tint([u8; 3]),
     Shape(Colorable),
 }
 
@@ -439,13 +444,14 @@ impl Builder<'_> {
         let normal_map = env(&["_BumpMap", "_NormalMap"]).and_then(|t| self.texture(&mf, t.texture)).map(|t| shapes::unpack_normals(&t));
         let smoothness = float("_Smoothness").or(float("_Glossiness")).unwrap_or(0.5);
         let spec_color = color_of(&["_SpecColor"]).map_or([1.0; 3], |c| shapes::linear([c[0], c[1], c[2]]));
+        let emission_map = env(&["_EmissionMap"]).and_then(|t| self.texture(&mf, t.texture));
         let emission = color_of(&["_EmissionColor"]).filter(|_| m.keywords.iter().any(|k| k.contains("EMISSION")) || shader.contains("Emission"))
             .map_or([0.0; 3], |c| shapes::linear([c[0], c[1], c[2]]));
         let blend = blend_of(&shader, float("_Cutoff"));
         let hidden = ["InteractionVolume", "Mask_Mat", "LightShaft", "Light_Shaft"].iter().any(|k| m.name.contains(k));
         self.sources.push(Source {
             name: m.name, shader, family: fam, color, tint, alpha: tint4[3], texture, st, spec_map, smoothness, spec_color, normal_map,
-            emissive_power: float("_EmissivePower").unwrap_or(0.0), emission, blend, hidden,
+            emissive_power: float("_EmissivePower").unwrap_or(0.0), emission, emission_map, blend, hidden,
         });
         let i = self.sources.len() - 1;
         self.source_of.insert(key, i);
@@ -459,7 +465,7 @@ impl Builder<'_> {
         self.sources.push(Source {
             name: "missing".into(), shader: String::new(), family: Family::Lit, color: [0.8, 0.8, 0.8, 1.0], tint: [1.0; 3], alpha: 1.0,
             texture: None, st: ([1.0; 2], [0.0; 2]), spec_map: None, smoothness: 0.2, spec_color: [1.0; 3], normal_map: None,
-            emissive_power: 0.0, emission: [0.0; 3], blend: Blend::Opaque, hidden: false,
+            emissive_power: 0.0, emission: [0.0; 3], emission_map: None, blend: Blend::Opaque, hidden: false,
         });
         let i = self.sources.len() - 1;
         self.source_of.insert((String::new(), 0), i);
@@ -473,69 +479,35 @@ impl Builder<'_> {
         }
         let s = &self.sources[src];
         let mut name = s.name.clone();
-        let (mut base, mut spec_map, mut smoothness) = (s.texture.clone(), s.spec_map.clone(), s.smoothness);
-        // the tint in linear light: the family colour, times a uniform vertex colour, or the palette colour
-        let tint: [f32; 3] = match v {
-            Variant::Plain => s.tint,
-            Variant::Tint(q) => std::array::from_fn(|c| q[c] as f32 / 255.0 * s.tint[c]),
-            Variant::Shape(c) => {
-                let own = [s.color[0], s.color[1], s.color[2]];
-                let tint = shapes::linear(c.color.and_then(|id| self.kit.color(id)).unwrap_or(own));
-                match c.material.and_then(|id| self.kit.material(id)).map(|m| (m.name.clone(), m.smoothness, m.base_map.clone(), m.spec_map.clone())) {
-                    Some((mname, sm, base_map, spec)) => {
-                        name = format!("{name} ({mname})");
-                        smoothness = sm;
-                        base = self.kit.texture(&base_map).cloned();
-                        spec_map = self.kit.texture(&spec).cloned();
-                    }
-                    // the material's own _BaseMap is empty (white) and its _SpecGlossMap black (no gloss)
-                    None => {
-                        base = None;
-                        spec_map = None;
-                    }
+        let (mut base, mut spec_map, mut smoothness, mut normal_map) = (s.texture.clone(), s.spec_map.clone(), s.smoothness, s.normal_map.clone());
+        // the tint in linear light: the family colour, or the palette colour
+        let mut tint = s.tint;
+        if let Variant::Shape(c) = v {
+            let own = [s.color[0], s.color[1], s.color[2]];
+            tint = shapes::linear(c.color.and_then(|id| self.kit.color(id)).unwrap_or(own));
+            normal_map = None;
+            match c.material.and_then(|id| self.kit.material(id)).map(|m| (m.name.clone(), m.smoothness, m.base_map.clone(), m.spec_map.clone())) {
+                Some((mname, sm, base_map, spec)) => {
+                    name = format!("{name} ({mname})");
+                    smoothness = sm;
+                    base = self.kit.texture(&base_map).cloned();
+                    spec_map = self.kit.texture(&spec).cloned();
                 }
-                tint
+                // the material's own _BaseMap is empty (white) and its _SpecGlossMap black (no gloss)
+                None => {
+                    base = None;
+                    spec_map = None;
+                }
             }
-        };
+        }
         let s = &self.sources[src];
         let masked = !matches!(s.family, Family::Lit | Family::Unlit);
         let rgb = srgb(tint);
-        // albedo: AG lit shaders mask the tint with the base map's alpha (so alpha is not opacity there); URP Lit
-        // and the unlit ones multiply. Transparent AG materials take their opacity from the tint (INFERRED for the
-        // glass pane, which also mixes in fresnel).
-        let (color, texture) = match (&base, masked, v) {
-            (Some(t), true, _) => ([1.0, 1.0, 1.0, s.alpha], Some(shapes::bake_tint(t, tint))),
-            (None, true, _) => ([rgb[0], rgb[1], rgb[2], s.alpha], None),
-            (Some(t), false, Variant::Plain) if s.family == Family::Lit => (s.color, Some(t.clone())),
-            (Some(t), false, _) => ([rgb[0], rgb[1], rgb[2], s.alpha], Some(t.clone())),
-            (None, false, _) if s.family == Family::Lit => ([rgb[0], rgb[1], rgb[2], s.color[3]], None),
-            (None, false, _) => ([rgb[0], rgb[1], rgb[2], s.alpha], None),
-        };
-        // emission: the masked part of the albedo times _EmissivePower and the tint, plus _EmissionColor
-        let (mut emissive, mut emissive_map) = (s.emission, None);
-        if masked && s.emissive_power > 0.0 {
-            match &base {
-                Some(t) => {
-                    emissive_map = Some(shapes::bake_emission(t, tint));
-                    emissive = [s.emissive_power; 3];
-                }
-                None => emissive = std::array::from_fn(|c| s.emission[c] + tint[c] * s.emissive_power),
-            }
-        }
-        // specular workflow: gloss = map alpha * smoothness, F0 = map rgb * _SpecColor; no map = black (no gloss)
-        let (roughness, roughness_map, reflectance) = match &spec_map {
-            Some(t) => {
-                let spec = shapes::mean_rgb_max(t) * s.spec_color.iter().cloned().fold(0.0, f32::max);
-                (1.0, Some(shapes::roughness_from_gloss(t, smoothness)), (spec / 0.16).sqrt().clamp(0.0, 1.0))
-            }
-            None if s.family == Family::Lit => (1.0 - smoothness, None, 0.5),
-            None => (1.0, None, 0.0),
-        };
         let (sc, of) = s.st;
         let mat = RoomMaterial {
-            name, shader: s.shader.clone(), color, texture, roughness, roughness_map, reflectance,
-            normal_map: if matches!(v, Variant::Shape(_)) { None } else { s.normal_map.clone() },
-            emissive, emissive_map, blend: s.blend, unlit: s.family == Family::Unlit,
+            name, shader: s.shader.clone(), color: [rgb[0], rgb[1], rgb[2], s.alpha], masked, texture: base, spec_map,
+            spec_color: s.spec_color, smoothness, normal_map, emissive: s.emission, emissive_map: s.emission_map.clone(),
+            emissive_power: if masked { s.emissive_power } else { 0.0 }, blend: s.blend, unlit: s.family == Family::Unlit,
             uv_scale: sc, uv_offset: [of[0], 1.0 - sc[1] - of[1]],
         };
         self.out.materials.push(mat);
@@ -744,8 +716,6 @@ impl Builder<'_> {
         if !colors.is_empty() {
             colors.resize(positions.len(), [1.0; 4]);
         }
-        // a recolour prop's vertex colour is one colour per mesh in practice; it is baked into its texture
-        let uniform = colors.first().filter(|c0| colors.iter().all(|c| c == *c0)).map(|c| c.map(|x| (x.clamp(0.0, 1.0) * 255.0).round() as u8));
         for (i, sub) in m.submeshes.iter().enumerate() {
             // topology 0 = triangles; lines and points are not drawn
             if sub.topology != 0 {
@@ -763,17 +733,15 @@ impl Builder<'_> {
                 continue;
             }
             // Maker Pen pieces repeat their material's texture every `size` metres of uv0; others use uv0 as it is.
-            // A uniform vertex colour folds into the tint; varying ones go to the mesh (Bevy multiplies them in).
+            // The AG shaders other than Maker Pen multiply the vertex colour into the tint; URP Lit and Maker Pen
+            // never read it (rendering.md).
             let (variant, part_colors, size) = match self.sources[src].family {
                 Family::MakerPen => {
                     let size = colorable.material.and_then(|id| self.kit.material(id)).map_or(1.0, |m| m.size);
                     (Variant::Shape(colorable), vec![], size)
                 }
                 Family::Lit => (Variant::Plain, vec![], 1.0),
-                _ => match uniform {
-                    Some(q) => (Variant::Tint([q[0], q[1], q[2]]), vec![], 1.0),
-                    None => (Variant::Plain, colors.clone(), 1.0),
-                },
+                _ => (Variant::Plain, colors.clone(), 1.0),
             };
             let material = self.look(src, variant);
             let uvs = raw_uvs.iter().map(|[u, v]| [u / size, 1.0 - v / size]).collect();

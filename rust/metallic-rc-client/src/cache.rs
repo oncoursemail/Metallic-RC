@@ -20,7 +20,7 @@ use crate::{
     shapes::Pixels,
 };
 
-const MAGIC: &[u8; 8] = b"MRCROOM1";
+const MAGIC: &[u8; 8] = b"MRCROOM2";
 /// The cache folder's size cap.
 const LIMIT: u64 = 1 << 30;
 
@@ -163,7 +163,7 @@ fn encode(w: &mut W, r: &RoomData) {
     let mut refs: Vec<[u32; 4]> = Vec::new();
     for m in &r.materials {
         let mut ids = [NONE; 4];
-        for (k, p) in [&m.texture, &m.roughness_map, &m.normal_map, &m.emissive_map].into_iter().enumerate() {
+        for (k, p) in [&m.texture, &m.spec_map, &m.normal_map, &m.emissive_map].into_iter().enumerate() {
             let Some(p) = p else { continue };
             let mut h = std::collections::hash_map::DefaultHasher::new();
             p.2.hash(&mut h);
@@ -186,9 +186,11 @@ fn encode(w: &mut W, r: &RoomData) {
         w.str(&m.name);
         w.str(&m.shader);
         w.floats(&m.color);
-        w.f32(m.roughness);
-        w.f32(m.reflectance);
+        w.bool(m.masked);
+        w.floats(&m.spec_color);
+        w.f32(m.smoothness);
         w.floats(&m.emissive);
+        w.f32(m.emissive_power);
         match m.blend {
             Blend::Opaque => w.u32(0),
             Blend::Mask(c) => { w.u32(1); w.f32(c); }
@@ -297,7 +299,7 @@ fn decode(r: &mut R) -> Option<RoomData> {
     let mut out = RoomData::default();
     out.materials = r.list(|r| {
         let (name, shader, color) = (r.str()?, r.str()?, r.floats()?);
-        let (roughness, reflectance, emissive) = (r.f32()?, r.f32()?, r.floats()?);
+        let (masked, spec_color, smoothness, emissive, emissive_power) = (r.bool()?, r.floats()?, r.f32()?, r.floats()?, r.f32()?);
         let blend = match r.u32()? {
             0 => Blend::Opaque,
             1 => Blend::Mask(r.f32()?),
@@ -305,10 +307,10 @@ fn decode(r: &mut R) -> Option<RoomData> {
             _ => Blend::Add,
         };
         let (unlit, uv_scale, uv_offset) = (r.bool()?, r.floats()?, r.floats()?);
-        let (t, rm, nm, em) = (tex(r.u32()?)?, tex(r.u32()?)?, tex(r.u32()?)?, tex(r.u32()?)?);
+        let (t, sm, nm, em) = (tex(r.u32()?)?, tex(r.u32()?)?, tex(r.u32()?)?, tex(r.u32()?)?);
         Some(RoomMaterial {
-            name, shader, color: color.try_into().ok()?, texture: t, roughness, roughness_map: rm, reflectance, normal_map: nm,
-            emissive: emissive.try_into().ok()?, emissive_map: em, blend, unlit,
+            name, shader, color: color.try_into().ok()?, masked, texture: t, spec_map: sm, spec_color: spec_color.try_into().ok()?,
+            smoothness, normal_map: nm, emissive: emissive.try_into().ok()?, emissive_map: em, emissive_power, blend, unlit,
             uv_scale: uv_scale.try_into().ok()?, uv_offset: uv_offset.try_into().ok()?,
         })
     })?;
@@ -360,9 +362,9 @@ mod tests {
         let clip = Arc::new(Clip { name: "c".into(), rate: 8000, channels: 1, samples: vec![1, -2, 3], codec: "pcm16" });
         let mut r = RoomData::default();
         r.materials.push(RoomMaterial {
-            name: "m".into(), shader: "s".into(), color: [1.0, 0.5, 0.25, 1.0], texture: Some(px.clone()), roughness: 0.4,
-            roughness_map: None, reflectance: 0.5, normal_map: Some(px.clone()), emissive: [0.0, 1.0, 0.0], emissive_map: None,
-            blend: Blend::Mask(0.3), unlit: false, uv_scale: [1.0, 2.0], uv_offset: [0.0, -1.0],
+            name: "m".into(), shader: "s".into(), color: [1.0, 0.5, 0.25, 1.0], masked: true, texture: Some(px.clone()),
+            spec_map: None, spec_color: [0.2; 3], smoothness: 0.4, normal_map: Some(px.clone()), emissive: [0.0, 1.0, 0.0],
+            emissive_map: None, emissive_power: 2.0, blend: Blend::Mask(0.3), unlit: false, uv_scale: [1.0, 2.0], uv_offset: [0.0, -1.0],
         });
         r.parts.push(Part {
             name: "p".into(), root: 0, mesh: "mesh".into(), world: Mat4::from_translation(Vec3::X), positions: vec![[1.0, 2.0, 3.0]],
@@ -385,6 +387,7 @@ mod tests {
         assert_eq!(back.materials[0].texture, Some(px.clone()));
         assert_eq!(back.materials[0].normal_map, Some(px));
         assert_eq!(back.materials[0].blend, Blend::Mask(0.3));
+        assert_eq!((back.materials[0].masked, back.materials[0].emissive_power, back.materials[0].spec_color), (true, 2.0, [0.2; 3]));
         assert_eq!(back.parts[0].positions, r.parts[0].positions);
         assert_eq!(back.parts[0].world, r.parts[0].world);
         assert_eq!((back.roots.clone(), back.props.clone(), back.collider_roots.clone()), (r.roots.clone(), r.props.clone(), r.collider_roots.clone()));

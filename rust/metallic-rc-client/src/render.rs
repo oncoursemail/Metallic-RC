@@ -11,11 +11,13 @@ use bevy::{
     image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
     light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap, GeneratedEnvironmentMapLight, ShadowFilteringMethod, Skybox},
     math::Affine2,
-    pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
+    pbr::{ExtendedMaterial, MaterialExtension, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     post_process::bloom::{Bloom, BloomCompositeMode, BloomPrefilter},
     prelude::*,
-    render::{render_resource::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension}, view::Msaa},
+    render::{render_resource::{AsBindGroup, Extent3d, ShaderType, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension}, view::Msaa},
+    shader::ShaderRef,
 };
+use std::{collections::HashMap, hash::{Hash, Hasher}};
 
 use crate::{room::{Blend, RoomLight, RoomMaterial}, shapes::Pixels};
 
@@ -82,31 +84,111 @@ fn mip_chain(w: u32, h: u32, top: &[u8], srgb: bool) -> (Vec<u8>, u32) {
     (out, levels)
 }
 
-pub fn material(m: &RoomMaterial, images: &mut Assets<Image>) -> StandardMaterial {
-    let mut tex = |p: &Option<Pixels>, srgb: bool| p.as_ref().map(|p| images.add(image(p, srgb)));
-    let [cr, cg, cb, ca] = m.color;
-    let [er, eg, eb] = m.emissive;
-    StandardMaterial {
-        base_color: Color::srgba(cr, cg, cb, ca),
-        base_color_texture: tex(&m.texture, true),
-        perceptual_roughness: m.roughness.clamp(0.05, 1.0),
-        metallic: 0.0,
-        metallic_roughness_texture: tex(&m.roughness_map, false),
-        reflectance: m.reflectance,
-        normal_map_texture: tex(&m.normal_map, false),
-        emissive: LinearRgba::rgb(er, eg, eb),
-        emissive_texture: tex(&m.emissive_map, true),
-        unlit: m.unlit,
-        alpha_mode: match m.blend {
-            Blend::Opaque => AlphaMode::Opaque,
-            Blend::Mask(c) => AlphaMode::Mask(c),
-            Blend::Blend => AlphaMode::Blend,
-            Blend::Add => AlphaMode::Add,
+/// A room material: Bevy's PBR with the game's AG surface maths (`ag_surface.wesl`).
+pub type AgMaterial = ExtendedMaterial<StandardMaterial, AgSurface>;
+
+/// The inputs of the game's surface shaders that Bevy's StandardMaterial has no slot for.
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+pub struct AgSurface {
+    #[uniform(100)]
+    pub params: AgParams,
+    #[texture(101)]
+    #[sampler(102)]
+    pub base_map: Option<Handle<Image>>,
+    #[texture(103)]
+    #[sampler(104)]
+    pub spec_map: Option<Handle<Image>>,
+    #[texture(105)]
+    #[sampler(106)]
+    pub emission_map: Option<Handle<Image>>,
+}
+
+#[derive(ShaderType, Reflect, Debug, Clone, Copy, Default)]
+pub struct AgParams {
+    /// linear tint, opacity
+    pub tint: Vec4,
+    /// uv * xy + zw
+    pub uv_st: Vec4,
+    /// linear `_SpecColor`, `_Smoothness`
+    pub spec: Vec4,
+    /// linear `_EmissionColor`, `_EmissivePower`
+    pub emission: Vec4,
+    pub flags: u32,
+}
+
+const AG_MASKED: u32 = 1;
+const AG_BASE_MAP: u32 = 2;
+const AG_SPEC_MAP: u32 = 4;
+const AG_EMISSION_MAP: u32 = 8;
+const AG_URP_LIT: u32 = 16;
+const AG_ALPHA_FROM_MAP: u32 = 32;
+
+impl MaterialExtension for AgSurface {
+    fn fragment_shader() -> ShaderRef {
+        "embedded://metallic_rc_client/ag_surface.wesl".into()
+    }
+}
+
+/// GPU images made from room textures, one per distinct texture (materials share them).
+#[derive(Default)]
+pub struct Textures(HashMap<(u32, u32, u64, bool), Handle<Image>>);
+
+impl Textures {
+    pub fn get(&mut self, p: &Pixels, srgb: bool, images: &mut Assets<Image>) -> Handle<Image> {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        p.2.hash(&mut h);
+        self.0.entry((p.0, p.1, h.finish(), srgb)).or_insert_with(|| images.add(image(p, srgb))).clone()
+    }
+}
+
+pub fn material(m: &RoomMaterial, images: &mut Assets<Image>, textures: &mut Textures) -> AgMaterial {
+    let mut tex = |p: &Option<Pixels>, srgb: bool| p.as_ref().map(|p| textures.get(p, srgb, images));
+    let base_map = tex(&m.texture, true);
+    let lin = crate::shapes::linear([m.color[0], m.color[1], m.color[2]]);
+    let flags = [
+        (m.masked, AG_MASKED),
+        (base_map.is_some(), AG_BASE_MAP),
+        (m.spec_map.is_some(), AG_SPEC_MAP),
+        (m.emissive_map.is_some(), AG_EMISSION_MAP),
+        (!m.masked && !m.unlit, AG_URP_LIT),
+        (matches!(m.blend, Blend::Mask(_)), AG_ALPHA_FROM_MAP),
+    ].iter().filter(|f| f.0).fold(0, |a, f| a | f.1);
+    let uv_transform = Affine2::from_scale_angle_translation(Vec2::from(m.uv_scale), 0.0, Vec2::from(m.uv_offset));
+    let [sx, sy] = m.uv_scale;
+    let [ox, oy] = m.uv_offset;
+    ExtendedMaterial {
+        base: StandardMaterial {
+            // the extension computes colour, gloss and emission; the base keeps what Bevy's own passes need: the
+            // opacity (and, for alpha-tested ones, the map) for the depth prepass, the normal map and blend mode
+            base_color: Color::srgba(1.0, 1.0, 1.0, m.color[3]),
+            base_color_texture: if matches!(m.blend, Blend::Mask(_)) { base_map.clone() } else { None },
+            normal_map_texture: tex(&m.normal_map, false),
+            unlit: m.unlit,
+            alpha_mode: match m.blend {
+                Blend::Opaque => AlphaMode::Opaque,
+                Blend::Mask(c) => AlphaMode::Mask(c),
+                Blend::Blend => AlphaMode::Blend,
+                Blend::Add => AlphaMode::Add,
+            },
+            uv_transform,
+            double_sided: true,
+            cull_mode: None,
+            // baked lightmaps (Levels lane) hold Unity's light values; this puts them at the frame's brightness
+            lightmap_exposure: UNEXPOSE,
+            ..default()
         },
-        uv_transform: Affine2::from_scale_angle_translation(Vec2::from(m.uv_scale), 0.0, Vec2::from(m.uv_offset)),
-        double_sided: true,
-        cull_mode: None,
-        ..default()
+        extension: AgSurface {
+            params: AgParams {
+                tint: Vec4::new(lin[0], lin[1], lin[2], m.color[3]),
+                uv_st: Vec4::new(sx, sy, ox, oy),
+                spec: Vec4::new(m.spec_color[0], m.spec_color[1], m.spec_color[2], m.smoothness),
+                emission: Vec4::new(m.emissive[0], m.emissive[1], m.emissive[2], m.emissive_power),
+                flags,
+            },
+            base_map,
+            spec_map: tex(&m.spec_map, false),
+            emission_map: tex(&m.emissive_map, true),
+        },
     }
 }
 
@@ -158,7 +240,9 @@ pub struct LookPlugin;
 
 impl Plugin for LookPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(DirectionalLightShadowMap { size: 4096 })
+        bevy::asset::embedded_asset!(app, "ag_surface.wesl");
+        app.add_plugins(MaterialPlugin::<AgMaterial>::default())
+            .insert_resource(DirectionalLightShadowMap { size: 4096 })
             .add_systems(Update, dress_cameras);
     }
 }

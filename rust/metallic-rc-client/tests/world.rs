@@ -41,11 +41,10 @@ fn room_props_lights_and_materials() {
     assert!(!props.contains(&"(Dorm_Wall_1)"));
     assert_eq!(r.places.len(), r.roots.len());
     assert_eq!(r.collider_roots.len(), r.colliders.len());
-    // the bunk bed's recolour mask is baked: brown wood, not the white texture
+    // the bunk bed's brown _InstanceColor is the tint its texture's alpha masks (the shader applies it)
     let bed = r.materials.iter().find(|m| m.name.contains("BunkBed")).expect("bunk bed material");
-    let px = &bed.texture.as_ref().unwrap().2;
-    let mean = |c: usize| px.chunks_exact(4).map(|p| p[c] as u32).sum::<u32>() / (px.len() as u32 / 4);
-    assert!(mean(0) > mean(2) + 20, "not brown: {} {} {}", mean(0), mean(1), mean(2));
+    assert!(bed.masked && bed.texture.is_some());
+    assert!(bed.color[0] > bed.color[2] + 0.2, "not brown: {:?}", bed.color);
 
     // the Maker room ceiling brings its own realtime lights (hemisphere point lights)
     let r = world::load(&mut lib, &dir, Some("sandbox")).unwrap();
