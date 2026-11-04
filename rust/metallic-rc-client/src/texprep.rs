@@ -71,6 +71,8 @@ struct Pending {
     /// images already handled (or being handled), and the materials that use each
     done: HashSet<AssetId<Image>>,
     users: HashMap<AssetId<Image>, Vec<AssetId<StandardMaterial>>>,
+    /// when the current batch started and how many it had, for the log line
+    batch: Option<(std::time::Instant, usize)>,
 }
 
 fn queue(
@@ -115,6 +117,8 @@ fn queue(
                 Some(out.into_image(base, aniso))
             });
             pending.tasks.push((image_id, task));
+            let n = pending.tasks.len();
+            pending.batch = Some(pending.batch.map_or((std::time::Instant::now(), 1), |(t, _)| (t, n)));
         }
     }
 }
@@ -136,6 +140,11 @@ fn finish(mut pending: ResMut<Pending>, mut images: ResMut<Assets<Image>>, mut m
     });
     for m in touched {
         let _ = materials.get_mut(m);
+    }
+    if p.tasks.is_empty() {
+        if let Some((t, n)) = p.batch.take() {
+            info!("texprep: {n} textures ready in {:.2} s", t.elapsed().as_secs_f32());
+        }
     }
 }
 
