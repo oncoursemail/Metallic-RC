@@ -2,7 +2,7 @@
 //!                    [--headless]
 //!
 //! Logs into metallic-rc-server on a background thread, then walks you around the room it puts you in (screen mode:
-//! WASD, Shift sprint, Space jump, F fly (Space/Ctrl up/down), mouse look after a click, Esc frees the mouse). The Dorm's pieces are loaded from the
+//! WASD, Shift sprint, Space jump, F fly (Space/Ctrl up/down), mouse look after a click, Esc opens or closes the game's menu and frees the mouse). The Dorm's pieces are loaded from the
 //! installed game (`--game-dir`, default: the Steam copies in `room::GAME_DIRS`); until they arrive, or without a
 //! game folder, a stand-in box is shown.
 //! After login it joins the room on the room server (`--realtime`, default: the server's host, UDP port 4201); other
@@ -26,6 +26,7 @@ use metallic_rc_client::{
     realtime::{self, Realtime},
     room::{self, RoomData},
     shapes::{self, ShapeKit},
+    ui::{paint, prefab, theme, view},
 };
 use rr_net::{room::RoomEvent, sync::{AvatarData, Pose}};
 
@@ -92,6 +93,17 @@ struct Avatar(i32);
 #[derive(Resource, Clone)]
 struct Loading(Arc<Mutex<Option<Result<RoomData, String>>>>);
 
+/// The escape menu page, painted by the loader thread; `toggle_menu` takes it once.
+#[derive(Resource, Clone, Default)]
+struct MenuSlot(Arc<Mutex<Option<Result<paint::Drawn, String>>>>);
+
+/// The escape menu: its page once loaded, and its root while it is open.
+#[derive(Resource, Default)]
+struct Menu {
+    page: Option<paint::Drawn>,
+    open: Option<Entity>,
+}
+
 #[derive(Resource)]
 struct Start([f32; 5]);
 
@@ -136,13 +148,22 @@ fn main() {
 
     let loading = Loading(Arc::new(Mutex::new(None)));
     let slot = loading.0.clone();
+    let menu = MenuSlot::default();
+    let menu_slot = menu.0.clone();
     let game_dir = a.game_dir.clone().or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()));
     std::thread::spawn(move || {
-        let r = match game_dir {
-            Some(g) => load_dorm(&g),
-            None => Err("no game folder found; pass --game-dir".into()),
+        let Some(game) = game_dir else {
+            *slot.lock().unwrap() = Some(Err("no game folder found; pass --game-dir".into()));
+            return;
         };
-        *slot.lock().unwrap() = Some(r);
+        let dir = room::bundle_dir(&game);
+        let mut lib = match room::Library::new(&dir) {
+            Ok(l) => l,
+            Err(e) => return *slot.lock().unwrap() = Some(Err(format!("{}: {e}", dir.display()))),
+        };
+        // the menu first: it is small, and Esc may come before the room is in
+        *menu_slot.lock().unwrap() = Some(load_menu(&mut lib, &dir));
+        *slot.lock().unwrap() = Some(load_dorm(&mut lib, &dir));
     });
 
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))));
@@ -180,11 +201,13 @@ fn main() {
         .insert_resource(status)
         .insert_resource(net)
         .insert_resource(loading)
+        .insert_resource(menu)
+        .init_resource::<Menu>()
         .insert_resource(Start(a.camera))
         .init_resource::<Solids>()
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
-        .add_systems(Update, (grab_mouse, look_and_walk, show_status, spawn_room, realtime_sync.after(look_and_walk)))
+        .add_systems(Update, (toggle_menu, grab_mouse.after(toggle_menu), look_and_walk, show_status, spawn_room, realtime_sync.after(look_and_walk)))
         .run();
 }
 
@@ -311,8 +334,36 @@ fn realtime_sync(
     }
 }
 
-fn grab_mouse(mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>, mouse: Res<ButtonInput<MouseButton>>, keys: Res<ButtonInput<KeyCode>>) {
-    if mouse.just_pressed(MouseButton::Left) {
+/// Esc opens the escape menu over the room, or closes it.
+fn toggle_menu(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    slot: Res<MenuSlot>,
+    mut menu: ResMut<Menu>,
+    status: Res<Status>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    mut images: ResMut<Assets<Image>>,
+    mut fonts: ResMut<Assets<Font>>,
+) {
+    if let Some(r) = slot.0.lock().unwrap().take() {
+        match r {
+            Ok(page) => menu.page = Some(page),
+            Err(e) => status.0.lock().unwrap().push_str(&format!("  |  menu: {e}")),
+        }
+    }
+    if !keys.just_pressed(KeyCode::Escape) {
+        return;
+    }
+    if let Some(root) = menu.open.take() {
+        commands.entity(root).despawn();
+    } else if let Some(page) = &menu.page {
+        menu.open = Some(view::spawn(&mut commands, &mut images, &mut fonts, page, window.size()));
+    }
+}
+
+fn grab_mouse(mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>, mouse: Res<ButtonInput<MouseButton>>, keys: Res<ButtonInput<KeyCode>>, menu: Res<Menu>) {
+    // clicks on an open menu are the menu's
+    if mouse.just_pressed(MouseButton::Left) && menu.open.is_none() {
         cursor.grab_mode = CursorGrabMode::Locked;
         cursor.visible = false;
     }
@@ -395,14 +446,21 @@ fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>
 /// level files).
 const DORM_LAYOUT: &str = include_str!("../rooms/dorm.layout");
 
+/// The escape menu page, themed and laid out on its canvas.
+fn load_menu(lib: &mut room::Library, dir: &std::path::Path) -> Result<paint::Drawn, String> {
+    let pages = prefab::Pages::open(dir)?;
+    let mut page = prefab::load(lib, &pages, dir, "(EscapeMenu_standalone)")?;
+    theme::Theme::load(lib, &pages, dir)?.apply(&mut page);
+    // INFERRED: the canvas that hosts the standalone escape menu is not in its prefab; this size fits its content
+    Ok(paint::page(lib, &page, [1000.0, 1150.0]))
+}
+
 /// The Dorm's pieces, from the Addressables bundle that holds them (found with unity-assets' catalog tool).
-fn load_dorm(game_dir: &std::path::Path) -> Result<RoomData, String> {
-    let dir = room::bundle_dir(game_dir);
-    let mut lib = room::Library::new(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+fn load_dorm(lib: &mut room::Library, dir: &std::path::Path) -> Result<RoomData, String> {
     let layout = room::parse_layout(DORM_LAYOUT)?;
     // the Maker Pen textures come from an older install, when there is one
     let mut kit = ShapeKit::new(shapes::old_build_dirs().iter().find(|d| d.exists()).map(|d| d.as_path()));
-    room::load_prefabs(&mut lib, &mut kit, &dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"), &layout)
+    room::load_prefabs(lib, &mut kit, dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"), &layout)
 }
 
 fn spawn_room(

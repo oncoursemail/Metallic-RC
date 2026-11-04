@@ -108,7 +108,7 @@ pub struct RoomData {
 }
 
 pub(crate) struct Open {
-    bundle: Bundle,
+    pub(crate) bundle: Bundle,
     pub(crate) files: Vec<(String, SerializedFile)>,
 }
 

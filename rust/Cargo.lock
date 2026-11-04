@@ -4043,6 +4043,7 @@ dependencies = [
  "rr-net",
  "serde_json",
  "tokio",
+ "ttf-parser",
  "tungstenite 0.30.0",
  "unity-assets",
  "ureq",

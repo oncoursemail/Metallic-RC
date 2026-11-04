@@ -2,6 +2,12 @@
 //! and laid out the way Unity does, ready to draw.
 //!
 //! - [`prefab`]: a page prefab as a tree of elements, each with its rect rules and its components;
-//! - [`layout`]: Unity's RectTransform and layout-group rules, which place the elements.
+//! - [`layout`]: Unity's RectTransform and layout-group rules, which place the elements;
+//! - [`theme`]: the palette theme, which colours and sizes the graphics its components point at;
+//! - [`paint`]: what each element draws (sprites from the atlases, the TTFs behind the TMP fonts, colours);
+//! - [`view`]: the painted page as Bevy UI nodes.
 pub mod layout;
+pub mod paint;
 pub mod prefab;
+pub mod theme;
+pub mod view;

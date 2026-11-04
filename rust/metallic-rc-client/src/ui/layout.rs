@@ -453,7 +453,7 @@ mod tests {
     }
 
     fn comp(class: &str, fields: &[(&str, Value)]) -> Component {
-        Component { class: class.into(), value: s(fields), file: None, enabled: true }
+        Component { class: class.into(), value: s(fields), file: None, id: 0, enabled: true, themed: Default::default() }
     }
 
     fn el(name: &str, rect: RectRules, components: Vec<Component>, children: Vec<Element>) -> Element {

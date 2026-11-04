@@ -39,7 +39,24 @@ pub struct Component {
     pub value: Value,
     /// the file the value was read from, for following its references (sprites, fonts)
     pub(crate) file: Option<FileRef>,
+    /// the component's object id in `file`, which other components' references name
+    pub id: i64,
     pub enabled: bool,
+    /// what the page's theme components set on this one (see [`super::theme`])
+    pub themed: Themed,
+}
+
+/// Values a theme component puts on a graphic, read before the serialized ones.
+#[derive(Clone, Debug, Default)]
+pub struct Themed {
+    pub color: Option<[f32; 4]>,
+    /// a Unity Gradient value, for a UIGradient
+    pub gradient: Option<Value>,
+    /// a TMP font asset, with the file its reference is relative to
+    pub(crate) font: Option<(FileRef, PPtr)>,
+    pub font_size: Option<f32>,
+    /// a UITiler's pattern: sprite (with its file), tint, background, rows
+    pub(crate) tiler: Option<(FileRef, PPtr, [f32; 4], [f32; 4], f32)>,
 }
 
 #[derive(Clone, Debug)]
@@ -97,9 +114,9 @@ fn rect_rules(v: &Value) -> RectRules {
     }
 }
 
-/// The address -> (bundle file, asset path) table of the install's Addressables catalog, for GameObject assets.
+/// The address -> (bundle file, asset path, type) table of the install's Addressables catalog.
 pub struct Pages {
-    entries: Vec<(String, String, String)>,
+    entries: Vec<(String, String, String, String)>,
 }
 
 impl Pages {
@@ -109,24 +126,27 @@ impl Pages {
         let mut entries = vec![];
         for e in cat.entries().map_err(|e| e.to_string())? {
             for l in &e.locations {
-                if l.resource_type == "UnityEngine.GameObject" {
-                    if let Some(b) = bundle_file(l) {
-                        entries.push((e.key.clone(), b.to_string(), l.internal_id.clone()));
-                    }
+                if let Some(b) = bundle_file(l) {
+                    entries.push((e.key.clone(), b.to_string(), l.internal_id.clone(), l.resource_type.clone()));
                 }
             }
         }
         Ok(Pages { entries })
     }
 
-    /// Bundle file and asset path of an address.
+    /// Bundle file and asset path of a page (a GameObject) by its address.
     pub fn find(&self, address: &str) -> Option<(&str, &str)> {
-        self.entries.iter().find(|(k, _, _)| k == address).map(|(_, b, i)| (b.as_str(), i.as_str()))
+        self.find_typed(address, "UnityEngine.GameObject")
     }
 
-    /// Addresses that contain `part`.
+    /// Bundle file and asset path of an asset of type `resource_type` (e.g. `RRUI.ThemesConfig`).
+    pub fn find_typed(&self, address: &str, resource_type: &str) -> Option<(&str, &str)> {
+        self.entries.iter().find(|(k, _, _, t)| k == address && t == resource_type).map(|(_, b, i, _)| (b.as_str(), i.as_str()))
+    }
+
+    /// Page addresses that contain `part`.
     pub fn search(&self, part: &str) -> Vec<&str> {
-        let mut v: Vec<&str> = self.entries.iter().filter(|(k, _, _)| k.contains(part)).map(|(k, _, _)| k.as_str()).collect();
+        let mut v: Vec<&str> = self.entries.iter().filter(|(k, _, _, t)| k.contains(part) && t == "UnityEngine.GameObject").map(|(k, _, _, _)| k.as_str()).collect();
         v.sort();
         v.dedup();
         v
@@ -136,6 +156,12 @@ impl Pages {
 /// Reads the page at `address`.
 pub fn load(lib: &mut Library, pages: &Pages, bundle_dir: &Path, address: &str) -> Result<Element, String> {
     let (bundle, asset) = pages.find(address).ok_or_else(|| format!("no page {address} in the catalog"))?;
+    let (file, id) = asset_object(lib, bundle_dir, bundle, asset)?;
+    element(lib, &file, id, 0)
+}
+
+/// The object an asset path names, through its bundle's container.
+pub(crate) fn asset_object(lib: &mut Library, bundle_dir: &Path, bundle: &str, asset: &str) -> Result<(FileRef, i64), String> {
     let open = lib.open_bundle(&bundle_dir.join(bundle))?;
     for index in 0..open.files.len() {
         let file = FileRef { open: open.clone(), index };
@@ -143,7 +169,7 @@ pub fn load(lib: &mut Library, pages: &Pages, bundle_dir: &Path, address: &str) 
         let Some(info) = sf.objects.iter().find(|o| o.class_id == ASSET_BUNDLE) else { continue };
         let info = AssetBundleInfo::from_value(&value(&file, info.path_id)?).map_err(|e| e.to_string())?;
         if let Some((_, root)) = info.container.iter().find(|(p, _)| p.eq_ignore_ascii_case(asset)) {
-            return element(lib, &file, root.path_id, 0);
+            return Ok((file, root.path_id));
         }
     }
     Err(format!("{asset} not in {bundle}"))
@@ -187,12 +213,12 @@ fn element(lib: &mut Library, file: &FileRef, go_id: i64, depth: usize) -> Resul
                     _ => "?".into(),
                 };
                 let enabled = v.get("m_Enabled").and_then(Value::as_bool).unwrap_or(true);
-                e.components.push(Component { class, value: v, file: Some(file.clone()), enabled });
+                e.components.push(Component { class, value: v, file: Some(file.clone()), id: c.path_id, enabled, themed: Themed::default() });
             }
             _ => {
                 let class = file.sf().type_name(o);
                 let enabled = v.get("m_Enabled").and_then(Value::as_bool).unwrap_or(true);
-                e.components.push(Component { class, value: v, file: Some(file.clone()), enabled });
+                e.components.push(Component { class, value: v, file: Some(file.clone()), id: c.path_id, enabled, themed: Themed::default() });
             }
         }
     }
