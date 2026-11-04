@@ -5,6 +5,7 @@ pub const TRANSFORM: i32 = 4;
 pub const MATERIAL: i32 = 21;
 pub const MESH_RENDERER: i32 = 23;
 pub const TEXTURE_2D: i32 = 28;
+pub const CUBEMAP: i32 = 89;
 pub const MESH_FILTER: i32 = 33;
 pub const MESH: i32 = 43;
 pub const SHADER: i32 = 48;
@@ -12,6 +13,16 @@ pub const MONO_BEHAVIOUR: i32 = 114;
 pub const SKINNED_MESH_RENDERER: i32 = 137;
 pub const ASSET_BUNDLE: i32 = 142;
 pub const RECT_TRANSFORM: i32 = 224;
+pub const RENDER_SETTINGS: i32 = 104;
+pub const LIGHT: i32 = 108;
+pub const BUILD_SETTINGS: i32 = 141;
+pub const LIGHTMAP_SETTINGS: i32 = 157;
+pub const REFLECTION_PROBE: i32 = 215;
+pub const LIGHT_PROBES: i32 = 258;
+pub const MESH_COLLIDER: i32 = 64;
+pub const BOX_COLLIDER: i32 = 65;
+pub const SPHERE_COLLIDER: i32 = 135;
+pub const CAPSULE_COLLIDER: i32 = 136;
 
 pub fn class_name(id: i32) -> Option<&'static str> {
     Some(match id {
@@ -51,6 +62,7 @@ pub fn class_name(id: i32) -> Option<&'static str> {
         135 => "SphereCollider",
         136 => "CapsuleCollider",
         137 => "SkinnedMeshRenderer",
+        141 => "BuildSettings",
         142 => "AssetBundle",
         150 => "PreloadData",
         157 => "LightmapSettings",
@@ -61,6 +73,7 @@ pub fn class_name(id: i32) -> Option<&'static str> {
         205 => "LODGroup",
         212 => "SpriteRenderer",
         213 => "Sprite",
+        215 => "ReflectionProbe",
         221 => "AnimatorOverrideController",
         222 => "CanvasRenderer",
         223 => "Canvas",
