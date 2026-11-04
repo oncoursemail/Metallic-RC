@@ -1,0 +1,551 @@
+//! Built scenes (`levelN`) of player builds without type trees: the build's scene list, and the scene-level
+//! objects a room needs (renderers with their lightmap use, colliders, lights, RenderSettings, LightmapSettings,
+//! light and reflection probes). Layouts are the Unity 2019.4 / 2021.3 player ones; every reader checks that it
+//! used up exactly the object's bytes, so a layout mismatch is an error, not garbage.
+
+use crate::reader::Reader;
+use crate::value::PPtr;
+use crate::{classes, format_err, Result, SerializedFile};
+
+/// Unity version as (major, minor), e.g. (2019, 4).
+pub fn version_of(unity_version: &str) -> (u32, u32) {
+    let mut it = unity_version.split(|c: char| !c.is_ascii_digit()).map(|s| s.parse::<u32>().unwrap_or(0));
+    (it.next().unwrap_or(0), it.next().unwrap_or(0))
+}
+
+fn pptr(r: &mut Reader) -> Result<PPtr> {
+    Ok(PPtr { file_id: r.i32()?, path_id: r.i64()? })
+}
+
+fn floats<const N: usize>(r: &mut Reader) -> Result<[f32; N]> {
+    let mut out = [0.0; N];
+    for f in &mut out {
+        *f = r.f32()?;
+    }
+    Ok(out)
+}
+
+fn done(r: &Reader, what: &str) -> Result<()> {
+    if r.pos() != r.len() {
+        return format_err(format!("{what} read {} of {} bytes", r.pos(), r.len()));
+    }
+    Ok(())
+}
+
+/// The scene paths of the build (`BuildSettings.m_Scenes`, in `globalgamemanagers`): index i is `level{i}`.
+pub fn build_scenes(ggm: &SerializedFile) -> Result<Vec<String>> {
+    let Some(o) = ggm.objects.iter().find(|o| o.class_id == classes::BUILD_SETTINGS) else {
+        return format_err("no BuildSettings object");
+    };
+    let mut r = Reader::new(ggm.object_bytes(o), ggm.big_endian);
+    let n = r.len_prefix(4)?;
+    (0..n).map(|_| r.aligned_string()).collect()
+}
+
+/// A scene path's short name: `Assets/Scenes/DormRoom2.unity` -> `DormRoom2`.
+pub fn scene_name(path: &str) -> &str {
+    let file = path.rsplit('/').next().unwrap_or(path);
+    file.strip_suffix(".unity").unwrap_or(file)
+}
+
+fn color(r: &mut Reader) -> Result<[f32; 4]> {
+    floats::<4>(r)
+}
+
+fn vec_of<T>(r: &mut Reader, min: usize, mut f: impl FnMut(&mut Reader) -> Result<T>) -> Result<Vec<T>> {
+    let n = r.len_prefix(min)?;
+    (0..n).map(|_| f(r)).collect()
+}
+
+fn skip(r: &mut Reader, n: usize) -> Result<()> {
+    r.bytes(n).map(|_| ())
+}
+
+/// The Behaviour start the components below share: `m_GameObject`, `m_Enabled` (aligned).
+fn behaviour(r: &mut Reader) -> Result<(PPtr, bool)> {
+    let go = pptr(r)?;
+    let enabled = r.bool()?;
+    r.align(4);
+    Ok((go, enabled))
+}
+
+/// The readers below know the 2019.3 .. 2021.3 player layouts (checked on 2019.4.26f1).
+fn check_version(sf: &SerializedFile, what: &str) -> Result<()> {
+    let v = version_of(&sf.unity_version);
+    if !((2019, 3)..(2022, 0)).contains(&v) {
+        return crate::unsupported(format!("{what} layout for Unity {}", sf.unity_version));
+    }
+    Ok(())
+}
+
+fn reader<'a>(sf: &'a SerializedFile, o: &crate::ObjectInfo, class: i32, what: &str) -> Result<Reader<'a>> {
+    check_version(sf, what)?;
+    if o.class_id != class {
+        return format_err(format!("object {} is class {}, not {what}", o.path_id, o.class_id));
+    }
+    Ok(Reader::new(sf.object_bytes(o), sf.big_endian))
+}
+
+/// Light (108). Colour as stored (gamma space; Unity linearises it in a linear-space project).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Light {
+    pub game_object: PPtr,
+    pub enabled: bool,
+    /// 0 spot, 1 directional, 2 point, 3 area (rectangle), 4 disc
+    pub kind: i32,
+    pub color: [f32; 4],
+    pub intensity: f32,
+    pub range: f32,
+    /// full cone angles, degrees
+    pub spot_angle: f32,
+    pub inner_spot_angle: f32,
+    pub cookie_size: f32,
+    /// 0 none, 1 hard, 2 soft
+    pub shadows: i32,
+    pub shadow_strength: f32,
+    pub shadow_bias: f32,
+    pub shadow_normal_bias: f32,
+    pub cookie: PPtr,
+    /// `m_Lightmapping`: 1 mixed, 2 baked, 4 realtime
+    pub lightmapping: i32,
+    pub culling_mask: u32,
+    pub bounce_intensity: f32,
+    /// Kelvin, used when `use_color_temperature`
+    pub color_temperature: f32,
+    pub use_color_temperature: bool,
+}
+
+pub fn light(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<Light> {
+    let mut r = reader(sf, o, classes::LIGHT, "Light")?;
+    let (game_object, enabled) = behaviour(&mut r)?;
+    let kind = r.i32()?;
+    r.i32()?; // m_Shape
+    let color = color(&mut r)?;
+    let [intensity, range, spot_angle, inner_spot_angle, cookie_size] = floats::<5>(&mut r)?;
+    let shadows = r.i32()?;
+    skip(&mut r, 8)?; // m_Resolution, m_CustomResolution
+    let [shadow_strength, shadow_bias, shadow_normal_bias, _near_plane] = floats::<4>(&mut r)?;
+    skip(&mut r, 64)?; // m_CullingMatrixOverride
+    r.bool()?; // m_UseCullingMatrixOverride
+    r.align(4);
+    let cookie = pptr(&mut r)?;
+    r.bool()?; // m_DrawHalo
+    r.align(4);
+    skip(&mut r, 16)?; // m_BakingOutput: occlusion light index, mask channel, bake type, mixed mode
+    r.bool()?; // m_BakingOutput.isBaked
+    r.align(4);
+    pptr(&mut r)?; // m_Flare
+    r.i32()?; // m_RenderMode
+    let culling_mask = r.u32()?;
+    r.u32()?; // m_RenderingLayerMask
+    let lightmapping = r.i32()?;
+    r.i32()?; // m_LightShadowCasterMode
+    skip(&mut r, 8)?; // m_AreaSize
+    let bounce_intensity = r.f32()?;
+    let color_temperature = r.f32()?;
+    let use_color_temperature = r.bool()?;
+    r.align(4);
+    skip(&mut r, 16)?; // m_BoundingSphereOverride
+    r.bool()?; // m_UseBoundingSphereOverride
+    r.align(4);
+    if version_of(&sf.unity_version) >= (2020, 1) && r.remaining() == 4 {
+        r.bool()?; // m_UseViewFrustumForShadowCasterCull (INFERRED version)
+        r.align(4);
+    }
+    done(&r, "Light")?;
+    Ok(Light {
+        game_object, enabled, kind, color, intensity, range, spot_angle, inner_spot_angle, cookie_size, shadows,
+        shadow_strength, shadow_bias, shadow_normal_bias, cookie, lightmapping, culling_mask, bounce_intensity,
+        color_temperature, use_color_temperature,
+    })
+}
+
+/// RenderSettings (104): the scene's ambient light, fog, skybox and default reflection.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RenderSettings {
+    pub fog: bool,
+    pub fog_color: [f32; 4],
+    /// 1 linear, 2 exponential, 3 exponential squared
+    pub fog_mode: i32,
+    pub fog_density: f32,
+    pub fog_start: f32,
+    pub fog_end: f32,
+    /// ambient colours (gamma space): sky, equator, ground
+    pub ambient_sky: [f32; 4],
+    pub ambient_equator: [f32; 4],
+    pub ambient_ground: [f32; 4],
+    pub ambient_intensity: f32,
+    /// 0 skybox, 1 trilight (gradient), 3 flat, 4 custom
+    pub ambient_mode: i32,
+    pub subtractive_shadow_color: [f32; 4],
+    pub skybox_material: PPtr,
+    /// 0 skybox, 1 custom (`custom_reflection`)
+    pub reflection_mode: i32,
+    pub reflection_resolution: i32,
+    pub reflection_bounces: i32,
+    pub reflection_intensity: f32,
+    pub custom_reflection: PPtr,
+    /// the baked ambient probe: SH L2, 9 coefficients per channel, R then G then B (linear)
+    pub ambient_probe: [f32; 27],
+    /// the Light the sky's sun follows
+    pub sun: PPtr,
+    pub indirect_specular_color: [f32; 4],
+}
+
+pub fn render_settings(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<RenderSettings> {
+    let mut r = reader(sf, o, classes::RENDER_SETTINGS, "RenderSettings")?;
+    let fog = r.bool()?;
+    r.align(4);
+    let fog_color = color(&mut r)?;
+    let fog_mode = r.i32()?;
+    let [fog_density, fog_start, fog_end] = floats::<3>(&mut r)?;
+    let (ambient_sky, ambient_equator, ambient_ground) = (color(&mut r)?, color(&mut r)?, color(&mut r)?);
+    let ambient_intensity = r.f32()?;
+    let ambient_mode = r.i32()?;
+    let subtractive_shadow_color = color(&mut r)?;
+    let skybox_material = pptr(&mut r)?;
+    skip(&mut r, 12)?; // halo strength, flare strength, flare fade speed
+    pptr(&mut r)?; // m_HaloTexture
+    pptr(&mut r)?; // m_SpotCookie
+    let reflection_mode = r.i32()?;
+    let reflection_resolution = r.i32()?;
+    let reflection_bounces = r.i32()?;
+    let reflection_intensity = r.f32()?;
+    let custom_reflection = pptr(&mut r)?;
+    let ambient_probe = floats::<27>(&mut r)?;
+    pptr(&mut r)?; // m_GeneratedSkyboxReflection
+    let sun = pptr(&mut r)?;
+    let indirect_specular_color = color(&mut r)?;
+    r.bool()?; // m_UseRadianceAmbientProbe
+    if r.remaining() > 0 {
+        r.align(4);
+    }
+    done(&r, "RenderSettings")?;
+    Ok(RenderSettings {
+        fog, fog_color, fog_mode, fog_density, fog_start, fog_end, ambient_sky, ambient_equator, ambient_ground,
+        ambient_intensity, ambient_mode, subtractive_shadow_color, skybox_material, reflection_mode,
+        reflection_resolution, reflection_bounces, reflection_intensity, custom_reflection, ambient_probe, sun,
+        indirect_specular_color,
+    })
+}
+
+/// One baked lightmap set: colour, directional and shadowmask textures (null when absent).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct LightmapData {
+    pub color: PPtr,
+    pub directional: PPtr,
+    pub shadow_mask: PPtr,
+}
+
+/// LightmapSettings (157).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LightmapSettings {
+    pub light_probes: PPtr,
+    /// indexed by a renderer's `lightmap_index`
+    pub lightmaps: Vec<LightmapData>,
+    /// 0 non-directional, 1 combined directional
+    pub mode: i32,
+    pub bounce_scale: f32,
+    pub indirect_output_scale: f32,
+    pub albedo_boost: f32,
+    pub environment_lighting_mode: u32,
+    pub baked_lightmaps: bool,
+    pub realtime_lightmaps: bool,
+}
+
+/// Scenes with Enlighten realtime GI data (a non-empty `m_EnlightenSceneMapping`) are not read.
+pub fn lightmap_settings(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<LightmapSettings> {
+    let mut r = reader(sf, o, classes::LIGHTMAP_SETTINGS, "LightmapSettings")?;
+    for _ in 0..5 {
+        if r.i32()? != 0 {
+            return crate::unsupported("LightmapSettings with an Enlighten scene mapping");
+        }
+    }
+    let light_probes = pptr(&mut r)?;
+    let lightmaps = vec_of(&mut r, 36, |r| Ok(LightmapData { color: pptr(r)?, directional: pptr(r)?, shadow_mask: pptr(r)? }))?;
+    let mode = r.i32()?;
+    let [bounce_scale, indirect_output_scale, albedo_boost] = floats::<3>(&mut r)?;
+    let environment_lighting_mode = r.u32()?;
+    let baked_lightmaps = r.bool()?;
+    let realtime_lightmaps = r.bool()?;
+    r.align(4);
+    r.bool()?; // m_UseShadowmask
+    if r.remaining() > 0 {
+        r.align(4);
+    }
+    done(&r, "LightmapSettings")?;
+    Ok(LightmapSettings {
+        light_probes, lightmaps, mode, bounce_scale, indirect_output_scale, albedo_boost, environment_lighting_mode,
+        baked_lightmaps, realtime_lightmaps,
+    })
+}
+
+/// LightProbes (258): probe positions and their baked SH L2 (27 floats each, as in [`RenderSettings::ambient_probe`]).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct LightProbes {
+    pub name: String,
+    pub positions: Vec<[f32; 3]>,
+    pub coefficients: Vec<[f32; 27]>,
+    /// tetrahedra over the probes: four probe indices each
+    pub tetrahedra: Vec<[i32; 4]>,
+}
+
+pub fn light_probes(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<LightProbes> {
+    let mut r = reader(sf, o, classes::LIGHT_PROBES, "LightProbes")?;
+    let name = r.aligned_string()?;
+    // m_Data.m_Tetrahedralization: tetrahedra (indices, neighbours, 3x4 matrix), hull rays
+    let tetrahedra = vec_of(&mut r, 80, |r| {
+        let i = [r.i32()?, r.i32()?, r.i32()?, r.i32()?];
+        skip(r, 16 + 48)?;
+        Ok(i)
+    })?;
+    vec_of(&mut r, 12, floats::<3>)?; // m_HullRays
+    vec_of(&mut r, 24, |r| skip(r, 24))?; // m_ProbeSets (hash, offset, size)
+    let positions = vec_of(&mut r, 12, floats::<3>)?;
+    vec_of(&mut r, 20, |r| skip(r, 20))?; // m_NonTetrahedralizedProbeSetIndexMap
+    let coefficients = vec_of(&mut r, 108, floats::<27>)?;
+    vec_of(&mut r, 36, |r| skip(r, 36))?; // m_BakedLightOcclusion
+    done(&r, "LightProbes")?;
+    Ok(LightProbes { name, positions, coefficients, tetrahedra })
+}
+
+/// ReflectionProbe (215).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReflectionProbe {
+    pub game_object: PPtr,
+    pub enabled: bool,
+    /// 0 baked, 1 realtime, 2 custom
+    pub mode: i32,
+    pub resolution: i32,
+    pub box_size: [f32; 3],
+    pub box_offset: [f32; 3],
+    pub intensity: f32,
+    pub blend_distance: f32,
+    pub hdr: bool,
+    pub box_projection: bool,
+    pub importance: i16,
+    pub custom_texture: PPtr,
+    pub baked_texture: PPtr,
+}
+
+pub fn reflection_probe(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<ReflectionProbe> {
+    let mut r = reader(sf, o, classes::REFLECTION_PROBE, "ReflectionProbe")?;
+    let (game_object, enabled) = behaviour(&mut r)?;
+    r.i32()?; // m_Type
+    let mode = r.i32()?;
+    skip(&mut r, 8)?; // m_RefreshMode, m_TimeSlicingMode
+    let resolution = r.i32()?;
+    r.i32()?; // m_UpdateFrequency
+    let box_size = floats::<3>(&mut r)?;
+    let box_offset = floats::<3>(&mut r)?;
+    skip(&mut r, 12 + 4 + 16 + 4)?; // near, far, shadow distance, clear flags, background colour, culling mask
+    let intensity = r.f32()?;
+    let blend_distance = r.f32()?;
+    let hdr = r.bool()?;
+    let box_projection = r.bool()?;
+    skip(&mut r, 2)?; // m_RenderDynamicObjects, m_UseOcclusionCulling
+    let importance = r.i16()?;
+    r.align(4);
+    let custom_texture = pptr(&mut r)?;
+    let baked_texture = pptr(&mut r)?;
+    done(&r, "ReflectionProbe")?;
+    Ok(ReflectionProbe {
+        game_object, enabled, mode, resolution, box_size, box_offset, intensity, blend_distance, hdr, box_projection,
+        importance, custom_texture, baked_texture,
+    })
+}
+
+/// BoxCollider (65).
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoxCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub size: [f32; 3],
+    pub center: [f32; 3],
+}
+
+pub fn box_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<BoxCollider> {
+    let mut r = reader(sf, o, classes::BOX_COLLIDER, "BoxCollider")?;
+    let game_object = pptr(&mut r)?;
+    pptr(&mut r)?; // m_Material
+    let trigger = r.bool()?;
+    let enabled = r.bool()?;
+    r.align(4);
+    let size = floats::<3>(&mut r)?;
+    let center = floats::<3>(&mut r)?;
+    done(&r, "BoxCollider")?;
+    Ok(BoxCollider { game_object, trigger, enabled, size, center })
+}
+
+/// Out-of-line data (`.resS` / `.resource`) of plain files in a player's data folder.
+pub struct DirResources(pub std::path::PathBuf);
+
+impl crate::objects::Resources for DirResources {
+    fn resource(&self, path: &str, offset: u64, size: u64) -> Result<Vec<u8>> {
+        use std::io::{Read, Seek, SeekFrom};
+        let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
+        let mut f = std::fs::File::open(self.0.join(name))?;
+        f.seek(SeekFrom::Start(offset))?;
+        let mut v = vec![0; size as usize];
+        f.read_exact(&mut v)?;
+        Ok(v)
+    }
+}
+
+fn byte_vec(r: &mut Reader) -> Result<Vec<u8>> {
+    let n = r.len_prefix(1)?;
+    let v = r.bytes(n)?.to_vec();
+    r.align(4);
+    Ok(v)
+}
+
+/// `StreamingInfo`: offset (u32 before 2020, u64 since), size, path. `None` when the data is inline.
+fn stream_info(r: &mut Reader, v: (u32, u32)) -> Result<Option<(u64, u64, String)>> {
+    let offset = if v >= (2020, 1) { r.u64()? } else { r.u32()? as u64 };
+    let size = r.u32()? as u64;
+    let path = r.aligned_string()?;
+    Ok((size > 0 && !path.is_empty()).then_some((offset, size, path)))
+}
+
+/// Mesh (43) without type tree, Unity 2019.3 .. 2021.3 player layout; uncompressed meshes only.
+pub fn mesh(sf: &SerializedFile, o: &crate::ObjectInfo, res: &dyn crate::objects::Resources) -> Result<crate::Mesh> {
+    let mut r = reader(sf, o, classes::MESH, "Mesh")?;
+    let v = version_of(&sf.unity_version);
+    let name = r.aligned_string()?;
+    let submeshes = vec_of(&mut r, 48, |r| {
+        let s = crate::SubMesh {
+            first_byte: r.u32()?,
+            index_count: r.u32()?,
+            topology: r.i32()?,
+            base_vertex: r.u32()?,
+            first_vertex: r.u32()?,
+            vertex_count: r.u32()?,
+        };
+        skip(r, 24)?; // localAABB
+        Ok(s)
+    })?;
+    // m_Shapes: vertices, shapes, channels, full weights
+    vec_of(&mut r, 40, |r| skip(r, 40))?;
+    vec_of(&mut r, 12, |r| skip(r, 12))?;
+    vec_of(&mut r, 16, |r| {
+        r.aligned_string()?;
+        skip(r, 12)
+    })?;
+    vec_of(&mut r, 4, |r| skip(r, 4))?;
+    vec_of(&mut r, 64, |r| skip(r, 64))?; // m_BindPose
+    vec_of(&mut r, 4, |r| skip(r, 4))?; // m_BoneNameHashes
+    r.u32()?; // m_RootBoneNameHash
+    vec_of(&mut r, 24, |r| skip(r, 24))?; // m_BonesAABB
+    vec_of(&mut r, 4, |r| skip(r, 4))?; // m_VariableBoneCountWeights
+    let compression = r.u8()?;
+    skip(&mut r, 3)?; // readable, keep vertices, keep indices
+    r.align(4);
+    if compression != 0 {
+        return crate::unsupported(format!("compressed mesh {name}"));
+    }
+    let index_format = r.i32()?;
+    let index_buffer = byte_vec(&mut r)?;
+    let vertex_count = r.u32()? as usize;
+    let channels = vec_of(&mut r, 4, |r| {
+        Ok(crate::VertexChannel { stream: r.u8()?, offset: r.u8()?, format: r.u8()?, dimension: r.u8()? & 0xf })
+    })?;
+    let inline = byte_vec(&mut r)?;
+    // m_CompressedMesh: vertices, uv, normals, tangents (float packed), weights, normal signs, tangent signs
+    // (int packed), float colours, bone indices, triangles, then m_UVInfo
+    let packed = |r: &mut Reader, float: bool| -> Result<()> {
+        r.u32()?;
+        if float {
+            skip(r, 8)?;
+        }
+        byte_vec(r)?;
+        r.u8()?;
+        r.align(4);
+        Ok(())
+    };
+    for float in [true, true, true, true, false, false, false, true, false, false] {
+        packed(&mut r, float)?;
+    }
+    r.u32()?; // m_UVInfo
+    skip(&mut r, 24 + 4)?; // m_LocalAABB, m_MeshUsageFlags
+    byte_vec(&mut r)?; // m_BakedConvexCollisionMesh
+    byte_vec(&mut r)?; // m_BakedTriangleCollisionMesh
+    skip(&mut r, 8)?; // m_MeshMetrics
+    let streamed = stream_info(&mut r, v)?;
+    done(&r, "Mesh")?;
+    let vertex_data = match streamed {
+        Some((offset, size, path)) => res.resource(&path, offset, size)?,
+        None => inline,
+    };
+    Ok(crate::Mesh { name, vertex_count, channels, vertex_data, index_format, index_buffer, submeshes })
+}
+
+/// Texture2D (28) or Cubemap (89, six images) without type tree, Unity 2019.3 .. 2021.3 player layout.
+pub fn texture(sf: &SerializedFile, o: &crate::ObjectInfo, res: &dyn crate::objects::Resources) -> Result<crate::Texture2D> {
+    let class = if o.class_id == classes::CUBEMAP { classes::CUBEMAP } else { classes::TEXTURE_2D };
+    let mut r = reader(sf, o, class, "Texture2D")?;
+    let v = version_of(&sf.unity_version);
+    let name = r.aligned_string()?;
+    r.i32()?; // m_ForcedFallbackFormat
+    r.bool()?; // m_DownscaleFallback (+ m_IsAlphaChannelOptional since 2020.2)
+    r.align(4);
+    let width = r.i32()? as usize;
+    let height = r.i32()? as usize;
+    r.i32()?; // m_CompleteImageSize
+    let format = r.i32()?;
+    let mip_count = r.i32()?;
+    skip(&mut r, 3)?; // readable, ignore master texture limit, streaming mipmaps
+    r.align(4);
+    r.i32()?; // m_StreamingMipmapsPriority
+    let image_count = r.i32()?;
+    skip(&mut r, 4 + 24 + 8)?; // dimension, texture settings, lightmap format, colour space
+    if v >= (2020, 2) {
+        byte_vec(&mut r)?; // m_PlatformBlob
+    }
+    let inline = byte_vec(&mut r)?;
+    let streamed = stream_info(&mut r, v)?;
+    if class == classes::CUBEMAP {
+        vec_of(&mut r, 12, pptr)?; // m_SourceTextures
+    }
+    done(&r, "Texture2D")?;
+    let data = match streamed {
+        Some((offset, size, path)) => res.resource(&path, offset, size)?,
+        None => inline,
+    };
+    Ok(crate::Texture2D { name, width, height, format, mip_count, image_count, data })
+}
+
+/// Material (21) without type tree, Unity 2019.3 .. 2021.3 player layout.
+pub fn material(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<crate::Material> {
+    let mut r = reader(sf, o, classes::MATERIAL, "Material")?;
+    let v = version_of(&sf.unity_version);
+    let name = r.aligned_string()?;
+    let shader = pptr(&mut r)?;
+    let keywords = if v >= (2021, 2) {
+        let valid = vec_of(&mut r, 4, |r| r.aligned_string())?;
+        vec_of(&mut r, 4, |r| r.aligned_string())?; // m_InvalidKeywords
+        valid
+    } else {
+        r.aligned_string()?.split_whitespace().map(str::to_string).collect()
+    };
+    r.u32()?; // m_LightmapFlags
+    skip(&mut r, 2)?; // instancing variants, double-sided GI
+    r.align(4);
+    r.i32()?; // m_CustomRenderQueue
+    vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.aligned_string()?)))?; // stringTagMap
+    vec_of(&mut r, 4, |r| r.aligned_string())?; // disabledShaderPasses
+    if v >= (2020, 1) {
+        vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.aligned_string()?)))?; // m_BuildTextureStacks
+    }
+    let textures = vec_of(&mut r, 32, |r| {
+        let name = r.aligned_string()?;
+        let texture = pptr(r)?;
+        let [sx, sy, ox, oy] = floats::<4>(r)?;
+        Ok(crate::TexEnv { name, texture, scale: [sx, sy], offset: [ox, oy] })
+    })?;
+    let ints = if v >= (2021, 1) { vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.i32()? as i64)))? } else { Vec::new() };
+    let floats = vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.f32()?)))?;
+    let colors = vec_of(&mut r, 20, |r| Ok((r.aligned_string()?, color(r)?)))?;
+    done(&r, "Material")?;
+    Ok(crate::Material { name, shader, keywords, textures, floats, ints, colors })
+}

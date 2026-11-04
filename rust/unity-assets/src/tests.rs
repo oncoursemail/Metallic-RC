@@ -645,3 +645,210 @@ fn renderer_flag_bytes_by_version() {
     assert_eq!(stripped::renderer_flag_bytes("2018.4.0f1"), 6);
     assert_eq!(stripped::renderer_flag_bytes("2017.1.0f1"), 5);
 }
+
+/// A version 21 SerializedFile without type trees (Unity 2019.4 player layout), as [`stripped_serialized_file`].
+fn stripped_file_2019(objs: &[(i64, i32, Vec<u8>)]) -> Vec<u8> {
+    let mut classes: Vec<i32> = objs.iter().map(|o| o.1).collect();
+    classes.sort();
+    classes.dedup();
+    let mut m = W::new(false);
+    m.cstr("2019.4.26f1").i32(19).u8(0);
+    m.i32(classes.len() as i32);
+    for c in &classes {
+        m.i32(*c).u8(0).raw(&(-1i16).to_le_bytes()).raw(&[0; 16]);
+    }
+    let header_len = 20;
+    m.i32(objs.len() as i32);
+    let mut data = W::new(false);
+    for (id, class, bytes) in objs {
+        m.align(4);
+        data.align(8);
+        let at = data.b.len();
+        data.raw(bytes);
+        m.i64(*id).u32(at as u32).u32(bytes.len() as u32).i32(classes.iter().position(|c| c == class).unwrap() as i32);
+    }
+    m.i32(0); // script types
+    m.i32(0); // externals
+    m.i32(0); // ref types
+    m.cstr("");
+    let data_offset = (header_len + m.b.len()).div_ceil(16) * 16;
+    let mut f = W::new(true);
+    f.u32(m.b.len() as u32).u32((data_offset + data.b.len()) as u32).u32(21).u32(data_offset as u32).u8(0).raw(&[0; 3]);
+    f.raw(&m.b).align(16).raw(&data.b);
+    f.b
+}
+
+fn floats_w(w: &mut W, v: &[f32]) {
+    for &f in v {
+        w.f32(f);
+    }
+}
+
+#[test]
+fn level_build_scenes_and_names() {
+    let mut bs = W::new(false);
+    bs.i32(2).string("Assets/Core/Scenes/main_root.unity").string("Assets/Activities/Dormroom/Scenes/dormroom2.unity");
+    bs.i32(0); // the rest of BuildSettings is not read
+    let sf = SerializedFile::parse(stripped_file_2019(&[(1, 141, bs.b)])).unwrap();
+    let scenes = level::build_scenes(&sf).unwrap();
+    assert_eq!(scenes.len(), 2);
+    assert_eq!(level::scene_name(&scenes[1]), "dormroom2");
+    assert_eq!(level::version_of("2019.4.26f1"), (2019, 4));
+}
+
+#[test]
+fn level_lighting_objects_2019() {
+    // Light: a point light, colour (1, .5, .25, 1), intensity 2, range 6
+    let mut l = W::new(false);
+    l.i32(0).i64(7).u8(1).align(4).i32(2).i32(0);
+    floats_w(&mut l, &[1.0, 0.5, 0.25, 1.0, 2.0, 6.0, 30.0, 21.0, 10.0]);
+    l.i32(2).i32(-1).i32(-1);
+    floats_w(&mut l, &[0.8, 0.05, 0.4, 0.2]);
+    floats_w(&mut l, &[0.0; 16]);
+    l.u8(0).align(4).i32(0).i64(0).u8(0).align(4); // culling override, cookie, halo
+    l.i32(-1).i32(-1).i32(4).i32(2).u8(0).align(4); // baking output
+    l.i32(0).i64(0).i32(0).u32(0xffff_ffff).u32(1).i32(4).i32(0); // flare, render mode, masks, lightmapping, caster
+    floats_w(&mut l, &[1.0, 1.0, 1.0, 6570.0]);
+    l.u8(0).align(4);
+    floats_w(&mut l, &[0.0; 4]);
+    l.u8(0).align(4);
+    // RenderSettings: trilight ambient, fog on (linear 2..80), skybox (1, 27), sun (0, 9)
+    let mut rs = W::new(false);
+    rs.u8(1).align(4);
+    floats_w(&mut rs, &[0.6, 0.8, 0.9, 1.0]);
+    rs.i32(1);
+    floats_w(&mut rs, &[0.07, 2.0, 80.0, 0.5, 0.6, 0.7, 1.0, 0.7, 0.5, 0.4, 1.0, 0.8, 0.4, 0.1, 1.0, 0.88]);
+    rs.i32(1);
+    floats_w(&mut rs, &[0.4, 0.5, 0.6, 1.0]);
+    rs.i32(1).i64(27);
+    floats_w(&mut rs, &[0.5, 1.0, 3.0]);
+    rs.i32(0).i64(0).i32(0).i64(0).i32(1).i32(128).i32(1).f32(0.43).i32(1).i64(127);
+    let sh: Vec<f32> = (0..27).map(|i| i as f32 / 100.0).collect();
+    floats_w(&mut rs, &sh);
+    rs.i32(0).i64(0).i32(0).i64(9);
+    floats_w(&mut rs, &[0.18, 0.16, 0.13, 0.43]);
+    rs.u8(0);
+    // LightmapSettings: one lightmap (texture 1:40), probes (1:134)
+    let mut lm = W::new(false);
+    lm.i32(0).i32(0).i32(0).i32(0).i32(0).i32(1).i64(134);
+    lm.i32(1).i32(1).i64(40).i32(0).i64(0).i32(0).i64(0).i32(0);
+    floats_w(&mut lm, &[1.0, 1.5, 2.4]);
+    lm.u32(0).u8(1).u8(0).align(4).u8(0);
+    // ReflectionProbe: custom, box (4, 3, 5), custom texture (1, 127)
+    let mut rp = W::new(false);
+    rp.i32(0).i64(8).u8(1).align(4).i32(0).i32(2).i32(0).i32(0).i32(128).i32(0);
+    floats_w(&mut rp, &[4.0, 3.0, 5.0, 0.0, 1.0, 0.0, 0.3, 1000.0, 100.0]);
+    rp.u32(1);
+    floats_w(&mut rp, &[0.2, 0.3, 0.5, 0.0]);
+    rp.u32(0xffff_ffff).f32(1.0).f32(1.0).u8(1).u8(1).u8(0).u8(1).raw(&1i16.to_le_bytes()).align(4);
+    rp.i32(1).i64(127).i32(0).i64(0);
+    // BoxCollider: solid, size (2, .2, 1), centre (0, 2, 0)
+    let mut bc = W::new(false);
+    bc.i32(0).i64(7).i32(0).i64(0).u8(0).u8(1).align(4);
+    floats_w(&mut bc, &[2.0, 0.2, 1.0, 0.0, 2.0, 0.0]);
+    // LightProbes: two probes
+    let mut lp = W::new(false);
+    lp.string("(Clone)").i32(0).i32(0).i32(0).i32(2);
+    floats_w(&mut lp, &[0.0, 1.0, 0.0, 2.0, 1.0, 0.0]);
+    lp.i32(0).i32(2);
+    floats_w(&mut lp, &sh);
+    floats_w(&mut lp, &sh);
+    lp.i32(0);
+
+    let sf = SerializedFile::parse(stripped_file_2019(&[
+        (2, 65, bc.b),
+        (3, 104, rs.b),
+        (4, 108, l.b.clone()),
+        (5, 157, lm.b),
+        (6, 215, rp.b),
+        (10, 258, lp.b),
+    ]))
+    .unwrap();
+    let o = |id| sf.object(id).unwrap();
+    let light = level::light(&sf, o(4)).unwrap();
+    assert_eq!((light.kind, light.intensity, light.range, light.shadows, light.lightmapping), (2, 2.0, 6.0, 2, 4));
+    assert_eq!(light.color, [1.0, 0.5, 0.25, 1.0]);
+    assert_eq!(light.game_object.path_id, 7);
+    let rs = level::render_settings(&sf, o(3)).unwrap();
+    assert!(rs.fog);
+    assert_eq!((rs.fog_mode, rs.fog_start, rs.fog_end, rs.ambient_mode), (1, 2.0, 80.0, 1));
+    assert_eq!(rs.ambient_ground, [0.8, 0.4, 0.1, 1.0]);
+    assert_eq!((rs.skybox_material.path_id, rs.custom_reflection.path_id, rs.sun.path_id), (27, 127, 9));
+    assert_eq!(rs.ambient_probe[26], 0.26);
+    let lm = level::lightmap_settings(&sf, o(5)).unwrap();
+    assert_eq!(lm.lightmaps.len(), 1);
+    assert_eq!((lm.lightmaps[0].color.path_id, lm.light_probes.path_id), (40, 134));
+    assert!(lm.baked_lightmaps && !lm.realtime_lightmaps);
+    let rp = level::reflection_probe(&sf, o(6)).unwrap();
+    assert_eq!((rp.mode, rp.box_size, rp.box_projection, rp.custom_texture.path_id), (2, [4.0, 3.0, 5.0], true, 127));
+    let bc = level::box_collider(&sf, o(2)).unwrap();
+    assert_eq!((bc.trigger, bc.enabled, bc.size, bc.center), (false, true, [2.0, 0.2, 1.0], [0.0, 2.0, 0.0]));
+    let lp = level::light_probes(&sf, o(10)).unwrap();
+    assert_eq!(lp.positions, vec![[0.0, 1.0, 0.0], [2.0, 1.0, 0.0]]);
+    assert_eq!(lp.coefficients[1][9], 0.09);
+    // the wrong class, and a layout with bytes left over, are errors
+    assert!(level::light(&sf, o(3)).is_err());
+    let mut long = l.b;
+    long.extend_from_slice(&[0; 8]);
+    let sf = SerializedFile::parse(stripped_file_2019(&[(4, 108, long)])).unwrap();
+    assert!(level::light(&sf, sf.object(4).unwrap()).is_err());
+}
+
+#[test]
+fn level_mesh_texture_material_2019() {
+    // a triangle: float3 positions in stream 0, inline; 16-bit indices
+    let mut m = W::new(false);
+    m.string("Tri").i32(1).u32(0).u32(3).i32(0).u32(0).u32(0).u32(3);
+    floats_w(&mut m, &[0.0; 6]);
+    for _ in 0..4 {
+        m.i32(0); // blend shape vectors
+    }
+    m.i32(0).i32(0).u32(0).i32(0).i32(0); // bind poses, bone hashes, root hash, bone AABBs, variable weights
+    m.u8(0).u8(1).u8(0).u8(0).i32(0); // no compression, readable; 16-bit indices
+    m.i32(6).u16(0).u16(1).u16(2).align(4);
+    m.u32(3).i32(1).u8(0).u8(0).u8(0).u8(3); // vertex count, one channel
+    m.i32(36);
+    floats_w(&mut m, &[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]);
+    for float in [true, true, true, true, false, false, false, true, false, false] {
+        m.u32(0);
+        if float {
+            m.f32(0.0).f32(0.0);
+        }
+        m.i32(0).u8(0).align(4);
+    }
+    m.u32(0);
+    floats_w(&mut m, &[0.0; 6]);
+    m.i32(0).i32(0).i32(0).f32(1.0).f32(1.0);
+    m.u32(0).u32(0).string(""); // no stream data
+    // a 2x2 RGBA32 texture, inline
+    let mut t = W::new(false);
+    t.string("Px").i32(4).u8(0).align(4).i32(2).i32(2).i32(16).i32(4).i32(1).u8(0).u8(0).u8(0).align(4);
+    t.i32(0).i32(1).i32(2);
+    t.i32(1).i32(1).f32(0.0).i32(0).i32(0).i32(0).i32(0).i32(1);
+    t.i32(16).raw(&[255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]);
+    t.u32(0).u32(0).string("");
+    // a material with one texture, one float and one colour
+    let mut mat = W::new(false);
+    mat.string("Wood_Mat").i32(5).i64(60).string("_EMISSION").u32(1).u8(0).u8(0).align(4).i32(-1);
+    mat.i32(0).i32(0);
+    mat.i32(1).string("_MainTex").i32(0).i64(2);
+    floats_w(&mut mat, &[2.0, 2.0, 0.0, 0.5]);
+    mat.i32(1).string("_Glossiness").f32(0.3);
+    mat.i32(1).string("_Color");
+    floats_w(&mut mat, &[1.0, 0.5, 0.0, 1.0]);
+
+    let sf = SerializedFile::parse(stripped_file_2019(&[(1, 21, mat.b), (2, 28, t.b), (3, 43, m.b)])).unwrap();
+    let o = |id| sf.object(id).unwrap();
+    let mesh = level::mesh(&sf, o(3), &NoResources).unwrap();
+    assert_eq!(mesh.name, "Tri");
+    assert_eq!(mesh.positions(), vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+    assert_eq!(mesh.submesh_indices(0).unwrap(), vec![0, 1, 2]);
+    let tex = level::texture(&sf, o(2), &NoResources).unwrap();
+    assert_eq!((tex.width, tex.height, tex.format), (2, 2, 4));
+    assert_eq!(&tex.decode_rgba8().unwrap()[..4], &[0, 0, 255, 255]); // rows flipped: bottom row first on disk
+    let mat = level::material(&sf, o(1)).unwrap();
+    assert_eq!((mat.name.as_str(), mat.shader.path_id, mat.keywords.clone()), ("Wood_Mat", 60, vec!["_EMISSION".to_string()]));
+    assert_eq!((mat.textures[0].texture.path_id, mat.textures[0].scale, mat.textures[0].offset), (2, [2.0, 2.0], [0.0, 0.5]));
+    assert_eq!(mat.floats, vec![("_Glossiness".to_string(), 0.3)]);
+    assert_eq!(mat.colors[0].1, [1.0, 0.5, 0.0, 1.0]);
+}

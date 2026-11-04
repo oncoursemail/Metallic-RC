@@ -127,6 +127,12 @@ pub struct MeshRenderer {
     pub enabled: bool,
     pub materials: Vec<PPtr>,
     pub mesh: Option<PPtr>,
+    /// `m_LightmapIndex` (0xffff: not lightmapped, 0xfffe: realtime GI only)
+    pub lightmap_index: u16,
+    /// `m_LightmapTilingOffset`: lightmap uv = uv1 * xy + zw
+    pub lightmap_st: [f32; 4],
+    /// `m_StaticBatchInfo`: first submesh and submesh count in a static-batch combined mesh (count 0: not batched)
+    pub static_batch: (u16, u16),
 }
 
 impl MeshRenderer {
@@ -136,6 +142,12 @@ impl MeshRenderer {
             enabled: v.get("m_Enabled").and_then(Value::as_bool).unwrap_or(true),
             materials: pptrs(v, "m_Materials"),
             mesh: v.get("m_Mesh").and_then(Value::as_pptr),
+            lightmap_index: v.get("m_LightmapIndex").and_then(Value::as_i64).unwrap_or(0xffff) as u16,
+            lightmap_st: v.get("m_LightmapTilingOffset").map(Value::floats).and_then(|f| f.get(..4)?.try_into().ok()).unwrap_or([1.0, 1.0, 0.0, 0.0]),
+            static_batch: v.get("m_StaticBatchInfo").map_or((0, 0), |b| {
+                let n = |k: &str| b.get(k).and_then(Value::as_i64).unwrap_or(0) as u16;
+                (n("firstSubMesh"), n("subMeshCount"))
+            }),
         })
     }
 }
