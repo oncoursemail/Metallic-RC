@@ -3,9 +3,11 @@
 //!
 //! - [`layer`]: the RR packet layer, a marker byte after every datagram (0x11 plain, 0x2A encrypted);
 //! - [`lnl`]: a LiteNetLib 1.x (protocol 13) compatible transport: connect handshake, reliable and sequenced
-//!   channels, acks, fragments, ping and timeouts.
+//!   channels, acks, fragments, ping and timeouts;
+//! - [`ngo`]: Netcode batches and messages on top, and the session that gives each client its id and the server clock.
 //!
 //! No sockets here: callers feed datagrams in and take datagrams out, so the same code runs in tests, the game
 //! client and the server.
 pub mod layer;
 pub mod lnl;
+pub mod ngo;

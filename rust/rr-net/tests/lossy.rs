@@ -4,51 +4,9 @@ use rr_net::{
     lnl::{packet, Config, ConnectRequest, Delivery, Event, Packet, Peer, Property, Reason},
 };
 
-/// Deterministic xorshift, so a failure replays.
-struct Rng(u64);
+mod common;
 
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 ^= self.0 << 13;
-        self.0 ^= self.0 >> 7;
-        self.0 ^= self.0 << 17;
-        self.0
-    }
-    fn chance(&mut self, p: f64) -> bool {
-        (self.next() % 10_000) as f64 / 10_000.0 < p
-    }
-    fn up_to(&mut self, max: f64) -> f64 {
-        (self.next() % 10_000) as f64 / 10_000.0 * max
-    }
-}
-
-/// Datagrams in flight one way: (arrival time, bytes).
-struct Link {
-    rng: Rng,
-    drop: f64,
-    max_delay: f64,
-    queue: Vec<(f64, Vec<u8>)>,
-    sent: usize,
-}
-
-impl Link {
-    fn new(seed: u64, drop: f64, max_delay: f64) -> Self {
-        Link { rng: Rng(seed), drop, max_delay, queue: vec![], sent: 0 }
-    }
-    fn send(&mut self, now: f64, packet: Vec<u8>) {
-        self.sent += 1;
-        if !self.rng.chance(self.drop) {
-            // a base delay plus jitter: later datagrams often overtake earlier ones
-            let at = now + 0.01 + self.rng.up_to(self.max_delay);
-            self.queue.push((at, layer::wrap(&packet)));
-        }
-    }
-    fn arrived(&mut self, now: f64) -> Vec<Vec<u8>> {
-        let (ready, wait): (Vec<_>, Vec<_>) = self.queue.drain(..).partition(|(t, _)| *t <= now);
-        self.queue = wait;
-        ready.into_iter().map(|(_, d)| d).collect()
-    }
-}
+use common::Link;
 
 struct Pair {
     now: f64,
@@ -90,7 +48,7 @@ impl Pair {
         }
         self.client.update(now);
         while let Some(p) = self.client.poll_transmit() {
-            self.up.send(now, p);
+            self.up.send(now, layer::wrap(&p));
         }
         while let Some(e) = self.client.poll_event() {
             self.client_events.push(e);
@@ -98,7 +56,7 @@ impl Pair {
         if let Some(s) = &mut self.server {
             s.update(now);
             while let Some(p) = s.poll_transmit() {
-                self.down.send(now, p);
+                self.down.send(now, layer::wrap(&p));
             }
             while let Some(e) = s.poll_event() {
                 self.server_events.push(e);

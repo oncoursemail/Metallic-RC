@@ -250,6 +250,10 @@ impl Peer {
         self.connection_time
     }
 
+    pub fn connection_number(&self) -> u8 {
+        self.conn
+    }
+
     /// Nothing reliable waiting or unacknowledged.
     pub fn is_idle(&self) -> bool {
         self.reliable.iter().all(Reliable::idle)

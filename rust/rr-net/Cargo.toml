@@ -6,3 +6,4 @@ description = "Room networking shared by the Metallic-RC client and server: the 
 publish = false
 
 [dependencies]
+twox-hash = "2"
