@@ -41,7 +41,10 @@ pub struct MirrorPlugin;
 
 impl Plugin for MirrorPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Reflection>().add_systems(PostUpdate, follow.after(TransformSystems::Propagate));
+        // before the sun's shadow cascades are built: a camera switched on after them has none, and Bevy's light
+        // preparation panics on it (light.rs `cascades.get(&view).unwrap()`, seen 2026-11-05 in the Dorm)
+        app.init_resource::<Reflection>().add_systems(PostUpdate, follow.after(TransformSystems::Propagate)
+            .before(bevy::light::SimulationLightSystems::UpdateDirectionalLightCascades));
     }
 }
 
@@ -120,8 +123,9 @@ fn follow(
         None => {
             let mut e = commands.spawn((
                 Camera3d::default(),
-                // the reflection flips every triangle's winding
-                Camera { order: -1, invert_culling: true, ..default() },
+                // the reflection flips every triangle's winding; off until the next frame turns it on (spawned after
+                // this frame's shadow cascades, it has none yet)
+                Camera { order: -1, invert_culling: true, is_active: false, ..default() },
                 RenderTarget::Image(image.into()),
                 place,
                 projection,
