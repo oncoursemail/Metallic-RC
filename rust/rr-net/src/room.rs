@@ -79,6 +79,8 @@ pub struct Shown {
     pub head: Option<Pose>,
     pub left_hand: Option<Pose>,
     pub right_hand: Option<Pose>,
+    /// hand shapes, left and right (`AvatarData::grips`); None until the player's client sends them
+    pub grips: Option<[u8; 2]>,
     /// the look the player last announced, if any
     pub look: Option<String>,
 }
@@ -89,6 +91,7 @@ struct Remote {
     head: Smoother,
     left: Smoother,
     right: Smoother,
+    grips: Option<[u8; 2]>,
 }
 
 pub struct RoomClient {
@@ -393,7 +396,7 @@ impl RoomClient {
                     Some(Value::Int(t)) => *t as f64 / TICK_RATE,
                     _ => p.tick as f64 / TICK_RATE,
                 };
-                let mut r = Remote { view, body: Smoother::default(), head: Smoother::default(), left: Smoother::default(), right: Smoother::default() };
+                let mut r = Remote { view, body: Smoother::default(), head: Smoother::default(), left: Smoother::default(), right: Smoother::default(), grips: None };
                 r.body.push(sent, Pose { position: *position, rotation: *rotation, velocity: [0.0; 3] });
                 self.remotes.insert(p.sender, r);
             }
@@ -424,6 +427,7 @@ impl RoomClient {
                         continue;
                     }
                     if let Ok(a) = AvatarData::decode(bytes) {
+                        r.grips = a.grips.or(r.grips);
                         if let Some(b) = a.tracking_space {
                             r.body.push(sent, b);
                         }
@@ -739,6 +743,7 @@ impl RoomClient {
                 head: r.head.step(at, dt),
                 left_hand: r.left.step(at, dt),
                 right_hand: r.right.step(at, dt),
+                grips: r.grips,
                 look: self.looks.get(&actor).cloned(),
             })
         }).collect();

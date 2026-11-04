@@ -167,12 +167,19 @@ impl Pose {
 
 /// PlayerAvatarData: tracking space, left hand, right hand, head, each sent or not; then the four providers (hand
 /// poses, face, movement), none of which a screen player sends yet.
+///
+/// Ours after the providers: the hands' grips (a flag bit, then 2 bits per hand, left first). Older records end at
+/// the providers (their padding bits are zero, so they read as "no grips"), and older readers stop before the grips,
+/// so both versions read each other's records. INFERRED place: the stock client sends hand shapes in its hand-pose
+/// provider, whose layout is not known.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct AvatarData {
     pub tracking_space: Option<Pose>,
     pub left_hand: Option<Pose>,
     pub right_hand: Option<Pose>,
     pub head: Option<Pose>,
+    /// hand shapes, left and right (0..=3; the client's `Grip` order: open, point, hold); None from older clients
+    pub grips: Option<[u8; 2]>,
 }
 
 impl AvatarData {
@@ -185,6 +192,10 @@ impl AvatarData {
             }
         }
         w.bits(0, 4);
+        if let Some(g) = self.grips {
+            w.bit(true);
+            g.iter().for_each(|&g| w.bits(g.min(3) as u32, 2));
+        }
         w.finish()
     }
 
@@ -199,8 +210,13 @@ impl AvatarData {
         if r.bits(4)? != 0 {
             return Err(Malformed);
         }
+        // the grips, when the record goes on past the providers (an older record has none, or zero padding)
+        let grips = match r.bit() {
+            Ok(true) => Some([r.bits(2)? as u8, r.bits(2)? as u8]),
+            _ => None,
+        };
         let [tracking_space, left_hand, right_hand, head] = parts;
-        Ok(AvatarData { tracking_space, left_hand, right_hand, head })
+        Ok(AvatarData { tracking_space, left_hand, right_hand, head, grips })
     }
 }
 
@@ -349,6 +365,7 @@ mod tests {
             left_hand: None,
             right_hand: None,
             head: Some(Pose { position: [12.25, 1.55, -3.5], rotation: head_q, velocity: [0.0; 3] }),
+            grips: None,
         };
         let back = AvatarData::decode(&a.encode()).unwrap();
         let (t, h) = (back.tracking_space.unwrap(), back.head.unwrap());
@@ -372,6 +389,32 @@ mod tests {
         assert!(bufs.len() > 1 && bufs.iter().all(|b| b.len() <= MAX_BUFFER));
         let views: Vec<i32> = bufs.iter().flat_map(|b| read_buffer(b).unwrap().2.into_iter().map(|r| r.0).collect::<Vec<_>>()).collect();
         assert_eq!(views, (0..60).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn grips_ride_after_the_providers_and_old_records_still_read() {
+        let body = Pose { position: [1.0, 0.0, 2.0], velocity: [0.5, 0.0, 0.0], ..Default::default() };
+        let hand = Pose { position: [1.2, 1.1, 1.6], ..Default::default() };
+        let new = AvatarData { tracking_space: Some(body), right_hand: Some(hand), head: Some(hand), grips: Some([0, 2]), ..Default::default() };
+        let bytes = new.encode();
+        assert_eq!(AvatarData::decode(&bytes).unwrap().grips, Some([0, 2]));
+        // an older client's record (no grip bits) reads with no grips, whatever the padding length
+        let old = AvatarData { grips: None, ..new };
+        for a in [old, AvatarData { left_hand: Some(hand), ..old }, AvatarData::default()] {
+            let back = AvatarData::decode(&a.encode()).unwrap();
+            assert_eq!(back.grips, None);
+            assert_eq!(back.tracking_space.is_some(), a.tracking_space.is_some());
+        }
+        // an older reader (stops after the providers) reads the new record's poses unchanged: the grip bits come last
+        let mut r = BitReader::new(&bytes);
+        let mut n = 0;
+        for _ in 0..4 {
+            if r.bit().unwrap() {
+                Pose::read(&mut r).unwrap();
+                n += 1;
+            }
+        }
+        assert_eq!((n, r.bits(4).unwrap()), (3, 0));
     }
 
     #[test]

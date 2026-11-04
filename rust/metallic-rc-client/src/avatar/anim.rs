@@ -28,6 +28,20 @@ pub enum Grip {
 }
 
 impl Grip {
+    /// The grip as sent over the network (`AvatarData::grips`): 0 open, 1 point, 2 hold.
+    pub fn to_net(self) -> u8 {
+        self as u8
+    }
+
+    /// A grip from the network; unknown values are an open hand.
+    pub fn from_net(v: u8) -> Grip {
+        match v {
+            1 => Grip::Point,
+            2 => Grip::Hold,
+            _ => Grip::Open,
+        }
+    }
+
     /// How far each part of the hand curls in, radians: the three outer fingers (one mitten), the index finger and
     /// the thumb.
     pub fn curls(self) -> [f32; 3] {
@@ -393,6 +407,14 @@ mod tests {
         // walking: no sway
         run(&mut a, 1.0, going(3.0, 0.0));
         assert!(a.pose().sway.abs() < 1e-3);
+    }
+
+    #[test]
+    fn grips_survive_the_network() {
+        for g in [Grip::Open, Grip::Point, Grip::Hold] {
+            assert_eq!(Grip::from_net(g.to_net()), g);
+        }
+        assert_eq!(Grip::from_net(3), Grip::Open);
     }
 
     #[test]

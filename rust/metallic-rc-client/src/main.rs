@@ -302,12 +302,13 @@ fn realtime_sync(
     *last_feet = Some(feet);
     let body = Pose { position: feet.into(), rotation: Quat::from_rotation_y(p.yaw).to_array(), velocity: velocity.into() };
     let hand = |h: Option<Transform>| h.map(|h| Pose { position: h.translation.into(), rotation: h.rotation.to_array(), ..body });
-    let hands = mine.single().map_or([None, None], |d| d.hands);
+    let (hands, grips) = mine.single().map_or(([None, None], [avatar::anim::Grip::Open; 2]), |d| (d.hands, d.grip));
     room.set_pose(AvatarData {
         tracking_space: Some(body),
         head: Some(Pose { position: t.translation.into(), rotation: t.rotation.to_array(), ..body }),
         left_hand: hand(hands[0]),
         right_hand: hand(hands[1]),
+        grips: Some(grips.map(avatar::anim::Grip::to_net)),
     });
     if *sent_look != Some(look.0) {
         room.set_look(rt.now(), look.0.to_json());
@@ -340,6 +341,7 @@ fn realtime_sync(
                 drive.head = s.head.map(|h| Quat::from_array(h.rotation));
                 drive.hands = [s.left_hand.map(pose), s.right_hand.map(pose)];
                 drive.head_height = s.head.map(|h| h.position[1] - s.body.position[1]);
+                drive.grip = s.grips.map_or([avatar::anim::Grip::Open; 2], |g| g.map(avatar::anim::Grip::from_net));
                 let l = look_of(s);
                 if rig.look != l {
                     rig.look = l;

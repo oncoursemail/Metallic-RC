@@ -47,7 +47,7 @@ impl Player {
         let body = Pose { position: at, rotation: [0.0, 0.0, 0.0, 1.0], velocity };
         let head = Pose { position: [at[0], at[1] + 1.55, at[2]], ..body };
         let left_hand = Some(Pose { position: [at[0] - 0.2, at[1] + 1.3, at[2] - 0.4], ..body });
-        self.client.set_pose(AvatarData { tracking_space: Some(body), head: Some(head), left_hand, right_hand: None });
+        self.client.set_pose(AvatarData { tracking_space: Some(body), head: Some(head), left_hand, right_hand: None, grips: None });
     }
 
     fn sees(&self, actor: i32) -> Option<[f32; 3]> {
