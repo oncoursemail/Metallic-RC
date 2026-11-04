@@ -222,6 +222,8 @@ fn main() {
         .insert_resource(Start(a.camera))
         .add_plugins(avatar::AvatarPlugin)
         .add_plugins(metallic_rc_client::social::SocialPlugin)
+        // built-in game modes (Paintball), run by the room server
+        .add_plugins(metallic_rc_client::games::GamesPlugin)
         .add_plugins(player)
         // engine lane: quality tiers, texture mips/compression, platform defaults (touch, mobile)
         .add_plugins((metallic_rc_client::quality::QualityPlugin, metallic_rc_client::texprep::TexPrepPlugin, metallic_rc_client::platform::PlatformPlugin::default()))
