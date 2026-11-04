@@ -1,5 +1,7 @@
 # Metallic Studios
 
+> **Where the code lives:** since 2026-11-04 the main copy of this repository, with its issues and pull requests, is on the owner's self-hosted Metallic Forge. The GitHub copy is a read-only mirror, updated automatically from the forge; please do not open issues or pull requests here.
+
 > **Project status: Foundation planning — not yet a playable game.**  
 > Independent social multiplayer, VR, and creator platform. The repository starts with a technical roadmap and evidence-based progress tracker; completed features must be proven by merged changes, tests, and working builds.
 
