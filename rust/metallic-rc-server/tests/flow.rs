@@ -105,6 +105,22 @@ async fn login_then_me_then_dorm() {
 }
 
 #[tokio::test]
+async fn the_room_list_has_every_room_and_pages() {
+    let (addr, _) = start().await;
+    let (st, body) = http(addr, "GET", "/rooms/rooms/hot", None, None).await;
+    assert_eq!(st, 200);
+    let v = json(&body);
+    let names: Vec<&str> = v["Results"].as_array().unwrap().iter().map(|r| r["Name"].as_str().unwrap()).collect();
+    assert_eq!(names, ["DormRoom", "RecCenter"]);
+    assert_eq!(v["TotalResults"], 2);
+    assert_eq!(v["Results"][1]["RoomId"], 2);
+    assert!(v["Results"][0]["Description"].is_string());
+    let (_, page) = http(addr, "GET", "/rooms/rooms/hot?skip=1&take=5", None, None).await;
+    let page = json(&page);
+    assert_eq!((page["Results"].as_array().unwrap().len(), page["Results"][0]["Name"].as_str(), page["TotalResults"].as_i64()), (1, Some("RecCenter"), Some(2)));
+}
+
+#[tokio::test]
 async fn unknown_requests_are_written_down() {
     let (addr, dir) = start().await;
     assert_eq!(http(addr, "POST", "/api/newthing/v9?x=1", None, Some("a=1")).await.0, 404);

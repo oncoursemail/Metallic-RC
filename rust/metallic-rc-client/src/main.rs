@@ -35,7 +35,7 @@ use metallic_rc_client::{
     voice,
     realtime::{self, Realtime},
     room::{self, RoomData},
-    settings::{Settings, RESOLUTIONS},
+    settings::{Settings, Volumes, RESOLUTIONS},
     world,
     ui::{input::{self, Pointer}, menu::{self, Action, Painted, Painter, Router}, view},
 };
@@ -87,9 +87,10 @@ fn die(msg: &str) -> ! {
     std::process::exit(2)
 }
 
-/// What the network thread has to say, shown on screen.
+/// What the network thread has to say, shown on screen: the login's line, then notes from the rest of the game (the
+/// room's pieces, menu errors), which a new login keeps.
 #[derive(Resource, Clone)]
-struct Status(Arc<Mutex<String>>);
+struct Status(Arc<Mutex<String>>, Arc<Mutex<String>>);
 
 #[derive(Component)]
 struct StatusText;
@@ -120,6 +121,10 @@ struct Menu {
     typed: String,
     focused: bool,
     scroll: HashMap<i64, f32>,
+    /// the dropdown setting whose choice dialog is open
+    choosing: Option<String>,
+    /// the name server, for the rooms browser's list
+    server: String,
 }
 
 impl Menu {
@@ -131,7 +136,7 @@ impl Menu {
     fn ask(&self, settings: &Settings, account: &str) {
         let (Some(p), Some(page)) = (&self.painter, self.router.top()) else { return };
         p.ask(menu::Request { page: page.into(), back_stack: self.router.back_stack(), settings: settings.clone(), account: account.into(),
-            typed: self.typed.clone(), focused: self.focused, scroll: self.scroll.clone() });
+            typed: self.typed.clone(), focused: self.focused, scroll: self.scroll.clone(), choosing: self.choosing.clone(), server: self.server.clone() });
     }
 }
 
@@ -152,6 +157,8 @@ struct Account {
     spawn: [f32; 3],
     yaw: f32,
     name: String,
+    /// the room to go to after logging in (the rooms browser), else the one the login gives (the dorm)
+    goto: Option<String>,
     gen: Arc<AtomicUsize>,
 }
 
@@ -182,13 +189,13 @@ fn main() {
     let slot = loading.0.clone();
     let game_dir = a.game_dir.clone().or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()));
     let player = player::PlayerPlugin { game_dir: game_dir.clone() };
-    let menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), ..default() };
+    let menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), server: a.server.clone(), ..default() };
     let loader = world::Loader::start(game_dir, a.world.clone(), slot);
 
-    let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))));
+    let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))), Arc::default());
     let net = Net::default();
     let [x, y, z, yaw, _] = a.camera;
-    let account = Account { server: a.server.clone(), realtime: a.realtime.clone(), room: a.room.clone(), spawn: [x, (y - player::EYE).max(0.0), z],
+    let account = Account { goto: None, server: a.server.clone(), realtime: a.realtime.clone(), room: a.room.clone(), spawn: [x, (y - player::EYE).max(0.0), z],
         yaw: yaw.to_radians(), name: a.name.clone(), gen: Arc::default() };
     log_in(&account, &status, &net);
     let mut prefs = Prefs { s: Settings::path().map(|p| Settings::load(&p)).unwrap_or_default(), changed: true };
@@ -207,6 +214,7 @@ fn main() {
         .insert_resource(loader)
         .add_plugins(world::WorldPlugin)
         .insert_resource(menu)
+        .insert_resource(Volumes::from(&prefs.s))
         .insert_resource(prefs)
         .insert_resource(account)
         .init_resource::<view::Uploaded>()
@@ -350,13 +358,15 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
     let mine = account.gen.fetch_add(1, Ordering::SeqCst) + 1;
     let gen = account.gen.clone();
     let (server, address, room, spawn, yaw, name) = (account.server.clone(), account.realtime.clone(), account.room.clone(), account.spawn, account.yaw, account.name.clone());
+    let goto = account.goto.clone();
     let (shared, net_slot) = (status.0.clone(), net.0.clone());
     *shared.lock().unwrap() = format!("Connecting to {server} as {name} ...");
     std::thread::spawn(move || {
-        let s = match net::connect(&server, &Login::Name(name)) {
+        let mut s = match net::connect(&server, &Login::Name(name)) {
             Ok(s) => s,
             Err(e) => return *shared.lock().unwrap() = format!("Offline: {e}"),
         };
+        let went = goto.as_ref().map(|g| s.goto(g).map(|_| ()));
         let current = || gen.load(Ordering::SeqCst) == mine;
         if !current() {
             return;
@@ -366,8 +376,11 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
         *shared.lock().unwrap() = format!("{}  |  {} ({})  |  {}  |  notifications {}", s.motd, s.account.display_name,
             s.account.username, if s.room.private { format!("{} (private)", s.room.name) } else { s.room.name.clone() },
             if hub.is_ok() { "on" } else { "off" });
+        if let Some(Err(e)) = &went {
+            shared.lock().unwrap().push_str(&format!("  |  {e}"));
+        }
         let address = address.unwrap_or_else(|| realtime::default_address(&server));
-        let room = room.unwrap_or(s.room.photon_room);
+        let room = if went.is_some() { s.room.photon_room } else { room.unwrap_or(s.room.photon_room) };
         match realtime::start(&address, &room, &s.access_token, &s.account.display_name, spawn, yaw) {
             Ok(rt) if current() => *net_slot.lock().unwrap() = Some(rt),
             Ok(rt) => rt.room.lock().unwrap().leave(rt.now()),
@@ -435,11 +448,18 @@ fn use_menu(
     if keys.just_pressed(KeyCode::Escape) {
         if menu.focused {
             menu.focused = false;
+        } else if menu.choosing.is_some() {
+            menu.choosing = None;
         } else if menu.open() {
             menu.router.close();
         } else {
             menu.router.open(menu::ESCAPE);
         }
+        repaint = true;
+    }
+    // Tab: the watch (INFERRED key; the game opens its menu from a watch button)
+    if keys.just_pressed(KeyCode::Tab) && !menu.focused {
+        if menu.open() { menu.router.close() } else { menu.router.open(metallic_rc_client::ui::routes::HOME) }
         repaint = true;
     }
     if let (Some((p, _, _)), Some(cursor)) = (&menu.shown, window.cursor_position()) {
@@ -468,7 +488,7 @@ fn use_menu(
             }
         }
     }
-    let mut switch_to = None;
+    let (mut switch_to, mut rejoin) = (None, false);
     match act.clone() {
         Some(Action::Back) => drop(menu.router.back()),
         Some(Action::Close) => menu.router.close(),
@@ -490,27 +510,38 @@ fn use_menu(
             prefs.s.set(&key, if on { 0.0 } else { 1.0 });
             prefs.changed = true;
         }
+        Some(Action::Choose(key, v)) => {
+            prefs.s.set(&key, v);
+            (prefs.changed, menu.choosing) = (true, None);
+        }
+        Some(Action::Dropdown(key)) => menu.choosing = Some(key),
+        Some(Action::CloseDialog) => menu.choosing = None,
         Some(Action::Field) => menu.focused = true,
         Some(Action::Login) => switch_to = Some(menu.typed.trim().to_string()).filter(|n| !n.is_empty()),
         Some(Action::Account(name)) => switch_to = Some(name),
+        Some(Action::GoToRoom(room)) => (account.goto, rejoin) = (Some(room), true),
         Some(Action::Slider(_)) | None => {}
     }
-    if let Some(name) = switch_to {
-        if name != account.name {
-            leave_room(&net);
-            for a in &avatars {
-                commands.entity(a).despawn();
-            }
-            account.name = name;
-            log_in(&account, &status, &net);
+    // a new account goes to its dorm; a room from the rooms browser is joined by logging in again and going there
+    let new_account = switch_to.as_ref().is_some_and(|n| *n != account.name);
+    if new_account || rejoin {
+        leave_room(&net);
+        for a in &avatars {
+            commands.entity(a).despawn();
+        }
+        if let Some(name) = switch_to.clone().filter(|_| new_account) {
+            (account.name, account.goto) = (name, None);
             prefs.s.remember(&account.name);
             prefs.changed = true;
         }
+        log_in(&account, &status, &net);
+    }
+    if switch_to.is_some() || rejoin {
         menu.router.close();
         (menu.typed, menu.focused) = (String::new(), false);
     }
     if menu.router.top().map(str::to_string) != page {
-        menu.pointer = Pointer::default();
+        (menu.pointer, menu.choosing) = (Pointer::default(), None);
     }
     if repaint || act.is_some() {
         menu.ask(&prefs.s, &account.name);
@@ -536,7 +567,7 @@ fn show_menu(
     while let Some(r) = menu.painter.as_ref().and_then(Painter::take) {
         match r {
             Ok(p) => next = Some(p),
-            Err(e) => status.0.lock().unwrap().push_str(&format!("  |  menu: {e}")),
+            Err(e) => status.1.lock().unwrap().push_str(&format!("  |  menu: {e}")),
         }
     }
     let resized = menu.shown.as_ref().is_some_and(|s| s.2 != size);
@@ -568,13 +599,15 @@ fn feed_player(prefs: Res<Prefs>, menu: Res<Menu>, mut controls: ResMut<Controls
     }
 }
 
-/// Puts changed window settings into effect and saves the settings (the player's camera follows the field of view).
-fn apply_settings(mut prefs: ResMut<Prefs>, mut window: Single<&mut Window, With<PrimaryWindow>>) {
+/// Puts changed window settings and volumes into effect and saves the settings (`camera_view` follows the field of
+/// view).
+fn apply_settings(mut prefs: ResMut<Prefs>, mut window: Single<&mut Window, With<PrimaryWindow>>, mut volumes: ResMut<Volumes>) {
     if !prefs.changed {
         return;
     }
     prefs.changed = false;
     let s = &prefs.s;
+    volumes.set_if_neq(Volumes::from(s));
     let present = if s.on("vsync") { PresentMode::AutoVsync } else { PresentMode::AutoNoVsync };
     if window.present_mode != present {
         window.present_mode = present;
@@ -607,7 +640,7 @@ fn grab_mouse(mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>, mouse
 }
 
 fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>>) {
-    let now = status.0.lock().unwrap().clone();
+    let now = format!("{}{}", status.0.lock().unwrap(), status.1.lock().unwrap());
     if text.0 != now {
         text.0 = now;
     }
@@ -618,13 +651,13 @@ fn spawn_room(mut commands: Commands, loading: Res<Loading>, status: Res<Status>
     let r = match result {
         Ok(r) => r,
         Err(e) => {
-            status.0.lock().unwrap().push_str(&format!("  |  room: {e}"));
+            status.1.lock().unwrap().push_str(&format!("  |  room: {e}"));
             return;
         }
     };
     for e in &stand_in {
         commands.entity(e).despawn();
     }
-    status.0.lock().unwrap().push_str(&format!("  |  {} room pieces from the game files", r.roots.len()));
+    status.1.lock().unwrap().push_str(&format!("  |  {} room pieces from the game files", r.roots.len()));
     arrived.0 = Some(r);
 }

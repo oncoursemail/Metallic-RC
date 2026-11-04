@@ -34,6 +34,7 @@ pub fn routes() -> Router<Shared> {
         // rooms
         .route("/rooms/rooms/bulk", get(rooms_bulk))
         .route("/rooms/rooms", get(rooms_bulk))
+        .route("/rooms/rooms/hot", get(rooms_hot))
         .route("/rooms/rooms/{id}", get(room))
         // matchmaking (presence, parties and joining friends: social.rs, party.rs)
         .route("/matchmaking/goto/room/{name}", post(goto_room))
@@ -138,6 +139,14 @@ async fn rooms_bulk(RawQuery(q): RawQuery) -> Json<Value> {
     let mut keys = query_all(&q, "name");
     keys.extend(query_all(&q, "id"));
     Json(Value::Array(keys.iter().filter_map(|k| find_room(k)).map(room_json).collect()))
+}
+
+/// Every room this server has, for the rooms browser: `{Results, TotalResults}` as RecNet's paged room lists send
+/// them. `take` and `skip` page it. Player counts are not in it yet (they live in the realtime room server).
+async fn rooms_hot(RawQuery(q): RawQuery) -> Json<Value> {
+    let num = |k: &str| query_all(&q, k).first().and_then(|v| v.parse::<usize>().ok());
+    let rooms: Vec<Value> = ROOMS.iter().skip(num("skip").unwrap_or(0)).take(num("take").unwrap_or(usize::MAX)).map(room_json).collect();
+    Json(json!({ "Results": rooms, "TotalResults": ROOMS.len() }))
 }
 
 async fn room(Path(id): Path<String>) -> Result<Json<Value>, StatusCode> {

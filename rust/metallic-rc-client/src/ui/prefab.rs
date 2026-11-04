@@ -190,6 +190,22 @@ pub fn load(lib: &mut Library, pages: &Pages, bundle_dir: &Path, address: &str) 
     element(lib, &file, id, 0)
 }
 
+/// Puts under each empty StaggeredPrefabSpawner the prefab it names by Addressables asset GUID (which [`load`] leaves
+/// out), for pages whose spawned parts are needed, e.g. the watch's navigation bar. A prefab that does not load is
+/// left out.
+pub fn spawn_referenced(lib: &mut Library, pages: &Pages, bundle_dir: &Path, e: &mut Element) {
+    for c in &mut e.children {
+        spawn_referenced(lib, pages, bundle_dir, c);
+    }
+    let guid = e.component("RRUI.StaggeredPrefabSpawner").filter(|c| c.value.get("useAssetReference").and_then(Value::as_bool).unwrap_or(false))
+        .and_then(|c| c.value.path("prefabReference/m_AssetGUID")).and_then(Value::as_str).map(str::to_string);
+    if let Some(guid) = guid.filter(|g| !g.is_empty() && e.children.is_empty()) {
+        if let Ok(p) = load(lib, pages, bundle_dir, &guid) {
+            e.children.push(p);
+        }
+    }
+}
+
 /// The object an asset path names, through its bundle's container.
 pub(crate) fn asset_object(lib: &mut Library, bundle_dir: &Path, bundle: &str, asset: &str) -> Result<(FileRef, i64), String> {
     let open = lib.open_bundle(&bundle_dir.join(bundle))?;
@@ -280,6 +296,13 @@ fn element(lib: &mut Library, file: &FileRef, go_id: i64, depth: usize) -> Resul
     let item = e.impls().iter().find_map(|(_, d)| d.get("defaultPrefab").and_then(Value::as_pptr)).filter(|p| !p.is_null());
     if let Some(p) = item {
         let mut t = object(lib, file, p, depth)?;
+        t.active = false;
+        t.name.push_str(TEMPLATE);
+        e.children.push(t);
+    }
+    // so is a virtualized list's (on the list component itself); one that does not load is left out
+    let item = e.component("RRUI.Data.VirtualizedScrollRectList").and_then(|c| c.value.get("defaultPrefab")).and_then(Value::as_pptr).filter(|p| !p.is_null());
+    if let Some(Ok(mut t)) = item.map(|p| object(lib, file, p, depth)) {
         t.active = false;
         t.name.push_str(TEMPLATE);
         e.children.push(t);
