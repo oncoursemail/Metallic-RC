@@ -3,12 +3,17 @@
 //!
 //! The 2026 level files are scrambled, so a "room" here is what the Addressables hold: one environment prefab, or a
 //! group of prefabs sharing a name prefix (the Dorm's `(Dorm_*` pieces) placed by a layout file of ours.
-use std::{collections::{BTreeMap, HashMap}, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::{Path, PathBuf},
+    sync::{mpsc::{channel, Receiver, Sender}, Arc, Mutex},
+};
 
-use bevy::math::{Mat4, Vec3};
-use unity_assets::{catalog::{bundle_file, Catalog}, classes, AssetBundleInfo, GameObject, PPtr, Transform};
+use bevy::{asset::RenderAssetUsages, mesh::{Indices, PrimitiveTopology}, prelude::*};
+use unity_assets::{catalog::{bundle_file, Catalog}, classes, AssetBundleInfo, GameObject, PPtr};
 
-use crate::{room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
+use crate::{collide::{Obb, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
+
 
 /// Where an address leads: the bundle file and the bundle's own name for the asset (its `m_Container` key).
 #[derive(Clone, Debug)]
@@ -115,7 +120,7 @@ pub fn summarize(lib: &mut Library, dir: &Path, loc: &Location) -> Result<Summar
     }
     let mut stack = vec![(tf, tid, Mat4::IDENTITY)];
     while let Some((f, tid, parent)) = stack.pop() {
-        let Ok(t) = value(&f, tid).and_then(|v| Transform::from_value(&v).map_err(|e| e.to_string())) else { continue };
+        let Ok(t) = value(&f, tid).and_then(|v| unity_assets::Transform::from_value(&v).map_err(|e| e.to_string())) else { continue };
         let world = parent * room::unity_to_bevy(&t);
         let Ok((gf, gid)) = lib.resolve(&f, t.game_object) else { continue };
         let Ok(go) = value(&gf, gid).and_then(|v| GameObject::from_value(&v).map_err(|e| e.to_string())) else { continue };
@@ -180,18 +185,30 @@ pub const GROUPS: &[Group] = &[
 /// Loads a room for `--world`: a group name from [`GROUPS`] (default `dorm`), one GameObject address from the
 /// catalog, or `prefix*` for every GameObject address starting with `prefix` (each where its own root puts it).
 pub fn load(lib: &mut Library, dir: &Path, world: Option<&str>) -> Result<RoomData, String> {
+    let mut kit = shape_kit();
+    let mut addresses = None;
+    load_with(lib, &mut kit, &mut addresses, dir, world)
+}
+
+/// The Maker Pen textures come from an older install, when there is one.
+fn shape_kit() -> ShapeKit {
+    ShapeKit::new(shapes::old_build_dirs().iter().find(|d| d.exists()).map(|d| d.as_path()))
+}
+
+fn load_with(lib: &mut Library, kit: &mut ShapeKit, addresses: &mut Option<Addresses>, dir: &Path, world: Option<&str>) -> Result<RoomData, String> {
     let world = world.unwrap_or("dorm");
-    // the Maker Pen textures come from an older install, when there is one
-    let mut kit = ShapeKit::new(shapes::old_build_dirs().iter().find(|d| d.exists()).map(|d| d.as_path()));
     if let Some(g) = GROUPS.iter().find(|g| g.name.eq_ignore_ascii_case(world)) {
         let layout = room::parse_layout(g.layout)?;
         let want = |n: &str| n.starts_with(g.prefix) && (!g.only_layout || layout.iter().any(|(l, _)| l == n));
-        return room::load_prefabs(lib, &mut kit, dir, g.bundle, want, &layout);
+        return room::load_prefabs(lib, kit, dir, g.bundle, want, &layout);
     }
-    let addresses = Addresses::open(dir)?;
+    if addresses.is_none() {
+        *addresses = Some(Addresses::open(dir)?);
+    }
+    let addresses = addresses.as_ref().unwrap();
     let picked: Vec<(String, Location)> = match world.strip_suffix('*') {
         Some(prefix) => addresses.game_objects().into_iter().filter(|(k, _)| k.starts_with(prefix)).map(|(k, l)| (k.to_string(), l.clone())).collect(),
-        None => addresses.by_key.get(world).map(|l| vec![(world.to_string(), l.clone())]).unwrap_or_default(),
+        None => addresses.by_key.get(world).filter(|l| l.resource_type == "UnityEngine.GameObject").map(|l| vec![(world.to_string(), l.clone())]).unwrap_or_default(),
     };
     if picked.is_empty() {
         return Err(format!("no GameObject address {world:?} in the catalog"));
@@ -203,13 +220,31 @@ pub fn load(lib: &mut Library, dir: &Path, world: Option<&str>) -> Result<RoomDa
             Err(e) => eprintln!("{key}: {e}"),
         }
     }
-    let mut r = room::load_roots(lib, &mut kit, roots)?;
-    recenter(&mut r);
+    let mut r = room::load_roots(lib, kit, roots)?;
+    if world.ends_with('*') || picked.len() == 1 {
+        recenter(&mut r);
+    }
     Ok(r)
 }
 
 /// Moves a room so the middle of its meshes is over the origin (where players start), its height left alone.
 fn recenter(r: &mut RoomData) {
+    let (lo, hi) = bounds(r);
+    if lo.x > hi.x {
+        return;
+    }
+    let shift = Vec3::new(-(lo.x + hi.x) / 2.0, 0.0, -(lo.z + hi.z) / 2.0);
+    let m = Mat4::from_translation(shift);
+    for w in r.parts.iter_mut().map(|p| &mut p.world).chain(r.places.iter_mut()).chain(r.lights.iter_mut().map(|l| &mut l.world)) {
+        *w = m * *w;
+    }
+    for c in &mut r.colliders {
+        c.center += shift;
+    }
+}
+
+/// The world-space box around a room's meshes (min > max when it has none).
+pub fn bounds(r: &RoomData) -> (Vec3, Vec3) {
     let (mut lo, mut hi) = (Vec3::splat(f32::MAX), Vec3::splat(f32::MIN));
     for p in &r.parts {
         for &v in &p.positions {
@@ -218,15 +253,301 @@ fn recenter(r: &mut RoomData) {
             hi = hi.max(w);
         }
     }
-    if lo.x > hi.x {
-        return;
+    (lo, hi)
+}
+
+// ---- in the game: the loader thread, rooms and props as entities ----
+
+/// What the loader thread is asked to load.
+enum Request {
+    Prop { entity: Entity, address: String },
+}
+
+/// The loader thread: it owns the bundle library (bundles are read whole, so one copy), loads the room first and
+/// then props on request (`spawn_prop`).
+#[derive(Resource)]
+pub struct Loader {
+    send: Mutex<Sender<Request>>,
+    props: Mutex<Receiver<(Entity, Result<RoomData, String>)>>,
+}
+
+impl Loader {
+    /// Starts the thread. The room (`world`, see [`load`]) goes into `room` when it is ready.
+    pub fn start(game_dir: Option<PathBuf>, world: Option<String>, room: Arc<Mutex<Option<Result<RoomData, String>>>>) -> Self {
+        let (send, requests) = channel::<Request>();
+        let (prop_send, props) = channel();
+        std::thread::spawn(move || {
+            let Some(game) = game_dir else {
+                *room.lock().unwrap() = Some(Err("no game folder found; pass --game-dir".into()));
+                return;
+            };
+            let dir = room::bundle_dir(&game);
+            let mut lib = match Library::new(&dir) {
+                Ok(l) => l,
+                Err(e) => return *room.lock().unwrap() = Some(Err(format!("{}: {e}", dir.display()))),
+            };
+            let (mut kit, mut addresses) = (shape_kit(), None);
+            let t = std::time::Instant::now();
+            let r = load_with(&mut lib, &mut kit, &mut addresses, &dir, world.as_deref());
+            println!("world {}: loaded in {:.2} s", world.as_deref().unwrap_or("dorm"), t.elapsed().as_secs_f32());
+            *room.lock().unwrap() = Some(r);
+            for req in requests {
+                match req {
+                    Request::Prop { entity, address } => {
+                        let r = load_with(&mut lib, &mut kit, &mut addresses, &dir, Some(&address)).map(|mut r| {
+                            // a prop is placed by its entity: its parts relative to its root
+                            unplace(&mut r);
+                            r
+                        });
+                        if prop_send.send((entity, r)).is_err() {
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+        Loader { send: Mutex::new(send), props: Mutex::new(props) }
     }
-    let shift = Vec3::new(-(lo.x + hi.x) / 2.0, 0.0, -(lo.z + hi.z) / 2.0);
-    let m = Mat4::from_translation(shift);
-    for p in &mut r.parts {
-        p.world = m * p.world;
+}
+
+/// Moves a one-root room back to its root's own frame (the root at the origin).
+fn unplace(r: &mut RoomData) {
+    let Some(&place) = r.places.first() else { return };
+    let inv = place.inverse();
+    for w in r.parts.iter_mut().map(|p| &mut p.world).chain(r.places.iter_mut()).chain(r.lights.iter_mut().map(|l| &mut l.world)) {
+        *w = inv * *w;
     }
     for c in &mut r.colliders {
-        c.center += shift;
+        *c = c.transformed(inv);
     }
+}
+
+/// The room as the loader made it, handed over by the client once (it also clears its stand-in room).
+#[derive(Resource, Default)]
+pub struct Arrived(pub Option<RoomData>);
+
+/// A spawnable or interactive object in the room: the prefab's address and an id that is the same on every client
+/// that loads the same room (for room props) or that the spawner chose. The realtime lane syncs props by `id`.
+#[derive(Component, Clone, Debug)]
+pub struct Prop {
+    pub address: String,
+    pub id: u64,
+}
+
+/// A prop's colliders, in the prop's own space; `Solids` gets them where the prop is now.
+#[derive(Component, Clone, Default)]
+pub struct PropColliders(pub Vec<Obb>);
+
+/// Every entity a room load made (despawned with the room).
+#[derive(Component)]
+pub struct RoomPiece;
+
+/// The room's fixed colliders (props' are on their entities).
+#[derive(Resource, Default)]
+struct FixedSolids(Vec<Obb>);
+
+/// FNV-1a: a stable id from a room name, a root's index and its name.
+pub fn stable_id(parts: &[&str]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for p in parts {
+        for b in p.bytes().chain([0]) {
+            h = (h ^ b as u64).wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    h & !(1 << 63)
+}
+
+/// Spawns the prefab at `address` as a prop at `transform`. The entity exists at once (with `Prop`); its meshes,
+/// lights and colliders arrive when the loader has read them. `id` None picks a new local id.
+pub fn spawn_prop(commands: &mut Commands, loader: &Loader, address: &str, transform: Transform, id: Option<u64>) -> Entity {
+    let id = id.unwrap_or_else(|| stable_id(&["spawned", address, &format!("{:?}", transform.translation)]) | (1 << 63));
+    let entity = commands.spawn((Prop { address: address.to_string(), id }, PropColliders::default(), transform, Visibility::default(), RoomPiece)).id();
+    let _ = loader.send.lock().unwrap().send(Request::Prop { entity, address: address.to_string() });
+    entity
+}
+
+pub struct WorldPlugin;
+
+impl Plugin for WorldPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Arrived>()
+            .init_resource::<FixedSolids>()
+            .init_resource::<Solids>()
+            .add_systems(Update, (spawn_arrived, attach_props, update_solids.after(spawn_arrived).after(attach_props)))
+            .add_systems(Update, spawn_from_env.after(spawn_arrived));
+    }
+}
+
+/// Builds the meshes, materials and lights of `r` as children of one entity per root prefab. Returns the root
+/// entities; `roots[i]` is `None` for a root the caller already has an entity for (`existing`).
+fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option<Entity>,
+         meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, images: &mut Assets<Image>) -> (Vec<Entity>, Vec<Obb>) {
+    let mats: Vec<Handle<StandardMaterial>> = r.materials.iter().map(|m| materials.add(render::material(m, images))).collect();
+    let needs_tangents: Vec<bool> = r.materials.iter().map(|m| m.normal_map.is_some()).collect();
+    let mut roots: Vec<Entity> = Vec::new();
+    for (i, name) in r.roots.iter().enumerate() {
+        let place = Transform::from_matrix(r.places[i]);
+        let e = match existing {
+            Some(e) => e,
+            None => {
+                let mut e = commands.spawn((place, Visibility::default(), Name::new(name.clone()), RoomPiece));
+                if r.props[i] {
+                    e.insert((Prop { address: name.clone(), id: stable_id(&[room_name, &i.to_string(), name]) }, PropColliders::default()));
+                }
+                e.id()
+            }
+        };
+        roots.push(e);
+    }
+    let inverse: Vec<Mat4> = r.places.iter().map(|m| m.inverse()).collect();
+    for p in r.parts {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, p.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, p.normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, p.uvs);
+        if !p.colors.is_empty() {
+            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, p.colors);
+        }
+        mesh.insert_indices(Indices::U32(p.indices));
+        if needs_tangents[p.material] {
+            let _ = mesh.generate_tangents();
+        }
+        let local = Transform::from_matrix(inverse[p.root] * p.world);
+        let child = commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(mats[p.material].clone()), local, Name::new(p.name))).id();
+        commands.entity(roots[p.root]).add_child(child);
+    }
+    for l in &r.lights {
+        let local = Transform::from_matrix(inverse[l.root] * l.world);
+        let e = render::spawn_light(commands, l, local);
+        commands.entity(roots[l.root]).add_child(e);
+    }
+    // props carry their own colliders; the rest are fixed
+    let mut fixed = Vec::new();
+    let mut by_root: HashMap<usize, Vec<Obb>> = HashMap::new();
+    for (c, &root) in r.colliders.iter().zip(&r.collider_roots) {
+        if r.props[root] || existing.is_some() {
+            by_root.entry(root).or_default().push(c.transformed(inverse[root]));
+        } else {
+            fixed.push(c.clone());
+        }
+    }
+    for (root, boxes) in by_root {
+        commands.entity(roots[root]).insert(PropColliders(boxes));
+    }
+    (roots, fixed)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_arrived(
+    mut commands: Commands,
+    mut arrived: ResMut<Arrived>,
+    mut fixed: ResMut<FixedSolids>,
+    old: Query<Entity, With<RoomPiece>>,
+    cameras: Query<Entity, With<Camera3d>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    let Some(r) = arrived.0.take() else { return };
+    for e in &old {
+        commands.entity(e).despawn();
+    }
+    let (lo, hi) = bounds(&r);
+    let has_lights = !r.lights.is_empty();
+    let name = r.roots.first().cloned().unwrap_or_default();
+    let props: Vec<&str> = r.roots.iter().zip(&r.props).filter(|(_, p)| **p).map(|(n, _)| n.as_str()).collect();
+    println!("world: {} pieces, {} props {props:?}, {} lights, {} colliders", r.roots.len(), props.len(), r.lights.len(), r.colliders.len());
+    let (_, solids) = build(&mut commands, r, &name, None, &mut meshes, &mut materials, &mut images);
+    fixed.0 = solids;
+    if !has_lights && lo.x <= hi.x {
+        for e in render::spawn_default_lights(&mut commands, lo, hi) {
+            commands.entity(e).insert(RoomPiece);
+        }
+    }
+    let sky = images.add(render::sky_cubemap([0.38, 0.56, 0.85], [0.75, 0.82, 0.9], [0.3, 0.28, 0.25]));
+    for cam in &cameras {
+        render::sky_on_camera(&mut commands, cam, sky.clone());
+    }
+}
+
+/// Test aid: `METALLIC_RC_SPAWN="address@x,y,z;..."` spawns those props once the room is in.
+fn spawn_from_env(mut commands: Commands, loader: Option<Res<Loader>>, pieces: Query<(), With<RoomPiece>>, mut done: Local<bool>) {
+    let (Some(loader), false, false) = (loader, *done, pieces.is_empty()) else { return };
+    *done = true;
+    for item in std::env::var("METALLIC_RC_SPAWN").unwrap_or_default().split(';').filter(|s| !s.is_empty()) {
+        let (address, at) = item.rsplit_once('@').unwrap_or((item, "0,1,0"));
+        let v: Vec<f32> = at.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+        let pos = Vec3::new(*v.first().unwrap_or(&0.0), *v.get(1).unwrap_or(&1.0), *v.get(2).unwrap_or(&0.0));
+        let e = spawn_prop(&mut commands, &loader, address, Transform::from_translation(pos), None);
+        println!("spawned prop {address} at {pos} as {e}");
+    }
+}
+
+/// Props whose meshes the loader has read: their parts go under the entity spawned for them.
+fn attach_props(
+    mut commands: Commands,
+    loader: Option<Res<Loader>>,
+    alive: Query<(), With<Prop>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    let Some(loader) = loader else { return };
+    let ready: Vec<_> = loader.props.lock().unwrap().try_iter().collect();
+    for (entity, r) in ready {
+        match r {
+            Ok(r) if alive.get(entity).is_ok() => {
+                build(&mut commands, r, "", Some(entity), &mut meshes, &mut materials, &mut images);
+            }
+            Ok(_) => {}
+            Err(e) => eprintln!("prop: {e}"),
+        }
+    }
+}
+
+/// The player's boxes: the fixed ones plus every prop's where it is now.
+fn update_solids(fixed: Res<FixedSolids>, props: Query<(&GlobalTransform, &PropColliders)>, mut solids: ResMut<Solids>) {
+    let mut all = fixed.0.clone();
+    for (t, c) in &props {
+        let m = t.to_matrix();
+        all.extend(c.0.iter().map(|b| b.transformed(m)));
+    }
+    solids.0 = all;
+}
+
+/// Debug aid: the value trees of the components of `address` (and its children) whose class or script name
+/// contains `filter`, as `(GameObject name, component name, value)`.
+pub fn dump_components(lib: &mut Library, dir: &Path, address: &str, filter: &str, limit: usize) -> Result<Vec<(String, String, unity_assets::Value)>, String> {
+    let loc = Addresses::open(dir)?.by_key.get(address).cloned().ok_or("no such address")?;
+    let (f, gid) = locate(lib, dir, &loc)?;
+    let (tf, tid) = transform_of(lib, &f, gid).ok_or("no transform")?;
+    let mut out = Vec::new();
+    let mut stack = vec![(tf, tid)];
+    while let Some((f, tid)) = stack.pop() {
+        if out.len() >= limit {
+            break;
+        }
+        let Ok(t) = value(&f, tid).and_then(|v| unity_assets::Transform::from_value(&v).map_err(|e| e.to_string())) else { continue };
+        let Ok((gf, gid)) = lib.resolve(&f, t.game_object) else { continue };
+        let Ok(go) = value(&gf, gid).and_then(|v| GameObject::from_value(&v).map_err(|e| e.to_string())) else { continue };
+        for &c in &go.components {
+            let Ok((cf, cid)) = lib.resolve(&gf, c) else { continue };
+            let Some(class) = cf.sf().object(cid).map(|o| o.class_id) else { continue };
+            let name = match class {
+                classes::MONO_BEHAVIOUR => script_name(lib, &cf, cid).unwrap_or_default(),
+                _ => classes::class_name(class).map_or_else(|| format!("Class{class}"), String::from),
+            };
+            if name.contains(filter) {
+                if let Ok(v) = value(&cf, cid) {
+                    out.push((go.name.clone(), name, v));
+                }
+            }
+        }
+        for &child in &t.children {
+            if let Ok(r) = lib.resolve(&f, child) {
+                stack.push(r);
+            }
+        }
+    }
+    Ok(out)
 }

@@ -19,21 +19,17 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use bevy::{
-    asset::RenderAssetUsages,
-    image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
     input::{
         keyboard::{Key, KeyboardInput},
         mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
         ButtonState,
     },
-    mesh::{Indices, PrimitiveTopology},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     window::{CursorGrabMode, CursorOptions, MonitorSelection, PresentMode, PrimaryWindow, WindowMode},
 };
 use metallic_rc_client::{
     avatar::{self, Drive, Kit, LocalLook, Look, LookPanel, Rig},
-    collide::{self, Obb},
+    collide::{self, Solids},
     net::{self, Login},
     realtime::{self, Realtime},
     room::{self, RoomData},
@@ -172,10 +168,6 @@ struct Account {
 #[derive(Resource)]
 struct Start([f32; 5]);
 
-/// What the player bumps into: the room's box colliders, once it is loaded.
-#[derive(Resource, Default)]
-struct Solids(Vec<Obb>);
-
 /// The stand-in room, removed when the real one arrives.
 #[derive(Component)]
 struct StandIn;
@@ -220,19 +212,7 @@ fn main() {
     let slot = loading.0.clone();
     let game_dir = a.game_dir.clone().or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()));
     let menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), ..default() };
-    let world = a.world.clone();
-    std::thread::spawn(move || {
-        let Some(game) = game_dir else {
-            *slot.lock().unwrap() = Some(Err("no game folder found; pass --game-dir".into()));
-            return;
-        };
-        let dir = room::bundle_dir(&game);
-        let mut lib = match room::Library::new(&dir) {
-            Ok(l) => l,
-            Err(e) => return *slot.lock().unwrap() = Some(Err(format!("{}: {e}", dir.display()))),
-        };
-        *slot.lock().unwrap() = Some(world::load(&mut lib, &dir, world.as_deref()));
-    });
+    let loader = world::Loader::start(game_dir, a.world.clone(), slot);
 
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))));
     let net = Net::default();
@@ -251,6 +231,8 @@ fn main() {
         .insert_resource(status)
         .insert_resource(net)
         .insert_resource(loading)
+        .insert_resource(loader)
+        .add_plugins(world::WorldPlugin)
         .insert_resource(menu)
         .insert_resource(prefs)
         .insert_resource(account)
@@ -287,8 +269,8 @@ fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Me
     }
     commands.spawn((Mesh3d(meshes.add(Cuboid::new(1.2, 0.5, 2.1))), MeshMaterial3d(bed), Transform::from_xyz(-2.2, 0.25, -2.6), StandIn));
     commands.spawn((Mesh3d(meshes.add(Cuboid::new(1.4, 0.75, 0.7))), MeshMaterial3d(wood), Transform::from_xyz(2.2, 0.375, -3.4), StandIn));
-    commands.spawn((PointLight { intensity: 400_000.0, shadow_maps_enabled: true, ..default() }, Transform::from_xyz(0.0, h - 0.2, 0.0)));
-    commands.spawn((DirectionalLight { illuminance: 3000.0, ..default() }, Transform::from_xyz(2.0, 6.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y)));
+    commands.spawn((PointLight { intensity: 400_000.0, shadow_maps_enabled: true, ..default() }, Transform::from_xyz(0.0, h - 0.2, 0.0), StandIn));
+    commands.spawn((DirectionalLight { illuminance: 3000.0, ..default() }, Transform::from_xyz(2.0, 6.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y), StandIn));
 
     let [x, y, z, yaw, pitch] = start.0;
     let (yaw, pitch) = (yaw.to_radians(), pitch.to_radians());
@@ -805,16 +787,7 @@ fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>
     }
 }
 
-fn spawn_room(
-    mut commands: Commands,
-    loading: Res<Loading>,
-    status: Res<Status>,
-    stand_in: Query<Entity, With<StandIn>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    mut solids: ResMut<Solids>,
-) {
+fn spawn_room(mut commands: Commands, loading: Res<Loading>, status: Res<Status>, stand_in: Query<Entity, With<StandIn>>, mut arrived: ResMut<world::Arrived>) {
     let Some(result) = loading.0.lock().unwrap().take() else { return };
     let r = match result {
         Ok(r) => r,
@@ -826,39 +799,6 @@ fn spawn_room(
     for e in &stand_in {
         commands.entity(e).despawn();
     }
-    let mats: Vec<Handle<StandardMaterial>> = r.materials.iter().map(|m| {
-        let base_color_texture = m.texture.as_ref().map(|(w, h, px)| {
-            let mut img = Image::new(Extent3d { width: *w, height: *h, depth_or_array_layers: 1 }, TextureDimension::D2, px.clone(),
-                TextureFormat::Rgba8UnormSrgb, RenderAssetUsages::RENDER_WORLD);
-            img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-                address_mode_u: ImageAddressMode::Repeat,
-                address_mode_v: ImageAddressMode::Repeat,
-                ..ImageSamplerDescriptor::linear()
-            });
-            images.add(img)
-        });
-        let [cr, cg, cb, ca] = m.color;
-        materials.add(StandardMaterial {
-            base_color: Color::srgba(cr, cg, cb, ca),
-            base_color_texture,
-            perceptual_roughness: m.roughness.clamp(0.05, 1.0),
-            metallic: 0.0,
-            double_sided: true,
-            cull_mode: None,
-            ..default()
-        })
-    }).collect();
-    for p in r.parts {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, p.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, p.normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, p.uvs);
-        if !p.colors.is_empty() {
-            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, p.colors);
-        }
-        mesh.insert_indices(Indices::U32(p.indices));
-        commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(mats[p.material].clone()), Transform::from_matrix(p.world), Name::new(p.name)));
-    }
     status.0.lock().unwrap().push_str(&format!("  |  {} room pieces from the game files", r.roots.len()));
-    solids.0 = r.colliders;
+    arrived.0 = Some(r);
 }

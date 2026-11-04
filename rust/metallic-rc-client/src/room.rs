@@ -37,34 +37,105 @@ pub struct Part {
     pub material: usize,
 }
 
+/// How a material's pixels mix: the game's blend modes as Bevy can draw them.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Blend {
+    Opaque,
+    /// alpha test at the cutoff (`*-AlphaClip` shaders, `_Cutoff`)
+    Mask(f32),
+    /// alpha blend (`*-Transparent*`)
+    Blend,
+    /// additive (`*-Additive*`)
+    Add,
+}
+
 pub struct RoomMaterial {
     pub name: String,
     /// the shader's name, as the game files give it
     pub shader: String,
-    /// sRGB tint multiplied with the texture
+    /// sRGB tint multiplied with the texture (white when the tint is baked into it)
     pub color: [f32; 4],
-    /// width, height, RGBA8 rows top-down; recolour tints are already baked in
+    /// albedo: width, height, RGBA8 rows top-down (sRGB); recolour tints and masks are already baked in
     pub texture: Option<Pixels>,
-    /// 1 - smoothness (specular workflow: the spec-gloss map's mean alpha times `_Smoothness`)
+    /// 1 - gloss, where there is no gloss map
     pub roughness: f32,
+    /// per pixel `1 - gloss` in the green channel (Bevy's metallic-roughness layout, metallic 0), linear
+    pub roughness_map: Option<Pixels>,
+    /// Bevy reflectance from the specular colour: F0 = 0.16 * reflectance^2
+    pub reflectance: f32,
+    /// tangent-space normals, RGB (linear), from `_BumpMap`
+    pub normal_map: Option<Pixels>,
+    /// linear emission, times `emissive_map` when there is one
+    pub emissive: [f32; 3],
+    /// sRGB emission colour map (the albedo's masked part for the AG shaders)
+    pub emissive_map: Option<Pixels>,
+    pub blend: Blend,
+    /// drawn without lighting (`AG/Unlit-*`)
+    pub unlit: bool,
+    /// `_BaseMap_ST`: uv * scale + offset, already turned for the flipped v
+    pub uv_scale: [f32; 2],
+    pub uv_offset: [f32; 2],
+}
+
+/// A light the prefab carries (Unity `Light`, with Rec Room's `URPLight` beside it).
+#[derive(Clone, Debug)]
+pub struct RoomLight {
+    pub root: usize,
+    /// in the client's space; the light shines along -Z of this matrix (Unity's +Z, flipped)
+    pub world: Mat4,
+    /// 0 spot, 1 directional, 2 point (Unity `LightType`)
+    pub kind: i64,
+    /// linear colour
+    pub color: [f32; 3],
+    /// Unity intensity (URP: radiance = colour * intensity / d^2)
+    pub intensity: f32,
+    pub range: f32,
+    /// full cone angles, degrees
+    pub spot_angle: f32,
+    pub inner_spot_angle: f32,
+    pub shadows: bool,
+    /// `URPLight.isHemisphereLight`: inner and outer full angles of a point light that only lights what is in front
+    pub hemisphere: Option<(f32, f32)>,
 }
 
 /// How a game shader colours its surface (docs/agents/rc-spec/rendering.md in the private notes).
-#[derive(Clone, Copy, PartialEq)]
-enum Shading {
-    /// `_BaseColor` times `_BaseMap`
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Family {
+    /// URP Lit and anything unknown: `_BaseColor * _BaseMap`
     Lit,
-    /// `AG/Standard-Opaque-Instanced`: `rgb * lerp(1, vertex colour * _InstanceColor, a)`
-    Recolor,
+    /// `AG/Standard-Opaque-Instanced*`: `rgb * lerp(1, vertex colour * _InstanceColor, a)`, emission `rgb*a*power*tint`
+    Instanced,
+    /// `AG/Standard-*`: the same with `_BaseColor` in place of `_InstanceColor`
+    Standard,
     /// `AG/MakerPenShape`: the prop's SandboxColorable picks a palette colour and a Maker Pen material
     MakerPen,
+    /// `AG/Unlit-*`, `AG/Mirror`: `_BaseMap * vertex colour * _InstanceColor`, no lighting
+    Unlit,
 }
 
-fn shading(shader: &str) -> Shading {
-    match shader {
-        "AG/MakerPenShape" => Shading::MakerPen,
-        "AG/Standard-Opaque-Instanced" => Shading::Recolor,
-        _ => Shading::Lit,
+fn family(shader: &str) -> Family {
+    if shader.starts_with("AG/MakerPenShape") {
+        Family::MakerPen
+    } else if shader.starts_with("AG/Standard-Opaque-Instanced") {
+        Family::Instanced
+    } else if shader.starts_with("AG/Standard") {
+        Family::Standard
+    } else if shader.starts_with("AG/Unlit") || shader.starts_with("AG/Mirror") {
+        Family::Unlit
+    } else {
+        Family::Lit
+    }
+}
+
+fn blend_of(shader: &str, cutoff: Option<f32>) -> Blend {
+    if shader.contains("Additive") {
+        Blend::Add
+    } else if shader.contains("Transparent") {
+        Blend::Blend
+    } else if shader.contains("AlphaClip") || shader.contains("Cutout") {
+        Blend::Mask(cutoff.unwrap_or(0.5))
+    } else {
+        Blend::Opaque
     }
 }
 
@@ -72,11 +143,24 @@ fn shading(shader: &str) -> Shading {
 struct Source {
     name: String,
     shader: String,
+    family: Family,
+    /// `_BaseColor` (sRGB, with alpha)
     color: [f32; 4],
-    /// `_InstanceColor`, linear
-    instance: [f32; 3],
+    /// the family's tint before vertex colours, linear: `_InstanceColor` or `_BaseColor`
+    tint: [f32; 3],
+    /// tint alpha (`_InstanceColor.a` / `_BaseColor.a`), the opacity of transparent materials
+    alpha: f32,
     texture: Option<Pixels>,
-    roughness: f32,
+    st: ([f32; 2], [f32; 2]),
+    spec_map: Option<Pixels>,
+    smoothness: f32,
+    /// linear `_SpecColor`
+    spec_color: [f32; 3],
+    normal_map: Option<Pixels>,
+    emissive_power: f32,
+    /// linear `_EmissionColor`
+    emission: [f32; 3],
+    blend: Blend,
     /// interaction volumes and UI masks: present in the prefab, never seen in the game
     hidden: bool,
 }
@@ -92,7 +176,7 @@ struct Colorable {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Variant {
     Plain,
-    /// a recolour tint from a uniform vertex colour, 8 bits per channel
+    /// a uniform vertex colour, 8 bits per channel, folded into the tint
     Tint([u8; 3]),
     Shape(Colorable),
 }
@@ -102,8 +186,15 @@ pub struct RoomData {
     pub parts: Vec<Part>,
     pub materials: Vec<RoomMaterial>,
     pub roots: Vec<String>,
+    /// where each root prefab was placed (its own root transform times the layout's placement)
+    pub places: Vec<Mat4>,
+    /// roots that are props: grabbable or movable objects (`RigidbodyPickup` / `MoveableProp` on the root)
+    pub props: Vec<bool>,
     /// the solid BoxColliders (triggers left out), for walking
     pub colliders: Vec<Obb>,
+    /// the root each collider belongs to
+    pub collider_roots: Vec<usize>,
+    pub lights: Vec<RoomLight>,
     pub problems: Vec<String>,
 }
 
@@ -191,8 +282,9 @@ impl Library {
     }
 }
 
-/// Unity's BoxCollider class.
+/// Unity's BoxCollider and Light classes.
 const BOX_COLLIDER: i32 = 65;
+const LIGHT: i32 = 108;
 
 fn class_of(f: &FileRef, path_id: i64) -> Option<i32> {
     f.sf().object(path_id).map(|o| o.class_id)
@@ -223,14 +315,20 @@ struct Builder<'a> {
     source_of: HashMap<(String, i64), usize>,
     shaders: HashMap<(String, i64), String>,
     looks: HashMap<(usize, Variant), usize>,
+    textures: HashMap<(String, i64), Option<Pixels>>,
 }
 
 impl Builder<'_> {
     fn texture(&mut self, from: &FileRef, p: PPtr) -> Option<Pixels> {
         let (tf, tid) = self.lib.resolve(from, p).ok()?;
-        let tex = value(&tf, tid).ok().and_then(|v| Texture2D::from_value(&v, &tf.open.bundle).ok())?;
-        let px = tex.decode_rgba8().ok()?;
-        Some((tex.width as u32, tex.height as u32, px))
+        let key = (tf.cab().to_string(), tid);
+        if let Some(t) = self.textures.get(&key) {
+            return t.clone();
+        }
+        let t = value(&tf, tid).ok().and_then(|v| Texture2D::from_value(&v, &tf.open.bundle).ok())
+            .and_then(|tex| Some((tex.width as u32, tex.height as u32, tex.decode_rgba8().ok()?)));
+        self.textures.insert(key, t.clone());
+        t
     }
 
     fn shader_name(&mut self, from: &FileRef, p: PPtr) -> String {
@@ -261,22 +359,39 @@ impl Builder<'_> {
             }
         };
         let shader = self.shader_name(&mf, m.shader);
+        let fam = family(&shader);
         let color_of = |names: &[&str]| m.colors.iter().find(|(n, _)| names.contains(&n.as_str())).map(|c| c.1);
-        let color = color_of(&["_BaseColor", "_Color", "_MainColor"]).unwrap_or([1.0; 4]);
-        let instance = color_of(&["_InstanceColor"]).map_or([1.0; 3], |c| shapes::linear([c[0], c[1], c[2]]));
         let float = |name: &str| m.floats.iter().find(|(n, _)| n == name).map(|f| f.1);
-        let tex = |names: &[&str]| m.textures.iter().filter(|t| t.texture.path_id != 0).find(|t| names.contains(&t.name.as_str())).map(|t| t.texture);
-        // Rec Room's own shaders name their albedo differently; take the first likely colour map
-        let pick = tex(&["_MainTex", "_BaseMap", "_Albedo", "_BaseColorMap", "_Diffuse"])
-            .or_else(|| m.textures.iter().filter(|t| t.texture.path_id != 0).find(|t| {
+        let env = |names: &[&str]| m.textures.iter().filter(|t| t.texture.path_id != 0).find(|t| names.contains(&t.name.as_str())).cloned();
+        let color = color_of(&["_BaseColor", "_Color", "_MainColor"]).unwrap_or([1.0; 4]);
+        // the AG shaders tint with _InstanceColor (instanced, unlit) or _BaseColor (standard), never _Color
+        let tint4 = match fam {
+            Family::Instanced | Family::Unlit => color_of(&["_InstanceColor"]).unwrap_or([1.0; 4]),
+            _ => color_of(&["_BaseColor", "_Color"]).unwrap_or([1.0; 4]),
+        };
+        let tint = shapes::linear([tint4[0], tint4[1], tint4[2]]);
+        // Rec Room's own shaders call their albedo _BaseMap; older and third-party ones use other names
+        let base = env(&["_BaseMap", "_MainTex", "_Albedo", "_BaseColorMap", "_Diffuse"]).or_else(|| match fam {
+            Family::Lit => m.textures.iter().filter(|t| t.texture.path_id != 0).find(|t| {
                 let n = t.name.to_ascii_lowercase();
                 !(n.contains("norm") || n.contains("bump") || n.contains("spec") || n.contains("mask") || n.contains("ao") || n.contains("light"))
-            }).map(|t| t.texture));
-        let texture = pick.and_then(|t| self.texture(&mf, t));
-        let gloss = tex(&["_SpecGlossMap"]).and_then(|t| self.texture(&mf, t)).map_or(1.0, |t| shapes::mean_alpha(&t));
-        let roughness = 1.0 - gloss * float("_Smoothness").or(float("_Glossiness")).unwrap_or(0.2);
+            }).cloned(),
+            _ => None,
+        });
+        let st = base.as_ref().map_or(([1.0; 2], [0.0; 2]), |t| (t.scale, t.offset));
+        let texture = base.and_then(|t| self.texture(&mf, t.texture));
+        let spec_map = env(&["_SpecGlossMap"]).and_then(|t| self.texture(&mf, t.texture));
+        let normal_map = env(&["_BumpMap", "_NormalMap"]).and_then(|t| self.texture(&mf, t.texture)).map(|t| shapes::unpack_normals(&t));
+        let smoothness = float("_Smoothness").or(float("_Glossiness")).unwrap_or(0.5);
+        let spec_color = color_of(&["_SpecColor"]).map_or([1.0; 3], |c| shapes::linear([c[0], c[1], c[2]]));
+        let emission = color_of(&["_EmissionColor"]).filter(|_| m.keywords.iter().any(|k| k.contains("EMISSION")) || shader.contains("Emission"))
+            .map_or([0.0; 3], |c| shapes::linear([c[0], c[1], c[2]]));
+        let blend = blend_of(&shader, float("_Cutoff"));
         let hidden = ["InteractionVolume", "Mask_Mat", "LightShaft", "Light_Shaft"].iter().any(|k| m.name.contains(k));
-        self.sources.push(Source { name: m.name, shader, color, instance, texture, roughness, hidden });
+        self.sources.push(Source {
+            name: m.name, shader, family: fam, color, tint, alpha: tint4[3], texture, st, spec_map, smoothness, spec_color, normal_map,
+            emissive_power: float("_EmissivePower").unwrap_or(0.0), emission, blend, hidden,
+        });
         let i = self.sources.len() - 1;
         self.source_of.insert(key, i);
         i
@@ -286,7 +401,11 @@ impl Builder<'_> {
         if let Some(&i) = self.source_of.get(&(String::new(), 0)) {
             return i;
         }
-        self.sources.push(Source { name: "missing".into(), shader: String::new(), color: [0.8, 0.8, 0.8, 1.0], instance: [1.0; 3], texture: None, roughness: 0.8, hidden: false });
+        self.sources.push(Source {
+            name: "missing".into(), shader: String::new(), family: Family::Lit, color: [0.8, 0.8, 0.8, 1.0], tint: [1.0; 3], alpha: 1.0,
+            texture: None, st: ([1.0; 2], [0.0; 2]), spec_map: None, smoothness: 0.2, spec_color: [1.0; 3], normal_map: None,
+            emissive_power: 0.0, emission: [0.0; 3], blend: Blend::Opaque, hidden: false,
+        });
         let i = self.sources.len() - 1;
         self.source_of.insert((String::new(), 0), i);
         i
@@ -298,44 +417,107 @@ impl Builder<'_> {
             return i;
         }
         let s = &self.sources[src];
-        let (mut name, shader, mut roughness) = (s.name.clone(), s.shader.clone(), s.roughness);
-        let (color, texture) = match v {
-            Variant::Plain => (s.color, s.texture.clone()),
-            Variant::Tint(q) => {
-                let tint: [f32; 3] = std::array::from_fn(|c| q[c] as f32 / 255.0 * s.instance[c]);
-                match &s.texture {
-                    Some(t) => ([1.0; 4], Some(shapes::bake_tint(t, tint))),
-                    None => (srgb(tint), None),
-                }
-            }
+        let mut name = s.name.clone();
+        let (mut base, mut spec_map, mut smoothness) = (s.texture.clone(), s.spec_map.clone(), s.smoothness);
+        // the tint in linear light: the family colour, times a uniform vertex colour, or the palette colour
+        let tint: [f32; 3] = match v {
+            Variant::Plain => s.tint,
+            Variant::Tint(q) => std::array::from_fn(|c| q[c] as f32 / 255.0 * s.tint[c]),
             Variant::Shape(c) => {
                 let own = [s.color[0], s.color[1], s.color[2]];
                 let tint = shapes::linear(c.color.and_then(|id| self.kit.color(id)).unwrap_or(own));
-                let shape = c.material.and_then(|id| self.kit.material(id))
-                    .map(|m| (m.name.clone(), m.smoothness, m.base_map.clone(), m.spec_map.clone()));
-                match shape {
-                    Some((mname, smoothness, base_map, spec_map)) => {
+                match c.material.and_then(|id| self.kit.material(id)).map(|m| (m.name.clone(), m.smoothness, m.base_map.clone(), m.spec_map.clone())) {
+                    Some((mname, sm, base_map, spec)) => {
                         name = format!("{name} ({mname})");
-                        if let Some(gloss) = self.kit.texture(&spec_map).map(shapes::mean_alpha) {
-                            roughness = 1.0 - gloss * smoothness;
-                        }
-                        match self.kit.texture(&base_map) {
-                            Some(t) => ([1.0; 4], Some(shapes::bake_tint(t, tint))),
-                            None => (srgb(tint), None),
-                        }
+                        smoothness = sm;
+                        base = self.kit.texture(&base_map).cloned();
+                        spec_map = self.kit.texture(&spec).cloned();
                     }
                     // the material's own _BaseMap is empty (white) and its _SpecGlossMap black (no gloss)
                     None => {
-                        roughness = 1.0;
-                        (srgb(tint), None)
+                        base = None;
+                        spec_map = None;
                     }
                 }
+                tint
             }
         };
-        self.out.materials.push(RoomMaterial { name, shader, color, texture, roughness });
+        let s = &self.sources[src];
+        let masked = !matches!(s.family, Family::Lit | Family::Unlit);
+        let rgb = srgb(tint);
+        // albedo: AG lit shaders mask the tint with the base map's alpha (so alpha is not opacity there); URP Lit
+        // and the unlit ones multiply. Transparent AG materials take their opacity from the tint (INFERRED for the
+        // glass pane, which also mixes in fresnel).
+        let (color, texture) = match (&base, masked, v) {
+            (Some(t), true, _) => ([1.0, 1.0, 1.0, s.alpha], Some(shapes::bake_tint(t, tint))),
+            (None, true, _) => ([rgb[0], rgb[1], rgb[2], s.alpha], None),
+            (Some(t), false, Variant::Plain) if s.family == Family::Lit => (s.color, Some(t.clone())),
+            (Some(t), false, _) => ([rgb[0], rgb[1], rgb[2], s.alpha], Some(t.clone())),
+            (None, false, _) if s.family == Family::Lit => ([rgb[0], rgb[1], rgb[2], s.color[3]], None),
+            (None, false, _) => ([rgb[0], rgb[1], rgb[2], s.alpha], None),
+        };
+        // emission: the masked part of the albedo times _EmissivePower and the tint, plus _EmissionColor
+        let (mut emissive, mut emissive_map) = (s.emission, None);
+        if masked && s.emissive_power > 0.0 {
+            match &base {
+                Some(t) => {
+                    emissive_map = Some(shapes::bake_emission(t, tint));
+                    emissive = [s.emissive_power; 3];
+                }
+                None => emissive = std::array::from_fn(|c| s.emission[c] + tint[c] * s.emissive_power),
+            }
+        }
+        // specular workflow: gloss = map alpha * smoothness, F0 = map rgb * _SpecColor; no map = black (no gloss)
+        let (roughness, roughness_map, reflectance) = match &spec_map {
+            Some(t) => {
+                let spec = shapes::mean_rgb_max(t) * s.spec_color.iter().cloned().fold(0.0, f32::max);
+                (1.0, Some(shapes::roughness_from_gloss(t, smoothness)), (spec / 0.16).sqrt().clamp(0.0, 1.0))
+            }
+            None if s.family == Family::Lit => (1.0 - smoothness, None, 0.5),
+            None => (1.0, None, 0.0),
+        };
+        let (sc, of) = s.st;
+        let mat = RoomMaterial {
+            name, shader: s.shader.clone(), color, texture, roughness, roughness_map, reflectance,
+            normal_map: if matches!(v, Variant::Shape(_)) { None } else { s.normal_map.clone() },
+            emissive, emissive_map, blend: s.blend, unlit: s.family == Family::Unlit,
+            uv_scale: sc, uv_offset: [of[0], 1.0 - sc[1] - of[1]],
+        };
+        self.out.materials.push(mat);
         let i = self.out.materials.len() - 1;
         self.looks.insert((src, v), i);
         i
+    }
+
+    /// Starts a root prefab placed at `place`: records it and whether it is a prop, then walks it.
+    fn add_root(&mut self, name: String, tf: &FileRef, tid: i64, place: Mat4) {
+        let prop = value(tf, tid).ok().and_then(|v| Transform::from_value(&v).ok())
+            .and_then(|t| {
+                let (gf, gid) = self.lib.resolve(tf, t.game_object).ok()?;
+                let go = value(&gf, gid).ok().and_then(|v| GameObject::from_value(&v).ok())?;
+                Some(self.is_prop(&gf, &go.components))
+            })
+            .unwrap_or(false);
+        let own = value(tf, tid).ok().and_then(|v| Transform::from_value(&v).ok()).map_or(Mat4::IDENTITY, |t| unity_to_bevy(&t));
+        self.out.roots.push(name);
+        self.out.places.push(place * own);
+        self.out.props.push(prop);
+        self.walk(tf, tid, place, Colorable::default());
+    }
+
+    /// A root that players can pick up or move: its scripts include `RigidbodyPickup` or `MoveableProp`
+    /// (`KinematicRigidbodyPickup` alone, on room pieces such as walls, does not count).
+    fn is_prop(&mut self, gf: &FileRef, components: &[PPtr]) -> bool {
+        components.iter().any(|&c| {
+            let Ok((cf, cid)) = self.lib.resolve(gf, c) else { return false };
+            if class_of(&cf, cid) != Some(classes::MONO_BEHAVIOUR) {
+                return false;
+            }
+            let script = value(&cf, cid).ok().and_then(|v| v.get("m_Script")?.as_pptr())
+                .and_then(|p| self.lib.resolve(&cf, p).ok())
+                .and_then(|(sf, sid)| value(&sf, sid).ok()?.get("m_ClassName")?.as_str().map(String::from));
+            matches!(script.as_deref(), Some("RigidbodyPickup" | "MoveableProp"))
+        })
     }
 
     /// The SandboxColorable among a GameObject's components, if any.
@@ -384,6 +566,12 @@ impl Builder<'_> {
                     let vec3 = |k: &str| v.get(k).map(|x| x.floats()).filter(|f| f.len() == 3).map(|f| [f[0], f[1], f[2]]);
                     if let (true, false, Some(size), Some(center)) = (on("m_Enabled"), on("m_IsTrigger"), vec3("m_Size"), vec3("m_Center")) {
                         self.out.colliders.push(Obb::from_box_collider(world, center, size));
+                        self.out.collider_roots.push(self.out.roots.len() - 1);
+                    }
+                }
+                Some(LIGHT) => {
+                    if let Ok(v) = value(&cf, cid) {
+                        self.light(&gf, &go.components, &v, world);
                     }
                 }
                 _ => {}
@@ -399,6 +587,41 @@ impl Builder<'_> {
                 self.walk(&cf, cid, world, colorable);
             }
         }
+    }
+
+    /// A realtime Light (baked-only ones light nothing at runtime: there are no lightmaps).
+    fn light(&mut self, gf: &FileRef, components: &[PPtr], v: &unity_assets::Value, world: Mat4) {
+        let int = |k: &str| v.get(k).and_then(|x| x.as_i64()).unwrap_or(0);
+        let float = |k: &str| v.get(k).and_then(|x| x.as_f32()).unwrap_or(0.0);
+        // m_Lightmapping: 4 realtime, 1 mixed, 2 baked
+        if int("m_Enabled") == 0 || int("m_Lightmapping") == 2 {
+            return;
+        }
+        let c = v.get("m_Color").map(|c| c.floats()).filter(|c| c.len() >= 3).unwrap_or(vec![1.0; 3]);
+        let mut hemisphere = None;
+        for &comp in components {
+            let Ok((cf, cid)) = self.lib.resolve(gf, comp) else { continue };
+            if class_of(&cf, cid) != Some(classes::MONO_BEHAVIOUR) {
+                continue;
+            }
+            let Ok(u) = value(&cf, cid) else { continue };
+            if u.get("isHemisphereLight").and_then(|x| x.as_i64()).unwrap_or(0) != 0 {
+                let a = |k: &str| u.get(k).and_then(|x| x.as_f32()).unwrap_or(180.0);
+                hemisphere = Some((a("hemisphereLightInnerAngle"), a("hemisphereLightOuterAngle")));
+            }
+        }
+        self.out.lights.push(RoomLight {
+            root: self.out.roots.len() - 1,
+            world,
+            kind: int("m_Type"),
+            color: shapes::linear([c[0], c[1], c[2]]),
+            intensity: float("m_Intensity"),
+            range: float("m_Range"),
+            spot_angle: float("m_SpotAngle"),
+            inner_spot_angle: float("m_InnerSpotAngle"),
+            shadows: v.path("m_Shadows/m_Type").and_then(|x| x.as_i64()).unwrap_or(0) != 0,
+            hemisphere,
+        });
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -438,17 +661,18 @@ impl Builder<'_> {
             if self.sources[src].hidden {
                 continue;
             }
-            // Maker Pen pieces repeat their material's texture every `size` metres of uv0; others use uv0 as it is
-            let (variant, part_colors, size) = match shading(&self.sources[src].shader) {
-                Shading::MakerPen => {
+            // Maker Pen pieces repeat their material's texture every `size` metres of uv0; others use uv0 as it is.
+            // A uniform vertex colour folds into the tint; varying ones go to the mesh (Bevy multiplies them in).
+            let (variant, part_colors, size) = match self.sources[src].family {
+                Family::MakerPen => {
                     let size = colorable.material.and_then(|id| self.kit.material(id)).map_or(1.0, |m| m.size);
                     (Variant::Shape(colorable), vec![], size)
                 }
-                Shading::Recolor => match uniform {
+                Family::Lit => (Variant::Plain, vec![], 1.0),
+                _ => match uniform {
                     Some(q) => (Variant::Tint([q[0], q[1], q[2]]), vec![], 1.0),
                     None => (Variant::Plain, colors.clone(), 1.0),
                 },
-                Shading::Lit => (Variant::Plain, vec![], 1.0),
             };
             let material = self.look(src, variant);
             let uvs = raw_uvs.iter().map(|[u, v]| [u / size, 1.0 - v / size]).collect();
@@ -505,7 +729,7 @@ pub fn parse_layout(text: &str) -> Result<Vec<(String, Option<Mat4>)>, String> {
 
 impl<'a> Builder<'a> {
     fn new(lib: &'a mut Library, kit: &'a mut ShapeKit) -> Self {
-        Builder { lib, kit, out: RoomData::default(), sources: vec![], source_of: HashMap::new(), shaders: HashMap::new(), looks: HashMap::new() }
+        Builder { lib, kit, out: RoomData::default(), sources: vec![], source_of: HashMap::new(), shaders: HashMap::new(), looks: HashMap::new(), textures: HashMap::new() }
     }
 }
 
@@ -531,8 +755,7 @@ pub fn load_prefabs(lib: &mut Library, kit: &mut ShapeKit, dir: &Path, bundle: &
             let entries: Vec<Option<Mat4>> = layout.iter().filter(|(n, _)| *n == name).map(|(_, m)| *m).collect();
             let places: Vec<Mat4> = if entries.is_empty() { vec![Mat4::IDENTITY] } else { entries.into_iter().flatten().collect() };
             for place in places {
-                b.out.roots.push(name.clone());
-                b.walk(&tf, tid, place, Colorable::default());
+                b.add_root(name.clone(), &tf, tid, place);
             }
         }
     }
@@ -547,8 +770,7 @@ pub(crate) fn load_roots(lib: &mut Library, kit: &mut ShapeKit, roots: Vec<(Stri
             b.out.problems.push(format!("{name}: no Transform"));
             continue;
         };
-        b.out.roots.push(name);
-        b.walk(&tf, tid, place, Colorable::default());
+        b.add_root(name, &tf, tid, place);
     }
     Ok(b.out)
 }

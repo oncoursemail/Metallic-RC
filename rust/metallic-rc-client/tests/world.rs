@@ -29,3 +29,33 @@ fn a_group_and_a_single_address_load() {
 
     assert!(world::load(&mut lib, &dir, Some("no such address")).is_err());
 }
+
+#[test]
+fn room_props_lights_and_materials() {
+    let Some(dir) = bundle_dir() else { return };
+    let mut lib = Library::new(&dir).unwrap();
+    let r = world::load(&mut lib, &dir, Some("dorm")).unwrap();
+    // the desk lamp carries RigidbodyPickup; walls carry only KinematicRigidbodyPickup
+    let props: Vec<&str> = r.roots.iter().zip(&r.props).filter(|(_, p)| **p).map(|(n, _)| n.as_str()).collect();
+    assert!(props.contains(&"(Dorm_Desk_Lamp)"), "{props:?}");
+    assert!(!props.contains(&"(Dorm_Wall_1)"));
+    assert_eq!(r.places.len(), r.roots.len());
+    assert_eq!(r.collider_roots.len(), r.colliders.len());
+    // the bunk bed's recolour mask is baked: brown wood, not the white texture
+    let bed = r.materials.iter().find(|m| m.name.contains("BunkBed")).expect("bunk bed material");
+    let px = &bed.texture.as_ref().unwrap().2;
+    let mean = |c: usize| px.chunks_exact(4).map(|p| p[c] as u32).sum::<u32>() / (px.len() as u32 / 4);
+    assert!(mean(0) > mean(2) + 20, "not brown: {} {} {}", mean(0), mean(1), mean(2));
+
+    // the Maker room ceiling brings its own realtime lights (hemisphere point lights)
+    let r = world::load(&mut lib, &dir, Some("sandbox")).unwrap();
+    assert_eq!(r.lights.len(), 9);
+    assert!(r.lights.iter().all(|l| l.kind == 2 && l.intensity > 0.0 && l.range > 0.0));
+}
+
+#[test]
+fn prop_ids_are_stable() {
+    assert_eq!(world::stable_id(&["dorm", "3", "(Dorm_Desk_Lamp)"]), world::stable_id(&["dorm", "3", "(Dorm_Desk_Lamp)"]));
+    assert_ne!(world::stable_id(&["dorm", "3", "a"]), world::stable_id(&["dorm", "4", "a"]));
+    assert_ne!(world::stable_id(&["ab", "c"]), world::stable_id(&["a", "bc"]));
+}

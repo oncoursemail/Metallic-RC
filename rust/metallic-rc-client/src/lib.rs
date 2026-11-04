@@ -3,6 +3,7 @@ pub mod avatar;
 pub mod collide;
 pub mod net;
 pub mod realtime;
+pub mod render;
 pub mod room;
 pub mod settings;
 pub mod shapes;
