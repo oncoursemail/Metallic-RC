@@ -1,5 +1,5 @@
 //! Phase 3 check: headless players in one dorm instance over real UDP see each other's position within 0.1 m; a late
-//! joiner gets the avatar from the event cache; when the master leaves, the other player takes over.
+//! joiner gets the avatar and its look from the event cache; when the master leaves, the other player takes over.
 use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant};
 
@@ -46,7 +46,8 @@ impl Player {
         self.at = at;
         let body = Pose { position: at, rotation: [0.0, 0.0, 0.0, 1.0], velocity };
         let head = Pose { position: [at[0], at[1] + 1.55, at[2]], ..body };
-        self.client.set_pose(AvatarData { tracking_space: Some(body), head: Some(head), ..Default::default() });
+        let left_hand = Some(Pose { position: [at[0] - 0.2, at[1] + 1.3, at[2] - 0.4], ..body });
+        self.client.set_pose(AvatarData { tracking_space: Some(body), head: Some(head), left_hand, right_hand: None });
     }
 
     fn sees(&self, actor: i32) -> Option<[f32; 3]> {
@@ -87,6 +88,7 @@ fn two_players_see_each_other_move() {
     let clock = Clock(Instant::now());
     let mut a = Player::new(clock.now(), server, "Ada");
     let mut b = Player::new(clock.now(), server, "Bo");
+    a.client.set_look(clock.now(), "ada-1".into());
 
     run(&mut [&mut a, &mut b], server, &clock, 1.5, |_, _| {});
     assert_eq!((a.client.actor(), b.client.actor()), (Some(1), Some(2)));
@@ -121,6 +123,8 @@ fn two_players_see_each_other_move() {
     println!("while walking at 2 m/s the other was shown up to {worst_moving:.3} m off; standing: {ab:.4} m and {ba:.4} m; rtt {:.4} s", a.client.rtt());
     assert!(ab < 0.1 && ba < 0.1, "{ab} {ba}");
     assert!(b.seen[0].head.is_some_and(|h| (h.position[1] - 1.55).abs() < 1e-4));
+    assert!(b.seen[0].left_hand.is_some_and(|h| (h.position[1] - 1.3).abs() < 1e-4) && b.seen[0].right_hand.is_none());
+    assert_eq!((b.seen[0].look.as_deref(), a.seen[0].look.as_deref()), (Some("ada-1"), None));
 
     // a late joiner gets both avatars from the room cache, at their spawn places, then where they are now
     let mut c = Player::new(clock.now(), server, "Cy");
@@ -129,6 +133,13 @@ fn two_players_see_each_other_move() {
     assert!(c.client.is_spawned());
     assert!(dist(c.sees(1).unwrap(), a.at) < 0.1 && dist(c.sees(2).unwrap(), b.at) < 0.1, "{:?}", c.seen);
     assert!(a.sees(3).is_some() && b.sees(3).is_some());
+    assert_eq!((c.seen[0].look.as_deref(), c.seen[1].look.as_deref()), (Some("ada-1"), None));
+    // Bo picks a look, then changes it: everyone gets the new one, and the cache holds only that
+    b.client.set_look(clock.now(), "bo-1".into());
+    run(&mut [&mut a, &mut b, &mut c], server, &clock, 0.5, |_, _| {});
+    b.client.set_look(clock.now(), "bo-2".into());
+    run(&mut [&mut a, &mut b, &mut c], server, &clock, 0.5, |_, _| {});
+    assert_eq!((a.seen[0].look.as_deref(), c.seen[1].look.as_deref()), (Some("bo-2"), Some("bo-2")));
 
     // the master leaves: the others hear it, Bo becomes master, and Ada's avatar is gone from the cache
     let now = clock.now();
@@ -141,6 +152,7 @@ fn two_players_see_each_other_move() {
     run(&mut [&mut b, &mut c, &mut d], server, &clock, 1.5, |_, _| {});
     assert!(d.client.is_spawned(), "{:?}", d.events);
     assert!(d.sees(1).is_none() && d.sees(2).is_some() && d.sees(3).is_some(), "{:?}", d.seen);
+    assert_eq!(d.seen[0].look.as_deref(), Some("bo-2"));
 }
 
 #[test]
