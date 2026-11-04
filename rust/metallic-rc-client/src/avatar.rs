@@ -16,7 +16,7 @@ use bevy::{
     ui::{UiSystems, UiTransform, Val2},
 };
 
-use anim::{Anim, Input};
+use anim::{Anim, Grip, Input};
 pub use look::{Accessory, Look};
 pub use panel::{LocalLook, LookPanel};
 
@@ -30,6 +30,10 @@ const HEAD: f32 = 0.155;
 pub const TOP: f32 = 1.72;
 /// name tags further than this are not drawn
 const TAG_RANGE: f32 = 30.0;
+/// eyes above the feet standing and fully crouched (the player's 1.55 m and crouch height 0.725), to tell how far a
+/// player crouches from its synced head height
+const STAND_EYE: f32 = 1.55;
+const CROUCH_EYE: f32 = 1.55 * 0.725;
 
 pub struct AvatarPlugin;
 
@@ -53,6 +57,7 @@ pub struct Kit {
     leg: Handle<Mesh>,
     boot: Handle<Mesh>,
     hand: Handle<Mesh>,
+    finger: Handle<Mesh>,
     cuff: Handle<Mesh>,
     stalk: Handle<Mesh>,
     band: Handle<Mesh>,
@@ -91,6 +96,7 @@ fn make_kit(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         leg: add(Capsule3d::new(0.068, 0.48).into()),
         boot: add(rounded_box(Vec3::new(0.14, 0.11, 0.24), 0.5)),
         hand: add(rounded_box(Vec3::new(0.095, 0.07, 0.115), 0.6)),
+        finger: add(Capsule3d::new(0.016, 0.07).into()),
         cuff: add(Torus::new(0.03, 0.042).into()),
         stalk: add(Cylinder::new(0.008, 0.14).into()),
         band: add(Torus::new(0.17, 0.2).mesh().angle_range(0.0..=std::f32::consts::PI).into()),
@@ -159,6 +165,9 @@ struct Parts {
     mouth: Entity,
     legs: [Entity; 2],
     hands: [Entity; 2],
+    /// the hand's own shape under it, and the pointing finger
+    palms: [Entity; 2],
+    fingers: [Entity; 2],
     /// holds the accessory's parts; its first child moves
     extra: Entity,
 }
@@ -214,9 +223,15 @@ pub fn spawn(commands: &mut Commands, kit: &Kit, materials: &mut Assets<Standard
         part(commands, pivot, &kit.boot, &mats.skin, Transform::from_xyz(0.0, -LEG, -0.04));
         pivot
     });
+    let mut palms = [Entity::PLACEHOLDER; 2];
+    let mut fingers = [Entity::PLACEHOLDER; 2];
     let hands = [-1.0, 1.0].map(|s| {
         let hand = commands.spawn((Transform::default(), Visibility::default(), ChildOf(root))).id();
-        part(commands, hand, &kit.hand, &mats.skin, Transform::default());
+        let i = (s > 0.0) as usize;
+        palms[i] = part(commands, hand, &kit.hand, &mats.skin, Transform::default());
+        // the index finger, out forward when pointing
+        fingers[i] = commands.spawn((Mesh3d(kit.finger.clone()), m(&mats.skin), Visibility::Hidden, ChildOf(hand),
+            Transform::from_xyz(s * 0.02, 0.012, -0.085).with_rotation(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)))).id();
         // the thumb on the inner side
         part(commands, hand, &kit.ball, &mats.skin, Transform::from_xyz(-s * 0.05, 0.012, -0.01).with_scale(Vec3::splat(0.026)));
         part(commands, hand, &kit.cuff, &mats.accent,
@@ -224,7 +239,7 @@ pub fn spawn(commands: &mut Commands, kit: &Kit, materials: &mut Assets<Standard
         hand
     });
 
-    let parts = Parts { upper, head, eyes, mouth, legs, hands, extra };
+    let parts = Parts { upper, head, eyes, mouth, legs, hands, palms, fingers, extra };
     commands.entity(root).insert((Rig { anim: Anim::new(seed), look, first_person: false, shown: None, mats, parts }, Drive::default()));
     if let Some(name) = name {
         let tag = commands.spawn((
@@ -300,16 +315,31 @@ fn animate(
             rig.shown = Some((rig.look, rig.first_person));
         }
 
-        rig.anim.step(dt, Input { velocity: drive.velocity, grounded: drive.grounded, flying: drive.flying, talking: drive.talking });
+        // how far down the head is tells how far the player crouches (also for remote players)
+        let crouch = drive.head_height.map_or(0.0, |h| ((STAND_EYE - h) / (STAND_EYE - CROUCH_EYE)).clamp(0.0, 1.0));
+        rig.anim.step(dt, Input { velocity: drive.velocity, grounded: drive.grounded, flying: drive.flying, talking: drive.talking, crouch });
         let pose = rig.anim.pose();
         let p = &rig.parts;
         let lean = Quat::from_rotation_x(-pose.lean);
         if let Ok(mut tr) = parts.get_mut(p.upper) {
-            *tr = Transform::from_xyz(0.0, HIP + pose.bob, 0.0).with_rotation(lean);
+            *tr = Transform::from_xyz(0.0, HIP + pose.bob - pose.drop, 0.0).with_rotation(lean);
         }
+        // the legs telescope as the hips go down
+        let squash = (HIP - pose.drop) / HIP;
         for (i, e) in p.legs.into_iter().enumerate() {
             if let Ok(mut tr) = parts.get_mut(e) {
                 tr.rotation = Quat::from_rotation_x(pose.legs[i]);
+                tr.scale = Vec3::new(1.0, squash, 1.0);
+            }
+        }
+        // hand shapes: a fist round something held, the finger out to point
+        for i in 0..2 {
+            let grip = drive.grip[i];
+            if let Ok(mut tr) = parts.get_mut(p.palms[i]) {
+                tr.scale = if grip == Grip::Hold { Vec3::new(1.05, 1.2, 0.8) } else { Vec3::ONE };
+            }
+            if let Ok(mut v) = visibility.get_mut(p.fingers[i]) {
+                v.set_if_neq(if grip == Grip::Point { Visibility::Inherited } else { Visibility::Hidden });
             }
         }
         // the head turns to the synced look, within what a neck allows, and undoes the torso's lean
