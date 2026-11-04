@@ -16,9 +16,11 @@ import (
 
 // API is an administrator/agent-only lab API; it is NOT public player login.
 type API struct {
-	Control     *Controller
-	AdminToken  string
-	AgentTokens map[string]string
+	Control    *Controller
+	AdminToken string
+	// PreviousAdminToken is optional: the retiring token accepted only during a rotation overlap window.
+	PreviousAdminToken string
+	AgentTokens        map[string]string
 }
 
 func equalSecret(candidate, expected string) bool {
@@ -119,7 +121,10 @@ func readJSON(w http.ResponseWriter, r *http.Request, out any, fields ...string)
 }
 func (a API) admin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !equalSecret(bearer(r), a.AdminToken) {
+		tok := bearer(r)
+		okNew := equalSecret(tok, a.AdminToken)
+		okOld := equalSecret(tok, a.PreviousAdminToken)
+		if !okNew && !okOld {
 			jsonReply(w, 401, map[string]string{"error": "unauthorized"})
 			return
 		}

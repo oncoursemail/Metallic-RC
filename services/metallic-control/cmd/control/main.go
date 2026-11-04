@@ -37,6 +37,10 @@ func main() {
 	if len(admin) < 24 {
 		log.Fatal("METALLIC_ADMIN_TOKEN must be at least 24 characters")
 	}
+	previous := os.Getenv("METALLIC_ADMIN_TOKEN_PREVIOUS")
+	if previous != "" && len(previous) < 24 {
+		log.Fatal("METALLIC_ADMIN_TOKEN_PREVIOUS must be at least 24 characters when set")
+	}
 	var tokens map[string]string
 	if err := json.Unmarshal([]byte(fatalIfMissing("METALLIC_AGENT_TOKENS_JSON")), &tokens); err != nil {
 		log.Fatal("invalid METALLIC_AGENT_TOKENS_JSON")
@@ -61,7 +65,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("refusing to start without valid state: %v", err)
 	}
-	srv := &http.Server{Addr: addr, Handler: (control.API{Control: ctrl, AdminToken: admin, AgentTokens: tokens}).Handler(), ReadHeaderTimeout: 4 * time.Second, ReadTimeout: 7 * time.Second, WriteTimeout: 7 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+	srv := &http.Server{Addr: addr, Handler: (control.API{Control: ctrl, AdminToken: admin, PreviousAdminToken: previous, AgentTokens: tokens}).Handler(), ReadHeaderTimeout: 4 * time.Second, ReadTimeout: 7 * time.Second, WriteTimeout: 7 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 	stop, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer done()
 	go func() {

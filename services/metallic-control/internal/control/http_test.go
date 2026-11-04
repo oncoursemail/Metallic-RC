@@ -38,6 +38,25 @@ func httpCall(h http.Handler, method, path, token, key string, obj any) *httptes
 	h.ServeHTTP(w, req)
 	return w
 }
+func TestAdminTokenRotationOverlap(t *testing.T) {
+	c, _ := testControl(t, "")
+	const newToken = "rotated-lab-admin-token-87654321"
+	h := (API{Control: c, AdminToken: newToken, PreviousAdminToken: adminToken}).Handler()
+	for _, tok := range []string{newToken, adminToken} {
+		if w := httpCall(h, "GET", "/v1/nodes", tok, "", nil); w.Code != 200 {
+			t.Fatalf("token should be accepted during rotation: %d", w.Code)
+		}
+	}
+	if w := httpCall(h, "GET", "/v1/nodes", "wrong-token-wrong-token-1234", "", nil); w.Code != 401 {
+		t.Fatalf("unknown token accepted: %d", w.Code)
+	}
+	// After the overlap window ends the old token must stop working.
+	h = (API{Control: c, AdminToken: newToken}).Handler()
+	if w := httpCall(h, "GET", "/v1/nodes", adminToken, "", nil); w.Code != 401 {
+		t.Fatalf("retired token accepted: %d", w.Code)
+	}
+}
+
 func TestHTTPAuthAndAllocation(t *testing.T) {
 	_, h := apiTest(t)
 	if resp := httpCall(h, "GET", "/v1/nodes", "", "", nil); resp.Code != 401 {
