@@ -1,3 +1,8 @@
 # rust-lld ships with the toolchain and links Bevy-sized binaries much faster than link.exe
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
+
+# the game server is cross-built here for the owner's Linux server: static musl, linked by rust-lld
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld.exe"
+rustflags = ["-C", "linker-flavor=ld.lld", "-C", "target-feature=+crt-static"]
