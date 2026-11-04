@@ -7,6 +7,7 @@ pub mod interact;
 pub mod net;
 pub mod netobj;
 pub mod perf;
+pub mod platform;
 pub mod player;
 pub mod quality;
 pub mod realtime;

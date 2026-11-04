@@ -60,17 +60,44 @@ impl Frames {
     }
 }
 
+/// Frame cap for when vsync is off (uncapped frames only burn power and heat): the main loop waits out the rest of
+/// each `1 / max_fps`. `None` = uncapped (the benchmark). The client sets it from the settings key `max_fps`
+/// (0 = uncapped); phones and headsets always run with vsync, which caps them already.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct FrameLimit {
+    pub max_fps: Option<f32>,
+    last: Option<Instant>,
+}
+
+impl FrameLimit {
+    pub fn new(max_fps: Option<f32>) -> Self {
+        FrameLimit { max_fps: max_fps.filter(|f| *f > 0.0), last: None }
+    }
+}
+
 pub struct PerfPlugin;
 
 impl Plugin for PerfPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Frames>()
+            .init_resource::<FrameLimit>()
             .add_systems(First, main_start)
-            .add_systems(Last, main_end);
+            .add_systems(Last, (main_end, limit.after(main_end)));
         if let Some(render) = app.get_sub_app_mut(RenderApp) {
             render.add_systems(Render, (render_start.before(RenderSystems::ExtractCommands), render_end.after(RenderSystems::PostCleanup)));
         }
     }
+}
+
+fn limit(mut l: ResMut<FrameLimit>) {
+    let now = Instant::now();
+    if let (Some(fps), Some(last)) = (l.max_fps, l.last) {
+        let frame = std::time::Duration::from_secs_f32(1.0 / fps);
+        if let Some(rest) = frame.checked_sub(now - last) {
+            std::thread::sleep(rest);
+        }
+    }
+    l.last = Some(Instant::now());
 }
 
 fn main_start(mut frames: ResMut<Frames>) {

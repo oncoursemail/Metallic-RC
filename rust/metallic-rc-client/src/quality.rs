@@ -6,7 +6,8 @@
 //! SSAO on every 3D camera, shadow map sizes, directional-light cascades, how many lights cast shadows and how many
 //! are on at all (the ones nearest the camera win), and distance culling of small meshes. Other code reads the
 //! rest: textures are capped at `texture_cap` by `texprep`; `lightmaps` and `lod_bias` are for the level loader;
-//! `render_scale` waits for an upscaling pass (Bevy 0.20 has none apart from DLSS).
+//! `render_scale` waits for an upscaling pass (Bevy 0.20 has none apart from DLSS). It also freezes generated
+//! environment maps once filtered (`LiveEnvironmentMap` opts out).
 //!
 //! Reading it from another system: `fn my_system(q: Res<Quality>) { if q.is_changed() { .. q.ssao .. } }`.
 use bevy::{
@@ -165,19 +166,24 @@ pub struct QualityPlugin;
 
 impl Plugin for QualityPlugin {
     fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<crate::perf::PerfPlugin>() {
+            app.add_plugins(crate::perf::PerfPlugin);
+        }
         app.init_resource::<Quality>()
             .init_resource::<AutoQuality>()
-            .add_systems(Update, (follow_settings, auto_step, apply_resources, apply_cameras, apply_lights, apply_cull).chain());
+            .add_systems(Update, (follow_settings, auto_step, apply_resources, apply_cameras, apply_lights, apply_cull).chain())
+            .add_systems(Update, freeze_environment_maps);
     }
 }
 
-/// The settings' `graphics_quality`, capped for this GPU. Runs when the player's settings change (the client's
-/// `Controls` resource; absent in tools and the benchmark, which set `Quality` themselves).
+/// The settings' `graphics_quality`, capped for this GPU, and `max_fps` for the frame limiter. Runs when the player's
+/// settings change (the client's `Controls` resource; absent in tools and the benchmark, which set `Quality` themselves).
 fn follow_settings(
     controls: Option<Res<crate::player::Controls>>,
     adapter: Option<Res<RenderAdapterInfo>>,
     mut auto: ResMut<AutoQuality>,
     mut quality: ResMut<Quality>,
+    mut limit: ResMut<crate::perf::FrameLimit>,
 ) {
     if auto.cap.is_none() {
         if let Some(a) = &adapter {
@@ -187,6 +193,10 @@ fn follow_settings(
         }
     }
     let Some(controls) = controls.filter(|c| c.is_changed()) else { return };
+    let fps = controls.settings.get("max_fps") as f32;
+    if limit.max_fps != Some(fps).filter(|f| *f > 0.0) {
+        *limit = crate::perf::FrameLimit::new(Some(fps));
+    }
     let wanted = Tier::from_index(controls.settings.get("graphics_quality").round() as i64);
     if auto.wanted == Some(wanted) {
         return;
@@ -245,6 +255,32 @@ fn apply_cameras(mut commands: Commands, quality: Res<Quality>, cameras: Query<E
             e.insert(ScreenSpaceAmbientOcclusion { quality_level: level, ..default() });
         } else {
             e.remove::<ScreenSpaceAmbientOcclusion>();
+        }
+    }
+}
+
+/// Keeps an environment map filtering every frame (a sky that changes); without it a generated one is frozen.
+#[derive(Component)]
+pub struct LiveEnvironmentMap;
+
+/// A `GeneratedEnvironmentMapLight` re-filters its cubemap on the GPU every frame (about 1 ms on an RTX 3060 Ti at
+/// 1600x900, far more on a phone). Our skies are fixed, so once it has run a few frames the generator is removed;
+/// the `EnvironmentMapLight` it made keeps the filtered result. Putting the component back (a new sky) runs it again.
+fn freeze_environment_maps(
+    mut commands: Commands,
+    mut ages: Local<std::collections::HashMap<Entity, u32>>,
+    maps: Query<(Entity, Ref<bevy::light::GeneratedEnvironmentMapLight>), (With<bevy::light::EnvironmentMapLight>, Without<LiveEnvironmentMap>)>,
+) {
+    ages.retain(|e, _| maps.contains(*e));
+    for (e, g) in &maps {
+        let age = ages.entry(e).or_default();
+        if g.is_changed() {
+            *age = 0;
+        }
+        *age += 1;
+        // INFERRED margin: the filter runs once its source cubemap is on the GPU, a frame or two after it appears
+        if *age > 30 {
+            commands.entity(e).remove::<bevy::light::GeneratedEnvironmentMapLight>();
         }
     }
 }
