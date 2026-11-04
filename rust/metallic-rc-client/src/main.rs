@@ -1,5 +1,5 @@
 //! metallic-rc-client [--server http://127.0.0.1:4200] [--name NAME] [--game-dir DIR] [--room NAME] [--realtime ADDR]
-//!                    [--look skin,shirt,accent[,accessory]] [--headless]
+//!                    [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--headless]
 //!
 //! Logs into metallic-rc-server on a background thread, then walks you around the room it puts you in (screen mode:
 //! WASD, Shift sprint, Space jump, F fly (Space/Ctrl up/down), mouse look after a click, Esc opens or closes the game's menu and frees the mouse). The Dorm's pieces are loaded from the
@@ -38,7 +38,7 @@ use metallic_rc_client::{
     realtime::{self, Realtime},
     room::{self, RoomData},
     settings::{Settings, RESOLUTIONS},
-    shapes::{self, ShapeKit},
+    world,
     ui::{input::{self, Pointer}, menu::{self, Action, Painted, Painter, Router}, view},
 };
 use rr_net::{room::RoomEvent, sync::{AvatarData, Pose}};
@@ -53,10 +53,12 @@ struct Args {
     room: Option<String>,
     realtime: Option<String>,
     look: Option<Look>,
+    /// `--world`: a room by Addressables address (world::load)
+    world: Option<String>,
 }
 
 fn args() -> Args {
-    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.55, 0.0, 0.0, 0.0], room: None, realtime: None, look: None };
+    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.55, 0.0, 0.0, 0.0], room: None, realtime: None, look: None, world: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         match k.as_str() {
@@ -70,9 +72,10 @@ fn args() -> Args {
                 a.camera = v.try_into().unwrap_or_else(|_| die("--camera wants x,y,z,yaw,pitch"));
             }
             "--look" => a.look = Some(Look::parse_arg(&it.next().unwrap_or_default()).unwrap_or_else(|e| die(&e))),
+            "--world" => a.world = Some(it.next().unwrap_or_else(|| die("--world needs an address"))),
             "--game-dir" => a.game_dir = Some(it.next().unwrap_or_else(|| die("--game-dir needs a folder")).into()),
             "-h" | "--help" => {
-                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--headless]");
+                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--headless]");
                 std::process::exit(0)
             }
             _ => die(&format!("unknown argument {k}")),
@@ -217,6 +220,7 @@ fn main() {
     let slot = loading.0.clone();
     let game_dir = a.game_dir.clone().or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()));
     let menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), ..default() };
+    let world = a.world.clone();
     std::thread::spawn(move || {
         let Some(game) = game_dir else {
             *slot.lock().unwrap() = Some(Err("no game folder found; pass --game-dir".into()));
@@ -227,7 +231,7 @@ fn main() {
             Ok(l) => l,
             Err(e) => return *slot.lock().unwrap() = Some(Err(format!("{}: {e}", dir.display()))),
         };
-        *slot.lock().unwrap() = Some(load_dorm(&mut lib, &dir));
+        *slot.lock().unwrap() = Some(world::load(&mut lib, &dir, world.as_deref()));
     });
 
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))));
@@ -801,18 +805,6 @@ fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>
     }
 }
 
-/// Our placement of the Dorm pieces the game does not author in place (the original layout is in the scrambled
-/// level files).
-const DORM_LAYOUT: &str = include_str!("../rooms/dorm.layout");
-
-/// The Dorm's pieces, from the Addressables bundle that holds them (found with unity-assets' catalog tool).
-fn load_dorm(lib: &mut room::Library, dir: &std::path::Path) -> Result<RoomData, String> {
-    let layout = room::parse_layout(DORM_LAYOUT)?;
-    // the Maker Pen textures come from an older install, when there is one
-    let mut kit = ShapeKit::new(shapes::old_build_dirs().iter().find(|d| d.exists()).map(|d| d.as_path()));
-    room::load_prefabs(lib, &mut kit, dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"), &layout)
-}
-
 fn spawn_room(
     mut commands: Commands,
     loading: Res<Loading>,
@@ -867,6 +859,6 @@ fn spawn_room(
         mesh.insert_indices(Indices::U32(p.indices));
         commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(mats[p.material].clone()), Transform::from_matrix(p.world), Name::new(p.name)));
     }
-    status.0.lock().unwrap().push_str(&format!("  |  {} Dorm pieces from the game files", r.roots.len()));
+    status.0.lock().unwrap().push_str(&format!("  |  {} room pieces from the game files", r.roots.len()));
     solids.0 = r.colliders;
 }

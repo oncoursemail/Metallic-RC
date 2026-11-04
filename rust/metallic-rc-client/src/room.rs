@@ -154,6 +154,11 @@ impl Library {
         self.cabs.len()
     }
 
+    /// Closes every open bundle (they are read whole into memory).
+    pub fn forget(&mut self) {
+        self.open.clear();
+    }
+
     pub(crate) fn open_bundle(&mut self, path: &Path) -> Result<Rc<Open>, String> {
         if let Some(o) = self.open.get(path) {
             return Ok(o.clone());
@@ -204,7 +209,7 @@ fn srgb(c: [f32; 3]) -> [f32; 4] {
     [s(c[0]), s(c[1]), s(c[2]), 1.0]
 }
 
-fn unity_to_bevy(t: &Transform) -> Mat4 {
+pub(crate) fn unity_to_bevy(t: &Transform) -> Mat4 {
     let [px, py, pz] = t.local_position;
     let [qx, qy, qz, qw] = t.local_rotation;
     Mat4::from_scale_rotation_translation(Vec3::from(t.local_scale), Quat::from_xyzw(-qx, -qy, qz, qw), Vec3::new(px, py, -pz))
@@ -498,11 +503,17 @@ pub fn parse_layout(text: &str) -> Result<Vec<(String, Option<Mat4>)>, String> {
     Ok(out)
 }
 
+impl<'a> Builder<'a> {
+    fn new(lib: &'a mut Library, kit: &'a mut ShapeKit) -> Self {
+        Builder { lib, kit, out: RoomData::default(), sources: vec![], source_of: HashMap::new(), shaders: HashMap::new(), looks: HashMap::new() }
+    }
+}
+
 /// Every root prefab in `bundle` whose name passes `want`. A prefab named in `layout` is placed there (once per
 /// entry); the others stay where their own root transform puts them.
 pub fn load_prefabs(lib: &mut Library, kit: &mut ShapeKit, dir: &Path, bundle: &str, want: impl Fn(&str) -> bool, layout: &[(String, Option<Mat4>)]) -> Result<RoomData, String> {
     let open = lib.open_bundle(&dir.join(bundle))?;
-    let mut b = Builder { lib, kit, out: RoomData::default(), sources: vec![], source_of: HashMap::new(), shaders: HashMap::new(), looks: HashMap::new() };
+    let mut b = Builder::new(lib, kit);
     for index in 0..open.files.len() {
         let f = FileRef { open: open.clone(), index };
         let roots: Vec<(String, i64)> = f.sf().objects.iter()
@@ -511,13 +522,8 @@ pub fn load_prefabs(lib: &mut Library, kit: &mut ShapeKit, dir: &Path, bundle: &
             .filter(|(n, _)| want(n))
             .collect();
         for (name, gid) in roots {
-            let Ok(go) = value(&f, gid).and_then(|v| GameObject::from_value(&v).map_err(|e| e.to_string())) else { continue };
             // the GameObject's Transform; only roots (no parent) are prefabs
-            let tr = go.components.iter().find_map(|&c| {
-                let (cf, cid) = b.lib.resolve(&f, c).ok()?;
-                matches!(class_of(&cf, cid), Some(classes::TRANSFORM)).then_some((cf, cid))
-            });
-            let Some((tf, tid)) = tr else { continue };
+            let Some((tf, tid)) = crate::world::transform_of(b.lib, &f, gid) else { continue };
             let is_root = value(&tf, tid).ok().and_then(|v| Transform::from_value(&v).ok()).is_some_and(|t| t.parent.path_id == 0);
             if !is_root {
                 continue;
@@ -529,6 +535,20 @@ pub fn load_prefabs(lib: &mut Library, kit: &mut ShapeKit, dir: &Path, bundle: &
                 b.walk(&tf, tid, place, Colorable::default());
             }
         }
+    }
+    Ok(b.out)
+}
+
+/// Prefabs given as `(name, (file, GameObject path id), placement)`, each with its children.
+pub(crate) fn load_roots(lib: &mut Library, kit: &mut ShapeKit, roots: Vec<(String, (FileRef, i64), Mat4)>) -> Result<RoomData, String> {
+    let mut b = Builder::new(lib, kit);
+    for (name, (f, gid), place) in roots {
+        let Some((tf, tid)) = crate::world::transform_of(b.lib, &f, gid) else {
+            b.out.problems.push(format!("{name}: no Transform"));
+            continue;
+        };
+        b.out.roots.push(name);
+        b.walk(&tf, tid, place, Colorable::default());
     }
     Ok(b.out)
 }
