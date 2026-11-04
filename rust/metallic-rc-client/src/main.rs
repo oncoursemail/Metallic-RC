@@ -126,6 +126,8 @@ struct Menu {
     choosing: Option<String>,
     /// the name server, for the rooms browser's list
     server: String,
+    /// the login token the pages were last painted with
+    token: String,
 }
 
 impl Menu {
@@ -137,7 +139,8 @@ impl Menu {
     fn ask(&self, settings: &Settings, account: &str) {
         let (Some(p), Some(page)) = (&self.painter, self.router.top()) else { return };
         p.ask(menu::Request { page: page.into(), back_stack: self.router.back_stack(), settings: settings.clone(), account: account.into(),
-            typed: self.typed.clone(), focused: self.focused, scroll: self.scroll.clone(), choosing: self.choosing.clone(), server: self.server.clone() });
+            typed: self.typed.clone(), focused: self.focused, scroll: self.scroll.clone(), choosing: self.choosing.clone(), server: self.server.clone(),
+            token: self.token.clone() });
     }
 }
 
@@ -161,6 +164,8 @@ struct Account {
     /// the room to go to after logging in (the rooms browser), else the one the login gives (the dorm)
     goto: Option<String>,
     gen: Arc<AtomicUsize>,
+    /// the newest login's access token (empty until it is signed in), for the menu's server calls
+    token: Arc<Mutex<String>>,
 }
 
 #[derive(Resource)]
@@ -197,7 +202,7 @@ fn main() {
     let net = Net::default();
     let [x, y, z, yaw, _] = a.camera;
     let account = Account { goto: None, server: a.server.clone(), realtime: a.realtime.clone(), room: a.room.clone(), spawn: [x, (y - player::EYE).max(0.0), z],
-        yaw: yaw.to_radians(), name: a.name.clone(), gen: Arc::default() };
+        yaw: yaw.to_radians(), name: a.name.clone(), gen: Arc::default(), token: Arc::default() };
     log_in(&account, &status, &net);
     let mut prefs = Prefs { s: Settings::path().map(|p| Settings::load(&p)).unwrap_or_default(), changed: true };
     prefs.s.remember(&a.name);
@@ -222,6 +227,7 @@ fn main() {
         .insert_resource(Start(a.camera))
         .add_plugins(avatar::AvatarPlugin)
         .add_plugins(metallic_rc_client::social::SocialPlugin)
+        .add_plugins(metallic_rc_client::drive::DrivePlugin)
         .add_plugins(player)
         // engine lane: quality tiers, texture mips/compression, platform defaults (touch, mobile)
         .add_plugins((metallic_rc_client::quality::QualityPlugin, metallic_rc_client::texprep::TexPrepPlugin, metallic_rc_client::platform::PlatformPlugin::default()))
@@ -364,7 +370,8 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
     let gen = account.gen.clone();
     let (server, address, room, spawn, yaw, name) = (account.server.clone(), account.realtime.clone(), account.room.clone(), account.spawn, account.yaw, account.name.clone());
     let goto = account.goto.clone();
-    let (shared, net_slot) = (status.0.clone(), net.0.clone());
+    let (shared, net_slot, token) = (status.0.clone(), net.0.clone(), account.token.clone());
+    token.lock().unwrap().clear();
     *shared.lock().unwrap() = format!("Connecting to {server} as {name} ...");
     std::thread::spawn(move || {
         let mut s = match net::connect(&server, &Login::Name(name)) {
@@ -376,6 +383,7 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
         if !current() {
             return;
         }
+        *token.lock().unwrap() = s.access_token.clone();
         metallic_rc_client::social::attach(&s);
         let hub = s.open_hub();
         *shared.lock().unwrap() = format!("{}  |  {} ({})  |  {}  |  notifications {}", s.motd, s.account.display_name,
@@ -413,6 +421,15 @@ fn follow_room(
     }
     account.room = Some(to.photon_room);
     log_in(&account, &status, &net);
+    go_to_scene(&to.name, "");
+}
+
+/// Shows the room the player is going to (after leaving the old realtime room and starting the login that joins the
+/// new one): `scene` from the room list, empty when not known (then the room's name says which).
+/// STUB: the Rooms lane adds `world::go_to(scene)`; until that is merged here the old room stays on screen.
+/// Integrator: replace the body with that call.
+fn go_to_scene(room: &str, scene: &str) {
+    info!("going to {room} (scene {scene:?}): world::go_to is not merged yet, the room on screen stays");
 }
 
 /// Leaves the room, if in one; returns the connection, which closes once the server has seen the goodbye.
@@ -437,6 +454,7 @@ fn use_menu(
     window: Single<&Window, With<PrimaryWindow>>,
     avatars: Query<Entity, With<Avatar>>,
     mut exit: MessageWriter<AppExit>,
+    driven: Res<metallic_rc_client::drive::DrivenPointer>,
 ) {
     let menu = &mut *menu;
     let page = menu.router.top().map(str::to_string);
@@ -467,7 +485,7 @@ fn use_menu(
         if menu.open() { menu.router.close() } else { menu.router.open(metallic_rc_client::ui::routes::HOME) }
         repaint = true;
     }
-    if let (Some((p, _, _)), Some(cursor)) = (&menu.shown, window.cursor_position()) {
+    if let (Some((p, _, _)), Some(cursor)) = (&menu.shown, driven.0.or(window.cursor_position())) {
         let at = view::to_canvas(&p.drawn, window.size(), cursor);
         let over = input::hit(&p.drawn, at).map(|i| i.id);
         let click = menu.pointer.update(over, mouse.just_pressed(MouseButton::Left), mouse.just_released(MouseButton::Left));
@@ -493,7 +511,7 @@ fn use_menu(
             }
         }
     }
-    let (mut switch_to, mut rejoin) = (None, false);
+    let (mut switch_to, mut rejoin, mut go_to) = (None, false, None);
     match act.clone() {
         Some(Action::Back) => drop(menu.router.back()),
         Some(Action::Close) => menu.router.close(),
@@ -524,7 +542,10 @@ fn use_menu(
         Some(Action::Field) => menu.focused = true,
         Some(Action::Login) => switch_to = Some(menu.typed.trim().to_string()).filter(|n| !n.is_empty()),
         Some(Action::Account(name)) => switch_to = Some(name),
-        Some(Action::GoToRoom(room)) => (account.goto, rejoin) = (Some(room), true),
+        Some(Action::GoToRoom(room, scene)) => {
+            go_to = Some((room.clone(), scene));
+            (account.goto, rejoin) = (Some(room), true);
+        }
         Some(Action::Slider(_)) | None => {}
     }
     // a new account goes to its dorm; a room from the rooms browser is joined by logging in again and going there
@@ -540,6 +561,8 @@ fn use_menu(
             prefs.changed = true;
         }
         log_in(&account, &status, &net);
+        let (room, scene) = go_to.unwrap_or_else(|| ("DormRoom".into(), String::new()));
+        go_to_scene(&room, &scene);
     }
     if switch_to.is_some() || rejoin {
         menu.router.close();
@@ -547,6 +570,12 @@ fn use_menu(
     }
     if menu.router.top().map(str::to_string) != page {
         (menu.pointer, menu.choosing) = (Pointer::default(), None);
+    }
+    // the token arriving (or changing with the account) repaints: room lists are fetched with it
+    let token = account.token.lock().unwrap().clone();
+    if token != menu.token {
+        menu.token = token;
+        repaint |= menu.open();
     }
     if repaint || act.is_some() {
         menu.ask(&prefs.s, &account.name);

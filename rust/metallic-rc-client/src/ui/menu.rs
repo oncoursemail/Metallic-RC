@@ -130,8 +130,8 @@ pub enum Action {
     Field,
     /// log in with the typed name
     Login,
-    /// leave this room and join the named one (a room card)
-    GoToRoom(String),
+    /// leave this room and join the named one (a room card): its name and scene (empty when the server names none)
+    GoToRoom(String, String),
 }
 
 /// What a page shows besides its prefab.
@@ -759,6 +759,8 @@ pub struct Request {
     pub choosing: Option<String>,
     /// the name server, where room lists come from
     pub server: String,
+    /// the login's access token (empty until signed in): room lists and player counts are fetched with it
+    pub token: String,
 }
 
 /// A painted page: what to draw and what its selectables do.
@@ -815,7 +817,8 @@ impl Painter {
                 Ok(templates[page].clone())
             };
             let mut donors = None;
-            let mut room_list: Option<(std::time::Instant, Vec<RoomInfo>)> = None;
+            // the list, when and with which token it was fetched
+            let mut room_list: Option<(std::time::Instant, String, Vec<RoomInfo>)> = None;
             while let Ok(mut r) = asked.recv() {
                 // only the newest request matters
                 while let Ok(newer) = asked.try_recv() {
@@ -827,15 +830,15 @@ impl Painter {
                 }
                 let painted = template(&mut looks, &r.page).map(|(t, path)| {
                     let lists_rooms = t.walk().iter().any(|(_, e)| e.impls().iter().any(|(c, _)| c.ends_with("/VirtualizedRoomListCardSpawnerImpl")));
-                    if lists_rooms && !r.server.is_empty() && room_list.as_ref().is_none_or(|(at, _)| at.elapsed().as_secs() >= 10) {
-                        room_list = Some((std::time::Instant::now(), rooms::fetch(&r.server).unwrap_or_else(|e| {
+                    if lists_rooms && !r.server.is_empty() && room_list.as_ref().is_none_or(|(at, token, _)| at.elapsed().as_secs() >= 10 || *token != r.token) {
+                        room_list = Some((std::time::Instant::now(), r.token.clone(), rooms::fetch(&r.server, &r.token).unwrap_or_else(|e| {
                             eprintln!("rooms: {e}");
                             vec![]
                         })));
                     }
                     let none = Donors::default();
                     let ctx = Ctx { page: &path, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused,
-                        scroll: &r.scroll, choosing: r.choosing.as_deref(), rooms: room_list.as_ref().map(|(_, l)| l.as_slice()).unwrap_or_default() };
+                        scroll: &r.scroll, choosing: r.choosing.as_deref(), rooms: room_list.as_ref().map(|(_, _, l)| l.as_slice()).unwrap_or_default() };
                     let b = build(&t, &ctx, &theme, donors.as_ref().unwrap_or(&none));
                     Painted { drawn: paint::page_with(&mut looks, &b.page, canvas(&r.page)), page: r.page, actions: b.actions, scrolls: b.scrolls }
                 });
@@ -869,7 +872,7 @@ fn account_cards(page: &mut Element, list: i64, ctx: &Ctx, actions: &mut HashMap
     let size = template.rect.size_delta;
     for (i, name) in names.iter().enumerate() {
         let note = if i == 0 { "Playing now" } else { "" };
-        let mut card = card(&template, (i as i64 + 1) << 52, name, note, Action::Account(name.to_string()), actions);
+        let mut card = card(&template, (i as i64 + 1) << 52, name, note, "", Action::Account(name.to_string()), actions);
         let r = &mut card.rect;
         (r.anchor_min, r.anchor_max, r.pivot) = ([0.0, 0.5], [0.0, 0.5], [0.0, 0.5]);
         r.anchored_position = [120.0 + i as f32 * (size[0] + 40.0), 0.0];
@@ -877,20 +880,23 @@ fn account_cards(page: &mut Element, list: i64, ctx: &Ctx, actions: &mut HashMap
     }
 }
 
-/// A card (CardModelController impls) made from a list's item template: primary and secondary text, its primary
-/// button doing `action`; the parts a card without them hides are hidden (no secondary text or icon, no badge, not
-/// highlighted, not a junior account).
-fn card(template: &Element, salt: i64, primary: &str, secondary: &str, action: Action, actions: &mut HashMap<i64, Action>) -> Element {
+/// A card (CardModelController impls) made from a list's item template: primary and secondary text, a badge text
+/// (empty: no badge), its primary button doing `action`; the parts a card without them hides are hidden (no secondary
+/// text or icon, no badge icon, not highlighted, not a junior account).
+fn card(template: &Element, salt: i64, primary: &str, secondary: &str, badge: &str, action: Action, actions: &mut HashMap<i64, Action>) -> Element {
     let mut card = fresh(template, salt);
     (card.active, card.name) = (true, format!("{primary} card"));
-    let (mut sets, mut hides) = (vec![], vec![]);
+    let (mut sets, mut hides, mut shows) = (vec![], vec![], vec![]);
     for (_, e) in card.walk() {
         for (class, d) in e.impls() {
             match class.rsplit('/').next().unwrap_or(class) {
                 "PrimaryTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, primary.to_string()))),
                 "SecondaryTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, secondary.to_string()))),
                 "HideIfNoSecondaryTextImpl" if secondary.is_empty() => hides.extend(pptr(d, "hideable")),
-                "ShowIfJuniorAccountImpl" | "ShowIfJuniorForMetaEmptyImpl" | "HideIfNoSecondaryIconImpl" | "HideIfNoBadgeTextAndIconImpl"
+                "HideIfNoBadgeTextAndIconImpl" | "HideIfNoBadgeTextImpl" if badge.is_empty() => hides.extend(pptr(d, "hideable")),
+                "HideIfNoBadgeTextAndIconImpl" | "HideIfNoBadgeTextImpl" => shows.extend(pptr(d, "hideable")),
+                "BadgeTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, badge.to_string()))),
+                "ShowIfJuniorAccountImpl" | "ShowIfJuniorForMetaEmptyImpl" | "HideIfNoSecondaryIconImpl" | "HideIfNoBadgeIconImpl"
                 | "HideIfNotHighlightedImpl" | "HidePublishStateDataTokenImpl" => hides.extend(pptr(d, "hideable")),
                 "PrimaryToggleButtonImpl" | "PrimaryButtonImpl" => actions.extend(pptr(d, "button").map(|b| (b, action.clone()))),
                 _ => {}
@@ -903,13 +909,16 @@ fn card(template: &Element, salt: i64, primary: &str, secondary: &str, action: A
     for h in hides {
         show(&mut card, h, false);
     }
+    for h in shows {
+        show(&mut card, h, true);
+    }
     card
 }
 
 /// A virtualized room list (`list`: its VirtualizedScrollRectList component): a card per room from its item template,
 /// in rows of `layoutRowsOrColumns` cells of `cellSize`, `itemSpacing` apart, inside `contentPadding`, top left first;
-/// the content grows to hold them. A click on a card goes to its room (INFERRED shortcut: the game opens the room's
-/// details page, whose Play button goes there).
+/// the content grows to hold them; a room's player count is its badge ("3 here"). A click on a card goes to its room
+/// (INFERRED shortcut: the game opens the room's details page, whose Play button goes there).
 fn room_cards(page: &mut Element, list: i64, rooms: &[RoomInfo], actions: &mut HashMap<i64, Action>) {
     let Some(holder) = find_mut(page, &|e| has_component(e, list)) else { return };
     let Some(template) = holder.children.iter().find(|c| c.name.ends_with(TEMPLATE)).cloned() else { return };
@@ -922,7 +931,8 @@ fn room_cards(page: &mut Element, list: i64, rooms: &[RoomInfo], actions: &mut H
     let content = holder.components.iter().find(|c| Some(c.id) == scroll).and_then(|c| pptr(&c.value, "m_Content"));
     let Some(content) = find_mut(holder, &|e| Some(e.transform) == content) else { return };
     for (i, room) in rooms.iter().enumerate() {
-        let mut c = card(&template, MADE | (0x40 + i as i64) << 40, &room.name, &room.description, Action::GoToRoom(room.name.clone()), actions);
+        let badge = room.players.map_or(String::new(), |n| format!("{n} here"));
+        let mut c = card(&template, MADE | (0x40 + i as i64) << 40, &room.name, &room.description, &badge, Action::GoToRoom(room.name.clone(), room.scene.clone()), actions);
         let (col, row) = ((i % columns) as f32, (i / columns) as f32);
         let r = &mut c.rect;
         (r.anchor_min, r.anchor_max, r.pivot, r.size_delta) = ([0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [w, h]);
