@@ -106,6 +106,7 @@ type Controller struct {
 	nodes       map[string]NodeSpec
 	heartbeats  map[string]heartbeat
 	allocations map[string]Allocation
+	presence    map[string]presenceReport
 	path        string
 	now         func() time.Time
 	staleAfter  time.Duration
