@@ -59,7 +59,8 @@ def github_issues(repo: str, token: str, api_url: str) -> list[dict]:
     base = api_url.rstrip("/")
     collected: list[dict] = []
     for page in range(1, 51):  # up to 5,000 issues; fail if pagination grows
-        url = f"{base}/repos/{repo}/issues?state=all&per_page=100&page={page}"
+        # per_page = GitHub, limit = Forgejo (the forge pages at 50 at most); both servers ignore the other one
+        url = f"{base}/repos/{repo}/issues?state=all&per_page=100&limit=50&page={page}"
         request = Request(url, headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
@@ -71,14 +72,14 @@ def github_issues(repo: str, token: str, api_url: str) -> list[dict]:
         if not isinstance(data, list):
             raise ValueError("Unexpected GitHub issues API response")
         collected.extend(data)
-        if len(data) < 100:
+        if not data or len(data) < 50:
             return collected
     raise RuntimeError("Too many issues; pagination safety limit exceeded")
 
 
 def render_progress(issues: list[dict], repo: str) -> tuple[str, dict]:
     """Return Markdown and a machine-readable JSON snapshot."""
-    genuine = [issue for issue in issues if "pull_request" not in issue]
+    genuine = [issue for issue in issues if not issue.get("pull_request")]  # Forgejo sends pull_request: null
     by_phase: dict[str, list[dict]] = {phase: [] for phase, _ in PHASES}
     untracked: list[dict] = []
     for issue in genuine:
@@ -235,6 +236,8 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, default=Path("docs"))
     args = parser.parse_args()
     repo = os.environ.get("GITHUB_REPOSITORY", "oncoursemail/Metallic")
+    # Links in the published files always name the public GitHub copy (same issue numbers), never the forge address.
+    public_repo = os.environ.get("PROGRESS_PUBLIC_REPO", repo)
     try:
         if args.fixture:
             issues = json.loads(args.fixture.read_text(encoding="utf-8"))
@@ -245,7 +248,7 @@ def main() -> int:
             )
         if not isinstance(issues, list):
             raise ValueError("Issue payload must be a JSON list")
-        md, snapshot = render_progress(issues, repo)
+        md, snapshot = render_progress(issues, public_repo)
         args.output_dir.mkdir(parents=True, exist_ok=True)
         (args.output_dir / "PROGRESS.md").write_text(md, encoding="utf-8")
         (args.output_dir / "progress.json").write_text(

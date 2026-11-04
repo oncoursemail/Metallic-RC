@@ -38,7 +38,10 @@ jobs:
       - name: Install pinned Playwright package
         run: npm install --prefix tests/browser --ignore-scripts --no-audit --no-fund --no-package-lock
       - name: Install Chromium for test
-        run: cd tests/browser && npx playwright install --with-deps chromium
+        # The forge's self-hosted runner has Chromium's system libraries installed once and no root in jobs.
+        run: |
+          cd tests/browser
+          if [ "${{ github.server_url }}" = "https://github.com" ]; then npx playwright install --with-deps chromium; else npx playwright install chromium; fi
       - name: Serve checked-out Metallic website on loopback and inspect real layouts
         run: |
           python -m http.server 8765 --bind 127.0.0.1 >/tmp/metallic-site-preview.log 2>&1 &
@@ -63,7 +66,7 @@ jobs:
               if path.is_file():
                   files.append(path)
           total = sum(p.stat().st_size for p in files)
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+          with open(os.environ.get('GITHUB_STEP_SUMMARY') or os.devnull, 'a', encoding='utf-8') as summary:
               summary.write(f'### Visual review output\nGenerated {len(files)} files ({total:,} bytes).\n\n')
               summary.write('Layout and browser assertions run on every applicable PR and push. Screenshot upload is an explicit manual-run option.\n')
           if total > 10 * 1024 * 1024:
