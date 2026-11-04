@@ -389,7 +389,8 @@ pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Arrived>()
+        app.add_plugins(render::LookPlugin)
+            .init_resource::<Arrived>()
             .init_resource::<FixedSolids>()
             .init_resource::<Solids>()
             .add_systems(Update, (spawn_arrived, attach_props, update_solids.after(spawn_arrived).after(attach_props)))
@@ -479,6 +480,7 @@ fn spawn_arrived(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut clips: ResMut<Assets<audio::Pcm>>,
+    mut ambient: ResMut<GlobalAmbientLight>,
 ) {
     let Some(r) = arrived.0.take() else { return };
     for e in &old {
@@ -498,9 +500,12 @@ fn spawn_arrived(
             commands.entity(e).insert(RoomPiece);
         }
     }
-    let sky = images.add(render::sky_cubemap([0.38, 0.56, 0.85], [0.75, 0.82, 0.9], [0.3, 0.28, 0.25]));
+    // the sky lights the room (sky_on_camera); a flat ambient on top would wash out its shading
+    ambient.brightness = 0.0;
+    let sky = images.add(render::sky_cubemap(&render::SimpleGradient::default()));
+    let inside = images.add(render::sky_cubemap(&render::SimpleGradient::interior()));
     for cam in &cameras {
-        render::sky_on_camera(&mut commands, cam, sky.clone());
+        render::sky_on_camera(&mut commands, cam, sky.clone(), inside.clone());
         commands.entity(cam).insert(audio::listener());
     }
 }
