@@ -4,11 +4,13 @@
 //! (with the hand's own motion plus `dropSpeed`). Props that are let go fall and tumble (`body`), and the player
 //! bumps into them and can stand on them.
 //!
-//! Hooks for the other lanes (INFERRED stand-ins until they are merged): `Grabbable` marks a prop that can be picked
-//! up (the world lane's `Prop` with its colliders should insert it), `Remote` marks one another player moves (keep it
-//! in step with the realtime lane's `NetObject.mine`; physics leaves it alone), and the `HandEvent` messages say when
-//! this player grabbed (call `request_ownership`) or let go of a prop. `METALLIC_RC_TEST_PROPS=1` puts three props of
-//! our own in front of the player once the room is loaded (and again on P), for trying it out.
+//! Networked props (the realtime lane's `netobj`): grabbing one takes it over (`request_ownership`), so its Transform
+//! (held, thrown, falling) is what everyone sees; one owned by someone else is `Remote` (physics leaves it alone, the
+//! owner's poses move it), and when someone else takes the one in this hand, the hand lets go. A networked object
+//! without a `Grabbable` gets the stand-in prop's box (0.3 m). The world lane's `Prop` with its colliders should
+//! insert `Grabbable` with its own shape. `HandEvent` messages say when this player grabbed or let go of a prop.
+//! `METALLIC_RC_TEST_PROPS=1` puts three props of our own in front of the player once the room is loaded (and again
+//! on P), local only; in a room the master also drops one networked crate, for trying it with two players.
 pub mod body;
 
 use bevy::{
@@ -21,6 +23,7 @@ use bevy::{
 use crate::{
     avatar::{anim::Grip, LookPanel},
     collide::Obb,
+    netobj::{NetObject, NetObjects, RoomLink},
     player::{camera, Player, PlayerSystems, Solids, Tuning, View},
 };
 use body::{Body, Shape};
@@ -91,8 +94,8 @@ impl Plugin for InteractPlugin {
             .init_resource::<PropSolids>()
             .add_message::<HandEvent>()
             .add_systems(Startup, spawn_reticle)
-            .add_systems(Update, (grab_and_throw, hold, simulate).chain().in_set(PlayerSystems::Interact))
-            .add_systems(Update, test_props.before(PlayerSystems::Move));
+            .add_systems(Update, (ownership, grab_and_throw, claim, hold, simulate).chain().in_set(PlayerSystems::Interact))
+            .add_systems(Update, (test_props, test_net_prop).before(PlayerSystems::Move));
     }
 }
 
@@ -206,6 +209,53 @@ fn grab_and_throw(
     }
 }
 
+/// Keeps props in step with who owns them: someone else's is `Remote` (and leaves this hand), one that became this
+/// player's falls and settles here.
+#[allow(clippy::type_complexity)]
+fn ownership(
+    mut commands: Commands,
+    mut holding: ResMut<Holding>,
+    props: Query<(Entity, &NetObject, &Transform, Has<Remote>, Has<Held>), With<Grabbable>>,
+) {
+    for (e, o, t, remote, held) in &props {
+        if !o.mine && !remote {
+            commands.entity(e).remove::<(Physics, Held, JustReleased)>().insert(Remote);
+            if held || holding.entity == Some(e) {
+                *holding = Holding::default();
+            }
+        } else if o.mine && remote {
+            commands.entity(e).remove::<Remote>();
+            if !held {
+                commands.entity(e).insert(Physics(Body::new(t.translation, t.rotation)));
+            }
+        }
+    }
+}
+
+/// A grab takes a networked prop over; networked objects without a shape get the stand-in prop's box.
+#[allow(clippy::type_complexity)]
+fn claim(
+    mut commands: Commands,
+    mut events: MessageReader<HandEvent>,
+    mut net: NetObjects,
+    bare: Query<(Entity, &NetObject, &Transform), Without<Grabbable>>,
+) {
+    for ev in events.read() {
+        if let HandEvent::Grabbed(e) = ev {
+            net.request_ownership(*e);
+        }
+    }
+    for (e, o, t) in &bare {
+        // INFERRED: netobj's stand-in `spawn_prop` is a 0.3 m box of 1 kg
+        let g = Grabbable { shape: Shape::Box(Vec3::splat(0.15)), mass: 1.0, bounce: 0.1 };
+        if o.mine {
+            commands.entity(e).insert((g, Physics(Body::new(t.translation, t.rotation))));
+        } else {
+            commands.entity(e).insert((g, Remote));
+        }
+    }
+}
+
 /// Keeps the held prop in front of the view, low on the right where the right hand holds it, pulled in where a wall
 /// is in the way. INFERRED placement (the game's `DefaultToolRelativeDistance` 1 m is for its manipulation mode).
 #[allow(clippy::type_complexity)]
@@ -283,6 +333,40 @@ fn simulate(
         }
         (t.translation, t.rotation) = (ph.0.pos, ph.0.rot);
     }
+}
+
+/// `METALLIC_RC_TEST_PROPS=1` in a room: two seconds after the room has its colliders, the master drops one networked
+/// crate in front of itself (and anyone in the room another on N).
+fn test_net_prop(
+    time: Res<Time>,
+    keys: Res<ButtonInput<KeyCode>>,
+    solids: Res<Solids>,
+    link: Res<RoomLink>,
+    player: Single<(&Player, &Transform)>,
+    mut net: NetObjects,
+    mut since: Local<Option<f32>>,
+) {
+    if solids.0.is_empty() || std::env::var_os("METALLIC_RC_TEST_PROPS").is_none() {
+        return;
+    }
+    let Some(rt) = link.get() else { return };
+    let (actor, master) = {
+        let room = rt.room.lock().unwrap();
+        (room.actor(), room.is_master())
+    };
+    if actor.is_none() {
+        return;
+    }
+    let now = time.elapsed_secs();
+    let due = *since.get_or_insert(now) + 2.0;
+    let go = (master && now >= due && now - time.delta_secs() < due) || keys.just_pressed(KeyCode::KeyN);
+    if !go {
+        return;
+    }
+    let (p, eye) = *player;
+    let at = p.feet(eye) + Quat::from_rotation_y(p.yaw) * Vec3::new(0.0, 1.0, -1.0);
+    let e = net.net_spawn("test/Crate", Transform::from_translation(at));
+    info!("networked test crate at {at}: {e:?}");
 }
 
 /// `METALLIC_RC_TEST_PROPS=1`: a second after the room has its colliders (and P again later), three props of our own

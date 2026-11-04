@@ -198,16 +198,10 @@ fn look_and_walk(
     let sprint = motor::wants_sprint(s.on("auto_sprint"), s.on("sprint_toggle"), key(keys, &shift), keys.any_just_pressed(shift), &mut toggled);
     p.sprint_toggled = toggled;
     let feet = p.feet(t);
-    // the room's boxes and the props lying about
-    let with_props;
-    let solids: &[Obb] = if props.0.is_empty() {
-        &solids.0
-    } else {
-        with_props = [&solids.0[..], &props.0[..]].concat();
-        &with_props
-    };
-    // room to stand: the top of a standing capsule touches nothing
-    let head_room = collide::sphere_clear(solids, feet + Vec3::Y * (collide::HEIGHT - collide::RADIUS), collide::RADIUS * 0.95);
+    let room = &solids.0[..];
+    // room to stand: the top of a standing capsule touches nothing (the room's boxes or the props lying about)
+    let head = feet + Vec3::Y * (collide::HEIGHT - collide::RADIUS);
+    let head_room = collide::sphere_clear(room, head, collide::RADIUS * 0.95) && collide::sphere_clear(&props.0, head, collide::RADIUS * 0.95);
     let input = motor::Input {
         wish: wish.normalize_or_zero(),
         forward,
@@ -219,14 +213,31 @@ fn look_and_walk(
     };
     p.motor.step(&tuning, &input, dt);
     let asked = p.motor.velocity * dt;
-    let (mut next, mut grounded) = if p.motor.flying { (feet + asked, false) } else { collide::move_capsule(solids, feet, asked) };
+    let (mut next, mut grounded) = if p.motor.flying { (feet + asked, false) } else { walk(room, &props.0, feet, asked) };
     // the stand-in room has no colliders: its floor is y = 0
-    if solids.is_empty() && next.y < 0.0 && !p.motor.flying {
+    if room.is_empty() && next.y < 0.0 && !p.motor.flying {
         (next.y, grounded) = (0.0, true);
     }
     p.motor.after_move(grounded, next - feet, dt);
     p.eye = tuning.eye() * p.motor.height;
     t.translation = next + Vec3::Y * p.eye;
+}
+
+/// Moves the player's capsule from `feet` by `asked`: against the room's boxes, then out of the props sideways or up
+/// onto them, never down (a prop falling on the player would press it through the floor) and not into the room's
+/// walls. Returns where the feet end and whether they stand on something.
+pub fn walk(room: &[Obb], props: &[Obb], feet: Vec3, asked: Vec3) -> (Vec3, bool) {
+    let (mut next, mut grounded) = collide::move_capsule(room, feet, asked);
+    if !props.is_empty() {
+        let (out, on_prop) = collide::move_capsule(props, next, Vec3::ZERO);
+        let push = Vec3::new(out.x - next.x, (out.y - next.y).max(0.0), out.z - next.z);
+        if push != Vec3::ZERO {
+            let (moved, g) = collide::move_capsule(room, next, push);
+            (next, grounded) = (moved, grounded || g);
+        }
+        grounded |= on_prop;
+    }
+    (next, grounded)
 }
 
 /// V switches first and third person. The camera eases to its place: at the eyes (bobbing with the Head Bob
@@ -328,5 +339,39 @@ fn local_avatar(
     }
     if rig.look != look.0 {
         rig.look = look.0;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cube(center: Vec3, half: Vec3) -> Obb {
+        Obb { center, axes: [Vec3::X, Vec3::Y, Vec3::Z], half }
+    }
+
+    #[test]
+    fn a_prop_falling_on_the_player_does_not_press_it_through_the_floor() {
+        let floor = [cube(Vec3::new(0.0, -0.5, 0.0), Vec3::new(10.0, 0.5, 10.0))];
+        let mut feet = Vec3::ZERO;
+        // a 0.3 m crate coming down through where the player's chest is
+        for i in 0..30 {
+            let crate_ = [cube(Vec3::new(0.0, 1.4 - i as f32 * 0.05, 0.1), Vec3::splat(0.15))];
+            (feet, _) = walk(&floor, &crate_, feet, Vec3::new(0.0, -0.05, 0.0));
+            assert!(feet.y > -0.01, "step {i}: {feet}");
+        }
+    }
+
+    #[test]
+    fn the_player_stands_on_a_prop_and_is_pushed_aside_by_one() {
+        let floor = [cube(Vec3::new(0.0, -0.5, 0.0), Vec3::new(10.0, 0.5, 10.0))];
+        // a low box (one step high) under the feet: stood on
+        let low = [cube(Vec3::new(0.0, 0.1, 0.0), Vec3::new(0.3, 0.1, 0.3))];
+        let (feet, grounded) = walk(&floor, &low, Vec3::new(0.0, 0.18, 0.0), Vec3::new(0.0, -0.05, 0.0));
+        assert!(grounded && (feet.y - 0.2).abs() < 0.02, "{feet}");
+        // a tall box beside the player: pushed out sideways, still on the floor
+        let tall = [cube(Vec3::new(0.4, 0.5, 0.0), Vec3::new(0.2, 0.5, 0.2))];
+        let (feet, grounded) = walk(&floor, &tall, Vec3::ZERO, Vec3::new(0.0, -0.05, 0.0));
+        assert!(grounded && feet.x < -0.04 && feet.y.abs() < 0.01, "{feet}");
     }
 }
