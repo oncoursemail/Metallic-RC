@@ -246,6 +246,20 @@ impl Plugin for LookPlugin {
         app.add_plugins((MaterialPlugin::<AgMaterial>::default(), crate::mirror::MirrorPlugin))
             .insert_resource(DirectionalLightShadowMap { size: 4096 })
             .add_systems(Update, dress_cameras);
+        if std::env::var_os("METALLIC_RC_FRAMES").is_some() {
+            app.add_systems(Last, log_frames);
+        }
+    }
+}
+
+/// `METALLIC_RC_FRAMES=1`: logs the mean and worst frame time every 5 s (performance checks).
+fn log_frames(time: Res<Time<Real>>, mut acc: Local<(f32, f32, u32)>) {
+    let dt = time.delta_secs();
+    *acc = (acc.0 + dt, acc.1.max(dt), acc.2 + 1);
+    if acc.0 >= 5.0 {
+        info!("frames: {} in {:.1} s, mean {:.2} ms ({:.0} fps), worst {:.2} ms", acc.2, acc.0, acc.0 * 1000.0 / acc.2 as f32,
+              acc.2 as f32 / acc.0, acc.1 * 1000.0);
+        *acc = (0.0, 0.0, 0);
     }
 }
 
