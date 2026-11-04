@@ -28,6 +28,10 @@ pub struct MirrorCamera;
 #[derive(Resource, Default)]
 struct Reflection(Option<Handle<Image>>);
 
+/// The mirror camera's near plane sits this far in front of the glass, so the glass itself (sampling its own
+/// picture) and the frame's lip are cut away; on the plane exactly, oblique views kept them.
+const GLASS_CLEARANCE: f32 = 0.03;
+
 /// Past this distance the mirror camera stops rendering.
 const REACH: f32 = 15.0;
 
@@ -43,14 +47,14 @@ impl Plugin for MirrorPlugin {
 fn follow(
     mut commands: Commands,
     window: Single<&Window, With<PrimaryWindow>>,
-    main: Query<(&GlobalTransform, &Projection, Option<&Skybox>, Option<&GeneratedEnvironmentMapLight>), (With<Camera3d>, Without<MirrorCamera>)>,
-    mut cams: Query<(Entity, &mut Camera, &mut Transform, &mut Projection, &RenderTarget), With<MirrorCamera>>,
+    main: Query<(&GlobalTransform, &Projection, Option<&Skybox>, Option<&GeneratedEnvironmentMapLight>, Option<&Exposure>), (With<Camera3d>, Without<MirrorCamera>)>,
+    mut cams: Query<(Entity, &mut Camera, &mut Transform, &mut Projection, &RenderTarget, &mut Exposure), With<MirrorCamera>>,
     mirrors: Query<(&Mirror, &GlobalTransform, &MeshMaterial3d<AgMaterial>)>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<AgMaterial>>,
     mut reflection: ResMut<Reflection>,
 ) {
-    let Some((eye, Projection::Perspective(lens), sky, env)) = main.iter().next() else { return };
+    let Some((eye, Projection::Perspective(lens), sky, env, exposure)) = main.iter().next() else { return };
     // the nearest mirror; its glass reflects toward whichever side the eye is on (the Dorm mirror's mesh normals
     // face the wall)
     let best = mirrors.iter().filter_map(|(m, g, mat)| {
@@ -90,13 +94,16 @@ fn follow(
     let view_from_world = eye.affine().matrix3.inverse();
     let near_normal = (view_from_world * Vec3A::from(-n)).normalize();
     let projection = Projection::Perspective(PerspectiveProjection {
-        near_clip_plane: Vec3::from(near_normal).extend(n.dot(c - eye.translation())),
+        near_clip_plane: Vec3::from(near_normal).extend(n.dot(c - eye.translation()) - GLASS_CLEARANCE),
         ..lens.clone()
     });
 
     match cams.iter_mut().next() {
-        Some((e, mut cam, mut t, mut p, target)) => {
+        Some((e, mut cam, mut t, mut p, target, mut ev)) => {
             cam.is_active = true;
+            if let Some(x) = exposure {
+                *ev = *x;
+            }
             *t = place;
             *p = projection;
             if target.as_image() != Some(&image) {

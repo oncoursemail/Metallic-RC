@@ -219,6 +219,29 @@ pub fn spawn_light(commands: &mut Commands, l: &RoomLight, transform: Transform)
     }
 }
 
+/// A shadowed spot light far outside the room (the old scenes' `KeyLight`: the Dorm's is ~22 m out, past the
+/// window) is the room's sun: a directional light along its axis. Its strength is `SUN_SHARE` of the spot's
+/// intensity: in the game's own capture of the lit Dorm (its custom reflection cubemap) the rug in the sun is ~4.3x
+/// brighter (linear) than in the window frame's shadow, which with the room's ambient probe needs a sun of ~2 Unity
+/// units (intensity 5 x 0.4). Unity's spot falloff over 22 m would leave far less, so the share is calibrated, not
+/// derived (INFERRED).
+pub fn sun_of(l: &RoomLight, lo: Vec3, hi: Vec3) -> Option<(f32, [f32; 3])> {
+    const SUN_SHARE: f32 = 0.4;
+    let at = l.world.w_axis.truncate();
+    let outside = at.cmplt(lo - Vec3::splat(2.0)).any() || at.cmpgt(hi + Vec3::splat(2.0)).any();
+    (l.kind == 0 && l.shadows && outside && lo.x <= hi.x).then_some((l.intensity * SUN_SHARE, l.color))
+}
+
+/// The sun from `sun_of`: illuminance in Unity units, linear colour, the light's rotation.
+pub fn spawn_sun(commands: &mut Commands, (strength, [r, g, b]): (f32, [f32; 3]), rotation: Quat, lo: Vec3, hi: Vec3) -> Entity {
+    let reach = (hi - lo).length().clamp(20.0, 120.0);
+    commands.spawn((
+        DirectionalLight { color: Color::linear_rgb(r, g, b), illuminance: strength * DIRECTIONAL_LUX, shadow_maps_enabled: true, ..default() },
+        CascadeShadowConfigBuilder { num_cascades: 3, first_cascade_far_bound: 6.0, maximum_distance: reach, ..default() }.build(),
+        Transform::from_rotation(rotation),
+    )).id()
+}
+
 /// Lights for a room that brings none (the game lights those from the level files): a warm sun with soft cascaded
 /// shadows. Its direction is the original Dorm scene's `KeyLight` (dormroom2 in the older build; same frame as
 /// `rooms/dorm.layout`); colour and strength are INFERRED. Ambient light comes from the sky (`sky_on_camera`).
@@ -246,6 +269,7 @@ impl Plugin for LookPlugin {
         app.add_plugins((MaterialPlugin::<AgMaterial>::default(), crate::mirror::MirrorPlugin))
             .insert_resource(DirectionalLightShadowMap { size: 4096 })
             .add_systems(Update, dress_cameras);
+        app.init_resource::<RoomEnvMaps>().add_systems(Update, apply_room_env.after(dress_cameras));
         if std::env::var_os("METALLIC_RC_FRAMES").is_some() {
             app.add_systems(Last, log_frames);
         }
@@ -283,6 +307,187 @@ fn dress_cameras(mut commands: Commands, cameras: Query<Entity, (Added<Camera3d>
             ScreenSpaceAmbientOcclusion { quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium, ..default() },
             ShadowFilteringMethod::Gaussian,
         ));
+    }
+}
+
+/// A room's ambient and reflections from its level file (`levels::lighting`), handed over by the loader thread.
+pub struct RoomEnv {
+    /// RenderSettings' ambient probe, `[channel][coefficient]`
+    pub sh: [[f32; 9]; 3],
+    /// the custom reflection cubemap's faces (+X -X +Y -Y +Z -Z, sRGB) and its intensity
+    pub reflection: Option<Vec<Pixels>>,
+    pub reflection_intensity: f32,
+    pub fog: Option<crate::levels::Fog>,
+}
+
+impl RoomEnv {
+    pub fn new(l: &crate::levels::Lighting) -> Self {
+        let square = |c: &&crate::levels::Cubemap| c.faces.len() == 6 && c.faces.iter().all(|f| f.0 == c.size && f.1 == c.size);
+        RoomEnv { sh: l.ambient_sh, reflection: l.reflection.as_ref().filter(square).map(|c| c.faces.clone()), reflection_intensity: l.reflection_intensity, fog: l.fog.clone() }
+    }
+}
+
+/// Set by the loader thread when the room's level file has lighting; `apply_room_env` takes it.
+pub static ROOM_ENV: std::sync::Mutex<Option<RoomEnv>> = std::sync::Mutex::new(None);
+
+/// The room's environment cube and fog once applied (cameras added later get them too).
+#[derive(Resource, Default)]
+pub struct RoomEnvMaps(pub Option<(Handle<Image>, Option<DistanceFog>)>);
+
+/// The radiance whose cosine-weighted average (Bevy's diffuse ambient) is what Unity's `ShadeSH9` gives for the
+/// probe (the shader-constant form: `sh0 + sh3 x + sh1 y + sh2 z + sh4 xy + sh5 yz + sh6 (3z^2 - 1) + sh7 xz +
+/// sh8 (x^2 - y^2)` per unit albedo; the probe being stored in that form, DC = flat ambient colour, is INFERRED):
+/// band 1 x 3/2 and band 2 x 4 undo the cosine lobe. `d` in Unity's axes.
+fn sh_radiance(sh: &[[f32; 9]; 3], d: Vec3) -> [f32; 3] {
+    let (x, y, z) = (d.x, d.y, d.z);
+    std::array::from_fn(|c| {
+        let k = &sh[c];
+        k[0] + 1.5 * (k[3] * x + k[1] * y + k[2] * z) + 4.0 * (k[4] * x * y + k[5] * y * z + k[6] * (3.0 * z * z - 1.0) + k[7] * x * z + k[8] * (x * x - y * y))
+    })
+}
+
+/// Real SH basis, bands 0..2, Unity's coefficient order.
+fn sh_basis(d: Vec3) -> [f32; 9] {
+    let (x, y, z) = (d.x, d.y, d.z);
+    [0.282_095, 0.488_603 * y, 0.488_603 * z, 0.488_603 * x, 1.092_548 * x * y, 1.092_548 * y * z, 0.315_392 * (3.0 * z * z - 1.0), 1.092_548 * x * z, 0.546_274 * (x * x - y * y)]
+}
+
+/// The direction of a cube texel: face order +X -X +Y -Y +Z -Z, (u, v) in -1..1, rows top down. Bevy samples cube
+/// maps with z negated, so this is also the direction in Unity's axes.
+fn cube_dir(face: usize, u: f32, v: f32) -> Vec3 {
+    match face {
+        0 => Vec3::new(1.0, -v, -u),
+        1 => Vec3::new(-1.0, -v, u),
+        2 => Vec3::new(u, 1.0, v),
+        3 => Vec3::new(u, -1.0, -v),
+        4 => Vec3::new(u, -v, 1.0),
+        _ => Vec3::new(-u, -v, -1.0),
+    }
+}
+
+/// Every environment cube has this size: Bevy keeps a camera's filtered maps when its source is swapped, so the
+/// stand-in and the room's own must match.
+const ENV_SIZE: usize = 128;
+
+/// The texel of a cube map (faces +X -X +Y -Y +Z -Z, `n` x `n`, rows top down) that direction `d` looks at.
+fn cube_texel(n: usize, d: Vec3) -> (usize, usize, usize) {
+    let a = d.abs();
+    let (f, sc, tc, m) = if a.x >= a.y && a.x >= a.z {
+        if d.x > 0.0 { (0, -d.z, -d.y, a.x) } else { (1, d.z, -d.y, a.x) }
+    } else if a.y >= a.z {
+        if d.y > 0.0 { (2, d.x, d.z, a.y) } else { (3, d.x, -d.z, a.y) }
+    } else if d.z > 0.0 {
+        (4, d.x, -d.y, a.z)
+    } else {
+        (5, -d.x, -d.y, a.z)
+    };
+    let at = |c: f32| (((c / m + 1.0) / 2.0 * n as f32) as usize).min(n - 1);
+    (f, at(sc), at(tc))
+}
+
+/// The room's environment cube: its diffuse light is the ambient probe's (bands 0..2), its reflections the custom
+/// reflection cubemap's detail at `reflection_intensity` (with the cubemap's own bands 0..2 taken out, so the
+/// diffuse light is not counted twice). Without a reflection cubemap, the probe alone.
+pub fn room_env_cubemap(env: &RoomEnv) -> Image {
+    let n = ENV_SIZE;
+    let lin = |b: u8| {
+        let c = b as f32 / 255.0;
+        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    };
+    let texel = |n: usize, f: usize, x: usize, y: usize| {
+        let (u, v) = ((x as f32 + 0.5) / n as f32 * 2.0 - 1.0, (y as f32 + 0.5) / n as f32 * 2.0 - 1.0);
+        (cube_dir(f, u, v).normalize(), (1.0 + u * u + v * v).powf(-1.5))
+    };
+    // the reflection's own bands 0..2: projection weighted by each texel's solid angle
+    let mut low = [[0.0f32; 9]; 3];
+    if let Some(faces) = &env.reflection {
+        let mut total = 0.0;
+        for (f, (size, _, px)) in faces.iter().enumerate() {
+            let m = *size as usize;
+            for y in 0..m {
+                for x in 0..m {
+                    let (d, w) = texel(m, f, x, y);
+                    let b = sh_basis(d);
+                    let p = &px[(y * m + x) * 4..];
+                    for c in 0..3 {
+                        let l = lin(p[c]) * w;
+                        for k in 0..9 {
+                            low[c][k] += l * b[k];
+                        }
+                    }
+                    total += w;
+                }
+            }
+        }
+        let scale = 4.0 * std::f32::consts::PI / total;
+        low.iter_mut().flatten().for_each(|x| *x *= scale);
+    }
+    let mut data = Vec::with_capacity(n * n * 6 * 8);
+    for f in 0..6 {
+        for y in 0..n {
+            for x in 0..n {
+                let d = texel(n, f, x, y).0;
+                let mut c = sh_radiance(&env.sh, d);
+                if let Some(faces) = &env.reflection {
+                    let b = sh_basis(d);
+                    let m = faces[0].0 as usize;
+                    let (sf, sx, sy) = cube_texel(m, d);
+                    let p = &faces[sf].2[(sy * m + sx) * 4..];
+                    for ch in 0..3 {
+                        let lowpass: f32 = (0..9).map(|k| low[ch][k] * b[k]).sum();
+                        c[ch] += env.reflection_intensity * (lin(p[ch]) - lowpass);
+                    }
+                }
+                for ch in [c[0], c[1], c[2], 1.0] {
+                    data.extend_from_slice(&f16_bits(ch.max(0.0)).to_le_bytes());
+                }
+            }
+        }
+    }
+    let n = n as u32;
+    let mut img = Image::new(Extent3d { width: n, height: n, depth_or_array_layers: 6 }, TextureDimension::D2, data, TextureFormat::Rgba16Float, RenderAssetUsages::RENDER_WORLD);
+    img.texture_view_descriptor = Some(TextureViewDescriptor { dimension: Some(TextureViewDimension::Cube), ..default() });
+    img
+}
+
+/// Unity fog as Bevy distance fog (mode 1 linear, 2 exponential, 3 exponential squared).
+fn room_fog(f: &crate::levels::Fog) -> DistanceFog {
+    let falloff = match f.mode {
+        1 => FogFalloff::Linear { start: f.start, end: f.end },
+        3 => FogFalloff::ExponentialSquared { density: f.density },
+        _ => FogFalloff::Exponential { density: f.density },
+    };
+    DistanceFog { color: Color::linear_rgb(f.color[0], f.color[1], f.color[2]), falloff, ..default() }
+}
+
+/// Extra exposure for rooms lit from the old level files: with their ambient probe and lights the walls come out
+/// ~1.75x darker (luminance) than in the game's own capture of the lit Dorm (its reflection cubemap), and the
+/// owner's reference screenshot is brighter still. Calibrated, INFERRED (the 2019 scenes used Unity's built-in
+/// pipeline, whose post chain is not in these files).
+const LEVEL_EV: f32 = 1.0;
+
+/// Puts the room's environment (`ROOM_ENV`) on the main cameras when it arrives, and on cameras added later.
+fn apply_room_env(mut commands: Commands, mut maps: ResMut<RoomEnvMaps>, mut images: ResMut<Assets<Image>>,
+                  cameras: Query<Entity, (With<Camera3d>, Without<crate::mirror::MirrorCamera>)>,
+                  added: Query<Entity, (Added<Camera3d>, Without<crate::mirror::MirrorCamera>)>) {
+    let fresh = ROOM_ENV.lock().unwrap().take();
+    if let Some(env) = &fresh {
+        let t = std::time::Instant::now();
+        maps.0 = Some((images.add(room_env_cubemap(env)), env.fog.as_ref().map(room_fog)));
+        info!("room environment: ambient probe, reflection cubemap {} (x{:.2}), fog {}, made in {:.2} s", env.reflection.is_some(),
+              env.reflection_intensity, env.fog.is_some(), t.elapsed().as_secs_f32());
+    }
+    let Some((map, fog)) = &maps.0 else { return };
+    let targets: Vec<Entity> = if fresh.is_some() { cameras.iter().collect() } else { added.iter().collect() };
+    for cam in targets {
+        let mut e = commands.entity(cam);
+        e.insert((
+            GeneratedEnvironmentMapLight { environment_map: map.clone(), intensity: UNEXPOSE, affects_lightmapped_mesh_diffuse: false, ..default() },
+            Exposure { ev100: EV100 - 0.21 - LEVEL_EV },
+        ));
+        if let Some(fog) = fog {
+            e.insert(fog.clone());
+        }
     }
 }
 
@@ -367,7 +572,7 @@ impl SimpleGradient {
 
 /// A sky cubemap (64 px faces, linear half floats) of a gradient sky.
 pub fn sky_cubemap(sky: &SimpleGradient) -> Image {
-    const N: u32 = 64;
+    const N: u32 = ENV_SIZE as u32;
     let mut data = Vec::with_capacity((N * N * 6 * 8) as usize);
     for face in 0..6 {
         for y in 0..N {

@@ -313,6 +313,12 @@ impl Loader {
                 }
                 *room.lock().unwrap() = Some(r);
             }
+            // the room's ambient probe, reflection cubemap and fog, when its level file has them
+            if crate::levels::ref_install().is_some() {
+                if let Ok(l) = crate::levels::lighting(name) {
+                    *render::ROOM_ENV.lock().unwrap() = Some(render::RoomEnv::new(&l));
+                }
+            }
             for req in requests {
                 match req {
                     Request::Prop { entity, address } => {
@@ -428,6 +434,7 @@ fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option
         roots.push(e);
     }
     let inverse: Vec<Mat4> = r.places.iter().map(|m| m.inverse()).collect();
+    let (lo, hi) = bounds(&r);
     for p in r.parts {
         // a mirror's glass: its mean normal and centre, for the mirror camera
         let glass = (r.materials[p.material].shader == "AG/Mirror" && !p.positions.is_empty()).then(|| {
@@ -450,11 +457,18 @@ fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option
         if let Some(m) = glass {
             commands.entity(child).insert(m);
         }
+        // glass and other see-through surfaces let the sun through
+        if matches!(r.materials[p.material].blend, room::Blend::Blend | room::Blend::Add) {
+            commands.entity(child).insert(bevy::light::NotShadowCaster);
+        }
         commands.entity(roots[p.root]).add_child(child);
     }
     for l in &r.lights {
         let local = Transform::from_matrix(inverse[l.root] * l.world);
-        let e = render::spawn_light(commands, l, local);
+        let e = match render::sun_of(l, lo, hi) {
+            Some(sun) => render::spawn_sun(commands, sun, local.rotation, lo, hi),
+            None => render::spawn_light(commands, l, local),
+        };
         commands.entity(roots[l.root]).add_child(e);
     }
     // one asset per clip, however many sources play it
@@ -494,6 +508,7 @@ fn spawn_arrived(
     mut images: ResMut<Assets<Image>>,
     mut clips: ResMut<Assets<audio::Pcm>>,
     mut ambient: ResMut<GlobalAmbientLight>,
+    env: Res<render::RoomEnvMaps>,
 ) {
     let Some(r) = arrived.0.take() else { return };
     for e in &old {
@@ -518,7 +533,9 @@ fn spawn_arrived(
     let sky = images.add(render::sky_cubemap(&render::SimpleGradient::default()));
     let inside = images.add(render::sky_cubemap(&render::SimpleGradient::interior()));
     for cam in &cameras {
-        render::sky_on_camera(&mut commands, cam, sky.clone(), inside.clone());
+        // the room's own environment (render::apply_room_env) replaces the stand-in ambient when it came first
+        let ambient = env.0.as_ref().map_or(inside.clone(), |m| m.0.clone());
+        render::sky_on_camera(&mut commands, cam, sky.clone(), ambient);
         commands.entity(cam).insert(audio::listener());
     }
 }
