@@ -9,24 +9,34 @@
 //! players there show as capsules. `--room` picks the room instance (default: the one matchmaking gave), so two
 //! windows given the same `--room` meet.
 //! `--headless` only runs the network start-up and prints where it ended up (for scripts and checks).
+//! The escape menu's pages work with the mouse: settings (kept in `%LOCALAPPDATA%\Metallic-RC\settings.json`),
+//! switching account (logs in again under another name) and quitting (leaves the room first).
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use bevy::{
     asset::RenderAssetUsages,
     image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
-    input::mouse::AccumulatedMouseMotion,
+    input::{
+        keyboard::{Key, KeyboardInput},
+        mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
+        ButtonState,
+    },
     mesh::{Indices, PrimitiveTopology},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
-    window::{CursorGrabMode, CursorOptions, PrimaryWindow},
+    window::{CursorGrabMode, CursorOptions, MonitorSelection, PresentMode, PrimaryWindow, WindowMode},
 };
 use metallic_rc_client::{
     collide::{self, Obb},
     net::{self, Login},
     realtime::{self, Realtime},
     room::{self, RoomData},
+    settings::{Settings, RESOLUTIONS},
     shapes::{self, ShapeKit},
-    ui::{paint, prefab, theme, view},
+    ui::{input::{self, Pointer}, menu::{self, Action, Painted, Painter, Router}, view},
 };
 use rr_net::{room::RoomEvent, sync::{AvatarData, Pose}};
 
@@ -93,15 +103,50 @@ struct Avatar(i32);
 #[derive(Resource, Clone)]
 struct Loading(Arc<Mutex<Option<Result<RoomData, String>>>>);
 
-/// The escape menu page, painted by the loader thread; `toggle_menu` takes it once.
-#[derive(Resource, Clone, Default)]
-struct MenuSlot(Arc<Mutex<Option<Result<paint::Drawn, String>>>>);
-
-/// The escape menu: its page once loaded, and its root while it is open.
+/// The escape menu: the pages open, the one on screen (with its root and the window size it was fitted to), the
+/// pointer on it and the login page's name field.
 #[derive(Resource, Default)]
 struct Menu {
-    page: Option<paint::Drawn>,
-    open: Option<Entity>,
+    painter: Option<Painter>,
+    router: Router,
+    shown: Option<(Painted, Entity, Vec2)>,
+    pointer: Pointer,
+    typed: String,
+    focused: bool,
+    scroll: HashMap<i64, f32>,
+}
+
+impl Menu {
+    fn open(&self) -> bool {
+        self.router.top().is_some()
+    }
+
+    /// Has the page on top painted as things are now.
+    fn ask(&self, settings: &Settings, account: &str) {
+        let (Some(p), Some(page)) = (&self.painter, self.router.top()) else { return };
+        p.ask(menu::Request { page: page.into(), back_stack: self.router.back_stack(), settings: settings.clone(), account: account.into(),
+            typed: self.typed.clone(), focused: self.focused, scroll: self.scroll.clone() });
+    }
+}
+
+/// The player's settings; `changed` until `apply_settings` has applied and saved them.
+#[derive(Resource)]
+struct Prefs {
+    s: Settings,
+    changed: bool,
+}
+
+/// How to log in, and as whom. Each login thread runs while its number is the newest (`gen`).
+#[derive(Resource)]
+struct Account {
+    server: String,
+    realtime: Option<String>,
+    room: Option<String>,
+    /// feet position and facing (radians) handed out when this player is the room's master
+    spawn: [f32; 3],
+    yaw: f32,
+    name: String,
+    gen: Arc<AtomicUsize>,
 }
 
 #[derive(Resource)]
@@ -148,9 +193,8 @@ fn main() {
 
     let loading = Loading(Arc::new(Mutex::new(None)));
     let slot = loading.0.clone();
-    let menu = MenuSlot::default();
-    let menu_slot = menu.0.clone();
     let game_dir = a.game_dir.clone().or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()));
+    let menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), ..default() };
     std::thread::spawn(move || {
         let Some(game) = game_dir else {
             *slot.lock().unwrap() = Some(Err("no game folder found; pass --game-dir".into()));
@@ -161,37 +205,17 @@ fn main() {
             Ok(l) => l,
             Err(e) => return *slot.lock().unwrap() = Some(Err(format!("{}: {e}", dir.display()))),
         };
-        // the menu first: it is small, and Esc may come before the room is in
-        *menu_slot.lock().unwrap() = Some(load_menu(&mut lib, &dir));
         *slot.lock().unwrap() = Some(load_dorm(&mut lib, &dir));
     });
 
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))));
-    let shared = status.0.clone();
     let net = Net::default();
-    let net_slot = net.0.clone();
     let [x, y, z, yaw, _] = a.camera;
-    let spawn = [x, (y - EYE).max(0.0), z];
-    std::thread::spawn(move || {
-        let s = match net::connect(&a.server, &Login::Name(a.name)) {
-            Ok(s) => s,
-            Err(e) => return *shared.lock().unwrap() = format!("Offline: {e}"),
-        };
-        // the hub stays open for the life of this thread, which lives as long as the game
-        let hub = s.open_hub();
-        *shared.lock().unwrap() = format!("{}  |  {} ({})  |  {}  |  notifications {}", s.motd, s.account.display_name,
-            s.account.username, if s.room.private { format!("{} (private)", s.room.name) } else { s.room.name.clone() },
-            if hub.is_ok() { "on" } else { "off" });
-        let address = a.realtime.unwrap_or_else(|| realtime::default_address(&a.server));
-        let room = a.room.unwrap_or(s.room.photon_room);
-        match realtime::start(&address, &room, &s.account.display_name, spawn, yaw.to_radians()) {
-            Ok(rt) => *net_slot.lock().unwrap() = Some(rt),
-            Err(e) => shared.lock().unwrap().push_str(&format!("  |  room server {address}: {e}")),
-        }
-        loop {
-            std::thread::park();
-        }
-    });
+    let account = Account { server: a.server.clone(), realtime: a.realtime.clone(), room: a.room.clone(), spawn: [x, (y - EYE).max(0.0), z],
+        yaw: yaw.to_radians(), name: a.name.clone(), gen: Arc::default() };
+    log_in(&account, &status, &net);
+    let mut prefs = Prefs { s: Settings::path().map(|p| Settings::load(&p)).unwrap_or_default(), changed: true };
+    prefs.s.remember(&a.name);
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -202,12 +226,14 @@ fn main() {
         .insert_resource(net)
         .insert_resource(loading)
         .insert_resource(menu)
-        .init_resource::<Menu>()
+        .insert_resource(prefs)
+        .insert_resource(account)
+        .init_resource::<view::Uploaded>()
         .insert_resource(Start(a.camera))
         .init_resource::<Solids>()
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
-        .add_systems(Update, (toggle_menu, grab_mouse.after(toggle_menu), look_and_walk, show_status, spawn_room, realtime_sync.after(look_and_walk)))
+        .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), look_and_walk, show_status, spawn_room, realtime_sync.after(look_and_walk)))
         .run();
 }
 
@@ -334,36 +360,234 @@ fn realtime_sync(
     }
 }
 
-/// Esc opens the escape menu over the room, or closes it.
-fn toggle_menu(
+/// Logs in as `account.name` on a thread of its own, which then joins the room and keeps the notification hub open
+/// until a newer login replaces it.
+fn log_in(account: &Account, status: &Status, net: &Net) {
+    let mine = account.gen.fetch_add(1, Ordering::SeqCst) + 1;
+    let gen = account.gen.clone();
+    let (server, address, room, spawn, yaw, name) = (account.server.clone(), account.realtime.clone(), account.room.clone(), account.spawn, account.yaw, account.name.clone());
+    let (shared, net_slot) = (status.0.clone(), net.0.clone());
+    *shared.lock().unwrap() = format!("Connecting to {server} as {name} ...");
+    std::thread::spawn(move || {
+        let s = match net::connect(&server, &Login::Name(name)) {
+            Ok(s) => s,
+            Err(e) => return *shared.lock().unwrap() = format!("Offline: {e}"),
+        };
+        let current = || gen.load(Ordering::SeqCst) == mine;
+        if !current() {
+            return;
+        }
+        let hub = s.open_hub();
+        *shared.lock().unwrap() = format!("{}  |  {} ({})  |  {}  |  notifications {}", s.motd, s.account.display_name,
+            s.account.username, if s.room.private { format!("{} (private)", s.room.name) } else { s.room.name.clone() },
+            if hub.is_ok() { "on" } else { "off" });
+        let address = address.unwrap_or_else(|| realtime::default_address(&server));
+        let room = room.unwrap_or(s.room.photon_room);
+        match realtime::start(&address, &room, &s.account.display_name, spawn, yaw) {
+            Ok(rt) if current() => *net_slot.lock().unwrap() = Some(rt),
+            Ok(rt) => rt.room.lock().unwrap().leave(rt.now()),
+            Err(e) => shared.lock().unwrap().push_str(&format!("  |  room server {address}: {e}")),
+        }
+        while current() {
+            std::thread::park_timeout(Duration::from_millis(500));
+        }
+        drop(hub);
+    });
+}
+
+/// Leaves the room, if in one; returns the connection, which closes once the server has seen the goodbye.
+fn leave_room(net: &Net) -> Option<Realtime> {
+    let rt = net.0.lock().unwrap().take()?;
+    rt.room.lock().unwrap().leave(rt.now());
+    Some(rt)
+}
+
+/// The escape menu's input: Esc opens it, closes it or leaves the name field; the pointer presses and drags its
+/// selectables, the wheel scrolls its lists, typing fills the name field, and clicks do what the page's controllers
+/// say.
+#[allow(clippy::too_many_arguments)]
+fn use_menu(
     mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
-    slot: Res<MenuSlot>,
+    (keys, mouse, wheel): (Res<ButtonInput<KeyCode>>, Res<ButtonInput<MouseButton>>, Res<AccumulatedMouseScroll>),
+    mut typing: MessageReader<KeyboardInput>,
+    mut menu: ResMut<Menu>,
+    mut prefs: ResMut<Prefs>,
+    mut account: ResMut<Account>,
+    (net, status): (Res<Net>, Res<Status>),
+    window: Single<&Window, With<PrimaryWindow>>,
+    avatars: Query<Entity, With<Avatar>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let menu = &mut *menu;
+    let page = menu.router.top().map(str::to_string);
+    let mut repaint = false;
+    let mut act = None;
+    for k in typing.read().filter(|k| menu.focused && k.state == ButtonState::Pressed) {
+        match &k.logical_key {
+            Key::Backspace => drop(menu.typed.pop()),
+            Key::Enter => act = Some(Action::Login),
+            _ => menu.typed.extend(k.text.iter().flat_map(|t| t.chars()).filter(|c| !c.is_control()).take(32 - menu.typed.chars().count().min(32))),
+        }
+        repaint = true;
+    }
+    if keys.just_pressed(KeyCode::Escape) {
+        if menu.focused {
+            menu.focused = false;
+        } else if menu.open() {
+            menu.router.close();
+        } else {
+            menu.router.open(menu::ESCAPE);
+        }
+        repaint = true;
+    }
+    if let (Some((p, _, _)), Some(cursor)) = (&menu.shown, window.cursor_position()) {
+        let at = view::to_canvas(&p.drawn, window.size(), cursor);
+        let over = input::hit(&p.drawn, at).map(|i| i.id);
+        let click = menu.pointer.update(over, mouse.just_pressed(MouseButton::Left), mouse.just_released(MouseButton::Left));
+        // a pressed slider follows the pointer
+        let held = menu.pointer.down.and_then(|d| input::selectables(&p.drawn).into_iter().find(|i| i.id == d));
+        if let (Some(i), Some(Action::Slider(key))) = (held, menu.pointer.down.and_then(|d| p.actions.get(&d))) {
+            if let Some(v) = i.slider_value(at).filter(|v| *v as f64 != prefs.s.get(key)) {
+                prefs.s.set(key, v as f64);
+                (prefs.changed, repaint) = (true, true);
+            }
+        }
+        act = act.or_else(|| click.and_then(|c| p.actions.get(&c).cloned()));
+        if mouse.just_pressed(MouseButton::Left) && menu.focused && act != Some(Action::Field) {
+            (menu.focused, repaint) = (false, true);
+        }
+        let lines = match wheel.unit { MouseScrollUnit::Line => wheel.delta.y * 60.0, MouseScrollUnit::Pixel => wheel.delta.y };
+        for &(id, content, viewport) in p.scrolls.iter().filter(|_| lines != 0.0) {
+            let (Some(c), Some(v)) = (input::placed(&p.drawn, content), input::placed(&p.drawn, viewport)) else { continue };
+            if input::contains(&v, at) {
+                let y = menu.scroll.entry(id).or_default();
+                *y = (*y - lines).clamp(0.0, (c.h - v.h).max(0.0));
+                repaint = true;
+            }
+        }
+    }
+    let mut switch_to = None;
+    match act.clone() {
+        Some(Action::Back) => drop(menu.router.back()),
+        Some(Action::Close) => menu.router.close(),
+        Some(Action::Go { page, tab: true }) => menu.router.tab(&page),
+        Some(Action::Go { page, tab: false }) => menu.router.open(&page),
+        Some(Action::SwitchAccount) => menu.router.open(menu::SWITCH_ACCOUNT),
+        Some(Action::Quit) => {
+            // out of the room before the window goes, so the others see this player leave at once
+            if let Some(rt) = leave_room(&net) {
+                let since = Instant::now();
+                while !rt.room.lock().unwrap().is_closed() && since.elapsed() < Duration::from_secs(1) {
+                    std::thread::yield_now();
+                }
+            }
+            exit.write(AppExit::Success);
+        }
+        Some(Action::Toggle(key)) => {
+            let on = prefs.s.on(&key);
+            prefs.s.set(&key, if on { 0.0 } else { 1.0 });
+            prefs.changed = true;
+        }
+        Some(Action::Field) => menu.focused = true,
+        Some(Action::Login) => switch_to = Some(menu.typed.trim().to_string()).filter(|n| !n.is_empty()),
+        Some(Action::Account(name)) => switch_to = Some(name),
+        Some(Action::Slider(_)) | None => {}
+    }
+    if let Some(name) = switch_to {
+        if name != account.name {
+            leave_room(&net);
+            for a in &avatars {
+                commands.entity(a).despawn();
+            }
+            account.name = name;
+            log_in(&account, &status, &net);
+            prefs.s.remember(&account.name);
+            prefs.changed = true;
+        }
+        menu.router.close();
+        (menu.typed, menu.focused) = (String::new(), false);
+    }
+    if menu.router.top().map(str::to_string) != page {
+        menu.pointer = Pointer::default();
+    }
+    if repaint || act.is_some() {
+        menu.ask(&prefs.s, &account.name);
+    }
+}
+
+/// Puts each page the painter finishes on screen (if it is still the one on top), fits it again when the window
+/// changes size, and tints its selectables by the pointer.
+#[allow(clippy::too_many_arguments)]
+fn show_menu(
+    mut commands: Commands,
     mut menu: ResMut<Menu>,
     status: Res<Status>,
     window: Single<&Window, With<PrimaryWindow>>,
     mut images: ResMut<Assets<Image>>,
     mut fonts: ResMut<Assets<Font>>,
+    mut uploaded: ResMut<view::Uploaded>,
+    mut graphics: Query<view::Tinted>,
 ) {
-    if let Some(r) = slot.0.lock().unwrap().take() {
+    let menu = &mut *menu;
+    let size = window.size();
+    let mut next = None;
+    while let Some(r) = menu.painter.as_ref().and_then(Painter::take) {
         match r {
-            Ok(page) => menu.page = Some(page),
+            Ok(p) => next = Some(p),
             Err(e) => status.0.lock().unwrap().push_str(&format!("  |  menu: {e}")),
         }
     }
-    if !keys.just_pressed(KeyCode::Escape) {
+    let resized = menu.shown.as_ref().is_some_and(|s| s.2 != size);
+    let next = next.filter(|p| menu.router.top() == Some(p.page.as_str())).or_else(|| resized.then(|| menu.shown.take().map(|s| {
+        commands.entity(s.1).despawn();
+        s.0
+    })).flatten());
+    if !menu.open() || next.is_some() {
+        if let Some((_, root, _)) = menu.shown.take() {
+            commands.entity(root).despawn();
+        }
+    }
+    if let Some(p) = next.filter(|_| menu.open()) {
+        let root = view::spawn(&mut commands, &mut images, &mut fonts, &mut uploaded, &p.drawn, size);
+        menu.shown = Some((p, root, size));
+    }
+    if let Some((p, _, _)) = &menu.shown {
+        view::tint(&p.drawn, &menu.pointer, &mut graphics);
+    }
+}
+
+/// Puts changed settings into effect (view, window) and saves them.
+fn apply_settings(mut prefs: ResMut<Prefs>, mut window: Single<&mut Window, With<PrimaryWindow>>, mut projection: Single<&mut Projection, With<Player>>) {
+    if !prefs.changed {
         return;
     }
-    if let Some(root) = menu.open.take() {
-        commands.entity(root).despawn();
-    } else if let Some(page) = &menu.page {
-        menu.open = Some(view::spawn(&mut commands, &mut images, &mut fonts, page, window.size()));
+    prefs.changed = false;
+    let s = &prefs.s;
+    if let Projection::Perspective(p) = &mut **projection {
+        p.fov = (s.get("fov") as f32).clamp(30.0, 120.0).to_radians();
+    }
+    let present = if s.on("vsync") { PresentMode::AutoVsync } else { PresentMode::AutoNoVsync };
+    if window.present_mode != present {
+        window.present_mode = present;
+    }
+    let mode = if s.on("fullscreen") { WindowMode::BorderlessFullscreen(MonitorSelection::Current) } else { WindowMode::Windowed };
+    if window.mode != mode {
+        window.mode = mode;
+    }
+    let (w, h) = RESOLUTIONS[(s.get("resolution").max(0.0) as usize).min(RESOLUTIONS.len() - 1)];
+    if mode == WindowMode::Windowed && (window.resolution.width(), window.resolution.height()) != (w as f32, h as f32) {
+        window.resolution.set(w as f32, h as f32);
+    }
+    if let Some(path) = Settings::path() {
+        if let Err(e) = s.save(&path) {
+            warn!("settings not saved to {}: {e}", path.display());
+        }
     }
 }
 
 fn grab_mouse(mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>, mouse: Res<ButtonInput<MouseButton>>, keys: Res<ButtonInput<KeyCode>>, menu: Res<Menu>) {
     // clicks on an open menu are the menu's
-    if mouse.just_pressed(MouseButton::Left) && menu.open.is_none() {
+    if mouse.just_pressed(MouseButton::Left) && !menu.open() {
         cursor.grab_mode = CursorGrabMode::Locked;
         cursor.visible = false;
     }
@@ -380,11 +604,19 @@ fn look_and_walk(
     cursor: Single<&CursorOptions, With<PrimaryWindow>>,
     mut player: Single<(&mut Player, &mut Transform)>,
     solids: Res<Solids>,
+    (prefs, menu): (Res<Prefs>, Res<Menu>),
 ) {
     let (p, t) = &mut *player;
+    // typing into the menu does not walk
+    let idle = ButtonInput::default();
+    let keys = if menu.focused { &idle } else { &*keys };
     if cursor.grab_mode != CursorGrabMode::None {
-        p.yaw -= motion.delta.x * 0.002;
-        p.pitch = (p.pitch - motion.delta.y * 0.002).clamp(-1.5, 1.5);
+        // 0.002 rad per pixel at the game's default sensitivity, 50; INFERRED: the look sliders scale each axis the same way
+        let s = &prefs.s;
+        let k = 0.002 * s.get("mouse_sensitivity") as f32 / 50.0;
+        let axis = |look: &str, invert: &str| k * s.get(look) as f32 / 50.0 * if s.on(invert) { -1.0 } else { 1.0 };
+        p.yaw -= motion.delta.x * axis("look_horizontal", "invert_x");
+        p.pitch = (p.pitch - motion.delta.y * axis("look_vertical", "invert_y")).clamp(-1.5, 1.5);
         t.rotation = Quat::from_euler(EulerRot::YXZ, p.yaw, p.pitch, 0.0);
     }
     // a frame that took long (the room arriving, a dragged window) moves no more than a tenth of a second's worth
@@ -445,15 +677,6 @@ fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>
 /// Our placement of the Dorm pieces the game does not author in place (the original layout is in the scrambled
 /// level files).
 const DORM_LAYOUT: &str = include_str!("../rooms/dorm.layout");
-
-/// The escape menu page, themed and laid out on its canvas.
-fn load_menu(lib: &mut room::Library, dir: &std::path::Path) -> Result<paint::Drawn, String> {
-    let pages = prefab::Pages::open(dir)?;
-    let mut page = prefab::load(lib, &pages, dir, "(EscapeMenu_standalone)")?;
-    theme::Theme::load(lib, &pages, dir)?.apply(&mut page);
-    // INFERRED: the canvas that hosts the standalone escape menu is not in its prefab; this size fits its content
-    Ok(paint::page(lib, &page, [1000.0, 1150.0]))
-}
 
 /// The Dorm's pieces, from the Addressables bundle that holds them (found with unity-assets' catalog tool).
 fn load_dorm(lib: &mut room::Library, dir: &std::path::Path) -> Result<RoomData, String> {

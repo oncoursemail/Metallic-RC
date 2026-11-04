@@ -1,43 +1,43 @@
-//! Opens a window showing one menu page from the installed game, drawn with Bevy UI.
-//! `cargo run --release -p metallic-rc-client --example ui_view [address] [width height] [game dir]`
+//! Opens a window showing one menu page from the installed game, as the client's menu builds it, drawn with Bevy UI.
+//! `cargo run --release -p metallic-rc-client --example ui_view [address] [game dir]`
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use metallic_rc_client::room::{self, Library};
-use metallic_rc_client::ui::{paint, prefab, theme, view};
+use metallic_rc_client::room;
+use metallic_rc_client::settings::Settings;
+use metallic_rc_client::ui::{menu, view};
 
 #[derive(Resource)]
-struct Shown(Option<paint::Drawn>);
+struct Shown(menu::Painter);
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let address = args.first().cloned().unwrap_or_else(|| "(EscapeMenu_standalone)".into());
-    let canvas = match (args.get(1).and_then(|a| a.parse().ok()), args.get(2).and_then(|a| a.parse().ok())) {
-        (Some(w), Some(h)) => [w, h],
-        _ => [1000.0, 1150.0],
-    };
-    let game = args.get(3).map(std::path::PathBuf::from)
+    let address = args.first().cloned().unwrap_or_else(|| menu::ESCAPE.into());
+    let game = args.get(1).map(std::path::PathBuf::from)
         .or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()))
         .expect("no game folder");
-    let dir = room::bundle_dir(&game);
-    let pages = prefab::Pages::open(&dir).unwrap();
-    let mut lib = Library::new(&dir).unwrap();
-    let mut page = prefab::load(&mut lib, &pages, &dir, &address).unwrap();
-    theme::Theme::load(&mut lib, &pages, &dir).unwrap().apply(&mut page);
-    let drawn = paint::page(&mut lib, &page, canvas);
+    let painter = menu::Painter::start(room::bundle_dir(&game));
+    painter.ask(menu::Request { page: address.clone(), back_stack: 1, settings: Settings::default(), account: "Player".into(), typed: String::new(),
+        focused: false, scroll: HashMap::new() });
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window { title: format!("Metallic RC: {address}"), ..default() }),
             ..default()
         }))
         .insert_resource(ClearColor(Color::srgb(0.18, 0.2, 0.24)))
-        .insert_resource(Shown(Some(drawn)))
+        .insert_resource(Shown(painter))
+        .init_resource::<view::Uploaded>()
         .add_systems(Startup, |mut c: Commands| { c.spawn(Camera2d); })
         .add_systems(Update, show)
         .run();
 }
 
-fn show(mut commands: Commands, mut shown: ResMut<Shown>, window: Single<&Window, With<PrimaryWindow>>, mut images: ResMut<Assets<Image>>, mut fonts: ResMut<Assets<Font>>) {
-    if let Some(d) = shown.0.take() {
-        view::spawn(&mut commands, &mut images, &mut fonts, &d, window.size());
+fn show(mut commands: Commands, shown: Res<Shown>, window: Single<&Window, With<PrimaryWindow>>, mut images: ResMut<Assets<Image>>, mut fonts: ResMut<Assets<Font>>,
+    mut uploaded: ResMut<view::Uploaded>) {
+    match shown.0.take() {
+        Some(Ok(p)) => drop(view::spawn(&mut commands, &mut images, &mut fonts, &mut uploaded, &p.drawn, window.size())),
+        Some(Err(e)) => eprintln!("{e}"),
+        None => {}
     }
 }

@@ -3,5 +3,6 @@ pub mod collide;
 pub mod net;
 pub mod realtime;
 pub mod room;
+pub mod settings;
 pub mod shapes;
 pub mod ui;

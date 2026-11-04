@@ -1,0 +1,739 @@
+//! The escape menu and the pages it opens. The pages are the game's prefabs; what the game's controller
+//! implementations (`XModelController/YImpl`, see `prefab::Element::impls`) do is done here by class name: show or
+//! hide parts, show settings values, list accounts, and turn clicks on the selectables they hold into [`Action`]s.
+//! A [`Router`] keeps pages open over each other, as the game's BrowserModel history does.
+//!
+//! Behaviour is INFERRED from class and field names and the serialized data (no method bodies read): e.g. a
+//! `HideIfBackStackEmptyImpl` hides its Hideable while there is no page to go back to, a `LinkButtonImpl` goes to its
+//! route, a `SettingsModelController/XToggleImpl` flips setting X and shows it on its ToggleTheme.
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::Mutex;
+
+use unity_assets::{PPtr, Value};
+
+use super::paint::{self, Drawn, Looks};
+use super::prefab::{self, Element, Pages, TEMPLATE};
+use super::theme::Theme;
+use crate::room::Library;
+use crate::settings::{Settings, RESOLUTIONS};
+
+pub const ESCAPE: &str = "(EscapeMenu_standalone)";
+pub const SWITCH_ACCOUNT: &str = "(SwitchAccount)";
+pub const LOGIN: &str = "(Login)";
+pub const CONTROLS: &str = "(Watch_Settings_Page_Controls_Tab)";
+pub const VISUALS: &str = "(Watch_Settings_Page_Visuals_Tab)";
+
+/// Route GUIDs (the 16 raw bytes, as hex) and their pages. INFERRED: each settings route is matched to the tab page
+/// named like the label of the chip that links to it; the game's route table is in the scrambled resources.
+const ROUTES: &[(&str, &str)] = &[
+    ("4c33ae70f8964d4eb4ba4e5dc16665d6", CONTROLS),
+    ("a5cbbefc9573c645bb06db752e63253d", "(Watch_Settings_Page_Experience_Tab)"),
+    ("48c801b81c12124bb45db9c41f94b20a", VISUALS),
+    ("041657165fbb9f41a441537f35c1d6c5", "(Watch_Settings_Page_Audio_Tab)"),
+    ("065a5b072d59fb4aa83d3444ea895cd3", "(Watch_Settings_Page_Comfort_Tab)"),
+    ("12b69c8b03d8404bbb4e08fafe1ff566", "(Watch_Settings_Page_Export_Tab)"),
+    ("15414df7960bc44781cf3af00421eafa", "(Watch_Settings_Page_Misc_Tab)"),
+    ("eb3a5a2933ace243b78a5080107db884", "(Watch_Settings_Page_Notifications_Tab)"),
+    ("af20ad2e3766324ca94e0e817c1e4081", "(Watch_Settings_Page_DevOnly_Tab)"),
+];
+
+/// Every page the menu can show, for loading up front.
+pub fn pages() -> Vec<&'static str> {
+    let mut v = vec![ESCAPE, SWITCH_ACCOUNT, LOGIN];
+    v.extend(ROUTES.iter().map(|(_, p)| *p));
+    v
+}
+
+fn page_of(route: &str) -> Option<&'static str> {
+    ROUTES.iter().find(|(r, _)| *r == route).map(|(_, p)| *p)
+}
+
+/// Pages open over each other: the bottom one is the escape menu.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Router {
+    pages: Vec<String>,
+}
+
+impl Router {
+    pub fn open(&mut self, page: &str) {
+        self.pages.push(page.to_string());
+    }
+
+    /// A tab of the page on top (a page group): replaces it, so Back skips the tabs seen.
+    pub fn tab(&mut self, page: &str) {
+        match self.pages.last_mut() {
+            Some(top) => *top = page.to_string(),
+            None => self.open(page),
+        }
+    }
+
+    /// Back one page; false when there was none to go back to.
+    pub fn back(&mut self) -> bool {
+        self.pages.len() > 1 && self.pages.pop().is_some()
+    }
+
+    pub fn close(&mut self) {
+        self.pages.clear();
+    }
+
+    pub fn top(&self) -> Option<&str> {
+        self.pages.last().map(String::as_str)
+    }
+
+    /// Pages under the top one.
+    pub fn back_stack(&self) -> usize {
+        self.pages.len().saturating_sub(1)
+    }
+}
+
+/// What a click on a page does.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Action {
+    Back,
+    Close,
+    /// open a page; `tab`: in place of the top one
+    Go { page: String, tab: bool },
+    SwitchAccount,
+    Quit,
+    /// flip a switch setting
+    Toggle(String),
+    /// a slider setting, set by dragging
+    Slider(String),
+    /// log in as this account
+    Account(String),
+    /// the name field of the login page, which takes typing once clicked
+    Field,
+    /// log in with the typed name
+    Login,
+}
+
+/// What a page shows besides its prefab.
+pub struct Ctx<'a> {
+    pub page: &'a str,
+    pub back_stack: usize,
+    pub settings: &'a Settings,
+    /// the account logged in now
+    pub account: &'a str,
+    /// the login page's name field and whether it has the keyboard
+    pub typed: &'a str,
+    pub focused: bool,
+    /// scroll offsets by ScrollRect component id, in canvas units down from the top
+    pub scroll: &'a HashMap<i64, f32>,
+}
+
+/// A page made ready to lay out.
+pub struct Built {
+    pub page: Element,
+    pub actions: HashMap<i64, Action>,
+    /// ScrollRect component id, content and viewport RectTransform ids
+    pub scrolls: Vec<(i64, i64, i64)>,
+}
+
+/// Rows the client adds to a page, copied from rows of the game's pages: a slider row and a switch row.
+pub struct Donors {
+    pub slider: Option<Element>,
+    pub switch: Option<Element>,
+}
+
+impl Donors {
+    /// The Head Bob slider row of the Controls tab and the VSync switch row of the Visuals tab.
+    pub fn find(controls: Option<&Element>, visuals: Option<&Element>) -> Donors {
+        let row = |root: Option<&Element>, class: &str, name: &str| {
+            root.and_then(|r| find(r, &|e| e.name.contains(name) && e.walk().iter().any(|(_, k)| k.impls().iter().any(|(c, _)| c.ends_with(class))))).cloned()
+        };
+        Donors { slider: row(controls, "/HeadBobSliderImpl", "[Slider"), switch: row(visuals, "/EnableVSyncToggleImpl", "[PanelWithPaddingHorizontal]") }
+    }
+}
+
+fn find<'a>(e: &'a Element, f: &dyn Fn(&Element) -> bool) -> Option<&'a Element> {
+    if f(e) {
+        return Some(e);
+    }
+    e.children.iter().find_map(|c| find(c, f))
+}
+
+fn find_mut<'a>(e: &'a mut Element, f: &dyn Fn(&Element) -> bool) -> Option<&'a mut Element> {
+    if f(e) {
+        return Some(e);
+    }
+    e.children.iter_mut().find_map(|c| find_mut(c, f))
+}
+
+fn has_component(e: &Element, id: i64) -> bool {
+    e.components.iter().any(|c| c.id == id)
+}
+
+fn pptr(v: &Value, name: &str) -> Option<i64> {
+    v.get(name).and_then(Value::as_pptr).filter(|p| p.file_id == 0 && !p.is_null()).map(|p| p.path_id)
+}
+
+fn hex(b: &[u8]) -> String {
+    b.iter().map(|x| format!("{x:02x}")).collect()
+}
+
+/// The route an impl links to: `route`, or the first of `defaultUri`'s.
+fn route(d: &Value) -> Option<String> {
+    let r = d.get("route").or_else(|| d.path("defaultUri/route").and_then(Value::as_array).and_then(|a| a.first()))?;
+    r.path("viewGuid/bytes").and_then(Value::as_bytes).map(hex)
+}
+
+fn set(v: &mut Value, name: &str, new: Value) {
+    if let Value::Struct { fields, .. } = v {
+        match fields.iter_mut().find(|(n, _)| &**n == name) {
+            Some((_, x)) => *x = new,
+            None => fields.push((name.into(), new)),
+        }
+    }
+}
+
+/// Sets the text of the TMP text component `id`.
+fn set_text(root: &mut Element, id: i64, text: &str) {
+    if let Some(e) = find_mut(root, &|e| has_component(e, id)) {
+        for c in e.components.iter_mut().filter(|c| c.id == id) {
+            set(&mut c.value, "m_text", Value::String(text.to_string()));
+        }
+    }
+}
+
+/// Shows or hides the element carrying component `id` (a Hideable, usually).
+fn show(root: &mut Element, id: i64, on: bool) {
+    if let Some(e) = find_mut(root, &|e| has_component(e, id)) {
+        e.active = on;
+    }
+}
+
+/// `SetCamelCase` -> `set_camel_case`
+fn snake(s: &str) -> String {
+    let mut out = String::new();
+    for (i, c) in s.chars().enumerate() {
+        if c.is_uppercase() && i > 0 {
+            out.push('_');
+        }
+        out.extend(c.to_lowercase());
+    }
+    out
+}
+
+/// The setting a SettingsModelController switch or slider shows, by its impl.
+fn setting(class: &str, d: &Value) -> Option<String> {
+    let name = class.strip_prefix("SettingsModelController/")?;
+    let n = |k: &str| d.get(k).and_then(Value::as_i64).unwrap_or(0);
+    Some(match name {
+        "InvertCameraToggleImpl" => (if n("Horizontal") == 1 { "invert_x" } else { "invert_y" }).to_string(),
+        "EnableVSyncToggleImpl" => "vsync".to_string(),
+        // axis 0 is the mouse, 1 and 2 the look axes (from the row labels)
+        "CameraVerticalSensitivitySliderImpl" => ["mouse_sensitivity", "look_horizontal", "look_vertical"].get(n("axis") as usize)?.to_string(),
+        // volume types from the row labels: 0 overall, 2 sounds, 3 music
+        "VolumeSliderImpl" => match n("Type") {
+            0 => "volume_master".to_string(),
+            2 => "volume_sfx".to_string(),
+            3 => "volume_music".to_string(),
+            t => format!("volume_{t}"),
+        },
+        // radio groups pick one of several values; not handled yet
+        _ if name.contains("Radio") || name.starts_with("GraphicsQuality") => return None,
+        _ => snake(name.strip_suffix("ToggleImpl").or_else(|| name.strip_suffix("SliderImpl"))?),
+    })
+}
+
+/// Hide-if impls: Some(true) to hide their Hideable, Some(false) to show it, None to leave it. The client is on a PC
+/// screen with mouse and keyboard (INFERRED: input type 1, from the `[MKB_ONLY]` rows), not a developer, not junior.
+fn hidden(class: &str, d: &Value, ctx: &Ctx) -> Option<bool> {
+    let name = class.rsplit('/').next().unwrap_or(class);
+    let input = d.get("inputType").and_then(Value::as_i64);
+    Some(match name {
+        "HideIfBackStackEmptyImpl" => ctx.back_stack == 0,
+        "HideIfBackStackNotEmptyImpl" => ctx.back_stack > 0,
+        "HideIfScreensImpl" | "HideIfNotDeveloperImpl" | "HideIfExportNotAllowedImpl" | "HideIfControlSchemeCantBeChangedImpl"
+        | "HideCachedLoginErrorImpl" | "HideLoginErrorImpl" | "HideIfHasNotRefreshedImpl" => true,
+        "HideIfVRImpl" | "HideIfNotScreensImpl" | "HideIfJuniorImpl" | "HideIfWatchUIOnLockdownImpl" | "HideIfCanNotLogoutImpl"
+        | "HideIfCanNotQuitImpl" | "HideIfUserIsOnPlatformImpl" | "HideIfGraphicsLockedImpl" => false,
+        "HideIfScreensInputModeImpl" => input == Some(1),
+        "HideIfNotScreensInputModeImpl" => input != Some(1),
+        _ => return None,
+    })
+}
+
+/// Gives a copied subtree ids of its own (object ids xor `salt`), references inside it included.
+fn fresh(e: &Element, salt: i64) -> Element {
+    let mut ids = HashSet::new();
+    for (_, k) in e.walk() {
+        ids.extend([k.id, k.transform]);
+        ids.extend(k.components.iter().map(|c| c.id));
+    }
+    fn fix(v: &mut Value, ids: &HashSet<i64>, salt: i64) {
+        match v {
+            Value::PPtr(p) if p.file_id == 0 && ids.contains(&p.path_id) => *p = PPtr { file_id: 0, path_id: p.path_id ^ salt },
+            Value::Array(a) => a.iter_mut().for_each(|x| fix(x, ids, salt)),
+            Value::Map(m) => m.iter_mut().for_each(|(a, b)| (fix(a, ids, salt), fix(b, ids, salt)).1),
+            Value::Struct { fields, .. } => fields.iter_mut().for_each(|(_, x)| fix(x, ids, salt)),
+            _ => {}
+        }
+    }
+    let mut out = e.clone();
+    out.each_mut(&mut |k| {
+        (k.id, k.transform) = (k.id ^ salt, k.transform ^ salt);
+        for c in &mut k.components {
+            c.id ^= salt;
+            fix(&mut c.value, &ids, salt);
+        }
+    });
+    out
+}
+
+/// What a page's impls wire up: actions by selectable id, switches by ToggleTheme id, sliders by selectable id.
+#[derive(Default)]
+struct Wiring {
+    actions: HashMap<i64, Action>,
+    switches: Vec<(i64, String)>,
+    sliders: Vec<(i64, String)>,
+}
+
+/// Adds a copy of `donor` after the element `after` names, wired to setting `key`, its texts (in tree order) replaced
+/// by `texts` where given.
+fn add_row(page: &mut Element, donor: &Element, after: &dyn Fn(&Element) -> bool, texts: &[Option<&str>], key: &str, salt: i64, w: &mut Wiring) {
+    let mut row = fresh(donor, salt);
+    let mut wired = false;
+    row.each_mut(&mut |e| {
+        for (class, d) in e.impls() {
+            if let (Some(_), Some(theme)) = (setting(class, d), pptr(d, "toggleTheme")) {
+                w.switches.push((theme, key.to_string()));
+                w.actions.insert(pptr(d, "button").unwrap_or(0), Action::Toggle(key.to_string()));
+                wired = true;
+            } else if let (Some(_), Some(s)) = (setting(class, d), pptr(d, "slider")) {
+                w.sliders.push((s, key.to_string()));
+                w.actions.insert(s, Action::Slider(key.to_string()));
+                wired = true;
+            }
+        }
+        // the copy's own controllers would wire it to the donor's setting
+        e.components.retain(|c| c.value.get("implementation").is_none());
+    });
+    if !wired {
+        return;
+    }
+    let ids: Vec<i64> = row.walk().iter().filter_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id)).collect();
+    for (id, text) in ids.into_iter().zip(texts) {
+        if let Some(t) = text {
+            set_text(&mut row, id, t);
+        }
+    }
+    fn insert(e: &mut Element, after: &dyn Fn(&Element) -> bool, row: &mut Option<Element>) {
+        if let Some(i) = e.children.iter().position(after) {
+            if let Some(r) = row.take() {
+                e.children.insert(i + 1, r);
+            }
+            return;
+        }
+        for c in &mut e.children {
+            insert(c, after, row);
+        }
+    }
+    insert(page, after, &mut Some(row));
+}
+
+/// Unity's Slider: the fill reaches the value and the handle sits on it, both the full height of their boxes (left to
+/// right sliders).
+fn show_slider(root: &mut Element, id: i64, value: f32, range: Option<(f32, f32)>, shown: &str) {
+    let Some(e) = find_mut(root, &|e| has_component(e, id)) else { return };
+    let Some(c) = e.components.iter_mut().find(|c| c.id == id) else { return };
+    if let Some((min, max)) = range {
+        set(&mut c.value, "m_MinValue", Value::Float(min as f64));
+        set(&mut c.value, "m_MaxValue", Value::Float(max as f64));
+    }
+    let v = &c.value;
+    let num = |n: &str, d: f32| v.get(n).and_then(Value::as_f32).unwrap_or(d);
+    let (min, max) = (num("m_MinValue", 0.0), num("m_MaxValue", 1.0));
+    let t = if max > min { ((value - min) / (max - min)).clamp(0.0, 1.0) } else { 0.0 };
+    let (fill, handle) = (pptr(v, "m_FillRect"), pptr(v, "m_HandleRect"));
+    let labels = [("currentValueLabel", shown.to_string()), ("minValueLabel", min.round().to_string()), ("maxValueLabel", max.round().to_string())]
+        .map(|(n, x)| (pptr(v, n), x));
+    set(&mut c.value, "m_Value", Value::Float(value as f64));
+    root.each_mut(&mut |e| {
+        if Some(e.transform) == fill {
+            (e.rect.anchor_min, e.rect.anchor_max) = ([0.0, 0.0], [t, 1.0]);
+        }
+        if Some(e.transform) == handle {
+            (e.rect.anchor_min, e.rect.anchor_max) = ([t, 0.0], [t, 1.0]);
+        }
+    });
+    for (label, x) in labels {
+        if let Some(l) = label {
+            set_text(root, l, &x);
+        }
+    }
+}
+
+/// Our ranges for the settings the game has no slider for.
+fn range(key: &str) -> Option<(f32, f32)> {
+    match key {
+        "fov" => Some((40.0, 110.0)),
+        "resolution" => Some((0.0, (RESOLUTIONS.len() - 1) as f32)),
+        _ => None,
+    }
+}
+
+/// What a slider shows as its value: the window height for the window size, else the number.
+fn shown(key: &str, v: f64) -> String {
+    match key {
+        "resolution" => format!("{}p", RESOLUTIONS[(v.max(0.0) as usize).min(RESOLUTIONS.len() - 1)].1),
+        _ => format!("{}", v.round()),
+    }
+}
+
+/// `template` as the page shows now: what its impls do under `ctx`, themed.
+pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> Built {
+    let mut page = template.clone();
+    let mut w = Wiring::default();
+    // our rows: under the VSync switch on the Visuals tab
+    if ctx.page == VISUALS {
+        let vsync = |e: &Element| e.name.starts_with("[PanelWithPaddingHorizontal]") && e.children.iter().any(|k| k.name.starts_with("VSync"));
+        // added in reverse, each right under the VSync row
+        // the slider rows' texts: label, lowest, value (shown by the slider), highest
+        if let Some(d) = &donors.slider {
+            add_row(&mut page, d, &vsync, &[Some("Field of View"), Some("40"), None, Some("110")], "fov", 3 << 56, &mut w);
+            add_row(&mut page, d, &vsync, &[Some("Window Size"), Some("720p"), None, Some("2160p")], "resolution", 2 << 56, &mut w);
+        }
+        if let Some(d) = &donors.switch {
+            add_row(&mut page, d, &vsync, &[Some("Fullscreen"), Some("Fills the screen, without a window border.")], "fullscreen", 1 << 56, &mut w);
+        }
+    }
+    let mut hides: Vec<(i64, bool)> = vec![];
+    let mut texts: Vec<(i64, String)> = vec![];
+    let mut active = HashSet::new();
+    let mut cards = None;
+    for (_, e) in page.walk() {
+        for (class, d) in e.impls() {
+            let name = class.rsplit('/').next().unwrap_or(class);
+            if let (Some(h), Some(hide)) = (pptr(d, "hideable"), hidden(class, d, ctx)) {
+                hides.push((h, hide));
+            }
+            let button = pptr(d, "button");
+            let action = match name {
+                "NavigateBackButtonImpl" => Some(Action::Back),
+                "CloseWatchMenuButtonImpl" => Some(Action::Close),
+                "LogoutButtonImpl" | "GoToSwitchAccountPageButtonImpl" => Some(Action::SwitchAccount),
+                "QuitButtonImpl" => Some(Action::Quit),
+                "GoToLoginPageButtonImpl" => Some(Action::Go { page: LOGIN.into(), tab: false }),
+                "ManualLoginButtonImpl" => Some(Action::Login),
+                "WatchTabsImpl" | "LinkButtonImpl" => route(d).and_then(|r| page_of(&r)).map(|p| {
+                    if p == ctx.page {
+                        active.extend(pptr(d, "toggleTheme"));
+                    }
+                    Action::Go { page: p.into(), tab: d.get("treatAsPageGroup").and_then(Value::as_bool).unwrap_or(false) || ctx.page != ESCAPE && name == "LinkButtonImpl" }
+                }),
+                _ => None,
+            };
+            if let (Some(b), Some(a)) = (button, action) {
+                w.actions.insert(b, a);
+            }
+            if name == "LogoutButtonTextImpl" {
+                texts.extend(pptr(d, "textMeshProUGUI").map(|t| (t, "Switch Account".to_string())));
+            }
+            if name == "ManualLoginUsernameInputFieldImpl" {
+                if let Some(f) = pptr(d, "inputField") {
+                    w.actions.insert(f, Action::Field);
+                    let field = e.components.iter().find(|c| c.id == f);
+                    let text = field.and_then(|c| pptr(&c.value, "m_TextComponent"));
+                    let hint = field.and_then(|c| pptr(&c.value, "m_Placeholder"));
+                    let caret = if ctx.focused { "|" } else { "" };
+                    texts.extend(text.map(|t| (t, format!("{}{caret}", ctx.typed))));
+                    if let Some(h) = hint {
+                        hides.push((h, !ctx.typed.is_empty() || ctx.focused));
+                    }
+                }
+            }
+            // passwords, new accounts and the rest of the sign-in flow are not ours: their buttons and fields go
+            if class.starts_with("TitleScreenFlowModelController/") && (name.contains("Password") || name.contains("CreateNew") || name.contains("ResetPassword")) {
+                if let Some(x) = button.or(pptr(d, "inputField")) {
+                    hides.push((x, true));
+                }
+            }
+            if name == "CachedAccountCardSpawnerImpl" {
+                cards = pptr(d, "recyclingListScrollRect");
+            }
+            if let Some(key) = setting(class, d) {
+                if let (Some(b), Some(t)) = (button, pptr(d, "toggleTheme")) {
+                    w.actions.insert(b, Action::Toggle(key.clone()));
+                    w.switches.push((t, key));
+                } else if let Some(s) = pptr(d, "slider") {
+                    w.actions.insert(s, Action::Slider(key.clone()));
+                    w.sliders.push((s, key));
+                }
+            }
+        }
+    }
+    for (h, hide) in hides {
+        show(&mut page, h, !hide);
+    }
+    for (t, text) in texts {
+        set_text(&mut page, t, &text);
+    }
+    for (theme_id, key) in &w.switches {
+        if ctx.settings.on(key) {
+            active.insert(*theme_id);
+        }
+    }
+    for (s, key) in &w.sliders {
+        show_slider(&mut page, *s, ctx.settings.get(key) as f32, range(key), &shown(key, ctx.settings.get(key)));
+    }
+    if let Some(list) = cards {
+        account_cards(&mut page, list, ctx, &mut w.actions);
+    }
+    // scroll views: the content moves up by the offset
+    let mut scrolls = vec![];
+    for (_, e) in page.walk() {
+        if let Some(c) = e.component("UnityEngine.UI.ScrollRect") {
+            if let (Some(content), Some(viewport)) = (pptr(&c.value, "m_Content"), pptr(&c.value, "m_Viewport").or(Some(e.transform))) {
+                scrolls.push((c.id, content, viewport));
+            }
+        }
+    }
+    for (id, content, _) in &scrolls {
+        let y = ctx.scroll.get(id).copied().unwrap_or(0.0);
+        if let Some(e) = find_mut(&mut page, &|e| e.transform == *content) {
+            e.rect.anchored_position[1] += y;
+        }
+    }
+    theme.apply_with(&mut page, &active);
+    Built { page, actions: w.actions, scrolls }
+}
+
+/// The canvas a page is laid out on. INFERRED: the escape menu's host canvas is not in its prefab (this size fits
+/// its content); the title pages use the title surface, 1920 x 1080, and the watch pages a watch-shaped one.
+pub fn canvas(page: &str) -> [f32; 2] {
+    match page {
+        ESCAPE => [1000.0, 1150.0],
+        LOGIN | SWITCH_ACCOUNT => [1920.0, 1080.0],
+        _ => [1600.0, 1000.0],
+    }
+}
+
+/// A page to paint, with the state it shows.
+#[derive(Clone, Debug)]
+pub struct Request {
+    pub page: String,
+    pub back_stack: usize,
+    pub settings: Settings,
+    pub account: String,
+    pub typed: String,
+    pub focused: bool,
+    pub scroll: HashMap<i64, f32>,
+}
+
+/// A painted page: what to draw and what its selectables do.
+pub struct Painted {
+    pub page: String,
+    pub drawn: Drawn,
+    pub actions: HashMap<i64, Action>,
+    pub scrolls: Vec<(i64, i64, i64)>,
+}
+
+/// Paints pages on a thread of its own, which keeps the game's files open and the sprites and fonts it has read.
+pub struct Painter {
+    ask: Sender<Request>,
+    done: Mutex<Receiver<Result<Painted, String>>>,
+}
+
+impl Painter {
+    pub fn start(bundle_dir: PathBuf) -> Painter {
+        let (ask, asked) = channel::<Request>();
+        let (tell, done) = channel();
+        std::thread::spawn(move || {
+            let mut lib = match Library::new(&bundle_dir) {
+                Ok(l) => l,
+                Err(e) => return drop(tell.send(Err(format!("{}: {e}", bundle_dir.display())))),
+            };
+            let pages = Pages::open(&bundle_dir);
+            let theme = pages.as_ref().map_err(Clone::clone).and_then(|p| Theme::load(&mut lib, p, &bundle_dir));
+            let (pages, theme) = match (pages, theme) {
+                (Ok(p), Ok(t)) => (p, t),
+                (Err(e), _) | (_, Err(e)) => return drop(tell.send(Err(e))),
+            };
+            let mut looks = Looks::new(&mut lib);
+            let mut templates: HashMap<String, Element> = HashMap::new();
+            let mut template = |looks: &mut Looks, page: &str| -> Result<Element, String> {
+                if !templates.contains_key(page) {
+                    templates.insert(page.to_string(), prefab::load(looks.library(), &pages, &bundle_dir, page)?);
+                }
+                Ok(templates[page].clone())
+            };
+            let mut donors = None;
+            while let Ok(mut r) = asked.recv() {
+                // only the newest request matters
+                while let Ok(newer) = asked.try_recv() {
+                    r = newer;
+                }
+                let painted = template(&mut looks, &r.page).map(|t| {
+                    if r.page == VISUALS && donors.is_none() {
+                        let c = template(&mut looks, CONTROLS).ok();
+                        donors = Some(Donors::find(c.as_ref(), Some(&t)));
+                    }
+                    let none = Donors { slider: None, switch: None };
+                    let ctx = Ctx { page: &r.page, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused, scroll: &r.scroll };
+                    let b = build(&t, &ctx, &theme, donors.as_ref().unwrap_or(&none));
+                    Painted { drawn: paint::page_with(&mut looks, &b.page, canvas(&r.page)), page: r.page, actions: b.actions, scrolls: b.scrolls }
+                });
+                if tell.send(painted).is_err() {
+                    return;
+                }
+            }
+        });
+        Painter { ask, done: Mutex::new(done) }
+    }
+
+    pub fn ask(&self, r: Request) {
+        let _ = self.ask.send(r);
+    }
+
+    /// A page painted since the last call, if any.
+    pub fn take(&self) -> Option<Result<Painted, String>> {
+        self.done.lock().unwrap().try_recv().ok()
+    }
+}
+
+/// The account switcher's list: one card per account this PC has used, made from the list's item template, the
+/// current account first.
+fn account_cards(page: &mut Element, list: i64, ctx: &Ctx, actions: &mut HashMap<i64, Action>) {
+    let Some(holder) = find_mut(page, &|e| has_component(e, list)) else { return };
+    let Some(template) = holder.children.iter().find(|c| c.name.ends_with(TEMPLATE)).cloned() else { return };
+    let content = holder.components.iter().find(|c| c.id == list).and_then(|c| pptr(&c.value, "m_Content"));
+    let mut names: Vec<&str> = vec![ctx.account];
+    names.extend(ctx.settings.accounts.iter().map(String::as_str).filter(|a| *a != ctx.account && !a.is_empty()));
+    let Some(content) = find_mut(holder, &|e| Some(e.transform) == content) else { return };
+    for (i, name) in names.iter().enumerate() {
+        let mut card = fresh(&template, (i as i64 + 1) << 52);
+        card.active = true;
+        card.name = format!("{name} card");
+        let mut sets = vec![];
+        for (_, e) in card.walk() {
+            for (class, d) in e.impls() {
+                match class.rsplit('/').next().unwrap_or(class) {
+                    "DisplayNameTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, name.to_string()))),
+                    "PresenceTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, if i == 0 { "Playing now".to_string() } else { String::new() }))),
+                    "LevelTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, "1".to_string()))),
+                    "TitleScreenJoinButtonImpl" => {
+                        actions.extend(pptr(d, "button").map(|b| (b, Action::Account(name.to_string()))));
+                    }
+                    _ => {}
+                }
+            }
+        }
+        for (t, text) in sets {
+            set_text(&mut card, t, &text);
+        }
+        content.children.push(card);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::prefab::{Component, RectRules};
+
+    #[test]
+    fn the_router_stacks_pages_and_tabs_replace_the_top() {
+        let mut r = Router::default();
+        assert_eq!((r.top(), r.back_stack()), (None, 0));
+        r.open(ESCAPE);
+        assert!(!r.back(), "the escape menu stays when there is nothing to go back to");
+        r.open(CONTROLS);
+        r.tab(VISUALS);
+        assert_eq!((r.top(), r.back_stack()), (Some(VISUALS), 1));
+        r.open(LOGIN);
+        assert!(r.back());
+        assert_eq!(r.top(), Some(VISUALS));
+        assert!(r.back());
+        assert_eq!((r.top(), r.back_stack()), (Some(ESCAPE), 0));
+        r.close();
+        assert_eq!(r.top(), None);
+    }
+
+    fn s(fields: Vec<(&str, Value)>) -> Value {
+        Value::Struct { type_name: "".into(), fields: fields.into_iter().map(|(k, v)| (k.into(), v)).collect() }
+    }
+
+    fn ptr(id: i64) -> Value {
+        Value::PPtr(PPtr { file_id: 0, path_id: id })
+    }
+
+    /// A controller component holding one impl.
+    fn controller(id: i64, class: &str, data: Value) -> Component {
+        let refs = s(vec![("RefIds", Value::Array(vec![s(vec![("rid", Value::Int(0)), ("type", s(vec![("class", Value::String(class.into()))])), ("data", data)])]))]);
+        Component { class: "RRUI.Data.X".into(), value: s(vec![("implementation", s(vec![("rid", Value::Int(0))])), ("references", refs)]), file: None, id, enabled: true, themed: Default::default() }
+    }
+
+    fn comp(id: i64, class: &str) -> Component {
+        Component { class: class.into(), value: s(vec![]), file: None, id, enabled: true, themed: Default::default() }
+    }
+
+    fn el(name: &str, components: Vec<Component>, children: Vec<Element>) -> Element {
+        Element { name: name.into(), active: true, id: 0, transform: 0, rect: RectRules::default(), components, children }
+    }
+
+    #[test]
+    fn impls_become_actions_visibility_and_settings() {
+        let guid = Value::Bytes((0..16).map(|i| u8::from_str_radix(&ROUTES[0].0[i * 2..i * 2 + 2], 16).unwrap()).collect());
+        let back = el("back", vec![comp(10, "RRUI.MultiGraphicButton"), comp(11, "RRUI.Hideable"),
+            controller(12, "BrowserModelController/NavigateBackButtonImpl", s(vec![("button", ptr(10))])),
+            controller(13, "BrowserModelController/HideIfBackStackEmptyImpl", s(vec![("hideable", ptr(11))]))], vec![]);
+        let settings = el("settings", vec![comp(20, "RRUI.MultiGraphicButton"),
+            controller(21, "WatchModelController/WatchTabsImpl", s(vec![("button", ptr(20)), ("defaultUri", s(vec![("route", Value::Array(vec![s(vec![("viewGuid", s(vec![("bytes", guid)]))])]))]))]))], vec![]);
+        let invert = el("invert", vec![comp(30, "RRUI.MultiGraphicButton"), comp(31, "RRUI.Theme.SwitchTheme"),
+            controller(32, "SettingsModelController/InvertCameraToggleImpl", s(vec![("button", ptr(30)), ("toggleTheme", ptr(31)), ("Horizontal", Value::Int(0))]))], vec![]);
+        let page = el("page", vec![], vec![back, settings, invert]);
+        let mut st = Settings::default();
+        st.set("invert_y", 1.0);
+        let scroll = HashMap::new();
+        let ctx = Ctx { page: ESCAPE, back_stack: 0, settings: &st, account: "me", typed: "", focused: false, scroll: &scroll };
+        let mut w = Wiring::default();
+        // the theme is not needed to see the wiring: build's steps before it
+        let mut hides = vec![];
+        for (_, e) in page.walk() {
+            for (class, d) in e.impls() {
+                if let (Some(h), Some(x)) = (pptr(d, "hideable"), hidden(class, d, &ctx)) {
+                    hides.push((h, x));
+                }
+                if let Some(k) = setting(class, d) {
+                    w.switches.push((pptr(d, "toggleTheme").unwrap(), k));
+                }
+            }
+        }
+        assert_eq!(hides, [(11, true)]);
+        assert_eq!(w.switches, [(31, "invert_y".to_string())]);
+        assert_eq!(route(&page.children[1].impls()[0].1).as_deref(), Some(ROUTES[0].0));
+        assert_eq!(page_of(ROUTES[0].0), Some(CONTROLS));
+        assert_eq!(setting("SettingsModelController/AutoSprintToggleImpl", &s(vec![])).as_deref(), Some("auto_sprint"));
+        assert_eq!(setting("SettingsModelController/VolumeSliderImpl", &s(vec![("Type", Value::Int(3))])).as_deref(), Some("volume_music"));
+    }
+
+    #[test]
+    fn copies_get_their_own_ids_and_references() {
+        let mut a = el("a", vec![comp(5, "X")], vec![]);
+        a.components[0].value = s(vec![("self", ptr(5)), ("outside", ptr(99))]);
+        (a.id, a.transform) = (6, 7);
+        let b = fresh(&a, 1 << 40);
+        assert_eq!((b.id, b.transform, b.components[0].id), (6 ^ 1 << 40, 7 ^ 1 << 40, 5 ^ 1 << 40));
+        assert_eq!(pptr(&b.components[0].value, "self"), Some(5 ^ 1 << 40));
+        assert_eq!(pptr(&b.components[0].value, "outside"), Some(99));
+    }
+
+    #[test]
+    fn a_slider_shows_its_value() {
+        let mut slider = comp(1, "RRUI.InputFieldSlider");
+        slider.value = s(vec![("m_MinValue", Value::Float(0.0)), ("m_MaxValue", Value::Float(100.0)), ("m_FillRect", ptr(2)), ("m_HandleRect", ptr(3)), ("currentValueLabel", ptr(4))]);
+        let mut fill = el("fill", vec![], vec![]);
+        fill.transform = 2;
+        let mut handle = el("handle", vec![], vec![]);
+        handle.transform = 3;
+        let mut text = comp(4, "TMPro.TextMeshProUGUI");
+        text.value = s(vec![("m_text", Value::String("50".into()))]);
+        let mut page = el("slider", vec![slider], vec![fill, handle, el("label", vec![text], vec![])]);
+        show_slider(&mut page, 1, 25.0, None, "25");
+        assert_eq!((page.children[0].rect.anchor_min, page.children[0].rect.anchor_max), ([0.0, 0.0], [0.25, 1.0]));
+        assert_eq!((page.children[1].rect.anchor_min, page.children[1].rect.anchor_max), ([0.25, 0.0], [0.25, 1.0]));
+        assert_eq!(page.children[2].components[0].value.get("m_text").and_then(Value::as_str), Some("25"));
+    }
+}
