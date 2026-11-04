@@ -439,7 +439,9 @@ fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option
         // a mirror's glass: its mean normal and centre, for the mirror camera
         let glass = (r.materials[p.material].shader == "AG/Mirror" && !p.positions.is_empty()).then(|| {
             let mean = |v: &[[f32; 3]]| v.iter().fold(Vec3::ZERO, |a, x| a + Vec3::from(*x)) / v.len().max(1) as f32;
-            crate::mirror::Mirror { normal: mean(&p.normals).normalize_or(Vec3::Z), center: mean(&p.positions) }
+            let center = mean(&p.positions);
+            let radius = p.positions.iter().map(|x| Vec3::from(*x).distance(center)).fold(0.0, f32::max);
+            crate::mirror::Mirror { normal: mean(&p.normals).normalize_or(Vec3::Z), center, radius }
         });
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, p.positions);

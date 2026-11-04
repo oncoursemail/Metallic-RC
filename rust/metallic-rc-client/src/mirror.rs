@@ -19,6 +19,8 @@ use crate::render::AgMaterial;
 pub struct Mirror {
     pub normal: Vec3,
     pub center: Vec3,
+    /// the farthest vertex from the centre
+    pub radius: f32,
 }
 
 #[derive(Component)]
@@ -55,8 +57,10 @@ fn follow(
     mut reflection: ResMut<Reflection>,
 ) {
     let Some((eye, Projection::Perspective(lens), sky, env, exposure)) = main.iter().next() else { return };
-    // the nearest mirror; its glass reflects toward whichever side the eye is on (the Dorm mirror's mesh normals
-    // face the wall)
+    // the nearest mirror on screen; its glass reflects toward whichever side the eye is on (the Dorm mirror's mesh
+    // normals face the wall)
+    let aspect = window.width() / window.height().max(1.0);
+    let half_view = ((lens.fov / 2.0).tan() * (1.0 + aspect * aspect).sqrt()).atan();
     let best = mirrors.iter().filter_map(|(m, g, mat)| {
         let mut n = Vec3::from((g.affine().matrix3 * Vec3A::from(m.normal)).normalize_or_zero());
         let c = g.transform_point(m.center);
@@ -64,10 +68,13 @@ fn follow(
         if d < 0.0 {
             (n, d) = (-n, -d);
         }
-        (d > 0.05 && d < REACH).then_some((d, n, c, mat))
+        let to = c - eye.translation();
+        let seen = to.angle_between(*eye.forward()) < half_view + (m.radius / to.length().max(m.radius)).asin();
+        (d > 0.05 && d < REACH && seen).then_some((d, n, c, mat))
     }).min_by(|a, b| a.0.total_cmp(&b.0));
 
-    let size = UVec2::new(window.physical_width().max(1), window.physical_height().max(1));
+    // half the window's size: the picture is seen through the smudge map, and this halves the mirror's cost
+    let size = UVec2::new((window.physical_width() / 2).max(1), (window.physical_height() / 2).max(1));
     let image = match &reflection.0 {
         Some(h) if images.get(h).is_some_and(|i| i.size() == size) => h.clone(),
         _ => {

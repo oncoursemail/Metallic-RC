@@ -232,12 +232,21 @@ pub fn sun_of(l: &RoomLight, lo: Vec3, hi: Vec3) -> Option<(f32, [f32; 3])> {
     (l.kind == 0 && l.shadows && outside && lo.x <= hi.x).then_some((l.intensity * SUN_SHARE, l.color))
 }
 
+/// The sun's shadow cascades: one map over the whole of a room up to 40 m across, three beyond. Every cascade is
+/// drawn again for each view (the mirror's too) and costs ~1.3 ms of CPU per view at 1080p, so small rooms get
+/// one (measured in the Dorm: 3 cascades 15 ms a frame, 1 cascade 9.5 ms).
+fn sun_cascades(reach: f32) -> bevy::light::CascadeShadowConfig {
+    let num_cascades = if reach <= 40.0 { 1 } else { 3 };
+    CascadeShadowConfigBuilder { num_cascades, first_cascade_far_bound: 6.0, maximum_distance: reach, ..default() }.build()
+}
+
 /// The sun from `sun_of`: illuminance in Unity units, linear colour, the light's rotation.
 pub fn spawn_sun(commands: &mut Commands, (strength, [r, g, b]): (f32, [f32; 3]), rotation: Quat, lo: Vec3, hi: Vec3) -> Entity {
     let reach = (hi - lo).length().clamp(20.0, 120.0);
+    info!("room sun: {strength:.2} Unity units, shadows over {reach:.0} m (room {lo} .. {hi})");
     commands.spawn((
         DirectionalLight { color: Color::linear_rgb(r, g, b), illuminance: strength * DIRECTIONAL_LUX, shadow_maps_enabled: true, ..default() },
-        CascadeShadowConfigBuilder { num_cascades: 3, first_cascade_far_bound: 6.0, maximum_distance: reach, ..default() }.build(),
+        sun_cascades(reach),
         Transform::from_rotation(rotation),
     )).id()
 }
@@ -251,7 +260,7 @@ pub fn spawn_default_lights(commands: &mut Commands, lo: Vec3, hi: Vec3) -> Vec<
     let reach = (hi - lo).length().clamp(20.0, 120.0);
     vec![commands.spawn((
         DirectionalLight { color: Color::srgb(1.0, 0.93, 0.82), illuminance: 2.5 * DIRECTIONAL_LUX, shadow_maps_enabled: true, ..default() },
-        CascadeShadowConfigBuilder { num_cascades: 3, first_cascade_far_bound: 6.0, maximum_distance: reach, ..default() }.build(),
+        sun_cascades(reach),
         Transform::from_rotation(sun),
     )).id()]
 }
