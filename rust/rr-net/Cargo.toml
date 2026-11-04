@@ -1,0 +1,8 @@
+[package]
+name = "rr-net"
+version = "0.1.0"
+edition = "2021"
+description = "Room networking shared by the Metallic-RC client and server: the RR packet layer and a LiteNetLib 1.x compatible transport"
+publish = false
+
+[dependencies]
