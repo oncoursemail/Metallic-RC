@@ -16,6 +16,7 @@ use unity_assets::{PPtr, Value};
 
 use super::paint::{self, Drawn, Looks};
 use super::prefab::{self, Element, Pages, TEMPLATE};
+use super::rooms::{self, RoomInfo};
 use super::routes;
 use super::theme::Theme;
 use crate::room::Library;
@@ -26,8 +27,8 @@ pub const SWITCH_ACCOUNT: &str = "(SwitchAccount)";
 pub const LOGIN: &str = "(Login)";
 pub const CONTROLS: &str = "(Watch_Settings_Page_Controls_Tab)";
 pub const VISUALS: &str = "(Watch_Settings_Page_Visuals_Tab)";
-/// The rooms browser: the watch's Play tab.
-pub const ROOMS: &str = "(RRUIRootScreen) > (PlayHighlight2.0)";
+/// The rooms browser: the watch's Play grid (a card per room).
+pub const ROOMS: &str = "(RRUIRootScreen) > (PlayGridView)";
 /// The backpack in the watch (its router shows the Tools page first).
 pub const BACKPACK: &str = "(RRUIRootScreen) > (Navigation_Backpack)";
 /// Rows the client adds to the escape menu, under its Settings row: label, page path. The game reaches these pages
@@ -129,6 +130,8 @@ pub enum Action {
     Field,
     /// log in with the typed name
     Login,
+    /// leave this room and join the named one (a room card)
+    GoToRoom(String),
 }
 
 /// What a page shows besides its prefab.
@@ -145,6 +148,8 @@ pub struct Ctx<'a> {
     pub scroll: &'a HashMap<i64, f32>,
     /// the dropdown setting whose choice dialog is open
     pub choosing: Option<&'a str>,
+    /// the server's rooms, for room lists
+    pub rooms: &'a [RoomInfo],
 }
 
 /// A page made ready to lay out.
@@ -491,6 +496,7 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     let mut texts: Vec<(i64, String)> = vec![];
     let mut active = HashSet::new();
     let mut cards = None;
+    let mut room_list = None;
     for (_, e) in page.walk() {
         for (class, d) in e.impls() {
             let name = class.rsplit('/').next().unwrap_or(class);
@@ -547,6 +553,9 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             if name == "CachedAccountCardSpawnerImpl" {
                 cards = pptr(d, "recyclingListScrollRect");
             }
+            if name == "VirtualizedRoomListCardSpawnerImpl" {
+                room_list = pptr(d, "virtualizedList");
+            }
             if let (Some((key, value)), Some(b), Some(t)) = (radio(class, d), button, pptr(d, "toggleTheme")) {
                 w.actions.insert(b, Action::Choose(key.clone(), value));
                 if ctx.settings.get(&key) == value {
@@ -597,6 +606,9 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     }
     if let Some(list) = cards {
         account_cards(&mut page, list, ctx, &mut w.actions);
+    }
+    if let Some(list) = room_list {
+        room_cards(&mut page, list, ctx.rooms, &mut w.actions);
     }
     let dialog = ctx.choosing.and_then(|k| DROPDOWNS.iter().find(|d| d.1 == k));
     if let (Some((_, key, title, options)), Some(donor)) = (dialog, &donors.radio) {
@@ -717,6 +729,8 @@ pub struct Request {
     pub focused: bool,
     pub scroll: HashMap<i64, f32>,
     pub choosing: Option<String>,
+    /// the name server, where room lists come from
+    pub server: String,
 }
 
 /// A painted page: what to draw and what its selectables do.
@@ -773,6 +787,7 @@ impl Painter {
                 Ok(templates[page].clone())
             };
             let mut donors = None;
+            let mut room_list: Option<(std::time::Instant, Vec<RoomInfo>)> = None;
             while let Ok(mut r) = asked.recv() {
                 // only the newest request matters
                 while let Ok(newer) = asked.try_recv() {
@@ -783,9 +798,16 @@ impl Painter {
                     donors = Some(Donors::find(c.as_ref(), v.as_ref()));
                 }
                 let painted = template(&mut looks, &r.page).map(|(t, path)| {
+                    let lists_rooms = t.walk().iter().any(|(_, e)| e.impls().iter().any(|(c, _)| c.ends_with("/VirtualizedRoomListCardSpawnerImpl")));
+                    if lists_rooms && !r.server.is_empty() && room_list.as_ref().is_none_or(|(at, _)| at.elapsed().as_secs() >= 10) {
+                        room_list = Some((std::time::Instant::now(), rooms::fetch(&r.server).unwrap_or_else(|e| {
+                            eprintln!("rooms: {e}");
+                            vec![]
+                        })));
+                    }
                     let none = Donors::default();
                     let ctx = Ctx { page: &path, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused,
-                        scroll: &r.scroll, choosing: r.choosing.as_deref() };
+                        scroll: &r.scroll, choosing: r.choosing.as_deref(), rooms: room_list.as_ref().map(|(_, l)| l.as_slice()).unwrap_or_default() };
                     let b = build(&t, &ctx, &theme, donors.as_ref().unwrap_or(&none));
                     Painted { drawn: paint::page_with(&mut looks, &b.page, canvas(&r.page)), page: r.page, actions: b.actions, scrolls: b.scrolls }
                 });
@@ -818,33 +840,69 @@ fn account_cards(page: &mut Element, list: i64, ctx: &Ctx, actions: &mut HashMap
     let Some(content) = find_mut(holder, &|e| Some(e.transform) == content) else { return };
     let size = template.rect.size_delta;
     for (i, name) in names.iter().enumerate() {
-        let mut card = fresh(&template, (i as i64 + 1) << 52);
-        (card.active, card.name) = (true, format!("{name} card"));
+        let note = if i == 0 { "Playing now" } else { "" };
+        let mut card = card(&template, (i as i64 + 1) << 52, name, note, Action::Account(name.to_string()), actions);
         let r = &mut card.rect;
         (r.anchor_min, r.anchor_max, r.pivot) = ([0.0, 0.5], [0.0, 0.5], [0.0, 0.5]);
         r.anchored_position = [120.0 + i as f32 * (size[0] + 40.0), 0.0];
-        let note = if i == 0 { "Playing now" } else { "" };
-        let (mut sets, mut hides) = (vec![], vec![]);
-        for (_, e) in card.walk() {
-            for (class, d) in e.impls() {
-                match class.rsplit('/').next().unwrap_or(class) {
-                    "PrimaryTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, name.to_string()))),
-                    "SecondaryTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, note.to_string()))),
-                    "HideIfNoSecondaryTextImpl" if note.is_empty() => hides.extend(pptr(d, "hideable")),
-                    "ShowIfJuniorAccountImpl" | "ShowIfJuniorForMetaEmptyImpl" => hides.extend(pptr(d, "hideable")),
-                    "PrimaryToggleButtonImpl" => actions.extend(pptr(d, "button").map(|b| (b, Action::Account(name.to_string())))),
-                    _ => {}
-                }
-            }
-        }
-        for (t, text) in sets {
-            set_text(&mut card, t, &text);
-        }
-        for h in hides {
-            show(&mut card, h, false);
-        }
         content.children.push(card);
     }
+}
+
+/// A card (CardModelController impls) made from a list's item template: primary and secondary text, its primary
+/// button doing `action`; the parts a card without them hides are hidden (no secondary text or icon, no badge, not
+/// highlighted, not a junior account).
+fn card(template: &Element, salt: i64, primary: &str, secondary: &str, action: Action, actions: &mut HashMap<i64, Action>) -> Element {
+    let mut card = fresh(template, salt);
+    (card.active, card.name) = (true, format!("{primary} card"));
+    let (mut sets, mut hides) = (vec![], vec![]);
+    for (_, e) in card.walk() {
+        for (class, d) in e.impls() {
+            match class.rsplit('/').next().unwrap_or(class) {
+                "PrimaryTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, primary.to_string()))),
+                "SecondaryTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, secondary.to_string()))),
+                "HideIfNoSecondaryTextImpl" if secondary.is_empty() => hides.extend(pptr(d, "hideable")),
+                "ShowIfJuniorAccountImpl" | "ShowIfJuniorForMetaEmptyImpl" | "HideIfNoSecondaryIconImpl" | "HideIfNoBadgeTextAndIconImpl"
+                | "HideIfNotHighlightedImpl" | "HidePublishStateDataTokenImpl" => hides.extend(pptr(d, "hideable")),
+                "PrimaryToggleButtonImpl" | "PrimaryButtonImpl" => actions.extend(pptr(d, "button").map(|b| (b, action.clone()))),
+                _ => {}
+            }
+        }
+    }
+    for (t, text) in sets {
+        set_text(&mut card, t, &text);
+    }
+    for h in hides {
+        show(&mut card, h, false);
+    }
+    card
+}
+
+/// A virtualized room list (`list`: its VirtualizedScrollRectList component): a card per room from its item template,
+/// in rows of `layoutRowsOrColumns` cells of `cellSize`, `itemSpacing` apart, inside `contentPadding`, top left first;
+/// the content grows to hold them. A click on a card goes to its room (INFERRED shortcut: the game opens the room's
+/// details page, whose Play button goes there).
+fn room_cards(page: &mut Element, list: i64, rooms: &[RoomInfo], actions: &mut HashMap<i64, Action>) {
+    let Some(holder) = find_mut(page, &|e| has_component(e, list)) else { return };
+    let Some(template) = holder.children.iter().find(|c| c.name.ends_with(TEMPLATE)).cloned() else { return };
+    let Some(v) = holder.components.iter().find(|c| c.id == list).map(|c| c.value.clone()) else { return };
+    let num = |n: &str, d: f32| v.path(n).and_then(Value::as_f32).unwrap_or(d);
+    let columns = v.get("layoutRowsOrColumns").and_then(Value::as_i64).unwrap_or(1).max(1) as usize;
+    let (w, h, gap) = (num("cellSize/x", 300.0), num("cellSize/y", 260.0), num("itemSpacing", 0.0));
+    let (left, top, bottom) = (num("contentPadding/Left", 0.0), num("contentPadding/Top", 0.0), num("contentPadding/Bottom", 0.0));
+    let scroll = v.get("scrollRect").and_then(Value::as_pptr).map(|p| p.path_id);
+    let content = holder.components.iter().find(|c| Some(c.id) == scroll).and_then(|c| pptr(&c.value, "m_Content"));
+    let Some(content) = find_mut(holder, &|e| Some(e.transform) == content) else { return };
+    for (i, room) in rooms.iter().enumerate() {
+        let mut c = card(&template, MADE | (0x40 + i as i64) << 40, &room.name, &room.description, Action::GoToRoom(room.name.clone()), actions);
+        let (col, row) = ((i % columns) as f32, (i / columns) as f32);
+        let r = &mut c.rect;
+        (r.anchor_min, r.anchor_max, r.pivot, r.size_delta) = ([0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [w, h]);
+        r.anchored_position = [left + col * (w + gap), -(top + row * (h + gap))];
+        content.children.push(c);
+    }
+    let rows = rooms.len().div_ceil(columns) as f32;
+    content.rect.size_delta[1] = content.rect.size_delta[1].max(top + rows * (h + gap) - gap + bottom);
 }
 
 #[cfg(test)]
@@ -906,7 +964,7 @@ mod tests {
         let mut st = Settings::default();
         st.set("invert_y", 1.0);
         let scroll = HashMap::new();
-        let ctx = Ctx { page: ESCAPE, back_stack: 0, settings: &st, account: "me", typed: "", focused: false, scroll: &scroll, choosing: None };
+        let ctx = Ctx { page: ESCAPE, back_stack: 0, settings: &st, account: "me", typed: "", focused: false, scroll: &scroll, choosing: None, rooms: &[] };
         let mut w = Wiring::default();
         // the theme is not needed to see the wiring: build's steps before it
         let mut hides = vec![];

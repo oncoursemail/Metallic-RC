@@ -300,5 +300,12 @@ fn element(lib: &mut Library, file: &FileRef, go_id: i64, depth: usize) -> Resul
         t.name.push_str(TEMPLATE);
         e.children.push(t);
     }
+    // so is a virtualized list's (on the list component itself); one that does not load is left out
+    let item = e.component("RRUI.Data.VirtualizedScrollRectList").and_then(|c| c.value.get("defaultPrefab")).and_then(Value::as_pptr).filter(|p| !p.is_null());
+    if let Some(Ok(mut t)) = item.map(|p| object(lib, file, p, depth)) {
+        t.active = false;
+        t.name.push_str(TEMPLATE);
+        e.children.push(t);
+    }
     Ok(e)
 }
