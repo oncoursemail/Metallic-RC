@@ -1,5 +1,6 @@
 //! The screen-mode player's body against the room's box colliders: a capsule 1.7 m tall, radius 0.25, that steps
-//! up ledges of 0.25 m (the 2026 client's values, docs/agents/rc-spec/player.md in the private notes).
+//! up ledges of 0.25 m (the 2026 client's values, docs/agents/rc-spec/player.md in the private notes). Crouching
+//! shortens the capsule (`move_capsule_height`).
 use bevy::math::{Mat4, Vec3};
 
 pub const HEIGHT: f32 = 1.7;
@@ -87,17 +88,23 @@ pub fn sphere_clear(boxes: &[Obb], c: Vec3, r: f32) -> bool {
 /// A long move (a slow frame, a fast fall) goes in steps of at most half the radius, so it cannot pass through a
 /// thin box.
 pub fn move_capsule(boxes: &[Obb], feet: Vec3, motion: Vec3) -> (Vec3, bool) {
+    move_capsule_height(boxes, feet, motion, HEIGHT)
+}
+
+/// `move_capsule` for a capsule `height` tall (crouched: lower than [`HEIGHT`]; never under two radii).
+pub fn move_capsule_height(boxes: &[Obb], feet: Vec3, motion: Vec3, height: f32) -> (Vec3, bool) {
+    let height = height.max(2.0 * RADIUS);
     let steps = (motion.length() / (RADIUS * 0.5)).ceil().max(1.0) as usize;
     let (mut p, mut grounded) = (feet, false);
     for _ in 0..steps {
-        let (q, g) = move_step(boxes, p, motion / steps as f32);
+        let (q, g) = move_step(boxes, p, motion / steps as f32, height);
         (p, grounded) = (q, grounded || g);
     }
     (p, grounded)
 }
 
-fn move_step(boxes: &[Obb], feet: Vec3, motion: Vec3) -> (Vec3, bool) {
-    let heights = [RADIUS, HEIGHT * 0.5, HEIGHT - RADIUS];
+fn move_step(boxes: &[Obb], feet: Vec3, motion: Vec3, height: f32) -> (Vec3, bool) {
+    let heights = [RADIUS, height * 0.5, height - RADIUS];
     let mut p = feet + motion;
     let mut grounded = false;
     for _ in 0..4 {
@@ -174,6 +181,27 @@ mod tests {
         let table = cube(Vec3::new(1.5, 0.4, 0.0), Vec3::new(1.0, 0.8, 2.0));
         let (p, _) = move_capsule(&[floor, table], Vec3::new(0.7, 0.0, 0.0), Vec3::new(0.2, 0.0, 0.0));
         assert!(p.y.abs() < 1e-3 && p.x <= 1.0 - RADIUS + 1e-3, "{p}");
+    }
+
+    #[test]
+    fn a_crouched_capsule_fits_under_a_low_ceiling() {
+        // a 1.4 m gap under a beam: standing (1.7 m) is stopped by it, crouched (1.7 * 0.725 = 1.23 m) walks under
+        let floor = cube(Vec3::new(0.0, -0.5, 0.0), Vec3::new(10.0, 1.0, 10.0));
+        let beam = cube(Vec3::new(2.0, 1.9, 0.0), Vec3::new(2.0, 1.0, 10.0));
+        let room = [floor, beam];
+        let walk = |height: f32| {
+            let mut p = Vec3::ZERO;
+            for _ in 0..40 {
+                p = move_capsule_height(&room, p, Vec3::new(0.05, -0.01, 0.0), height).0;
+            }
+            p
+        };
+        let standing = walk(HEIGHT);
+        assert!(standing.x <= 1.0 - RADIUS + 1e-3 && standing.y.abs() < 1e-3, "{standing}");
+        let crouched = walk(HEIGHT * 0.725);
+        assert!(crouched.x > 1.5 && crouched.y.abs() < 1e-3, "{crouched}");
+        // under the beam the top of a standing capsule is not clear: the player cannot stand up there
+        assert!(!sphere_clear(&room, crouched + Vec3::Y * (HEIGHT - RADIUS), RADIUS * 0.95));
     }
 
     #[test]
