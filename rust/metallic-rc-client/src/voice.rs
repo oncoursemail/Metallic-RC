@@ -191,6 +191,7 @@ struct Voice {
     encoder: Opus,
     speakers: HashMap<u16, Speaker>,
     gate_open_until: f32,
+    last_sent: f32,
     tone: Option<(f32, u64)>,
     settings: Settings,
     settings_stamp: Option<std::time::SystemTime>,
@@ -214,6 +215,7 @@ fn start(mut commands: Commands) {
         encoder: Opus::encoder(),
         speakers: HashMap::new(),
         gate_open_until: 0.0,
+        last_sent: f32::MIN,
         tone,
         settings: Settings::default(),
         settings_stamp: None,
@@ -355,7 +357,6 @@ fn voice(
     }
     let now = time.elapsed_secs();
     let rt = link.get();
-    let mut talking = false;
     for f in frames {
         let level = rms(&f);
         let send = !muted && if open_mic { level > GATE || now < v.gate_open_until } else { keys.pressed(PUSH_TO_TALK) };
@@ -365,9 +366,10 @@ fn voice(
         if let (true, Some(rt)) = (send, &rt) {
             let packet = v.encoder.encode(&f);
             rt.room.lock().unwrap().send_voice(packet, (level * 4.0 * 255.0).min(255.0) as u8);
-            talking = true;
+            v.last_sent = now;
         }
     }
+    let talking = now - v.last_sent < 0.3;
 
     let Some(rt) = rt else { return };
     let mut room = rt.room.lock().unwrap();
