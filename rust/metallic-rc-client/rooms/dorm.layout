@@ -13,7 +13,7 @@
 (Dorm_Floor_Trim_6)              0.0700   0.0610  -0.0766  -0.00000  0.00000  0.00000  1.00000  1.0000 1.0000 1.0000   # Dorm_Trim_06 <- hull
 (Dorm_Window_Small_Frame)        0.1500   3.6000  -3.0766   0.00000  1.00000  0.00000  0.00000  1.0000 1.0000 1.0000   # Dorm_14 <- hull
 (Dorm_Skylight_Frame)           -1.6000   6.5000  -0.8766   0.70711  0.00000  0.00000 -0.70711  1.0000 1.0000 1.0000   # Dorm_12 <- hull
-(Dorm_FreeMirror)                0.8850   1.3746  -3.0263  -0.00000 -0.00000  0.00000  1.00000   # at Enviroment/Static/[DormRoom2Env]/DormRoom2_fbx/MirrorHolder/Quad
+(Dorm_FreeMirror)                0.8850   1.3746  -3.0263   0.00000  1.00000  0.00000  0.00000   # at Enviroment/Static/[DormRoom2Env]/DormRoom2_fbx/MirrorHolder/Quad; turned 180 degrees about y: the glass faced the wall
 (Dorm_Help_Buttons)              0.0000   0.0000   0.9110   0.00000  0.70711  0.00000 -0.70711   # at (DormRoom2Systems)/[HelpButtonsCanvas]
 (Dorm_Rug)                       0.9770   0.0000  -0.9581  -0.00000  0.00000  0.00000  1.00000  1.4148 3.5692 1.4148   # RugLarge <- Enviroment/Static/[DormRoom2Env]/DormRoom2_fbx/RugLarge
 (Dorm_Fluorescent_Light)        -3.5630   2.6400   0.8440  -0.00000 -0.00000  0.00000  1.00000   # at Enviroment/Static/[Light_Fluorescent]
