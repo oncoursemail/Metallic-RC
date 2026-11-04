@@ -25,25 +25,17 @@ pub fn routes() -> Router<Shared> {
         .route("/api/gameconfigs/v1/all", get(empty_list))
         .route("/api/settings/v2", get(empty_list).post(ok))
         .route("/api/settings/v2/set", post(ok))
-        .route("/api/avatar/v2", get(avatar))
-        .route("/api/avatar/v2/set", post(ok))
         .route("/api/avatar/v4/items", get(empty_list))
         .route("/api/avatar/v3/items", get(empty_list))
         .route("/api/equipment/v2/getUnlocked", get(empty_list))
         .route("/api/consumables/v2/getUnlocked", get(empty_list))
-        .route("/api/relationships/v2/get", get(empty_list))
-        .route("/api/messages/v2/get", get(empty_list))
         .route("/api/playerevents/v1/all", get(player_events))
         .route("/api/objectives/v1/myprogress", get(objectives))
-        .route("/api/players/v2/progression/bulk", get(progression))
         // rooms
         .route("/rooms/rooms/bulk", get(rooms_bulk))
         .route("/rooms/rooms", get(rooms_bulk))
         .route("/rooms/rooms/{id}", get(room))
-        // matchmaking and presence
-        .route("/matchmaking/player/login", post(mm_login))
-        .route("/matchmaking/player/logout", post(ok))
-        .route("/matchmaking/player/heartbeat", post(heartbeat).get(heartbeat))
+        // matchmaking (presence, parties and joining friends: social.rs, party.rs)
         .route("/matchmaking/goto/room/{name}", post(goto_room))
         .route("/matchmaking/goto/none", post(ok))
 }
@@ -105,21 +97,12 @@ async fn config(State(app): State<Shared>) -> Json<Value> {
     }))
 }
 
-async fn avatar() -> Json<Value> {
-    Json(json!({ "OutfitSelections": "", "FaceFeatures": "", "SkinColor": "", "HairColor": "" }))
-}
-
 async fn player_events() -> Json<Value> {
     Json(json!({ "Created": [], "Responses": [] }))
 }
 
 async fn objectives() -> Json<Value> {
     Json(json!({ "Objectives": [], "ObjectiveGroups": [] }))
-}
-
-async fn progression(RawQuery(q): RawQuery) -> Json<Value> {
-    let ids = query_all(&q, "id");
-    Json(Value::Array(ids.iter().map(|id| json!({ "PlayerId": id.parse::<i64>().unwrap_or(0), "Level": 1, "XP": 0 })).collect()))
 }
 
 // ---- rooms: the built-in rooms every player has; user-made rooms come later ----
@@ -162,21 +145,6 @@ async fn room(Path(id): Path<String>) -> Result<Json<Value>, StatusCode> {
 }
 
 // ---- matchmaking ----
-async fn mm_login(State(app): State<Shared>, h: HeaderMap) -> Result<StatusCode, Response> {
-    let a = who(&app, &h)?;
-    println!("  {} is online", a.username);
-    Ok(StatusCode::OK)
-}
-
-fn presence(a: &Account, instance: Value) -> Value {
-    json!({ "playerId": a.account_id, "statusVisibility": 0, "platform": 0, "deviceClass": 0,
-            "isOnline": true, "roomInstance": instance, "appVersion": "" })
-}
-
-async fn heartbeat(State(app): State<Shared>, h: HeaderMap) -> Result<Json<Value>, Response> {
-    Ok(Json(presence(&who(&app, &h)?, Value::Null)))
-}
-
 /// Puts the caller in an instance of the room. The dorm is private: one instance per player. Photon is where players
 /// actually meet; `photonRoomId` is the room name on the realtime server (not served by this program yet).
 async fn goto_room(State(app): State<Shared>, h: HeaderMap, Path(name): Path<String>) -> Result<Json<Value>, Response> {
@@ -193,5 +161,6 @@ async fn goto_room(State(app): State<Shared>, h: HeaderMap, Path(name): Path<Str
         "isInProgress": false, "roomInstanceType": 0,
     });
     println!("  {} -> {}", a.username, r.name);
+    let instance = crate::party::placed(&app, &a, r.id, instance);
     Ok(Json(json!({ "errorCode": 0, "roomInstance": instance })))
 }

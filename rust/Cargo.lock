@@ -4063,6 +4063,7 @@ dependencies = [
  "rr-net",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sha2",
  "tokio",
  "tokio-tungstenite",

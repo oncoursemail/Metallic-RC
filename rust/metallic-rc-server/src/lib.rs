@@ -8,7 +8,11 @@ pub mod auth;
 pub mod discovery;
 pub mod game;
 pub mod hub;
+pub mod inventory;
+pub mod party;
+pub mod profile;
 pub mod room;
+pub mod social;
 pub mod store;
 
 use std::{path::{Path, PathBuf}, sync::Arc, time::Instant};
@@ -27,6 +31,8 @@ pub struct App {
     pub data_dir: PathBuf,
     pub store: store::Store,
     pub signing_key: Vec<u8>,
+    /// presence, open hubs and parties (not saved)
+    pub live: social::Live,
 }
 pub type Shared = Arc<App>;
 
@@ -39,6 +45,7 @@ impl App {
             signing_key: store::signing_key(data_dir)?,
             public_url: public_url.trim_end_matches('/').to_string(),
             data_dir: data_dir.to_path_buf(),
+            live: social::Live::default(),
         }))
     }
 }
@@ -48,6 +55,7 @@ pub fn router(app: Shared) -> Router {
         .merge(discovery::routes())
         .nest("/auth", auth::routes())
         .merge(game::routes())
+        .merge(social::routes().merge(party::routes()).merge(profile::routes()).merge(inventory::routes()))
         .nest("/notifications", hub::routes())
         .fallback(unknown)
         .layer(middleware::from_fn(log))
