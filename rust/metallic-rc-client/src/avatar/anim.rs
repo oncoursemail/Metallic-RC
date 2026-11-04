@@ -14,6 +14,17 @@ pub enum Move {
     Fly,
 }
 
+/// A hand's shape.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Grip {
+    #[default]
+    Open,
+    /// the index finger out: aiming at something to use
+    Point,
+    /// closed round something held
+    Hold,
+}
+
 /// What drives the animation this frame.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Input {

@@ -1,6 +1,9 @@
 //! The look panel: C opens it; Up/Down pick a row, Left/Right step through its choices, C or Enter closes it and saves
 //! the look to `%LOCALAPPDATA%\Metallic-RC\avatar.json`.
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    window::{CursorGrabMode, CursorOptions, PrimaryWindow},
+};
 
 use super::look::{Accessory, Look, ACCENTS, SHIRTS, SKINS};
 
@@ -99,6 +102,22 @@ pub fn look_panel(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>, mut p
         commands.entity(open).despawn();
         panel.open = Some(draw(&mut commands, &look.0, row));
     }
+}
+
+/// While the panel is open the mouse is free to click it (after the game's own grabbing, so a click on the panel does
+/// not take the mouse); closing it takes the mouse back for looking.
+pub fn free_cursor(panel: Res<LookPanel>, mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>, mut was_open: Local<bool>) {
+    let open = panel.open.is_some();
+    if open {
+        if cursor.grab_mode != CursorGrabMode::None || !cursor.visible {
+            cursor.grab_mode = CursorGrabMode::None;
+            cursor.visible = true;
+        }
+    } else if *was_open {
+        cursor.grab_mode = CursorGrabMode::Locked;
+        cursor.visible = false;
+    }
+    *was_open = open;
 }
 
 #[cfg(test)]

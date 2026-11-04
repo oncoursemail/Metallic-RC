@@ -147,6 +147,9 @@ pub struct Drive {
     pub head: Option<Quat>,
     /// the hands in the world, when synced
     pub hands: [Option<Transform>; 2],
+    /// the eyes above the feet (lower when crouching), when known
+    pub head_height: Option<f32>,
+    pub grip: [anim::Grip; 2],
 }
 
 struct Parts {

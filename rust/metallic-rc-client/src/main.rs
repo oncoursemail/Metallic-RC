@@ -2,13 +2,13 @@
 //!                    [--look skin,shirt,accent[,accessory]] [--headless]
 //!
 //! Logs into metallic-rc-server on a background thread, then walks you around the room it puts you in (screen mode:
-//! WASD, Shift sprint, Space jump, F fly (Space/Ctrl up/down), mouse look after a click, Esc opens or closes the game's menu and frees the mouse). The Dorm's pieces are loaded from the
+//! `player`: WASD, Shift sprint, Space jump, Ctrl crouch, F fly, mouse look after a click; Esc opens or closes the game's menu and frees the mouse). The Dorm's pieces are loaded from the
 //! installed game (`--game-dir`, default: the Steam copies in `room::GAME_DIRS`); until they arrive, or without a
 //! game folder, a stand-in box is shown.
 //! After login it joins the room on the room server (`--realtime`, default: the server's host, UDP port 4201); other
 //! players there show as avatars (`avatar`) with their name over the head. `--room` picks the room instance (default:
 //! the one matchmaking gave), so two windows given the same `--room` meet.
-//! V switches between first and third person; C opens the look panel (saved to `%LOCALAPPDATA%\Metallic-RC\avatar.json`;
+//! V switches between first and third person; C opens the avatar editor (saved to `%LOCALAPPDATA%\Metallic-RC\avatar.json`;
 //! `--look` sets one for this run only).
 //! `--headless` only runs the network start-up and prints where it ended up (for scripts and checks).
 //! The escape menu's pages work with the mouse: settings (kept in `%LOCALAPPDATA%\Metallic-RC\settings.json`),
@@ -23,7 +23,7 @@ use bevy::{
     image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
     input::{
         keyboard::{Key, KeyboardInput},
-        mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
+        mouse::{AccumulatedMouseScroll, MouseScrollUnit},
         ButtonState,
     },
     mesh::{Indices, PrimitiveTopology},
@@ -32,9 +32,9 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions, MonitorSelection, PresentMode, PrimaryWindow, WindowMode},
 };
 use metallic_rc_client::{
-    avatar::{self, Drive, Kit, LocalLook, Look, LookPanel, Rig},
-    collide::{self, Obb},
+    avatar::{self, Drive, Kit, LocalLook, Look, Rig},
     net::{self, Login},
+    player::{self, Controls, LocalAvatar, Player, PlayerSystems, Solids},
     realtime::{self, Realtime},
     room::{self, RoomData},
     settings::{Settings, RESOLUTIONS},
@@ -104,18 +104,6 @@ struct RoomText;
 #[derive(Component)]
 struct Avatar(i32);
 
-/// This player's own avatar: only its hands show in first person.
-#[derive(Component)]
-struct LocalAvatar;
-
-/// The camera, a child of the player (at the eyes): there in first person, behind the shoulder in third.
-#[derive(Component)]
-struct View;
-
-/// V toggles it.
-#[derive(Resource, Default)]
-struct ThirdPerson(bool);
-
 /// The Dorm as the loader thread hands it over; taken once by `spawn_room`.
 #[derive(Resource, Clone)]
 struct Loading(Arc<Mutex<Option<Result<RoomData, String>>>>);
@@ -169,36 +157,12 @@ struct Account {
 #[derive(Resource)]
 struct Start([f32; 5]);
 
-/// What the player bumps into: the room's box colliders, once it is loaded.
-#[derive(Resource, Default)]
-struct Solids(Vec<Obb>);
-
 /// The stand-in room, removed when the real one arrives.
 #[derive(Component)]
 struct StandIn;
 
-#[derive(Component, Default)]
-struct Player {
-    yaw: f32,
-    pitch: f32,
-    /// vertical speed, m/s
-    fall: f32,
-    flying: bool,
-    grounded: bool,
-}
-
-// Screen-mode movement constants of the 2026 client (docs/agents/rc-spec/player.md in the private notes).
-const WALK: f32 = 3.0;
-const SPRINT: f32 = 1.5;
-const FLY: f32 = 35.0;
-const JUMP_HEIGHT: f32 = 0.75;
-const GRAVITY: f32 = 9.81;
-const MAX_FALL: f32 = 20.0;
-/// eyes above the feet
-const EYE: f32 = 1.55;
+/// The camera's field of view before the settings apply (the game's camera component).
 const FOV: f32 = 60.0;
-/// ThirdPersonOverShoulder: from the pivot (1.6 m, so 0.05 above the eyes), right 0.4875 and back 1.8, FOV x0.85
-const SHOULDER: Vec3 = Vec3::new(0.4875, 0.05, 1.8);
 
 fn main() {
     let a = args();
@@ -216,6 +180,7 @@ fn main() {
     let loading = Loading(Arc::new(Mutex::new(None)));
     let slot = loading.0.clone();
     let game_dir = a.game_dir.clone().or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()));
+    let player = player::PlayerPlugin { game_dir: game_dir.clone() };
     let menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), ..default() };
     std::thread::spawn(move || {
         let Some(game) = game_dir else {
@@ -233,7 +198,7 @@ fn main() {
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))));
     let net = Net::default();
     let [x, y, z, yaw, _] = a.camera;
-    let account = Account { server: a.server.clone(), realtime: a.realtime.clone(), room: a.room.clone(), spawn: [x, (y - EYE).max(0.0), z],
+    let account = Account { server: a.server.clone(), realtime: a.realtime.clone(), room: a.room.clone(), spawn: [x, (y - player::EYE).max(0.0), z],
         yaw: yaw.to_radians(), name: a.name.clone(), gen: Arc::default() };
     log_in(&account, &status, &net);
     let mut prefs = Prefs { s: Settings::path().map(|p| Settings::load(&p)).unwrap_or_default(), changed: true };
@@ -252,15 +217,13 @@ fn main() {
         .insert_resource(account)
         .init_resource::<view::Uploaded>()
         .insert_resource(Start(a.camera))
-        .init_resource::<Solids>()
         .add_plugins(avatar::AvatarPlugin)
+        .add_plugins(player)
         .insert_resource(LocalLook(look))
-        .init_resource::<LookPanel>()
-        .init_resource::<ThirdPerson>()
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
-        .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), look_and_walk, show_status, spawn_room,
-            avatar::panel::look_panel.run_if(not_typing), camera_view.after(look_and_walk), local_avatar.after(camera_view), realtime_sync.after(local_avatar)))
+        .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), show_status, spawn_room,
+            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar)))
         .run();
 }
 
@@ -286,19 +249,7 @@ fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Me
     commands.spawn((PointLight { intensity: 400_000.0, shadow_maps_enabled: true, ..default() }, Transform::from_xyz(0.0, h - 0.2, 0.0)));
     commands.spawn((DirectionalLight { illuminance: 3000.0, ..default() }, Transform::from_xyz(2.0, 6.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y)));
 
-    let [x, y, z, yaw, pitch] = start.0;
-    let (yaw, pitch) = (yaw.to_radians(), pitch.to_radians());
-    commands.spawn((
-        // a start view above head height (an overview) starts flying instead of falling to the floor
-        Player { yaw, pitch, flying: y > EYE + 0.5, ..default() },
-        Transform::from_xyz(x, y, z).with_rotation(Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0)),
-        Visibility::default(),
-    )).with_child((
-        Camera3d::default(),
-        Projection::Perspective(PerspectiveProjection { fov: FOV.to_radians(), near: 0.06, ..default() }),
-        View,
-        Transform::default(),
-    ));
+    player::spawn(&mut commands, start.0, FOV);
     commands.spawn((
         Text::new(""),
         StatusText,
@@ -309,94 +260,6 @@ fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Me
         RoomText,
         Node { position_type: PositionType::Absolute, bottom: px(12.0), left: px(12.0), ..default() },
     ));
-}
-
-/// V switches first and third person. The camera eases to its place: at the eyes, over the shoulder (pulled in
-/// where a wall is in the way), or, while the look panel is open, in front of the player looking back at it.
-fn camera_view(
-    time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut third: ResMut<ThirdPerson>,
-    panel: Res<LookPanel>,
-    solids: Res<Solids>,
-    player: Single<(&Player, &Transform), Without<View>>,
-    mut view: Single<(&mut Transform, &mut Projection), With<View>>,
-    (prefs, menu): (Res<Prefs>, Res<Menu>),
-) {
-    // the Field of View setting in place of the default
-    let fov_setting = (prefs.s.get("fov") as f32).clamp(30.0, 120.0);
-    if keys.just_pressed(KeyCode::KeyV) && !menu.focused {
-        third.0 = !third.0;
-    }
-    let (p, eye) = *player;
-    let (tr, projection) = &mut *view;
-    let (want, fov) = if panel.open.is_some() {
-        // world place first: 2.2 m in front, a little above the chest, looking back at the whole body
-        let body = Quat::from_rotation_y(p.yaw);
-        let feet = eye.translation - Vec3::Y * EYE;
-        let at = Transform::from_translation(feet + body * Vec3::new(0.0, 1.3, -2.2)).looking_at(feet + Vec3::Y * 0.95, Vec3::Y);
-        (Transform::from_matrix(eye.to_matrix().inverse() * at.to_matrix()), fov_setting * 0.85)
-    } else if third.0 {
-        let far = eye.transform_point(SHOULDER);
-        // the furthest place along the way where a 0.15 m ball touches no wall
-        let clear = (1..=20).map(|i| i as f32 / 20.0).take_while(|f| collide::sphere_clear(&solids.0, eye.translation.lerp(far, *f), 0.15)).last();
-        (Transform::from_translation(SHOULDER * clear.unwrap_or(0.0)), fov_setting * 0.85)
-    } else {
-        (Transform::default(), fov_setting)
-    };
-    // CameraBlendTime 0.1 s
-    let k = 1.0 - (-time.delta_secs() / 0.05).exp();
-    tr.translation = tr.translation.lerp(want.translation, k);
-    tr.rotation = tr.rotation.slerp(want.rotation, k);
-    if let Projection::Perspective(pp) = &mut **projection {
-        pp.fov += (fov.to_radians() - pp.fov) * k;
-    }
-}
-
-/// The local player's own avatar: spawned once the kit is made, kept at the feet, driven by the movement, with the
-/// screen-mode hands low in front of the eyes (swaying as the view turns and bobbing with the stride).
-#[allow(clippy::too_many_arguments)]
-fn local_avatar(
-    mut commands: Commands,
-    time: Res<Time>,
-    kit: Option<Res<Kit>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    look: Res<LocalLook>,
-    third: Res<ThirdPerson>,
-    panel: Res<LookPanel>,
-    motion: Res<AccumulatedMouseMotion>,
-    player: Single<(&Player, &Transform), Without<LocalAvatar>>,
-    mut mine: Query<(&mut Transform, &mut Drive, &mut Rig), With<LocalAvatar>>,
-    mut last_feet: Local<Option<Vec3>>,
-    mut sway: Local<Vec2>,
-) {
-    let (p, eye) = *player;
-    let feet = eye.translation - Vec3::Y * EYE;
-    let at = Transform::from_translation(feet).with_rotation(Quat::from_rotation_y(p.yaw));
-    let Ok((mut tr, mut drive, mut rig)) = mine.single_mut() else {
-        if let Some(kit) = kit {
-            let e = avatar::spawn(&mut commands, &kit, &mut materials, look.0, at, None, 0);
-            commands.entity(e).insert((LocalAvatar, Name::new("local avatar")));
-        }
-        return;
-    };
-    let dt = time.delta_secs().max(1e-3);
-    drive.velocity = last_feet.map_or(Vec3::ZERO, |l| (feet - l) / dt);
-    *last_feet = Some(feet);
-    (drive.grounded, drive.flying, drive.head) = (Some(p.grounded), p.flying, Some(eye.rotation));
-    // the hands lag a little behind the turning view
-    let target = (-motion.delta * 0.0004).clamp(Vec2::splat(-0.04), Vec2::splat(0.04)) * Vec2::new(1.0, -1.0);
-    *sway = sway.lerp(target, 1.0 - (-dt * 8.0).exp());
-    let bob = -0.015 * rig.anim.phase.sin().abs() * (rig.anim.speed / 3.0).min(1.0);
-    drive.hands = avatar::screen_hands(eye, *sway, bob).map(Some);
-    *tr = at;
-    let first_person = !third.0 && panel.open.is_none();
-    if rig.first_person != first_person {
-        rig.first_person = first_person;
-    }
-    if rig.look != look.0 {
-        rig.look = look.0;
-    }
 }
 
 /// Each frame: take the room's news, hand it the local pose and look, and move (or add, or remove) the other players'
@@ -422,13 +285,13 @@ fn realtime_sync(
     let mut room = rt.room.lock().unwrap();
     while let Some(e) = room.poll_event() {
         if let RoomEvent::Spawned { position, rotation } = e {
-            t.translation = Vec3::from(position) + Vec3::Y * EYE;
-            (p.yaw, p.pitch, p.fall, p.flying) = (Quat::from_array(rotation).to_euler(EulerRot::YXZ).0, 0.0, 0.0, false);
+            p.respawn(Quat::from_array(rotation).to_euler(EulerRot::YXZ).0);
+            t.translation = Vec3::from(position) + Vec3::Y * p.eye;
             t.rotation = Quat::from_rotation_y(p.yaw);
             *last_feet = None;
         }
     }
-    let feet = t.translation - Vec3::Y * EYE;
+    let feet = p.feet(t);
     let velocity = last_feet.map_or(Vec3::ZERO, |l| (feet - l) / dt.max(1e-3) as f32);
     *last_feet = Some(feet);
     let body = Pose { position: feet.into(), rotation: Quat::from_rotation_y(p.yaw).to_array(), velocity: velocity.into() };
@@ -470,6 +333,7 @@ fn realtime_sync(
                 drive.velocity = Vec3::from(s.body.velocity);
                 drive.head = s.head.map(|h| Quat::from_array(h.rotation));
                 drive.hands = [s.left_hand.map(pose), s.right_hand.map(pose)];
+                drive.head_height = s.head.map(|h| h.position[1] - s.body.position[1]);
                 let l = look_of(s);
                 if rig.look != l {
                     rig.look = l;
@@ -681,12 +545,17 @@ fn show_menu(
     }
 }
 
-/// Typing into the menu's name field takes the keys.
-fn not_typing(menu: Res<Menu>) -> bool {
-    !menu.focused
+/// Hands the player the settings and whether the menu's name field takes the keys.
+fn feed_player(prefs: Res<Prefs>, menu: Res<Menu>, mut controls: ResMut<Controls>) {
+    if prefs.is_changed() {
+        controls.settings = prefs.s.clone();
+    }
+    if controls.typing != menu.focused {
+        controls.typing = menu.focused;
+    }
 }
 
-/// Puts changed window settings into effect and saves the settings (`camera_view` follows the field of view).
+/// Puts changed window settings into effect and saves the settings (the player's camera follows the field of view).
 fn apply_settings(mut prefs: ResMut<Prefs>, mut window: Single<&mut Window, With<PrimaryWindow>>) {
     if !prefs.changed {
         return;
@@ -722,76 +591,6 @@ fn grab_mouse(mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>, mouse
         cursor.grab_mode = CursorGrabMode::None;
         cursor.visible = true;
     }
-}
-
-fn look_and_walk(
-    time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
-    motion: Res<AccumulatedMouseMotion>,
-    cursor: Single<&CursorOptions, With<PrimaryWindow>>,
-    mut player: Single<(&mut Player, &mut Transform)>,
-    solids: Res<Solids>,
-    (prefs, menu): (Res<Prefs>, Res<Menu>),
-) {
-    let (p, t) = &mut *player;
-    // typing into the menu does not walk
-    let idle = ButtonInput::default();
-    let keys = if menu.focused { &idle } else { &*keys };
-    if cursor.grab_mode != CursorGrabMode::None {
-        // 0.002 rad per pixel at the game's default sensitivity, 50; INFERRED: the look sliders scale each axis the same way
-        let s = &prefs.s;
-        let k = 0.002 * s.get("mouse_sensitivity") as f32 / 50.0;
-        let axis = |look: &str, invert: &str| k * s.get(look) as f32 / 50.0 * if s.on(invert) { -1.0 } else { 1.0 };
-        p.yaw -= motion.delta.x * axis("look_horizontal", "invert_x");
-        p.pitch = (p.pitch - motion.delta.y * axis("look_vertical", "invert_y")).clamp(-1.5, 1.5);
-        t.rotation = Quat::from_euler(EulerRot::YXZ, p.yaw, p.pitch, 0.0);
-    }
-    // a frame that took long (the room arriving, a dragged window) moves no more than a tenth of a second's worth
-    let dt = time.delta_secs().min(0.1);
-    if keys.just_pressed(KeyCode::KeyF) {
-        p.flying = !p.flying;
-        p.fall = 0.0;
-    }
-    let forward = Vec3::new(-p.yaw.sin(), 0.0, -p.yaw.cos());
-    let right = Vec3::new(p.yaw.cos(), 0.0, -p.yaw.sin());
-    let mut go = Vec3::ZERO;
-    for (key, dir) in [(KeyCode::KeyW, forward), (KeyCode::KeyS, -forward), (KeyCode::KeyD, right), (KeyCode::KeyA, -right)] {
-        if keys.pressed(key) {
-            go += dir;
-        }
-    }
-    if p.flying {
-        for (key, dir) in [(KeyCode::Space, Vec3::Y), (KeyCode::ControlLeft, -Vec3::Y)] {
-            if keys.pressed(key) {
-                go += dir;
-            }
-        }
-        // full fly speed is for crossing big rooms; Shift gives it, otherwise walking pace
-        let speed = if keys.pressed(KeyCode::ShiftLeft) { FLY } else { WALK };
-        t.translation += go.normalize_or_zero() * speed * dt;
-        return;
-    }
-    let speed = if keys.pressed(KeyCode::ShiftLeft) { WALK * SPRINT } else { WALK };
-    if p.grounded && keys.just_pressed(KeyCode::Space) {
-        p.fall = (2.0 * GRAVITY * JUMP_HEIGHT).sqrt();
-    }
-    p.fall = (p.fall - GRAVITY * dt).max(-MAX_FALL);
-    let motion = go.normalize_or_zero() * speed * dt + Vec3::Y * p.fall * dt;
-    let feet = t.translation - Vec3::Y * EYE;
-    let (mut feet, mut grounded) = collide::move_capsule(&solids.0, feet, motion);
-    // the stand-in room has no colliders: its floor is y = 0
-    if solids.0.is_empty() && feet.y < 0.0 {
-        (feet.y, grounded) = (0.0, true);
-    }
-    if grounded && p.fall < 0.0 {
-        p.fall = 0.0;
-    }
-    // a head bump ends the jump
-    if feet.y < t.translation.y - EYE + motion.y - 1e-4 && p.fall > 0.0 {
-        p.fall = 0.0;
-    }
-    p.grounded = grounded;
-    t.translation = feet + Vec3::Y * EYE;
 }
 
 fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>>) {
