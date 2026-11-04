@@ -1,7 +1,8 @@
 //! The escape menu and the pages it opens. The pages are the game's prefabs; what the game's controller
 //! implementations (`XModelController/YImpl`, see `prefab::Element::impls`) do is done here by class name: show or
 //! hide parts, show settings values, list accounts, and turn clicks on the selectables they hold into [`Action`]s.
-//! A [`Router`] keeps pages open over each other, as the game's BrowserModel history does.
+//! A [`Router`] keeps pages open over each other, as the game's BrowserModel history does; a page is a path of pages
+//! nested in each other's Routers (see [`routes`]), so any routed page prefab can be opened, in the watch or alone.
 //!
 //! Behaviour is INFERRED from class and field names and the serialized data (no method bodies read): e.g. a
 //! `HideIfBackStackEmptyImpl` hides its Hideable while there is no page to go back to, a `LinkButtonImpl` goes to its
@@ -15,6 +16,7 @@ use unity_assets::{PPtr, Value};
 
 use super::paint::{self, Drawn, Looks};
 use super::prefab::{self, Element, Pages, TEMPLATE};
+use super::routes;
 use super::theme::Theme;
 use crate::room::Library;
 use crate::settings::{Settings, RESOLUTIONS};
@@ -24,6 +26,13 @@ pub const SWITCH_ACCOUNT: &str = "(SwitchAccount)";
 pub const LOGIN: &str = "(Login)";
 pub const CONTROLS: &str = "(Watch_Settings_Page_Controls_Tab)";
 pub const VISUALS: &str = "(Watch_Settings_Page_Visuals_Tab)";
+/// The rooms browser: the watch's Play tab.
+pub const ROOMS: &str = "(RRUIRootScreen) > (PlayHighlight2.0)";
+/// The backpack in the watch (its router shows the Tools page first).
+pub const BACKPACK: &str = "(RRUIRootScreen) > (Navigation_Backpack)";
+/// Rows the client adds to the escape menu, under its Settings row: label, page path. The game reaches these pages
+/// from the watch (AppNav); the screen-mode client has no watch button of its own.
+const ESCAPE_ROWS: &[(&str, &str)] = &[("Watch", routes::HOME), ("Rooms", ROOMS), ("Backpack", BACKPACK)];
 
 /// Route GUIDs (the 16 raw bytes, as hex) and their pages. INFERRED: each settings route is matched to the tab page
 /// named like the label of the chip that links to it; the game's route table is in the scrambled resources.
@@ -47,7 +56,14 @@ pub fn pages() -> Vec<&'static str> {
 }
 
 fn page_of(route: &str) -> Option<&'static str> {
-    ROUTES.iter().find(|(r, _)| *r == route).map(|(_, p)| *p)
+    routes::page_of(route, ROUTES)
+}
+
+/// The first route a page's Router shows before it is told otherwise (its first prefill route).
+fn prefill(e: &Element) -> Option<String> {
+    let router = e.walk().into_iter().find_map(|(_, k)| k.component("RRUI.Data.Router"))?;
+    let first = router.value.get("prefillRoutes").and_then(Value::as_array)?.first()?;
+    first.path("viewGuid/bytes").and_then(Value::as_bytes).map(hex)
 }
 
 /// Pages open over each other: the bottom one is the escape menu.
@@ -189,12 +205,6 @@ fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
-/// The route an impl links to: `route`, or the first of `defaultUri`'s.
-fn route(d: &Value) -> Option<String> {
-    let r = d.get("route").or_else(|| d.path("defaultUri/route").and_then(Value::as_array).and_then(|a| a.first()))?;
-    r.path("viewGuid/bytes").and_then(Value::as_bytes).map(hex)
-}
-
 fn set(v: &mut Value, name: &str, new: Value) {
     if let Value::Struct { fields, .. } = v {
         match fields.iter_mut().find(|(n, _)| &**n == name) {
@@ -296,6 +306,11 @@ fn hidden(class: &str, d: &Value, ctx: &Ctx) -> Option<bool> {
         | "HideCachedLoginErrorImpl" | "HideLoginErrorImpl" | "HideIfHasNotRefreshedImpl" => true,
         "HideIfVRImpl" | "HideIfNotScreensImpl" | "HideIfJuniorImpl" | "HideIfWatchUIOnLockdownImpl" | "HideIfCanNotLogoutImpl"
         | "HideIfCanNotQuitImpl" | "HideIfUserIsOnPlatformImpl" | "HideIfGraphicsLockedImpl" => false,
+        // no gamepad shoulder tabbing, nothing unread, an empty shopping bag; chat and creating rooms allowed
+        "HideIfShoulderTabbingDisabled" | "HideIfNotJuniorImpl" | "HideIfNoUnreadNotificationsImpl"
+        | "HideIfNoUnreadMessagesImpl" | "HideIfNoNavBarPeopleButtonUnreadImpl" | "HideIfShoppingBagEmptyImpl"
+        | "HideIfShouldHideFriendsButtonBadgeImpl" => true,
+        "HideIfCannotWatchChatImpl" | "HideIfCannotCreateRoomsImpl" => false,
         "HideIfScreensInputModeImpl" => input == Some(1),
         "HideIfNotScreensInputModeImpl" => input != Some(1),
         _ => return None,
@@ -366,18 +381,40 @@ fn add_row(page: &mut Element, donor: &Element, after: &dyn Fn(&Element) -> bool
             set_text(&mut row, id, text);
         }
     }
-    fn insert(e: &mut Element, after: &dyn Fn(&Element) -> bool, row: &mut Option<Element>) {
-        if let Some(i) = e.children.iter().position(after) {
-            if let Some(r) = row.take() {
-                e.children.insert(i + 1, r);
-            }
-            return;
-        }
-        for c in &mut e.children {
-            insert(c, after, row);
-        }
-    }
     insert(page, after, &mut Some(row));
+}
+
+/// Puts `row` right after the first element `after` names.
+fn insert(e: &mut Element, after: &dyn Fn(&Element) -> bool, row: &mut Option<Element>) {
+    if let Some(i) = e.children.iter().position(after) {
+        if let Some(r) = row.take() {
+            e.children.insert(i + 1, r);
+        }
+        return;
+    }
+    for c in &mut e.children {
+        insert(c, after, row);
+    }
+}
+
+/// The escape menu's added rows: copies of its Settings row without its controllers, each opening its page.
+fn escape_rows(page: &mut Element, w: &mut Wiring) {
+    let settings = |e: &Element| e.name == "[TextButton] Settings";
+    let Some(donor) = find(page, &settings).cloned() else { return };
+    // added in reverse, each right under the Settings row
+    for (i, (label, path)) in ESCAPE_ROWS.iter().enumerate().rev() {
+        let mut row = fresh(&donor, MADE | (0x10 + i as i64) << 40);
+        row.name = format!("[TextButton] {label}");
+        row.each_mut(&mut |e| e.components.retain(|c| c.value.get("implementation").is_none()));
+        let first = |row: &Element, class: &str| row.walk().iter().find_map(|(_, k)| k.component(class).map(|c| c.id));
+        if let Some(t) = first(&row, "TMPro.TextMeshProUGUI") {
+            set_text(&mut row, t, label);
+        }
+        if let Some(b) = first(&row, "RRUI.MultiGraphicButton") {
+            w.actions.insert(b, Action::Go { page: path.to_string(), tab: false });
+        }
+        insert(page, &settings, &mut Some(row));
+    }
 }
 
 /// Unity's Slider: the fill reaches the value and the handle sits on it, both the full height of their boxes (left to
@@ -433,8 +470,12 @@ fn shown(key: &str, v: f64) -> String {
 pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> Built {
     let mut page = template.clone();
     let mut w = Wiring::default();
+    let leaf = routes::leaf(ctx.page);
+    if leaf == ESCAPE {
+        escape_rows(&mut page, &mut w);
+    }
     // our rows: under the VSync switch on the Visuals tab
-    if ctx.page == VISUALS {
+    if leaf == VISUALS {
         let vsync = |e: &Element| e.name.starts_with("[PanelWithPaddingHorizontal]") && e.children.iter().any(|k| k.name.starts_with("VSync"));
         // added in reverse, each right under the VSync row
         if let Some(d) = &donors.slider {
@@ -464,12 +505,24 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
                 "QuitButtonImpl" => Some(Action::Quit),
                 "GoToLoginPageButtonImpl" => Some(Action::Go { page: LOGIN.into(), tab: false }),
                 "ManualLoginButtonImpl" => Some(Action::Login),
-                "WatchTabsImpl" | "LinkButtonImpl" => route(d).and_then(|r| page_of(&r)).map(|p| {
-                    if p == ctx.page {
-                        active.extend(pptr(d, "toggleTheme"));
-                    }
-                    Action::Go { page: p.into(), tab: d.get("treatAsPageGroup").and_then(Value::as_bool).unwrap_or(false) || ctx.page != ESCAPE && name == "LinkButtonImpl" }
-                }),
+                // links (LinkButtonImpl, LinkUriButtonImpl) and the watch's tabs (WatchTabsImpl, PlayTabImpl, ...)
+                _ if name.starts_with("Link") || name.ends_with("TabImpl") || name.ends_with("TabsImpl") => {
+                    let to: Option<Vec<&str>> = routes::uri(d).iter().map(|r| page_of(r)).collect();
+                    to.filter(|t| !t.is_empty()).map(|t| {
+                        let watch_tab = !name.starts_with("Link");
+                        let group = d.get("treatAsPageGroup").and_then(Value::as_bool).unwrap_or(false);
+                        let path = routes::target(ctx.page, &t, watch_tab);
+                        if routes::current(ctx.page, &path, t.len(), watch_tab || group) {
+                            active.extend(pptr(d, "toggleTheme"));
+                        }
+                        let in_watch = ctx.page.starts_with(routes::ROOT);
+                        Action::Go { page: path, tab: group || in_watch && watch_tab || leaf != ESCAPE && name == "LinkButtonImpl" }
+                    })
+                }
+                // the store button names no route: the store host (INFERRED from the root screen's prefill routes)
+                "GoToStoreScreenButtonController" => {
+                    Some(Action::Go { page: routes::target(ctx.page, &["(Navigation_Store)"], true), tab: ctx.page.starts_with(routes::ROOT) })
+                }
                 _ => None,
             };
             if let (Some(b), Some(a)) = (button, action) {
@@ -523,9 +576,13 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
         show(&mut page, h, !hide);
     }
     // the login page logs in by name only: passwords, password resets, new accounts and the terms are not ours
-    if ctx.page == LOGIN {
+    if leaf == LOGIN {
         const NOT_OURS: [&str; 5] = ["[TextFieldSingleLine] Password", "[Checkbox]", "[TextButton] Forgot password", "[TextButton] Create an account", "(TermsOfServiceButton)"];
         page.each_mut(&mut |e| e.active &= !NOT_OURS.iter().any(|n| e.name.starts_with(n)));
+    }
+    // the watch shows no tutorial highlight (the root screen holds a sample one, shown only while a tutorial runs)
+    if ctx.page.starts_with(routes::ROOT) {
+        page.each_mut(&mut |e| e.active &= e.name != "HighlightFadeout");
     }
     for (t, text) in texts {
         set_text(&mut page, t, &text);
@@ -635,12 +692,17 @@ fn choice_dialog(page: &mut Element, donor: &Element, key: &str, title: &str, op
 }
 
 /// The canvas a page is laid out on. INFERRED: the escape menu's host canvas is not in its prefab (this size fits
-/// its content); the title pages use the title surface, 1920 x 1080, and the watch pages a watch-shaped one.
+/// its content and our rows); the title pages use the title surface, 1920 x 1080, the settings pages alone a
+/// watch-shaped one, the watch its root's surface (2032 x 1230, which holds the 1920 x 1080 router and the navigation
+/// bar) and other pages the 1920 x 1080 their roots are made for.
 pub fn canvas(page: &str) -> [f32; 2] {
+    if page.starts_with(routes::ROOT) {
+        return [2032.0, 1230.0];
+    }
     match page {
-        ESCAPE => [1000.0, 1150.0],
-        LOGIN | SWITCH_ACCOUNT => [1920.0, 1080.0],
-        _ => [1600.0, 1000.0],
+        ESCAPE => [1000.0, 1150.0 + 140.0 * ESCAPE_ROWS.len() as f32],
+        _ if page.starts_with("(Watch_Settings") => [1600.0, 1000.0],
+        _ => [1920.0, 1080.0],
     }
 }
 
@@ -687,10 +749,26 @@ impl Painter {
                 (Err(e), _) | (_, Err(e)) => return drop(tell.send(Err(e))),
             };
             let mut looks = Looks::new(&mut lib);
-            let mut templates: HashMap<String, Element> = HashMap::new();
-            let mut template = |looks: &mut Looks, page: &str| -> Result<Element, String> {
+            // by path: the page and its path with the prefill pages added
+            let mut templates: HashMap<String, (Element, String)> = HashMap::new();
+            // a path's pages, each in the Router of the one before; a router left empty shows its first prefill route
+            let mut template = |looks: &mut Looks, page: &str| -> Result<(Element, String), String> {
                 if !templates.contains_key(page) {
-                    templates.insert(page.to_string(), prefab::load(looks.library(), &pages, &bundle_dir, page)?);
+                    let mut path = page.to_string();
+                    let mut parts = vec![];
+                    for a in routes::parts(page) {
+                        let mut e = prefab::load(looks.library(), &pages, &bundle_dir, a)?;
+                        if a == routes::ROOT {
+                            prefab::spawn_referenced(looks.library(), &pages, &bundle_dir, &mut e);
+                        }
+                        parts.push(e);
+                    }
+                    while let Some(next) = parts.last().and_then(prefill).and_then(|r| page_of(&r)).filter(|_| parts.len() < 6) {
+                        parts.push(prefab::load(looks.library(), &pages, &bundle_dir, next)?);
+                        path = format!("{path}{}{next}", routes::SEP);
+                    }
+                    let built = if parts.len() == 1 { parts.pop() } else { routes::nest(parts) };
+                    templates.insert(page.to_string(), (built.ok_or_else(|| format!("{page}: a page without a Router holds another"))?, path));
                 }
                 Ok(templates[page].clone())
             };
@@ -700,13 +778,13 @@ impl Painter {
                 while let Ok(newer) = asked.try_recv() {
                     r = newer;
                 }
-                if donors.is_none() && r.page.starts_with("(Watch_Settings") {
-                    let (c, v) = (template(&mut looks, CONTROLS).ok(), template(&mut looks, VISUALS).ok());
+                if donors.is_none() && routes::leaf(&r.page).starts_with("(Watch_Settings") {
+                    let (c, v) = (template(&mut looks, CONTROLS).ok().map(|t| t.0), template(&mut looks, VISUALS).ok().map(|t| t.0));
                     donors = Some(Donors::find(c.as_ref(), v.as_ref()));
                 }
-                let painted = template(&mut looks, &r.page).map(|t| {
+                let painted = template(&mut looks, &r.page).map(|(t, path)| {
                     let none = Donors::default();
-                    let ctx = Ctx { page: &r.page, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused,
+                    let ctx = Ctx { page: &path, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused,
                         scroll: &r.scroll, choosing: r.choosing.as_deref() };
                     let b = build(&t, &ctx, &theme, donors.as_ref().unwrap_or(&none));
                     Painted { drawn: paint::page_with(&mut looks, &b.page, canvas(&r.page)), page: r.page, actions: b.actions, scrolls: b.scrolls }
@@ -844,7 +922,7 @@ mod tests {
         }
         assert_eq!(hides, [(11, true)]);
         assert_eq!(w.switches, [(31, "invert_y".to_string())]);
-        assert_eq!(route(&page.children[1].impls()[0].1).as_deref(), Some(ROUTES[0].0));
+        assert_eq!(routes::uri(&page.children[1].impls()[0].1), [ROUTES[0].0]);
         assert_eq!(page_of(ROUTES[0].0), Some(CONTROLS));
         assert_eq!(setting("SettingsModelController/AutoSprintToggleImpl", &s(vec![])).as_deref(), Some("auto_sprint"));
         assert_eq!(setting("SettingsModelController/VolumeSliderImpl", &s(vec![("Type", Value::Int(3))])).as_deref(), Some("volume_music"));

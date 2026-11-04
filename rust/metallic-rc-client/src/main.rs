@@ -571,6 +571,11 @@ fn use_menu(
         }
         repaint = true;
     }
+    // Tab: the watch (INFERRED key; the game opens its menu from a watch button)
+    if keys.just_pressed(KeyCode::Tab) && !menu.focused {
+        if menu.open() { menu.router.close() } else { menu.router.open(metallic_rc_client::ui::routes::HOME) }
+        repaint = true;
+    }
     if let (Some((p, _, _)), Some(cursor)) = (&menu.shown, window.cursor_position()) {
         let at = view::to_canvas(&p.drawn, window.size(), cursor);
         let over = input::hit(&p.drawn, at).map(|i| i.id);

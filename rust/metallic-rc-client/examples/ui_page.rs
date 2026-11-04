@@ -36,7 +36,7 @@ fn main() {
     let pages = prefab::Pages::open(&dir).unwrap();
     let mut lib = Library::new(&dir).unwrap();
     println!("catalog and index in {:?}", t.elapsed());
-    if !address.starts_with('(') {
+    if !address.starts_with('(') && !address.ends_with(".prefab") {
         for a in pages.search(&address) {
             println!("{a}");
         }
