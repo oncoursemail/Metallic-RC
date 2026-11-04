@@ -264,7 +264,7 @@ fn main() {
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
         .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), look_and_walk, show_status, spawn_room,
-            avatar::panel::look_panel.run_if(not_typing), camera_view.after(look_and_walk), local_avatar.after(camera_view), realtime_sync.after(local_avatar)))
+            avatar::panel::look_panel.run_if(not_typing), camera_view.after(look_and_walk), local_avatar.after(camera_view), realtime_sync.after(local_avatar), follow_room))
         .run();
 }
 
@@ -523,6 +523,23 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
         }
         drop(hub);
     });
+}
+
+/// The server moved this player (joined a friend, or the party leader moved the party): rejoin in that room.
+fn follow_room(
+    mut moved: MessageReader<metallic_rc_client::social::FollowRoom>,
+    mut commands: Commands,
+    mut account: ResMut<Account>,
+    (net, status): (Res<Net>, Res<Status>),
+    avatars: Query<Entity, With<Avatar>>,
+) {
+    let Some(metallic_rc_client::social::FollowRoom(to)) = moved.read().last().cloned() else { return };
+    leave_room(&net);
+    for a in &avatars {
+        commands.entity(a).despawn();
+    }
+    account.room = Some(to.photon_room);
+    log_in(&account, &status, &net);
 }
 
 /// Leaves the room, if in one; returns the connection, which closes once the server has seen the goodbye.
