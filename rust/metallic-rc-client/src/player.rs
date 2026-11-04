@@ -20,7 +20,7 @@ use bevy::{
 use crate::{
     avatar::{self, Drive, Kit, LocalLook, LookPanel, Rig},
     collide::{self, Obb},
-    interact::{self, LocalHands},
+    interact::{self, LocalHands, PropSolids},
     settings::Settings,
 };
 use motor::Motor;
@@ -158,6 +158,7 @@ fn look_and_walk(
     cursor: Single<&CursorOptions, With<PrimaryWindow>>,
     mut player: Single<(&mut Player, &mut Transform)>,
     (solids, controls, tuning, third, panel): (Res<Solids>, Res<Controls>, Res<Tuning>, Res<ThirdPerson>, Res<LookPanel>),
+    props: Res<PropSolids>,
 ) {
     let (p, t) = &mut *player;
     // typing into the menu does not walk; the editor keeps the arrow keys
@@ -197,8 +198,16 @@ fn look_and_walk(
     let sprint = motor::wants_sprint(s.on("auto_sprint"), s.on("sprint_toggle"), key(keys, &shift), keys.any_just_pressed(shift), &mut toggled);
     p.sprint_toggled = toggled;
     let feet = p.feet(t);
+    // the room's boxes and the props lying about
+    let with_props;
+    let solids: &[Obb] = if props.0.is_empty() {
+        &solids.0
+    } else {
+        with_props = [&solids.0[..], &props.0[..]].concat();
+        &with_props
+    };
     // room to stand: the top of a standing capsule touches nothing
-    let head_room = collide::sphere_clear(&solids.0, feet + Vec3::Y * (collide::HEIGHT - collide::RADIUS), collide::RADIUS * 0.95);
+    let head_room = collide::sphere_clear(solids, feet + Vec3::Y * (collide::HEIGHT - collide::RADIUS), collide::RADIUS * 0.95);
     let input = motor::Input {
         wish: wish.normalize_or_zero(),
         forward,
@@ -210,9 +219,9 @@ fn look_and_walk(
     };
     p.motor.step(&tuning, &input, dt);
     let asked = p.motor.velocity * dt;
-    let (mut next, mut grounded) = if p.motor.flying { (feet + asked, false) } else { collide::move_capsule(&solids.0, feet, asked) };
+    let (mut next, mut grounded) = if p.motor.flying { (feet + asked, false) } else { collide::move_capsule(solids, feet, asked) };
     // the stand-in room has no colliders: its floor is y = 0
-    if solids.0.is_empty() && next.y < 0.0 && !p.motor.flying {
+    if solids.is_empty() && next.y < 0.0 && !p.motor.flying {
         (next.y, grounded) = (0.0, true);
     }
     p.motor.after_move(grounded, next - feet, dt);
