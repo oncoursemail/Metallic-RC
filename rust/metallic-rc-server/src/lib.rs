@@ -7,6 +7,7 @@
 pub mod auth;
 pub mod discovery;
 pub mod game;
+pub mod games;
 pub mod hub;
 pub mod inventory;
 pub mod party;

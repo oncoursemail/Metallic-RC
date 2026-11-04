@@ -9,11 +9,13 @@
 //! - [`sync`]: the movement records of event 28 (avatars and objects) and the smoothing of what others move;
 //! - [`objects`]: networked objects: view ids, instantiate and destroy, ownership, RPC targets;
 //! - [`voice`]: voice packets (Dissonance VoiceData) relayed through the room;
+//! - [`games`]: built-in game modes (Paintball): match messages between the room server and the players;
 //! - [`room`]: a player's side of a room (join, spawn, movement), used by the game client and the tests.
 //!
 //! No sockets here: callers feed datagrams in and take datagrams out, so the same code runs in tests, the game
 //! client and the server.
 pub mod events;
+pub mod games;
 pub mod layer;
 pub mod lnl;
 pub mod ngo;

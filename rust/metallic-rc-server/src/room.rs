@@ -92,6 +92,7 @@ impl Limits {
             (RELAY_UP, Some(relay::NETWORK_SYNCHRONIZATION)) => self.sync.take(now, 45.0, 60.0, 1.0),
             (RELAY_UP, _) => self.events.take(now, 60.0, 120.0, 1.0),
             (voice::TO_SERVER, _) => self.voice.take(now, 60.0, 100.0, 1.0),
+            (rr_net::games::TO_SERVER, _) => self.events.take(now, 60.0, 120.0, 1.0),
             _ => self.ops.take(now, 10.0, 20.0, 1.0),
         };
         let ok = kind && self.bytes.take(now, 128.0 * 1024.0, 256.0 * 1024.0, len as f64);
@@ -134,6 +135,8 @@ pub struct Rooms {
     auth: Option<Auth>,
     limits: HashMap<u64, Limits>,
     live: Live,
+    /// built-in game modes (Paintball): the server runs the match
+    games: crate::games::Games,
 }
 
 impl Default for Rooms {
@@ -158,7 +161,7 @@ impl Rooms {
             }
             Ok(APPROVED.to_string())
         });
-        Rooms { ngo: Server::new(approve), rooms: HashMap::new(), pending: HashMap::new(), room_of: HashMap::new(), auth, limits: HashMap::new(), live: Live::default() }
+        Rooms { ngo: Server::new(approve), rooms: HashMap::new(), pending: HashMap::new(), room_of: HashMap::new(), auth, limits: HashMap::new(), live: Live::default(), games: Default::default() }
     }
 
     /// The open rooms and their player counts, kept up to date as players come and go.
@@ -234,9 +237,22 @@ impl Rooms {
                         self.voice(from, &payload);
                     }
                 }
+                ServerEvent::Named { from, hash: rr_net::games::TO_SERVER, payload } => {
+                    if let Some(room) = self.room_of.get(&from) {
+                        self.games.message(now, room, from, &payload);
+                    }
+                }
                 ServerEvent::Named { .. } => {}
             }
         }
+        for s in self.games.update(now) {
+            self.ngo.send_named(s.to, rr_net::games::TO_CLIENT, &s.payload, s.delivery);
+        }
+    }
+
+    /// The game modes, for tests.
+    pub fn games(&self) -> &crate::games::Games {
+        &self.games
     }
 
     /// Passes a voice packet (stamped with the speaker) to the rest of the speaker's room.
@@ -272,6 +288,7 @@ impl Rooms {
             self.ngo.send_named(client, RELAY_DOWN, &p, NgoDelivery::ReliableFragmentedSequenced);
         }
         self.op(client, &Op::SelfJoinMarker);
+        self.games.joined(now, &room_name, client, player.name.as_deref().unwrap_or(""));
         for o in others {
             self.op(o, &Op::RemotePlayerJoined(player.clone()));
         }
@@ -280,6 +297,11 @@ impl Rooms {
 
     /// Passes an event on to its receivers, never back to the sender, and keeps the room cache.
     fn relay(&mut self, now: f64, from: u64, r: Raise) {
+        if r.code == relay::NETWORK_SYNCHRONIZATION {
+            if let Some(room) = self.room_of.get(&from) {
+                self.games.sync(room, from, &r.content);
+            }
+        }
         let Some(room) = self.room_of.get(&from).and_then(|n| self.rooms.get_mut(n)) else { return };
         let actor = from as i32;
         // room loads are the master's
@@ -326,6 +348,7 @@ impl Rooms {
         self.pending.remove(&client);
         self.limits.remove(&client);
         let Some(name) = self.room_of.remove(&client) else { return };
+        self.games.left(&name, client);
         let Some(room) = self.rooms.get_mut(&name) else { return };
         if !room.has(client) {
             return;
