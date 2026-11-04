@@ -1,7 +1,8 @@
 //! The avatar's animation state, without Bevy: which way it moves (idle, walk, run, jump, fall, fly) from its velocity,
 //! a stride phase, blinking and talking, crouching, and the body pose that follows from them in the avatar's own space
 //! (+y up, facing -z, feet at the origin). The body pose cross-fades from one move to the next (`FADE`) instead of
-//! snapping, so walk, run, jump, fall and crouch blend.
+//! snapping, so walk, run, jump, fall and crouch blend. Standing still it breathes and sways a little; the mouth
+//! follows the voice's loudness.
 use bevy::math::Vec3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -26,6 +27,18 @@ pub enum Grip {
     Hold,
 }
 
+impl Grip {
+    /// How far each part of the hand curls in, radians: the three outer fingers (one mitten), the index finger and
+    /// the thumb.
+    pub fn curls(self) -> [f32; 3] {
+        match self {
+            Grip::Open => [0.25, 0.15, 0.2],
+            Grip::Point => [1.75, 0.0, 0.9],
+            Grip::Hold => [1.45, 1.35, 1.0],
+        }
+    }
+}
+
 /// What drives the animation this frame.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Input {
@@ -35,6 +48,8 @@ pub struct Input {
     pub grounded: Option<bool>,
     pub flying: bool,
     pub talking: bool,
+    /// how loud the voice is, 0..1 (the mouth opens with it)
+    pub voice: f32,
     /// 0 standing, 1 fully crouched
     pub crouch: f32,
 }
@@ -89,6 +104,12 @@ pub struct Pose {
     pub mouth: f32,
     /// how far the hips are down, metres
     pub drop: f32,
+    /// the breath, -1 (out) to 1 (in)
+    pub breath: f32,
+    /// the body's slow side to side sway standing still, radians
+    pub sway: f32,
+    /// 0 calm, 1 eyes wide (falling, jumping)
+    pub wide: f32,
 }
 
 impl Pose {
@@ -103,6 +124,9 @@ impl Pose {
             eyes: to.eyes,
             mouth: to.mouth,
             drop: f(self.drop, to.drop),
+            breath: to.breath,
+            sway: f(self.sway, to.sway),
+            wide: f(self.wide, to.wide),
         }
     }
 }
@@ -158,8 +182,10 @@ impl Anim {
                 }
             }
         }
-        // talking opens and closes the mouth at syllable pace, with some unevenness
-        let target = if i.talking { 0.25 + 0.75 * ((self.time * 11.0).sin() * (self.time * 4.3).sin()).abs() } else { 0.0 };
+        // talking opens and closes the mouth at syllable pace, with some unevenness, wider the louder it is
+        let level = i.voice.max(if i.talking { 0.6 } else { 0.0 });
+        let syllable = ((self.time * 11.0).sin() * (self.time * 4.3).sin()).abs();
+        let target = if level > 0.02 { (0.15 + 0.85 * syllable) * (0.4 + level).min(1.0) } else { 0.0 };
         self.mouth += (target - self.mouth) * (1.0 - (-dt * 25.0).exp());
         self.crouch = i.crouch.clamp(0.0, 1.0);
         let to = self.target();
@@ -204,7 +230,12 @@ impl Anim {
         // crouching: the hips go down (the legs telescope), the body leans in and the hands come down with it
         let drop = CROUCH_DROP * self.crouch;
         let hands = hands.map(|h| h - Vec3::Y * drop + Vec3::new(0.0, 0.0, -0.08 * self.crouch));
-        Pose { bob, lean: lean + 0.25 * self.crouch, legs, hands, eyes, mouth: self.mouth, drop }
+        // a breath every four seconds, quicker on the move; the sway only standing still
+        let moving = self.state != Move::Idle;
+        let breath = (self.time * std::f32::consts::TAU * if moving { 0.45 } else { 0.25 }).sin();
+        let sway = if moving { 0.0 } else { 0.018 * (self.time * 0.9).sin() + 0.008 * (self.time * 2.3).sin() };
+        let wide = if matches!(self.state, Move::Fall | Move::Jump) { 1.0 } else { 0.0 };
+        Pose { bob, lean: lean + 0.25 * self.crouch, legs, hands, eyes, mouth: self.mouth, drop, breath, sway, wide }
     }
 }
 
@@ -334,5 +365,41 @@ mod tests {
         assert!(widest > 0.6, "{widest}");
         run(&mut a, 0.5, Input::default());
         assert!(a.pose().mouth < 0.01);
+        // the voice's loudness opens it as far as it is loud
+        let widest = |a: &mut Anim, voice: f32| {
+            let mut w = 0f32;
+            for _ in 0..60 {
+                a.step(1.0 / 60.0, Input { voice, ..Default::default() });
+                w = w.max(a.pose().mouth);
+            }
+            w
+        };
+        let (quiet, loud) = (widest(&mut a, 0.1), widest(&mut a, 0.9));
+        assert!(quiet > 0.2 && loud > 0.8 && quiet < loud * 0.7, "{quiet} {loud}");
+    }
+
+    #[test]
+    fn breathes_and_sways_standing_still() {
+        let mut a = Anim::new(4);
+        let (mut breath, mut sway) = ((f32::MAX, f32::MIN), (f32::MAX, f32::MIN));
+        for _ in 0..(5 * 60) {
+            a.step(1.0 / 60.0, Input::default());
+            let p = a.pose();
+            breath = (breath.0.min(p.breath), breath.1.max(p.breath));
+            sway = (sway.0.min(p.sway), sway.1.max(p.sway));
+        }
+        assert!(breath.0 < -0.9 && breath.1 > 0.9, "{breath:?}");
+        assert!(sway.0 < -0.01 && sway.1 > 0.01 && sway.1 < 0.03, "{sway:?}");
+        // walking: no sway
+        run(&mut a, 1.0, going(3.0, 0.0));
+        assert!(a.pose().sway.abs() < 1e-3);
+    }
+
+    #[test]
+    fn grips_curl_the_fingers() {
+        let [open, point, hold] = [Grip::Open, Grip::Point, Grip::Hold].map(Grip::curls);
+        // pointing: the index finger straight, the rest curled; holding: everything curled round the handle
+        assert!(point[1] < open[1] && point[0] > 1.0 && point[2] > open[2]);
+        assert!(hold.iter().all(|&c| c > 0.9) && open.iter().all(|&c| c < 0.4));
     }
 }

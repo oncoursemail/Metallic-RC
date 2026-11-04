@@ -1,7 +1,8 @@
 //! Profiles: display name, bio, the robot avatar's look, created date, level and XP.
 //!
 //! - Ours: `GET api/profile/v1/me`, `GET api/profile/v1/{id}`, `POST api/profile/v1/me` with a JSON object of any of
-//!   `displayName` (1-32 characters), `bio` (up to 512), `look` (`{"skin","shirt","accent"}` as `#rrggbb` and an
+//!   `displayName` (1-32 characters), `bio` (up to 512), `look` (`{"skin","shirt","accent"}` and optionally
+//!   `"pants","visor"` as `#rrggbb`, `"eyes"`, an `"outfit"` (owned, `outfit:*`) and an
 //!   `accessory` the player owns, see `inventory`). Answer and push (`SubscriptionUpdateProfile` to friends):
 //!   `{accountId, username, displayName, bio, look, createdAt, level, xp}`; `look` is null until one is saved.
 //! - The game's: `GET accounts/account/{id}/bio` -> `{accountId, bio}` (BioDTO; path V), `PUT|POST
@@ -83,7 +84,24 @@ fn check_look(d: &mut Data, id: i64, v: &Value) -> Result<Value, &'static str> {
     if accessory != "none" && !inventory::owns(d, id, &format!("accessory:{accessory}")) {
         return Err("you do not own that accessory");
     }
-    Ok(json!({ "skin": skin, "shirt": shirt, "accent": accent, "accessory": accessory }))
+    let mut look = json!({ "skin": skin, "shirt": shirt, "accent": accent, "accessory": accessory });
+    // the newer zones and choices pass through when well formed; an outfit piece must be owned like an accessory
+    for k in ["pants", "visor"] {
+        if let Some(c) = hex(k) {
+            look[k] = c.into();
+        }
+    }
+    let word = |k: &str| v[k].as_str().filter(|s| (1..=32).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_alphanumeric())).map(str::to_ascii_lowercase);
+    if let Some(e) = word("eyes") {
+        look["eyes"] = e.into();
+    }
+    if let Some(o) = word("outfit") {
+        if o != "none" && !inventory::owns(d, id, &format!("outfit:{o}")) {
+            return Err("you do not own that outfit");
+        }
+        look["outfit"] = o.into();
+    }
+    Ok(look)
 }
 
 /// Applies the fields present; all are checked before anything changes. Returns the new profile or why not.

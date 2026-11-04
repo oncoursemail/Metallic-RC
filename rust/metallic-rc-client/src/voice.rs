@@ -32,8 +32,15 @@ pub struct VoicePlugin;
 
 impl Plugin for VoicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, start).add_systems(Update, voice);
+        app.init_resource::<Loudness>().add_systems(Startup, start).add_systems(Update, voice);
     }
+}
+
+/// How loud each voice is now, 0..1: ours (`me`) and the room's by actor number. The avatars' mouths follow it.
+#[derive(Resource, Default)]
+pub struct Loudness {
+    pub me: f32,
+    pub actors: HashMap<u16, f32>,
 }
 
 /// An Opus encoder or decoder (the pure-Rust libopus port), freed on drop.
@@ -333,6 +340,7 @@ fn voice(
     mut v: ResMut<Voice>,
     ears: Query<&GlobalTransform, With<Camera3d>>,
     mut text: Single<&mut Text, With<VoiceText>>,
+    mut loud: ResMut<Loudness>,
 ) {
     let v = &mut *v;
     if let Some(path) = Settings::path() {
@@ -357,6 +365,13 @@ fn voice(
     }
     let now = time.elapsed_secs();
     let rt = link.get();
+    // loudness falls back to silence over a quarter second unless a new frame says otherwise
+    let fade = time.delta_secs() * 4.0;
+    loud.me = (loud.me - fade).max(0.0);
+    loud.actors.retain(|_, l| {
+        *l -= fade;
+        *l > 0.0
+    });
     for f in frames {
         let level = rms(&f);
         let send = !muted && if open_mic { level > GATE || now < v.gate_open_until } else { keys.pressed(PUSH_TO_TALK) };
@@ -367,6 +382,7 @@ fn voice(
             let packet = v.encoder.encode(&f);
             rt.room.lock().unwrap().send_voice(packet, (level * 4.0 * 255.0).min(255.0) as u8);
             v.last_sent = now;
+            loud.me = loud.me.max((level * 4.0).min(1.0));
         }
     }
     let talking = now - v.last_sent < 0.3;
@@ -390,6 +406,8 @@ fn voice(
         decoded.push((p.sender, sp.opus.decode(Some(&p.frame), false)));
         sp.next = Some(p.sequence.wrapping_add(1));
         sp.heard = now;
+        let l = loud.actors.entry(p.sender).or_default();
+        *l = l.max(p.amplitude as f32 / 255.0);
     }
     let heads: HashMap<u16, (Vec3, String)> = room.shown().iter().map(|s| {
         let at = s.head.map_or(Vec3::from(s.body.position) + Vec3::Y * 1.55, |h| Vec3::from(h.position));
