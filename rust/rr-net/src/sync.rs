@@ -7,8 +7,12 @@ use crate::events::{In, Malformed, Out};
 
 /// Seconds between movement events.
 pub const SEND_INTERVAL: f64 = 1.0 / 15.0;
+/// `NetworkSynchronizationType::NetworkTransform`
+pub const NETWORK_TRANSFORM: u8 = 0;
 /// `NetworkSynchronizationType::PlayerAvatarData`
 pub const PLAYER_AVATAR_DATA: u8 = 1;
+/// The 2026 client's limit for one event-28 buffer; more records go in further events.
+pub const MAX_BUFFER: usize = 900;
 /// The largest quaternion component left out of smallest-three lies above this, so the other three lie within +-it.
 const SMALLEST_THREE: f32 = std::f32::consts::FRAC_1_SQRT_2;
 const VELOCITY_RANGES: [f32; 3] = [1.0, 8.0, 64.0];
@@ -215,6 +219,36 @@ pub fn write_buffer(tick: i32, actor: i32, records: &[(i32, u8, Vec<u8>)]) -> Ve
     o.0
 }
 
+/// The same records split into buffers of at most [`MAX_BUFFER`] bytes (a single record larger than that goes alone).
+pub fn write_buffers(tick: i32, actor: i32, records: &[(i32, u8, Vec<u8>)]) -> Vec<Vec<u8>> {
+    let mut out = vec![];
+    let (mut start, mut size) = (0, 8);
+    for (i, r) in records.iter().enumerate() {
+        let n = 7 + r.2.len();
+        if i > start && size + n > MAX_BUFFER {
+            out.push(write_buffer(tick, actor, &records[start..i]));
+            (start, size) = (i, 8);
+        }
+        size += n;
+    }
+    if start < records.len() {
+        out.push(write_buffer(tick, actor, &records[start..]));
+    }
+    out
+}
+
+/// A NetworkTransform record: the same transform bits as one avatar part. The stock record also carries angular
+/// velocity for generic transforms; ours leaves it out (both ends are ours: INFERRED layout).
+pub fn encode_transform(p: &Pose) -> Vec<u8> {
+    let mut w = BitWriter::default();
+    p.write(&mut w);
+    w.finish()
+}
+
+pub fn decode_transform(b: &[u8]) -> Result<Pose, Malformed> {
+    Pose::read(&mut BitReader::new(b))
+}
+
 pub type Records<'a> = Vec<(i32, u8, &'a [u8])>;
 
 pub fn read_buffer(b: &[u8]) -> Result<(i32, i32, Records<'_>), Malformed> {
@@ -255,6 +289,17 @@ impl Smoother {
         if self.last.is_none_or(|(t, _)| sent >= t) {
             self.last = Some((sent, pose));
         }
+    }
+
+    /// The pose last drawn, else the newest sample.
+    pub fn current(&self) -> Option<Pose> {
+        self.shown.or(self.last.map(|(_, p)| p))
+    }
+
+    /// Starts again from `pose`, at rest, older than any sample to come.
+    pub fn seed(&mut self, pose: Pose) {
+        let still = Pose { velocity: [0.0; 3], ..pose };
+        (self.last, self.shown) = (Some((f64::MIN, still)), Some(still));
     }
 
     /// The pose to draw at server time `now`, `dt` seconds after the previous call.
@@ -318,6 +363,15 @@ mod tests {
         let (tick, actor, records) = read_buffer(&buf).unwrap();
         assert_eq!((tick, actor, records.len(), records[0].0, records[0].1), (900, 2, 1, 200001, PLAYER_AVATAR_DATA));
         assert_eq!(AvatarData::decode(records[0].2).unwrap(), back);
+
+        let t = Pose { position: [1.0, 2.0, 3.0], rotation: [0.0, 0.0, 0.0, 1.0], velocity: [0.0; 3] };
+        assert_eq!(decode_transform(&encode_transform(&t)), Ok(t));
+        // 60 records of ~33 bytes split into buffers no larger than the limit, all records kept in order
+        let many: Vec<_> = (0..60).map(|i| (i, NETWORK_TRANSFORM, encode_transform(&Pose { velocity: [1.0; 3], ..t }))).collect();
+        let bufs = write_buffers(1, 2, &many);
+        assert!(bufs.len() > 1 && bufs.iter().all(|b| b.len() <= MAX_BUFFER));
+        let views: Vec<i32> = bufs.iter().flat_map(|b| read_buffer(b).unwrap().2.into_iter().map(|r| r.0).collect::<Vec<_>>()).collect();
+        assert_eq!(views, (0..60).collect::<Vec<_>>());
     }
 
     #[test]

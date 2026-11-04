@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use rr_net::events::ops::{Op, PlayerData, RoomData};
 use rr_net::events::relay::{self, Proxied, Raise, Receivers};
+use rr_net::events::tagged::Value;
 use rr_net::events::{OP_DOWN, OP_UP, RELAY_DOWN, RELAY_UP};
 use rr_net::ngo::{NgoDelivery, Server, ServerEvent};
 
@@ -151,7 +152,17 @@ impl Rooms {
             relay::ADD_TO_ROOM_CACHE | relay::ADD_TO_ROOM_CACHE_GLOBAL => {
                 room.cache.push(Cached { sender: actor, code: r.code, content: r.content.clone(), global: r.options.cache == relay::ADD_TO_ROOM_CACHE_GLOBAL });
             }
-            relay::REMOVE_FROM_ROOM_CACHE => room.cache.retain(|c| !(c.sender == actor && c.code == r.code)),
+            relay::REMOVE_FROM_ROOM_CACHE => {
+                // Photon's rule: events of this code from the senders in the target list (else from the requester)
+                // whose content holds every entry of the filter dictionary sent; a cache operation, relayed to nobody
+                let senders = r.options.targets.clone().filter(|t| !t.is_empty()).unwrap_or_else(|| vec![actor]);
+                let filter = match Value::decode(&r.content) {
+                    Ok(Value::Dictionary(f)) => f,
+                    _ => vec![],
+                };
+                room.cache.retain(|c| !(c.code == r.code && senders.contains(&c.sender) && matches(&c.content, &filter)));
+                return;
+            }
             relay::REMOVE_FROM_ROOM_CACHE_FOR_ACTORS_LEFT => {
                 let members: Vec<i32> = room.members.iter().map(|p| p.client_id as i32).collect();
                 room.cache.retain(|c| c.global || members.contains(&c.sender));
@@ -194,6 +205,15 @@ impl Rooms {
             self.op(o, &Op::RemotePlayerLeft { left: client, update: update.clone() });
         }
     }
+}
+
+/// Whether tagged `content` is a dictionary holding every entry of `filter` (an empty filter matches anything).
+fn matches(content: &[u8], filter: &[(Value, Value)]) -> bool {
+    if filter.is_empty() {
+        return true;
+    }
+    let Ok(Value::Dictionary(entries)) = Value::decode(content) else { return false };
+    filter.iter().all(|f| entries.contains(f))
 }
 
 /// Binds the room listener and serves it on its own thread; returns the bound address.
