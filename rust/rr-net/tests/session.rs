@@ -195,9 +195,11 @@ fn a_client_that_goes_silent_times_out_and_leaves() {
     w.join(br#"{"AI":"1"}"#, 0.0, 0.0);
     w.join(br#"{"AI":"2"}"#, 0.0, 0.0);
     w.run_until(5.0, |w| w.players.iter().all(|p| p.client.client_id().is_some()));
-    // client 1 is gone without a word: everything it sends and is sent is lost
+    // both asked in the same frame, so which got id 1 is up to the server: take player 0's
+    let (gone, stays) = (w.players[0].client.client_id().unwrap(), w.players[1].client.client_id().unwrap());
+    // player 0 is gone without a word: everything it sends and is sent is lost
     w.players[0].up.drop = 1.0;
     w.players[0].down.drop = 1.0;
-    w.run_until(15.0, |w| w.server_events.contains(&ServerEvent::Left { client_id: 1 }));
-    assert_eq!(w.server.clients().collect::<Vec<_>>(), [2]);
+    w.run_until(15.0, |w| w.server_events.contains(&ServerEvent::Left { client_id: gone }));
+    assert_eq!(w.server.clients().collect::<Vec<_>>(), [stays]);
 }
