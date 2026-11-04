@@ -319,7 +319,17 @@ impl Server {
                 out.push_back((*addr, layer::wrap(&p)));
             }
         }
-        conns.retain(|_, c| !c.link.peer.is_closed());
+        conns.retain(|_, c| {
+            if !c.link.peer.is_closed() {
+                return true;
+            }
+            // a timeout closes the peer in `update` above: its Disconnected event is still waiting
+            let (_, other) = c.link.take();
+            if let (true, Some(id)) = (other.iter().any(|e| matches!(e, lnl::Event::Disconnected(_))), c.client_id) {
+                events.push_back(ServerEvent::Left { client_id: id });
+            }
+            false
+        });
     }
 
     pub fn poll_transmit(&mut self) -> Option<(SocketAddr, Vec<u8>)> {

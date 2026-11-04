@@ -8,6 +8,7 @@ pub mod auth;
 pub mod discovery;
 pub mod game;
 pub mod hub;
+pub mod room;
 pub mod store;
 
 use std::{path::{Path, PathBuf}, sync::Arc, time::Instant};

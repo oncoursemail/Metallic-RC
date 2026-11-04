@@ -11,6 +11,7 @@ tungstenite = "0.30"
 serde_json = "1"
 bevy = "0.20"
 unity-assets = { version = "0.1.0", path = "../unity-assets" }
+rr-net = { path = "../rr-net" }
 
 [dev-dependencies]
 metallic-rc-server = { path = "../metallic-rc-server" }

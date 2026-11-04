@@ -188,3 +188,16 @@ fn over_real_udp_sockets() {
     assert_eq!(echoed.as_deref(), Some(&b"ping over udp"[..]));
     assert_eq!(client.client_id(), Some(1));
 }
+
+#[test]
+fn a_client_that_goes_silent_times_out_and_leaves() {
+    let mut w = World::new();
+    w.join(br#"{"AI":"1"}"#, 0.0, 0.0);
+    w.join(br#"{"AI":"2"}"#, 0.0, 0.0);
+    w.run_until(5.0, |w| w.players.iter().all(|p| p.client.client_id().is_some()));
+    // client 1 is gone without a word: everything it sends and is sent is lost
+    w.players[0].up.drop = 1.0;
+    w.players[0].down.drop = 1.0;
+    w.run_until(15.0, |w| w.server_events.contains(&ServerEvent::Left { client_id: 1 }));
+    assert_eq!(w.server.clients().collect::<Vec<_>>(), [2]);
+}

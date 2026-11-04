@@ -62,7 +62,19 @@ impl Obb {
 }
 
 /// Moves feet by `motion` through the boxes. Returns the new feet position and whether it stands on something.
+/// A long move (a slow frame, a fast fall) goes in steps of at most half the radius, so it cannot pass through a
+/// thin box.
 pub fn move_capsule(boxes: &[Obb], feet: Vec3, motion: Vec3) -> (Vec3, bool) {
+    let steps = (motion.length() / (RADIUS * 0.5)).ceil().max(1.0) as usize;
+    let (mut p, mut grounded) = (feet, false);
+    for _ in 0..steps {
+        let (q, g) = move_step(boxes, p, motion / steps as f32);
+        (p, grounded) = (q, grounded || g);
+    }
+    (p, grounded)
+}
+
+fn move_step(boxes: &[Obb], feet: Vec3, motion: Vec3) -> (Vec3, bool) {
     let heights = [RADIUS, HEIGHT * 0.5, HEIGHT - RADIUS];
     let mut p = feet + motion;
     let mut grounded = false;
@@ -110,6 +122,14 @@ mod tests {
         let (p, grounded) = move_capsule(&floor, Vec3::new(0.0, 0.05, 0.0), Vec3::new(0.0, -0.1, 0.0));
         assert!(grounded);
         assert!((p.y - 0.0).abs() < 1e-3, "{p}");
+    }
+
+    #[test]
+    fn a_long_fall_lands_on_a_thin_floor() {
+        // one slow frame at full falling speed: 40 m in one move onto a 5 cm floor
+        let floor = [cube(Vec3::new(0.0, -0.025, 0.0), Vec3::new(10.0, 0.05, 10.0))];
+        let (p, grounded) = move_capsule(&floor, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, -40.0, 0.0));
+        assert!(grounded && p.y.abs() < 1e-3, "{p}");
     }
 
     #[test]
