@@ -127,6 +127,8 @@ pub struct MeshRenderer {
     pub enabled: bool,
     pub materials: Vec<PPtr>,
     pub mesh: Option<PPtr>,
+    /// `m_CastShadows`: 0 off, 1 on, 2 two-sided, 3 shadows only (the mesh itself is not drawn)
+    pub cast_shadows: u8,
     /// `m_LightmapIndex` (0xffff: not lightmapped, 0xfffe: realtime GI only)
     pub lightmap_index: u16,
     /// `m_LightmapTilingOffset`: lightmap uv = uv1 * xy + zw
@@ -142,6 +144,7 @@ impl MeshRenderer {
             enabled: v.get("m_Enabled").and_then(Value::as_bool).unwrap_or(true),
             materials: pptrs(v, "m_Materials"),
             mesh: v.get("m_Mesh").and_then(Value::as_pptr),
+            cast_shadows: v.get("m_CastShadows").and_then(Value::as_i64).unwrap_or(1) as u8,
             lightmap_index: v.get("m_LightmapIndex").and_then(Value::as_i64).unwrap_or(0xffff) as u16,
             lightmap_st: v.get("m_LightmapTilingOffset").map(Value::floats).and_then(|f| f.get(..4)?.try_into().ok()).unwrap_or([1.0, 1.0, 0.0, 0.0]),
             static_batch: v.get("m_StaticBatchInfo").map_or((0, 0), |b| {

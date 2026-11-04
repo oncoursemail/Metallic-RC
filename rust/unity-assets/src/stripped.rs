@@ -98,7 +98,7 @@ pub fn renderer_flag_bytes(unity_version: &str) -> usize {
 pub fn mesh_renderer(r: &mut Reader, unity_version: &str) -> Result<MeshRenderer> {
     let game_object = pptr(r)?;
     let enabled = r.bool()?;
-    r.bytes(renderer_flag_bytes(unity_version))?;
+    let cast_shadows = r.bytes(renderer_flag_bytes(unity_version))?[0];
     r.align(4);
     r.u32()?; // m_RenderingLayerMask (2018+)
     r.i32()?; // m_RendererPriority (2018.3+)
@@ -109,7 +109,7 @@ pub fn mesh_renderer(r: &mut Reader, unity_version: &str) -> Result<MeshRenderer
     let materials = pptrs(r)?;
     // m_StaticBatchInfo (firstSubMesh, subMeshCount); absent only in truncated test objects
     let static_batch = if r.remaining() >= 4 { (r.u16()?, r.u16()?) } else { (0, 0) };
-    Ok(MeshRenderer { game_object, enabled, materials, mesh: None, lightmap_index, lightmap_st, static_batch })
+    Ok(MeshRenderer { game_object, enabled, materials, mesh: None, cast_shadows, lightmap_index, lightmap_st, static_batch })
 }
 
 /// Classes whose first field is `m_Name` (NamedObject): Material, Texture2D, Mesh, and a few others.

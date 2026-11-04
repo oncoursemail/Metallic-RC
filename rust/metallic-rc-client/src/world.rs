@@ -197,6 +197,10 @@ fn shape_kit() -> ShapeKit {
 
 fn load_with(lib: &mut Library, kit: &mut ShapeKit, addresses: &mut Option<Addresses>, dir: &Path, world: Option<&str>) -> Result<RoomData, String> {
     let world = world.unwrap_or("dorm");
+    // the old scene's layout and lights, when the reference install has this room (--ref-install)
+    if let Some(r) = crate::levels::load(lib, kit, dir, world) {
+        return r;
+    }
     if let Some(g) = GROUPS.iter().find(|g| g.name.eq_ignore_ascii_case(world)) {
         let layout = room::parse_layout(g.layout)?;
         let want = |n: &str| n.starts_with(g.prefix) && (!g.only_layout || layout.iter().any(|(l, _)| l == n));
@@ -287,7 +291,7 @@ impl Loader {
             // the disk cache first (METALLIC_RC_NO_CACHE skips it, for timing the cold path); the bundles are
             // indexed after it, as props need them
             let cached = std::env::var_os("METALLIC_RC_NO_CACHE").is_none()
-                .then(|| cache::file_for(&dir, name, &format!("{:?}", shapes::old_build_dirs().iter().find(|d| d.exists())))).flatten();
+                .then(|| cache::file_for(&dir, name, &format!("{:?}{}", shapes::old_build_dirs().iter().find(|d| d.exists()), crate::levels::cache_tag()))).flatten();
             let hit = cached.as_deref().and_then(cache::read);
             let from_cache = hit.is_some();
             if let Some(r) = hit {
