@@ -36,6 +36,9 @@ concurrency:
 jobs:
   update-progress:
     name: Validate and refresh GitHub issue progress
+    # The main copy lives on the owner's forge since 2026-11-04; GitHub is a push mirror there, so the roadmap bot
+    # runs (and commits) only on the forge, never on the mirror.
+    if: ${{ github.server_url != 'https://github.com' }}
     runs-on: ubuntu-latest
     timeout-minutes: 7
     steps:
@@ -64,12 +67,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_API_URL: ${{ github.api_url }}
+          PROGRESS_PUBLIC_REPO: oncoursemail/Metallic-RC
         run: python scripts/update_progress.py
       - name: Refresh and commit safely when concurrent issues change
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_API_URL: ${{ github.api_url }}
+          PROGRESS_PUBLIC_REPO: oncoursemail/Metallic-RC
         run: |
           git config user.name "metallic-roadmap-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
