@@ -291,9 +291,9 @@ struct Wiring {
     sliders: Vec<(i64, String)>,
 }
 
-/// Adds a copy of `donor` after the element `after` names, wired to setting `key`, its texts (in tree order) replaced
-/// by `texts` where given.
-fn add_row(page: &mut Element, donor: &Element, after: &dyn Fn(&Element) -> bool, texts: &[Option<&str>], key: &str, salt: i64, w: &mut Wiring) {
+/// Adds a copy of `donor` after the element `after` names, wired to setting `key`, with `texts`: (name of the element
+/// holding a text, its new text).
+fn add_row(page: &mut Element, donor: &Element, after: &dyn Fn(&Element) -> bool, texts: &[(&str, &str)], key: &str, salt: i64, w: &mut Wiring) {
     let mut row = fresh(donor, salt);
     let mut wired = false;
     row.each_mut(&mut |e| {
@@ -314,10 +314,10 @@ fn add_row(page: &mut Element, donor: &Element, after: &dyn Fn(&Element) -> bool
     if !wired {
         return;
     }
-    let ids: Vec<i64> = row.walk().iter().filter_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id)).collect();
-    for (id, text) in ids.into_iter().zip(texts) {
-        if let Some(t) = text {
-            set_text(&mut row, id, t);
+    for (name, text) in texts {
+        let holder = find(&row, &|e| e.name.starts_with(name));
+        if let Some(id) = holder.and_then(|h| h.walk().iter().find_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id))) {
+            set_text(&mut row, id, text);
         }
     }
     fn insert(e: &mut Element, after: &dyn Fn(&Element) -> bool, row: &mut Option<Element>) {
@@ -391,13 +391,13 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     if ctx.page == VISUALS {
         let vsync = |e: &Element| e.name.starts_with("[PanelWithPaddingHorizontal]") && e.children.iter().any(|k| k.name.starts_with("VSync"));
         // added in reverse, each right under the VSync row
-        // the slider rows' texts: label, lowest, value (shown by the slider), highest
         if let Some(d) = &donors.slider {
-            add_row(&mut page, d, &vsync, &[Some("Field of View"), Some("40"), None, Some("110")], "fov", 3 << 56, &mut w);
-            add_row(&mut page, d, &vsync, &[Some("Window Size"), Some("720p"), None, Some("2160p")], "resolution", 2 << 56, &mut w);
+            let (min, max) = ("[Text] MinLabel", "[Text] Max Label");
+            add_row(&mut page, d, &vsync, &[("[Text] Primary", "Field of View"), (min, "40"), (max, "110")], "fov", 3 << 56, &mut w);
+            add_row(&mut page, d, &vsync, &[("[Text] Primary", "Window Size"), (min, "720p"), (max, "2160p")], "resolution", 2 << 56, &mut w);
         }
         if let Some(d) = &donors.switch {
-            add_row(&mut page, d, &vsync, &[Some("Fullscreen"), Some("Fills the screen, without a window border.")], "fullscreen", 1 << 56, &mut w);
+            add_row(&mut page, d, &vsync, &[("[Text] Primary", "Fullscreen"), ("[Text] Secondary", "Fills the screen, without a window border.")], "fullscreen", 1 << 56, &mut w);
         }
     }
     let mut hides: Vec<(i64, bool)> = vec![];
@@ -445,12 +445,6 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
                     }
                 }
             }
-            // passwords, new accounts and the rest of the sign-in flow are not ours: their buttons and fields go
-            if class.starts_with("TitleScreenFlowModelController/") && (name.contains("Password") || name.contains("CreateNew") || name.contains("ResetPassword")) {
-                if let Some(x) = button.or(pptr(d, "inputField")) {
-                    hides.push((x, true));
-                }
-            }
             if name == "CachedAccountCardSpawnerImpl" {
                 cards = pptr(d, "recyclingListScrollRect");
             }
@@ -467,6 +461,11 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     }
     for (h, hide) in hides {
         show(&mut page, h, !hide);
+    }
+    // the login page logs in by name only: passwords, password resets, new accounts and the terms are not ours
+    if ctx.page == LOGIN {
+        const NOT_OURS: [&str; 5] = ["[TextFieldSingleLine] Password", "[Checkbox]", "[TextButton] Forgot password", "[TextButton] Create an account", "(TermsOfServiceButton)"];
+        page.each_mut(&mut |e| e.active &= !NOT_OURS.iter().any(|n| e.name.starts_with(n)));
     }
     for (t, text) in texts {
         set_text(&mut page, t, &text);
@@ -595,34 +594,40 @@ impl Painter {
 }
 
 /// The account switcher's list: one card per account this PC has used, made from the list's item template, the
-/// current account first.
+/// current account first, in a row (the recycling list places its items itself; INFERRED spacing).
 fn account_cards(page: &mut Element, list: i64, ctx: &Ctx, actions: &mut HashMap<i64, Action>) {
     let Some(holder) = find_mut(page, &|e| has_component(e, list)) else { return };
     let Some(template) = holder.children.iter().find(|c| c.name.ends_with(TEMPLATE)).cloned() else { return };
-    let content = holder.components.iter().find(|c| c.id == list).and_then(|c| pptr(&c.value, "m_Content"));
+    let content = holder.components.iter().find(|c| c.id == list).and_then(|c| c.value.path("_Params/_Content")).and_then(Value::as_pptr).map(|p| p.path_id);
     let mut names: Vec<&str> = vec![ctx.account];
     names.extend(ctx.settings.accounts.iter().map(String::as_str).filter(|a| *a != ctx.account && !a.is_empty()));
     let Some(content) = find_mut(holder, &|e| Some(e.transform) == content) else { return };
+    let size = template.rect.size_delta;
     for (i, name) in names.iter().enumerate() {
         let mut card = fresh(&template, (i as i64 + 1) << 52);
-        card.active = true;
-        card.name = format!("{name} card");
-        let mut sets = vec![];
+        (card.active, card.name) = (true, format!("{name} card"));
+        let r = &mut card.rect;
+        (r.anchor_min, r.anchor_max, r.pivot) = ([0.0, 0.5], [0.0, 0.5], [0.0, 0.5]);
+        r.anchored_position = [120.0 + i as f32 * (size[0] + 40.0), 0.0];
+        let note = if i == 0 { "Playing now" } else { "" };
+        let (mut sets, mut hides) = (vec![], vec![]);
         for (_, e) in card.walk() {
             for (class, d) in e.impls() {
                 match class.rsplit('/').next().unwrap_or(class) {
-                    "DisplayNameTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, name.to_string()))),
-                    "PresenceTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, if i == 0 { "Playing now".to_string() } else { String::new() }))),
-                    "LevelTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, "1".to_string()))),
-                    "TitleScreenJoinButtonImpl" => {
-                        actions.extend(pptr(d, "button").map(|b| (b, Action::Account(name.to_string()))));
-                    }
+                    "PrimaryTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, name.to_string()))),
+                    "SecondaryTextImpl" => sets.extend(pptr(d, "textMeshProUGUI").map(|t| (t, note.to_string()))),
+                    "HideIfNoSecondaryTextImpl" if note.is_empty() => hides.extend(pptr(d, "hideable")),
+                    "ShowIfJuniorAccountImpl" | "ShowIfJuniorForMetaEmptyImpl" => hides.extend(pptr(d, "hideable")),
+                    "PrimaryToggleButtonImpl" => actions.extend(pptr(d, "button").map(|b| (b, Action::Account(name.to_string())))),
                     _ => {}
                 }
             }
         }
         for (t, text) in sets {
             set_text(&mut card, t, &text);
+        }
+        for h in hides {
+            show(&mut card, h, false);
         }
         content.children.push(card);
     }
