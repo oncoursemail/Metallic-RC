@@ -273,6 +273,7 @@ pub fn routes() -> Router<Shared> {
         .route("/api/relationships/v2/ignore", post(block))
         .route("/api/relationships/v2/unignore", post(unblock))
         .route("/api/social/v1/friends", get(friend_list))
+        .route("/api/players/v1/herenow", get(here_now))
         .route("/api/messages/v2/get", get(list_messages))
         .route("/api/messages/v2/delete", post(delete_message))
         .route("/api/messages/v2/markread", post(mark_read))
@@ -357,6 +358,28 @@ async fn act(State(app): State<Shared>, h: HeaderMap, RawQuery(q): RawQuery, bod
 }
 
 /// Ours, for the client's friends page: one row per relationship with names and where friends are.
+/// `GET /api/players/v1/herenow` (ours: the game reads the Photon room's players instead): the other online players in
+/// the caller's room instance (same `photonRoomId`), not blocked either way, as `[{accountId, username, displayName}]`.
+async fn here_now(State(app): State<Shared>, h: HeaderMap) -> Result<Json<Value>, Response> {
+    let me = who(&app, &h)?.account_id;
+    let ids: Vec<i64> = {
+        let live = app.live.lock();
+        let room = |id: i64| live.presence.get(&id).and_then(|p| p.instance.as_ref()).and_then(|i| i["photonRoomId"].as_str());
+        match room(me) {
+            Some(mine) => live.presence.keys().copied().filter(|&i| i != me && live.online(i) && room(i) == Some(mine)).collect(),
+            None => vec![],
+        }
+    };
+    let list = app.store.read(|d| {
+        ids.iter()
+            .filter(|&&i| !blocked(d, me, i) && !blocked(d, i, me))
+            .filter_map(|&i| d.accounts.iter().find(|a| a.account_id == i))
+            .map(|a| json!({ "accountId": a.account_id, "username": a.username, "displayName": a.display_name }))
+            .collect()
+    });
+    Ok(Json(Value::Array(list)))
+}
+
 async fn friend_list(State(app): State<Shared>, h: HeaderMap) -> Result<Json<Value>, Response> {
     let me = who(&app, &h)?.account_id;
     let rows: Vec<(i64, Value, Option<Account>)> =

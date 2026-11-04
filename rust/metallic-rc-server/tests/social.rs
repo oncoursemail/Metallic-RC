@@ -418,3 +418,25 @@ async fn parties_follow_the_leader_and_friends_join() {
     post(a, "/api/party/v1/leave", &tb, None).await;
     assert!(get(a, "/api/party/v1/me", &tb).await.is_null());
 }
+
+#[tokio::test]
+async fn here_now_lists_the_other_players_in_my_room() {
+    let s = start(&temp_dir()).await;
+    let a = s.addr;
+    let (ta, ida) = login(a, "Ann").await;
+    let (tb, idb) = login(a, "Bob").await;
+    let (tc, _) = login(a, "Cat").await;
+    for t in [&ta, &tb, &tc] {
+        post(a, "/matchmaking/player/login", t, None).await;
+    }
+    assert_eq!(get(a, "/api/players/v1/herenow", &ta).await, json!([]), "Ann is in no room yet");
+    for t in [&ta, &tb] {
+        post(a, "/matchmaking/goto/room/RecCenter", t, None).await;
+    }
+    post(a, "/matchmaking/goto/room/dormroom", &tc, None).await;
+    let here = get(a, "/api/players/v1/herenow", &ta).await;
+    assert_eq!((here[0]["accountId"].as_i64(), here[0]["username"].as_str(), here.as_array().map(Vec::len)), (Some(idb), Some("Bob"), Some(1)), "{here}");
+    post(a, &format!("/api/relationships/v2/ignore?id={ida}"), &tb, None).await;
+    assert_eq!(get(a, "/api/players/v1/herenow", &ta).await, json!([]), "Bob blocked Ann");
+    stop(s).await;
+}
