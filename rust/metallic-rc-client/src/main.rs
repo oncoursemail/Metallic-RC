@@ -223,6 +223,7 @@ fn main() {
         .add_plugins(avatar::AvatarPlugin)
         .add_plugins(metallic_rc_client::social::SocialPlugin)
         .add_plugins(player)
+        .add_plugins(metallic_rc_client::maker::MakerPlugin)
         // engine lane: quality tiers, texture mips/compression, platform defaults (touch, mobile)
         .add_plugins((metallic_rc_client::quality::QualityPlugin, metallic_rc_client::texprep::TexPrepPlugin, metallic_rc_client::platform::PlatformPlugin::default()))
         .insert_resource(LocalLook(look))
@@ -383,7 +384,8 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
             shared.lock().unwrap().push_str(&format!("  |  {e}"));
         }
         let address = address.unwrap_or_else(|| realtime::default_address(&server));
-        let room = if went.is_some() { s.room.photon_room } else { room.unwrap_or(s.room.photon_room) };
+        let room = if went.is_some() { s.room.photon_room.clone() } else { room.unwrap_or(s.room.photon_room.clone()) };
+        metallic_rc_client::maker::attach(&s, &room);
         match realtime::start(&address, &room, &s.access_token, &s.account.display_name, spawn, yaw) {
             Ok(rt) if current() => *net_slot.lock().unwrap() = Some(rt),
             Ok(rt) => rt.room.lock().unwrap().leave(rt.now()),

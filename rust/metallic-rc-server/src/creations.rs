@@ -304,15 +304,27 @@ async fn save_route(State(app): State<Shared>, h: HeaderMap, Path(room): Path<St
     Ok(Json(json!({ "room": room, "version": version })))
 }
 
+/// Builders by account id, or by name (user name or display name: the players the owner sees in the room).
 #[derive(Deserialize)]
 struct EditorsBody {
+    #[serde(default)]
     editors: Vec<i64>,
+    #[serde(default)]
+    names: Vec<String>,
 }
 
 async fn editors_route(State(app): State<Shared>, h: HeaderMap, Path(room): Path<String>, Json(b): Json<EditorsBody>) -> Result<Json<Value>, Response> {
     let a = who(&app, &h)?;
-    let version = set_editors(&app, a.account_id, &room, b.editors).map_err(fail)?;
-    Ok(Json(json!({ "room": room, "version": version })))
+    let mut ids = b.editors;
+    ids.extend(app.store.read(|d| {
+        d.accounts.iter().filter(|x| b.names.iter().any(|n| n.eq_ignore_ascii_case(&x.username) || n.eq_ignore_ascii_case(&x.display_name)))
+            .map(|x| x.account_id).collect::<Vec<_>>()
+    }));
+    ids.sort_unstable();
+    ids.dedup();
+    let version = set_editors(&app, a.account_id, &room, ids.clone()).map_err(fail)?;
+    println!("  {} lets {ids:?} build in {room}", a.username);
+    Ok(Json(json!({ "room": room, "version": version, "editors": ids })))
 }
 
 #[cfg(test)]

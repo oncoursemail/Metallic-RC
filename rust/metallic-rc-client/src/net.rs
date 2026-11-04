@@ -104,7 +104,9 @@ impl Session {
 
     /// Asks matchmaking for a room by name and returns the instance it puts this player in.
     pub fn goto(&mut self, room: &str) -> Result<&Room, Error> {
-        let g = self.post("Matchmaking", &format!("/goto/room/{room}"))?;
+        // player-made room names have spaces and quotes: percent-encode the path part
+        let path: String = room.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect();
+        let g = self.post("Matchmaking", &format!("/goto/room/{path}"))?;
         if g["errorCode"].as_i64() != Some(0) {
             return Err(Error(format!("matchmaking refused {room}: {g}")));
         }
