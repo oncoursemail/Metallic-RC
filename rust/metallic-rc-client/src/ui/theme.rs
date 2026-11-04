@@ -2,15 +2,22 @@
 //! lists hold typed entries (background colours, foreground colours, text styles, text sizes, buttons, toggles,
 //! tilers). Theme components on a page pick an entry by its type number and colour the graphics they point at.
 //!
-//! What a component sets on which graphic is read from the field names (INFERRED; the selectable tint states come
-//! with input): Surface -> image colour and gradient; Label -> text colour, font and size; Button and Toggle (its
-//! inactive look) -> surface colour, gradient, graphic colours, text font and size, border shown or hidden; Tiler ->
-//! the tiled pattern.
+//! What a component sets on which graphic is read from the field names (INFERRED): Surface -> image colour and
+//! gradient; Label -> text colour, font and size; Button and Toggle (the active or inactive look) -> surface colour,
+//! gradient, graphic colours, text font and size, border shown or hidden, and the selectable's state tints; Toggle ->
+//! the objects shown only while active or inactive; Switch -> its knob at the on or off position; Tiler -> the tiled
+//! pattern.
+//!
+//! The state tints (INFERRED from data, no method bodies read): a button palette's `backgroundTints` and
+//! `foregroundTints` equal, value for value, the `m_Colors` and `additionalGraphicsColors` serialized on the
+//! MultiGraphicButtons themed with it (toggle type 17: white surface, white text colour, orange foreground tint), so
+//! the theme writes them there, and the text colour seen in game is the foreground colour times that tint.
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use unity_assets::{PPtr, Value};
 
+use super::input::Tints;
 use super::prefab::{asset_object, Element, Pages, Themed};
 use crate::room::{value, FileRef, Library};
 
@@ -43,6 +50,15 @@ fn merge(into: &mut Themed, p: Themed) {
     into.font = p.font.or(into.font.take());
     into.font_size = p.font_size.or(into.font_size);
     into.tiler = p.tiler.or(into.tiler.take());
+    into.tints = p.tints.or(into.tints.take());
+}
+
+/// What a page's theme components do besides colouring: components whose element is hidden, and knobs to move
+/// (element id -> the element whose place it takes).
+#[derive(Default)]
+struct Effects {
+    hide: HashSet<i64>,
+    moves: HashMap<i64, i64>,
 }
 
 impl Theme {
@@ -70,32 +86,38 @@ impl Theme {
         pptr(style, "font").map(|p| (self.file.clone(), p))
     }
 
-    /// Colours, fonts and sizes from the page's theme components, put on the components they name.
+    /// Colours, fonts and sizes from the page's theme components, put on the components they name; every toggle off.
     pub fn apply(&self, root: &mut Element) {
+        self.apply_with(root, &HashSet::new());
+    }
+
+    /// As [`Theme::apply`], with the toggles whose ToggleTheme component id is in `active` on.
+    pub fn apply_with(&self, root: &mut Element, active: &HashSet<i64>) {
         let mut patches: HashMap<i64, Themed> = HashMap::new();
-        let mut hide: HashSet<i64> = HashSet::new();
+        let mut fx = Effects::default();
+        let mut rects = HashMap::new();
         for (_, e) in root.walk() {
+            rects.insert(e.id, e.rect);
             for c in e.components.iter().filter(|c| c.enabled) {
-                self.patches(&c.class, &c.value, &mut patches, &mut hide);
+                self.patches(&c.class, &c.value, active.contains(&c.id), &mut patches, &mut fx);
             }
         }
-        fn go(e: &mut Element, patches: &mut HashMap<i64, Themed>, hide: &HashSet<i64>) {
-            if e.components.iter().any(|c| hide.contains(&c.id)) {
+        root.each_mut(&mut |e| {
+            if e.components.iter().any(|c| fx.hide.contains(&c.id)) {
                 e.active = false;
+            }
+            if let Some(r) = fx.moves.get(&e.id).and_then(|to| rects.get(to)) {
+                e.rect.anchored_position = r.anchored_position;
             }
             for c in &mut e.components {
                 if let Some(p) = patches.remove(&c.id) {
                     merge(&mut c.themed, p);
                 }
             }
-            for k in &mut e.children {
-                go(k, patches, hide);
-            }
-        }
-        go(root, &mut patches, &hide);
+        });
     }
 
-    fn patches(&self, class: &str, v: &Value, out: &mut HashMap<i64, Themed>, hide: &mut HashSet<i64>) {
+    fn patches(&self, class: &str, v: &Value, on: bool, out: &mut HashMap<i64, Themed>, fx: &mut Effects) {
         let mut put = |target: Option<PPtr>, t: Themed| {
             if let Some(p) = target.filter(|p| p.file_id == 0) {
                 let mut slot = out.remove(&p.path_id).unwrap_or_default();
@@ -119,14 +141,26 @@ impl Theme {
                 let t = Themed { color, font: style.and_then(|s| self.font(s)), font_size: int(v, "textSize").and_then(|n| self.text_size(n)), ..Default::default() };
                 put(pptr(v, "textMeshProUGUI").or(pick("graphic", "useGraphicOverride", "graphicOverride")), t);
             }
-            "RRUI.Theme.ButtonTheme" | "RRUI.Theme.ToggleTheme" => {
+            "RRUI.Theme.ButtonTheme" | "RRUI.Theme.ToggleTheme" | "RRUI.Theme.SwitchTheme" => {
                 let palette = if class.ends_with("ButtonTheme") {
                     int(v, "buttonType").and_then(|n| self.entry("buttonPalettes", "buttonPaletteType", n)).and_then(|e| e.get("buttonPalette"))
                 } else {
-                    // toggles start off
-                    int(v, "toggleType").and_then(|n| self.entry("togglePalettes", "togglePaletteType", n)).and_then(|e| e.path("togglePalette/inactiveButtonPalette"))
+                    let look = if on { "togglePalette/activeButtonPalette" } else { "togglePalette/inactiveButtonPalette" };
+                    for (list, hidden) in [("hideWhenActive", on), ("hideWhenNotActive", !on)] {
+                        for h in v.get(list).and_then(Value::as_array).unwrap_or_default().iter().filter_map(Value::as_pptr) {
+                            if hidden && h.file_id == 0 && !h.is_null() {
+                                fx.hide.insert(h.path_id);
+                            }
+                        }
+                    }
+                    if let (Some(knob), Some(at)) = (pptr(v, "indicator"), pptr(v, if on { "indicatorOnPosition" } else { "indicatorOffPosition" })) {
+                        fx.moves.insert(knob.path_id, at.path_id);
+                    }
+                    int(v, "toggleType").and_then(|n| self.entry("togglePalettes", "togglePaletteType", n)).and_then(|e| e.path(look))
                 };
                 let Some(p) = palette else { return };
+                let tints = (p.get("backgroundTints").and_then(Tints::read), p.get("foregroundTints").and_then(Tints::read));
+                put(pptr(v, "multiGraphicButton").or(pptr(v, "selectable")), Themed { tints: Some(tints), ..Default::default() });
                 let fg = rgba(p.get("foregroundColor"));
                 if v.get("controlSurfaceColor").and_then(Value::as_bool).unwrap_or(true) {
                     put(pick("surface", "useSurfaceOverride", "surfaceOverride"), Themed { color: rgba(p.get("backgroundColor")), ..Default::default() });
@@ -142,7 +176,7 @@ impl Theme {
                 let font = p.get("textPalette").and_then(|s| self.font(s));
                 put(text, Themed { color: fg, font, font_size: int(v, "textSize").and_then(|n| self.text_size(n)), ..Default::default() });
                 if let (Some(b), false) = (pptr(v, "borderHideable"), flag(p, "showBorder")) {
-                    hide.insert(b.path_id);
+                    fx.hide.insert(b.path_id);
                 }
             }
             "RRUI.Theme.TilerTheme" => {

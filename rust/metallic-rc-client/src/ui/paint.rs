@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use unity_assets::{PPtr, Texture2D, Value};
 
+use super::input::{Interact, Kind, Tints};
 use super::layout::{lay_out, Measure, Placed};
 use super::prefab::{Component, Element};
 use crate::room::{value, FileRef, Library};
@@ -49,6 +50,8 @@ pub enum Paint {
         gradient: Vec<([f32; 4], f32)>,
         /// top left, top right, bottom right, bottom left
         radius: [f32; 4],
+        /// the Image component's id, which selectables tint
+        graphic: i64,
     },
     /// A UITiler's pattern: the sprite repeated in `rows` rows over the box, tinted.
     Tiles { sprite: Arc<Sprite>, tint: [f32; 4], rows: f32 },
@@ -62,15 +65,23 @@ pub enum Paint {
         wrap: bool,
         /// left, top, right, bottom insets
         margin: [f32; 4],
+        /// the text component's id
+        graphic: i64,
     },
 }
 
 /// One element as drawn, with its children.
 pub struct Drawn {
     pub name: String,
+    /// the element's RectTransform id
+    pub transform: i64,
     pub rect: Placed,
-    /// children are cut to this box (Mask, RectMask2D)
+    /// children are cut to this box (Mask, RectMask2D), for drawing and for the pointer
     pub clip: bool,
+    /// it has a graphic the pointer hits (`raycastTarget`), drawn or not
+    pub raycast: bool,
+    /// a selectable on it
+    pub interact: Option<Interact>,
     pub paint: Vec<Paint>,
     pub children: Vec<Drawn>,
 }
@@ -115,6 +126,11 @@ fn plain(text: &str) -> String {
 impl<'a> Looks<'a> {
     pub fn new(lib: &'a mut Library) -> Self {
         Looks { lib, sprites: HashMap::new(), textures: HashMap::new(), fonts: HashMap::new() }
+    }
+
+    /// The library it reads from, for loading more pages while keeping what it has read.
+    pub fn library(&mut self) -> &mut Library {
+        self.lib
     }
 
     fn texture(&mut self, from: &FileRef, p: PPtr) -> Option<Arc<(usize, usize, Vec<u8>)>> {
@@ -308,19 +324,76 @@ impl Measure for Looks<'_> {
 const IMAGE: &str = "UnityEngine.UI.Image";
 const TEXT: &str = "TMPro.TextMeshProUGUI";
 
-/// Reads `address`'s page, lays it out on `canvas` and returns what to draw.
+/// Lays `root` out on `canvas` and returns what to draw.
 pub fn page(lib: &mut Library, root: &Element, canvas: [f32; 2]) -> Drawn {
-    let mut looks = Looks::new(lib);
-    let laid = lay_out(root, canvas, &mut looks);
-    let placed: HashMap<usize, Placed> = laid.boxes.iter().map(|(i, _, p)| (*i, *p)).collect();
-    let mut index = 0;
-    draw(&mut looks, root, &placed, &mut index).unwrap_or(Drawn { name: root.name.clone(), rect: Placed::default(), clip: false, paint: vec![], children: vec![] })
+    page_with(&mut Looks::new(lib), root, canvas)
 }
 
-fn draw(looks: &mut Looks, e: &Element, placed: &HashMap<usize, Placed>, index: &mut usize) -> Option<Drawn> {
+/// As [`page`], reusing the sprites and fonts `looks` has read.
+pub fn page_with(looks: &mut Looks, root: &Element, canvas: [f32; 2]) -> Drawn {
+    let laid = lay_out(root, canvas, looks);
+    let placed: HashMap<usize, Placed> = laid.boxes.iter().map(|(i, _, p)| (*i, *p)).collect();
+    // a slider's drag box is the parent of its handle (else of its fill): transform id -> the parent's place
+    let mut parents = HashMap::new();
+    let mut index = 0;
+    fn go(e: &Element, parent: Option<usize>, index: &mut usize, placed: &HashMap<usize, Placed>, out: &mut HashMap<i64, Placed>) {
+        let mine = *index;
+        *index += 1;
+        if let Some(r) = parent.and_then(|p| placed.get(&p)) {
+            out.insert(e.transform, *r);
+        }
+        for c in &e.children {
+            go(c, Some(mine), index, placed, out);
+        }
+    }
+    go(root, None, &mut index, &placed, &mut parents);
+    let mut index = 0;
+    let at = Places { placed: &placed, parents: &parents };
+    draw(looks, root, &at, &mut index).unwrap_or(Drawn { name: root.name.clone(), transform: root.transform, rect: Placed::default(), clip: false, raycast: false, interact: None, paint: vec![], children: vec![] })
+}
+
+struct Places<'a> {
+    placed: &'a HashMap<usize, Placed>,
+    /// RectTransform id -> its parent's place
+    parents: &'a HashMap<i64, Placed>,
+}
+
+/// Classes that are uGUI Selectables (`m_Colors`, `m_TargetGraphic`, `m_Interactable`).
+fn selectable(c: &Component) -> bool {
+    c.value.get("m_Colors").is_some() && c.value.get("m_Interactable").is_some()
+}
+
+fn interact(c: &Component, at: &Places) -> Interact {
+    let v = &c.value;
+    let (bg, fg) = c.themed.tints.unwrap_or((None, None));
+    let tinted = v.get("m_Transition").and_then(Value::as_i64) == Some(1);
+    let target = pptr(v, "m_TargetGraphic").filter(|p| p.file_id == 0 && tinted)
+        .and_then(|p| Some((p.path_id, bg.or_else(|| v.get("m_Colors").and_then(Tints::read))?)));
+    let extra = v.get("additionalGraphics").and_then(Value::as_array).unwrap_or_default().iter()
+        .filter_map(Value::as_pptr).filter(|p| p.file_id == 0 && !p.is_null()).map(|p| p.path_id).collect();
+    let extra_tints = fg.or_else(|| v.get("additionalGraphicsColors").and_then(Tints::read));
+    let num = |n: &str| v.get(n).and_then(Value::as_f32);
+    let kind = match (num("m_MinValue"), num("m_MaxValue")) {
+        (Some(min), Some(max)) => {
+            let track = ["m_HandleRect", "m_FillRect"].iter().filter_map(|n| pptr(v, n)).find_map(|p| at.parents.get(&p.path_id).copied());
+            match track {
+                Some(track) => Kind::Slider { track, min, max, whole: v.get("m_WholeNumbers").and_then(Value::as_bool).unwrap_or(false) },
+                None => Kind::Button,
+            }
+        }
+        _ => Kind::Button,
+    };
+    Interact { id: c.id, interactable: v.get("m_Interactable").and_then(Value::as_bool).unwrap_or(true), target, extra, extra_tints, kind }
+}
+
+fn raycast(c: &Component) -> bool {
+    c.value.get("m_RaycastTarget").and_then(Value::as_bool).unwrap_or(false)
+}
+
+fn draw(looks: &mut Looks, e: &Element, at: &Places, index: &mut usize) -> Option<Drawn> {
     let mine = *index;
     *index += 1;
-    let Some(&rect) = placed.get(&mine) else {
+    let Some(&rect) = at.placed.get(&mine) else {
         *index += e.walk().len() - 1;
         return None;
     };
@@ -357,6 +430,7 @@ fn draw(looks: &mut Looks, e: &Element, placed: &HashMap<usize, Placed>, index: 
                 sprite,
                 gradient,
                 radius,
+                graphic: c.id,
             });
         }
         paint.extend(tiles);
@@ -395,11 +469,14 @@ fn draw(looks: &mut Looks, e: &Element, placed: &HashMap<usize, Placed>, index: 
             vertical: match vert { 512 | 4096 => Align::Middle, 1024 => Align::End, _ => Align::Start },
             wrap,
             margin,
+            graphic: c.id,
         });
     }
     let clip = mask.is_some() || e.has("UnityEngine.UI.RectMask2D");
-    let children = e.children.iter().filter_map(|c| draw(looks, c, placed, index)).collect();
-    Some(Drawn { name: e.name.clone(), rect, clip, paint, children })
+    let raycast = [IMAGE, TEXT, "UnityEngine.UI.RawImage"].iter().any(|k| e.component(k).is_some_and(raycast));
+    let interact = e.components.iter().find(|c| c.enabled && selectable(c)).map(|c| interact(c, at));
+    let children = e.children.iter().filter_map(|c| draw(looks, c, at, index)).collect();
+    Some(Drawn { name: e.name.clone(), transform: e.transform, rect, clip, raycast, interact, paint, children })
 }
 
 /// A Unity Gradient's colour keys times the image colour. INFERRED: UIGradient type 0 runs left to right, as angle 0

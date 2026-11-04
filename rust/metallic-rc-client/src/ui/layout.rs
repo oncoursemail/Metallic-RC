@@ -51,8 +51,10 @@ const IMAGE: &str = "UnityEngine.UI.Image";
 const TEXT: &str = "TMPro.TextMeshProUGUI";
 const HORIZONTAL: &str = "UnityEngine.UI.HorizontalLayoutGroup";
 const VERTICAL: &str = "UnityEngine.UI.VerticalLayoutGroup";
+const GRID: &str = "UnityEngine.UI.GridLayoutGroup";
 const LAYOUT_ELEMENT: &str = "UnityEngine.UI.LayoutElement";
 const SIZE_FITTER: &str = "UnityEngine.UI.ContentSizeFitter";
+const SPAWNER: &str = "RRUI.StaggeredPrefabSpawner";
 const ASPECT_FITTER: &str = "UnityEngine.UI.AspectRatioFitter";
 
 fn f(v: &Value, name: &str, default: f32) -> f32 {
@@ -115,6 +117,71 @@ impl Group {
     }
 }
 
+/// A GridLayoutGroup: fixed-size cells in rows and columns.
+#[derive(Clone, Copy)]
+struct Grid {
+    /// left, right, top, bottom
+    padding: [f32; 4],
+    cell: [f32; 2],
+    spacing: [f32; 2],
+    alignment: i64,
+    /// 0 upper left, 1 upper right, 2 lower left, 3 lower right
+    corner: i64,
+    /// 0 fill rows first, 1 columns first
+    start_axis: i64,
+    /// 0 flexible, 1 fixed column count, 2 fixed row count
+    constraint: i64,
+    count: usize,
+}
+
+impl Grid {
+    fn read(c: &Component) -> Option<Grid> {
+        if c.class != GRID {
+            return None;
+        }
+        let v = &c.value;
+        let p = v.get("m_Padding");
+        let pad = |n: &str| p.and_then(|p| p.get(n)).and_then(Value::as_f32).unwrap_or(0.0);
+        let two = |n: &str| v.get(n).map(Value::floats).filter(|f| f.len() >= 2).map_or([0.0; 2], |f| [f[0], f[1]]);
+        Some(Grid {
+            padding: [pad("m_Left"), pad("m_Right"), pad("m_Top"), pad("m_Bottom")],
+            cell: two("m_CellSize"),
+            spacing: two("m_Spacing"),
+            alignment: i(v, "m_ChildAlignment"),
+            corner: i(v, "m_StartCorner"),
+            start_axis: i(v, "m_StartAxis"),
+            constraint: i(v, "m_Constraint"),
+            count: i(v, "m_ConstraintCount").max(1) as usize,
+        })
+    }
+
+    fn pad(&self, axis: usize) -> f32 {
+        if axis == 0 { self.padding[0] + self.padding[1] } else { self.padding[2] + self.padding[3] }
+    }
+
+    /// Cells that fit along `axis` in `size`, as a flexible grid counts them.
+    fn fit(&self, axis: usize, size: f32) -> usize {
+        let step = self.cell[axis] + self.spacing[axis];
+        if step <= 0.0 { usize::MAX } else { (((size - self.pad(axis) + self.spacing[axis] + 0.001) / step).floor() as usize).max(1) }
+    }
+
+    /// `CalculateLayoutInputHorizontal/Vertical`: (min, preferred) cells along `axis` for `n` children, given the
+    /// grid's width.
+    fn cells(&self, axis: usize, n: usize, width: f32) -> (usize, usize) {
+        let by = |k: usize| n.div_ceil(k.max(1));
+        match (self.constraint, axis) {
+            (1, 0) | (2, 1) => (self.count, self.count),
+            (1, 1) | (2, 0) => (by(self.count), by(self.count)),
+            (_, 0) => (1, (n as f32).sqrt().ceil() as usize),
+            _ => (by(self.fit(0, width)), by(self.fit(0, width))),
+        }
+    }
+
+    fn total(&self, axis: usize, cells: usize) -> f32 {
+        self.pad(axis) + (self.cell[axis] + self.spacing[axis]) * cells as f32 - self.spacing[axis]
+    }
+}
+
 /// One element during the pass.
 struct Node {
     rules: RectRules,
@@ -128,6 +195,7 @@ struct Node {
     /// rect size, kept current as rules change
     size: [f32; 2],
     group: Option<Group>,
+    grid: Option<Grid>,
 }
 
 struct Pass<'a> {
@@ -168,7 +236,8 @@ impl<'a> Pass<'a> {
             }
             let n = p.nodes.len();
             let group = e.components.iter().filter(|c| c.enabled).find_map(Group::read);
-            p.nodes.push(Node { rules: e.rect, children: vec![], element: mine, input: [[0.0; 3]; 2], totals: [[0.0; 3]; 2], size: [0.0; 2], group });
+            let grid = e.components.iter().filter(|c| c.enabled).find_map(Grid::read);
+            p.nodes.push(Node { rules: e.rect, children: vec![], element: mine, input: [[0.0; 3]; 2], totals: [[0.0; 3]; 2], size: [0.0; 2], group, grid });
             for c in &e.children {
                 if let Some(k) = go(p, c, index) {
                     p.nodes[n].children.push(k);
@@ -251,6 +320,19 @@ impl<'a> Pass<'a> {
         }
         if let Some(g) = self.nodes[n].group {
             let totals = self.group_input(n, &g, axis);
+            self.nodes[n].totals[axis] = totals;
+            sources.push((0, totals));
+        }
+        // INFERRED (a StaggeredPrefabSpawner has edit-time min/preferred/flexible sizes): a spawner reports the sizes
+        // of the prefab it spawned, which fills it
+        if e.has(SPAWNER) {
+            if let Some(&k) = self.layout_children(n).first() {
+                sources.push((0, self.nodes[k].input[axis]));
+            }
+        }
+        if let Some(g) = self.nodes[n].grid {
+            let (min, pref) = g.cells(axis, self.layout_children(n).len(), self.nodes[n].size[0]);
+            let totals = [g.total(axis, min), g.total(axis, pref), -1.0];
             self.nodes[n].totals[axis] = totals;
             sources.push((0, totals));
         }
@@ -340,6 +422,58 @@ impl<'a> Pass<'a> {
         }
         if let Some(g) = self.nodes[n].group {
             self.place_children(n, &g, axis);
+        }
+        if let Some(g) = self.nodes[n].grid {
+            self.place_cells(n, &g, axis);
+        }
+        if e.has(SPAWNER) {
+            if let Some(&k) = self.layout_children(n).first() {
+                self.set_child(k, axis, 0.0, Some(self.nodes[n].size[axis]), 1.0);
+            }
+        }
+    }
+
+    /// `GridLayoutGroup.SetCellsAlongAxis`: cell sizes on the width pass, then every cell's place on the height pass.
+    fn place_cells(&mut self, n: usize, g: &Grid, axis: usize) {
+        let children = self.layout_children(n);
+        if axis == 0 {
+            for k in children {
+                self.set_child(k, 0, 0.0, Some(g.cell[0]), 1.0);
+                let r = &mut self.nodes[k].rules;
+                (r.anchor_min[1], r.anchor_max[1], r.size_delta[1]) = (1.0, 1.0, g.cell[1]);
+            }
+            return;
+        }
+        let count = children.len();
+        let size = self.nodes[n].size;
+        let (mut x, mut y) = (g.fit(0, size[0]), g.fit(1, size[1]));
+        match g.constraint {
+            1 => (x, y) = (g.count, count.div_ceil(g.count).max(1)),
+            2 => (x, y) = (count.div_ceil(g.count).max(1), g.count),
+            _ => {}
+        }
+        let per_line = if g.start_axis == 0 { x } else { y };
+        let (ax, ay) = if g.start_axis == 0 {
+            (x.clamp(1, count.max(1)), y.clamp(1, count.div_ceil(per_line).max(1)))
+        } else {
+            (x.clamp(1, count.div_ceil(per_line).max(1)), y.clamp(1, count.max(1)))
+        };
+        let required = [ax, ay].map(|c| c as f32);
+        let start = [0, 1].map(|a| {
+            let need = required[a] * g.cell[a] + (required[a] - 1.0) * g.spacing[a];
+            let align = if a == 0 { (g.alignment % 3) as f32 * 0.5 } else { (g.alignment / 3) as f32 * 0.5 };
+            g.padding[if a == 0 { 0 } else { 2 }] + (size[a] - need - g.pad(a)) * align
+        });
+        for (i, k) in children.into_iter().enumerate() {
+            let (mut px, mut py) = if g.start_axis == 0 { (i % per_line, i / per_line) } else { (i / per_line, i % per_line) };
+            if g.corner % 2 == 1 {
+                px = ax - 1 - px;
+            }
+            if g.corner / 2 == 1 {
+                py = ay - 1 - py;
+            }
+            self.set_child(k, 0, start[0] + (g.cell[0] + g.spacing[0]) * px as f32, Some(g.cell[0]), 1.0);
+            self.set_child(k, 1, start[1] + (g.cell[1] + g.spacing[1]) * py as f32, Some(g.cell[1]), 1.0);
         }
     }
 
@@ -457,7 +591,7 @@ mod tests {
     }
 
     fn el(name: &str, rect: RectRules, components: Vec<Component>, children: Vec<Element>) -> Element {
-        Element { name: name.into(), active: true, rect, components, children }
+        Element { name: name.into(), active: true, id: 0, transform: 0, rect, components, children }
     }
 
     fn group(class: &str, spacing: f32, pad: f32, control: bool, expand_w: bool, expand_h: bool) -> Component {

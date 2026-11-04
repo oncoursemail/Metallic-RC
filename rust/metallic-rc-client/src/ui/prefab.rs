@@ -7,8 +7,10 @@ use std::path::Path;
 use unity_assets::catalog::{bundle_file, Catalog};
 use unity_assets::{AssetBundleInfo, GameObject, PPtr, Transform, Value};
 
+use super::input::Tints;
 use crate::room::{value, FileRef, Library};
 
+const GAME_OBJECT: i32 = 1;
 const RECT_TRANSFORM: i32 = 224;
 const TRANSFORM: i32 = 4;
 const MONO_BEHAVIOUR: i32 = 114;
@@ -57,12 +59,17 @@ pub struct Themed {
     pub font_size: Option<f32>,
     /// a UITiler's pattern: sprite (with its file), tint, background, rows
     pub(crate) tiler: Option<(FileRef, PPtr, [f32; 4], [f32; 4], f32)>,
+    /// a selectable's state tints: for its target graphic, and for a MultiGraphicButton's other graphics
+    pub tints: Option<(Option<Tints>, Option<Tints>)>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Element {
     pub name: String,
     pub active: bool,
+    /// the GameObject's and the RectTransform's object ids, which other components name
+    pub id: i64,
+    pub transform: i64,
     pub rect: RectRules,
     pub components: Vec<Component>,
     pub children: Vec<Element>,
@@ -76,6 +83,29 @@ impl Element {
 
     pub fn has(&self, class: &str) -> bool {
         self.component(class).is_some()
+    }
+
+    /// The controller implementations (`XModelController/YImpl` and their data) of the enabled controllers here.
+    pub fn impls(&self) -> Vec<(&str, &Value)> {
+        let mut out = vec![];
+        for c in self.components.iter().filter(|c| c.enabled) {
+            let Some(refs) = c.value.path("references/RefIds").and_then(Value::as_array) else { continue };
+            let rid = c.value.path("implementation/rid").and_then(Value::as_i64);
+            for r in refs.iter().filter(|r| r.get("rid").and_then(Value::as_i64) == rid) {
+                if let (Some(class), Some(data)) = (r.path("type/class").and_then(Value::as_str), r.get("data")) {
+                    out.push((class, data));
+                }
+            }
+        }
+        out
+    }
+
+    /// Every element in the tree, depth first, mutably.
+    pub fn each_mut(&mut self, f: &mut dyn FnMut(&mut Element)) {
+        f(self);
+        for c in &mut self.children {
+            c.each_mut(f);
+        }
     }
 
     /// Every element in the tree, depth first, with its depth.
@@ -184,12 +214,24 @@ fn script_class(lib: &mut Library, file: &FileRef, script: PPtr) -> String {
     named.unwrap_or_else(|| "?".into())
 }
 
+/// Marks a list spawner's item template (see [`element`]).
+pub const TEMPLATE: &str = " [template]";
+
+/// The GameObject `p` names, or the one the component it names is on.
+fn object(lib: &mut Library, file: &FileRef, p: PPtr, depth: usize) -> Result<Element, String> {
+    let (f, mut go) = lib.resolve(file, p)?;
+    if f.sf().object(go).map(|o| o.class_id) != Some(GAME_OBJECT) {
+        go = value(&f, go)?.get("m_GameObject").and_then(Value::as_pptr).ok_or("prefab reference is not a GameObject")?.path_id;
+    }
+    element(lib, &f, go, depth + 1)
+}
+
 fn element(lib: &mut Library, file: &FileRef, go_id: i64, depth: usize) -> Result<Element, String> {
     if depth > 64 {
         return Err("page tree too deep".into());
     }
     let go = GameObject::from_value(&value(file, go_id)?).map_err(|e| e.to_string())?;
-    let mut e = Element { name: go.name.clone(), active: go.active, rect: RectRules::default(), components: vec![], children: vec![] };
+    let mut e = Element { name: go.name.clone(), active: go.active, id: go_id, transform: 0, rect: RectRules::default(), components: vec![], children: vec![] };
     let mut children = vec![];
     for c in &go.components {
         // prefab components live in the prefab's own file
@@ -203,6 +245,7 @@ fn element(lib: &mut Library, file: &FileRef, go_id: i64, depth: usize) -> Resul
                 if o.class_id == RECT_TRANSFORM {
                     e.rect = rect_rules(&v);
                 }
+                e.transform = c.path_id;
                 let t = Transform::from_value(&v).map_err(|e| e.to_string())?;
                 children = t.children;
             }
@@ -225,6 +268,21 @@ fn element(lib: &mut Library, file: &FileRef, go_id: i64, depth: usize) -> Resul
     for ch in children {
         let t = Transform::from_value(&value(file, ch.path_id)?).map_err(|e| e.to_string())?;
         e.children.push(element(lib, file, t.game_object.path_id, depth + 1)?);
+    }
+    // a StaggeredPrefabSpawner puts its prefab under itself once it is on screen; the page is read with it in place
+    // (prefabs named by Addressables GUID instead are left out)
+    let spawn = e.component("RRUI.StaggeredPrefabSpawner").filter(|c| !c.value.get("useAssetReference").and_then(Value::as_bool).unwrap_or(false))
+        .and_then(|c| c.value.get("prefab").and_then(Value::as_pptr)).filter(|p| !p.is_null());
+    if let Some(p) = spawn {
+        e.children.push(object(lib, file, p, depth)?);
+    }
+    // a list spawner's item prefab is kept under it, inactive, as the template its items are made from
+    let item = e.impls().iter().find_map(|(_, d)| d.get("defaultPrefab").and_then(Value::as_pptr)).filter(|p| !p.is_null());
+    if let Some(p) = item {
+        let mut t = object(lib, file, p, depth)?;
+        t.active = false;
+        t.name.push_str(TEMPLATE);
+        e.children.push(t);
     }
     Ok(e)
 }
