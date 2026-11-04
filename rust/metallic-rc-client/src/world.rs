@@ -9,10 +9,10 @@ use std::{
     sync::{mpsc::{channel, Receiver, Sender}, Arc, Mutex},
 };
 
-use bevy::{asset::RenderAssetUsages, mesh::{Indices, PrimitiveTopology}, prelude::*};
+use bevy::{asset::RenderAssetUsages, audio::AddAudioSource, mesh::{Indices, PrimitiveTopology}, prelude::*};
 use unity_assets::{catalog::{bundle_file, Catalog}, classes, AssetBundleInfo, GameObject, PPtr};
 
-use crate::{collide::{Obb, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
+use crate::{audio, collide::{Obb, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
 
 
 /// Where an address leads: the bundle file and the bundle's own name for the asset (its `m_Container` key).
@@ -235,7 +235,7 @@ fn recenter(r: &mut RoomData) {
     }
     let shift = Vec3::new(-(lo.x + hi.x) / 2.0, 0.0, -(lo.z + hi.z) / 2.0);
     let m = Mat4::from_translation(shift);
-    for w in r.parts.iter_mut().map(|p| &mut p.world).chain(r.places.iter_mut()).chain(r.lights.iter_mut().map(|l| &mut l.world)) {
+    for w in r.parts.iter_mut().map(|p| &mut p.world).chain(r.places.iter_mut()).chain(r.lights.iter_mut().map(|l| &mut l.world)).chain(r.sounds.iter_mut().map(|s| &mut s.world)) {
         *w = m * *w;
     }
     for c in &mut r.colliders {
@@ -314,7 +314,7 @@ impl Loader {
 fn unplace(r: &mut RoomData) {
     let Some(&place) = r.places.first() else { return };
     let inv = place.inverse();
-    for w in r.parts.iter_mut().map(|p| &mut p.world).chain(r.places.iter_mut()).chain(r.lights.iter_mut().map(|l| &mut l.world)) {
+    for w in r.parts.iter_mut().map(|p| &mut p.world).chain(r.places.iter_mut()).chain(r.lights.iter_mut().map(|l| &mut l.world)).chain(r.sounds.iter_mut().map(|s| &mut s.world)) {
         *w = inv * *w;
     }
     for c in &mut r.colliders {
@@ -358,9 +358,10 @@ pub fn stable_id(parts: &[&str]) -> u64 {
 }
 
 /// Spawns the prefab at `address` as a prop at `transform`. The entity exists at once (with `Prop`); its meshes,
-/// lights and colliders arrive when the loader has read them. `id` None picks a new local id.
-pub fn spawn_prop(commands: &mut Commands, loader: &Loader, address: &str, transform: Transform, id: Option<u64>) -> Entity {
-    let id = id.unwrap_or_else(|| stable_id(&["spawned", address, &format!("{:?}", transform.translation)]) | (1 << 63));
+/// lights and colliders arrive when the loader has read them. Its `Prop::id` is a local one (top bit set, so it
+/// never meets a room prop's); the realtime side may overwrite it with the network id.
+pub fn spawn_prop(commands: &mut Commands, loader: &Loader, address: &str, transform: Transform) -> Entity {
+    let id = stable_id(&["spawned", address, &format!("{:?}", transform.translation)]) | (1 << 63);
     let entity = commands.spawn((Prop { address: address.to_string(), id }, PropColliders::default(), transform, Visibility::default(), RoomPiece)).id();
     let _ = loader.send.lock().unwrap().send(Request::Prop { entity, address: address.to_string() });
     entity
@@ -374,14 +375,17 @@ impl Plugin for WorldPlugin {
             .init_resource::<FixedSolids>()
             .init_resource::<Solids>()
             .add_systems(Update, (spawn_arrived, attach_props, update_solids.after(spawn_arrived).after(attach_props)))
-            .add_systems(Update, spawn_from_env.after(spawn_arrived));
+            .add_systems(Update, spawn_from_env.after(spawn_arrived))
+            .add_audio_source::<audio::Pcm>()
+            .init_resource::<audio::Volumes>()
+            .add_systems(Update, (audio::watch_settings, audio::follow_listener.after(audio::watch_settings), audio::log_started.after(audio::follow_listener)));
     }
 }
 
 /// Builds the meshes, materials and lights of `r` as children of one entity per root prefab. Returns the root
 /// entities; `roots[i]` is `None` for a root the caller already has an entity for (`existing`).
 fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option<Entity>,
-         meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, images: &mut Assets<Image>) -> (Vec<Entity>, Vec<Obb>) {
+         meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, images: &mut Assets<Image>, clips: &mut Assets<audio::Pcm>) -> (Vec<Entity>, Vec<Obb>) {
     let mats: Vec<Handle<StandardMaterial>> = r.materials.iter().map(|m| materials.add(render::material(m, images))).collect();
     let needs_tangents: Vec<bool> = r.materials.iter().map(|m| m.normal_map.is_some()).collect();
     let mut roots: Vec<Entity> = Vec::new();
@@ -421,6 +425,15 @@ fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option
         let e = render::spawn_light(commands, l, local);
         commands.entity(roots[l.root]).add_child(e);
     }
+    // one asset per clip, however many sources play it
+    let mut pcm: HashMap<*const audio::Clip, Handle<audio::Pcm>> = HashMap::new();
+    for s in r.sounds {
+        let handle = pcm.entry(Arc::as_ptr(&s.clip)).or_insert_with(|| clips.add(audio::Pcm::new(&s.clip))).clone();
+        let local = Transform::from_matrix(inverse[s.root] * s.world);
+        let (root, playback, music) = (s.root, audio::playback(&s), s.looped && s.spatial < 0.5);
+        let e = commands.spawn((AudioPlayer(handle), playback, local, Name::new(s.clip.name.clone()), audio::RoomAudio { sound: s, music })).id();
+        commands.entity(roots[root]).add_child(e);
+    }
     // props carry their own colliders; the rest are fixed
     let mut fixed = Vec::new();
     let mut by_root: HashMap<usize, Vec<Obb>> = HashMap::new();
@@ -447,6 +460,7 @@ fn spawn_arrived(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    mut clips: ResMut<Assets<audio::Pcm>>,
 ) {
     let Some(r) = arrived.0.take() else { return };
     for e in &old {
@@ -456,8 +470,10 @@ fn spawn_arrived(
     let has_lights = !r.lights.is_empty();
     let name = r.roots.first().cloned().unwrap_or_default();
     let props: Vec<&str> = r.roots.iter().zip(&r.props).filter(|(_, p)| **p).map(|(n, _)| n.as_str()).collect();
-    println!("world: {} pieces, {} props {props:?}, {} lights, {} colliders", r.roots.len(), props.len(), r.lights.len(), r.colliders.len());
-    let (_, solids) = build(&mut commands, r, &name, None, &mut meshes, &mut materials, &mut images);
+    let sounds: Vec<String> = r.sounds.iter().map(|s| format!("{} ({}, {:.1} s{})", s.clip.name, s.clip.codec,
+        s.clip.samples.len() as f32 / s.clip.channels.max(1) as f32 / s.clip.rate.max(1) as f32, if s.looped { ", loop" } else { "" })).collect();
+    println!("world: {} pieces, {} props {props:?}, {} lights, {} colliders, {} sounds {sounds:?}", r.roots.len(), props.len(), r.lights.len(), r.colliders.len(), sounds.len());
+    let (_, solids) = build(&mut commands, r, &name, None, &mut meshes, &mut materials, &mut images, &mut clips);
     fixed.0 = solids;
     if !has_lights && lo.x <= hi.x {
         for e in render::spawn_default_lights(&mut commands, lo, hi) {
@@ -467,6 +483,7 @@ fn spawn_arrived(
     let sky = images.add(render::sky_cubemap([0.38, 0.56, 0.85], [0.75, 0.82, 0.9], [0.3, 0.28, 0.25]));
     for cam in &cameras {
         render::sky_on_camera(&mut commands, cam, sky.clone());
+        commands.entity(cam).insert(audio::listener());
     }
 }
 
@@ -478,7 +495,7 @@ fn spawn_from_env(mut commands: Commands, loader: Option<Res<Loader>>, pieces: Q
         let (address, at) = item.rsplit_once('@').unwrap_or((item, "0,1,0"));
         let v: Vec<f32> = at.split(',').filter_map(|x| x.trim().parse().ok()).collect();
         let pos = Vec3::new(*v.first().unwrap_or(&0.0), *v.get(1).unwrap_or(&1.0), *v.get(2).unwrap_or(&0.0));
-        let e = spawn_prop(&mut commands, &loader, address, Transform::from_translation(pos), None);
+        let e = spawn_prop(&mut commands, &loader, address, Transform::from_translation(pos));
         println!("spawned prop {address} at {pos} as {e}");
     }
 }
@@ -491,13 +508,19 @@ fn attach_props(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    mut clips: ResMut<Assets<audio::Pcm>>,
 ) {
     let Some(loader) = loader else { return };
     let ready: Vec<_> = loader.props.lock().unwrap().try_iter().collect();
     for (entity, r) in ready {
         match r {
             Ok(r) if alive.get(entity).is_ok() => {
-                build(&mut commands, r, "", Some(entity), &mut meshes, &mut materials, &mut images);
+                let sounds: Vec<&str> = r.sounds.iter().map(|s| s.clip.name.as_str()).collect();
+                let unplayable: Vec<&String> = r.problems.iter().filter(|p| p.starts_with("audio")).collect();
+                if !sounds.is_empty() || !unplayable.is_empty() {
+                    println!("prop {entity}: sounds {sounds:?}, unplayable {unplayable:?}");
+                }
+                build(&mut commands, r, "", Some(entity), &mut meshes, &mut materials, &mut images, &mut clips);
             }
             Ok(_) => {}
             Err(e) => eprintln!("prop: {e}"),

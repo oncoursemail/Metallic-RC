@@ -59,3 +59,21 @@ fn prop_ids_are_stable() {
     assert_ne!(world::stable_id(&["dorm", "3", "a"]), world::stable_id(&["dorm", "4", "a"]));
     assert_ne!(world::stable_id(&["ab", "c"]), world::stable_id(&["a", "bc"]));
 }
+
+#[test]
+fn room_sounds_decode_and_fade() {
+    let Some(dir) = bundle_dir() else { return };
+    let mut lib = Library::new(&dir).unwrap();
+    // the tennis-ball bucket plays its plastic knock on its own: IMA ADPCM
+    let r = world::load(&mut lib, &dir, Some("(Consumable_BucketOfTennisBalls)")).unwrap();
+    let s = r.sounds.first().unwrap_or_else(|| panic!("no sounds; problems {:?}", r.problems));
+    assert_eq!((s.clip.name.as_str(), s.clip.codec), ("SFX_Collision_Plastic1_Mono", "imaadpcm"));
+    assert!(s.clip.samples.iter().any(|&x| x.abs() > 1000), "silent clip");
+    assert!((s.gain_at(0.0) - 1.0).abs() < 0.05, "{}", s.gain_at(0.0));
+    if s.spatial > 0.5 {
+        assert!(s.gain_at(s.max_distance * 2.0) < 0.05, "{}", s.gain_at(s.max_distance * 2.0));
+    }
+    // the campfire's crackle is FSB Vorbis without its setup header: reported, not played
+    let r = world::load(&mut lib, &dir, Some("(Sandbox_Campfire)")).unwrap();
+    assert!(r.sounds.is_empty() && r.problems.iter().any(|p| p.contains("vorbis")), "{:?}", r.problems);
+}

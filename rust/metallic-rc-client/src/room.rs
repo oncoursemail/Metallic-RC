@@ -3,12 +3,12 @@
 //!
 //! Unity is left-handed (z forward), Bevy right-handed: positions, normals and transforms get z negated, triangles
 //! get their winding flipped, and UV v is flipped because textures decode top row first.
-use std::{collections::HashMap, path::{Path, PathBuf}, rc::Rc};
+use std::{collections::HashMap, path::{Path, PathBuf}, rc::Rc, sync::Arc};
 
 use bevy::math::{Mat4, Quat, Vec3};
 use unity_assets::{classes, Bundle, GameObject, Material, Mesh, MeshFilter, MeshRenderer, PPtr, SerializedFile, Texture2D, Transform};
 
-use crate::{collide::Obb, shapes::{self, Pixels, ShapeKit}};
+use crate::{audio::{self, Clip}, collide::Obb, shapes::{self, Pixels, ShapeKit}};
 
 /// The default place of the game files: the Steam copy kept for this work, then the installed game.
 pub const GAME_DIRS: [&str; 2] = [
@@ -96,6 +96,58 @@ pub struct RoomLight {
     pub shadows: bool,
     /// `URPLight.isHemisphereLight`: inner and outer full angles of a point light that only lights what is in front
     pub hemisphere: Option<(f32, f32)>,
+}
+
+/// An AudioSource that plays on its own (`m_PlayOnAwake`, enabled, with a clip); the ones scripts start are left out.
+#[derive(Clone, Debug)]
+pub struct RoomSound {
+    pub root: usize,
+    pub world: Mat4,
+    pub clip: Arc<Clip>,
+    pub volume: f32,
+    pub pitch: f32,
+    pub looped: bool,
+    /// Unity spatialBlend (the first key of `panLevelCustomCurve`): 0 = 2D, 1 = 3D
+    pub spatial: f32,
+    pub min_distance: f32,
+    pub max_distance: f32,
+    /// 0 logarithmic, 1 linear, 2 custom (`rolloff_curve`, over distance / max distance)
+    pub rolloff: i64,
+    pub rolloff_curve: Vec<(f32, f32)>,
+}
+
+impl RoomSound {
+    /// Unity's distance attenuation at `d` metres, blended by `spatial` (a 2D sound does not fade).
+    pub fn gain_at(&self, d: f32) -> f32 {
+        let (min, max) = (self.min_distance.max(0.01), self.max_distance.max(self.min_distance.max(0.01) + 0.01));
+        let g = match self.rolloff {
+            // INFERRED: Unity's logarithmic curve is min / d, held at its value past max distance
+            0 => min / d.clamp(min, max),
+            1 => 1.0 - ((d - min) / (max - min)).clamp(0.0, 1.0),
+            _ => curve_at(&self.rolloff_curve, d / max),
+        };
+        1.0 + (g.clamp(0.0, 1.0) - 1.0) * self.spatial.clamp(0.0, 1.0)
+    }
+}
+
+/// An AnimationCurve's keys, linearly between them (INFERRED: tangents ignored), held flat past the ends.
+pub fn curve_at(keys: &[(f32, f32)], t: f32) -> f32 {
+    let Some(first) = keys.first() else { return 1.0 };
+    if t <= first.0 {
+        return first.1;
+    }
+    for w in keys.windows(2) {
+        let ((t0, v0), (t1, v1)) = (w[0], w[1]);
+        if t <= t1 {
+            return if t1 > t0 { v0 + (v1 - v0) * (t - t0) / (t1 - t0) } else { v1 };
+        }
+    }
+    keys.last().map_or(1.0, |k| k.1)
+}
+
+fn curve_keys(v: Option<&unity_assets::Value>) -> Vec<(f32, f32)> {
+    let Some(keys) = v.and_then(|c| c.get("m_Curve")).and_then(|c| c.as_array()) else { return vec![] };
+    keys.iter().filter_map(|k| Some((k.get("time")?.as_f32()?, k.get("value")?.as_f32()?))).collect()
 }
 
 /// How a game shader colours its surface (docs/agents/rc-spec/rendering.md in the private notes).
@@ -195,6 +247,7 @@ pub struct RoomData {
     /// the root each collider belongs to
     pub collider_roots: Vec<usize>,
     pub lights: Vec<RoomLight>,
+    pub sounds: Vec<RoomSound>,
     pub problems: Vec<String>,
 }
 
@@ -282,9 +335,10 @@ impl Library {
     }
 }
 
-/// Unity's BoxCollider and Light classes.
+/// Unity's BoxCollider, Light and AudioSource classes.
 const BOX_COLLIDER: i32 = 65;
 const LIGHT: i32 = 108;
+const AUDIO_SOURCE: i32 = 82;
 
 fn class_of(f: &FileRef, path_id: i64) -> Option<i32> {
     f.sf().object(path_id).map(|o| o.class_id)
@@ -316,6 +370,7 @@ struct Builder<'a> {
     shaders: HashMap<(String, i64), String>,
     looks: HashMap<(usize, Variant), usize>,
     textures: HashMap<(String, i64), Option<Pixels>>,
+    clips: HashMap<(String, i64), Option<Arc<Clip>>>,
 }
 
 impl Builder<'_> {
@@ -574,6 +629,11 @@ impl Builder<'_> {
                         self.light(&gf, &go.components, &v, world);
                     }
                 }
+                Some(AUDIO_SOURCE) => {
+                    if let Ok(v) = value(&cf, cid) {
+                        self.sound(&cf, &v, world);
+                    }
+                }
                 _ => {}
             }
         }
@@ -621,6 +681,47 @@ impl Builder<'_> {
             inner_spot_angle: float("m_InnerSpotAngle"),
             shadows: v.path("m_Shadows/m_Type").and_then(|x| x.as_i64()).unwrap_or(0) != 0,
             hemisphere,
+        });
+    }
+
+    /// An AudioSource that plays by itself, with its clip decoded (once per clip).
+    fn sound(&mut self, sf: &FileRef, v: &unity_assets::Value, world: Mat4) {
+        let on = |k: &str| v.get(k).and_then(|x| x.as_i64()).unwrap_or(0) != 0;
+        let float = |k: &str, d: f32| v.get(k).and_then(|x| x.as_f32()).unwrap_or(d);
+        if !on("m_Enabled") || !on("m_PlayOnAwake") || on("Mute") {
+            return;
+        }
+        let Some(p) = v.get("m_audioClip").and_then(|x| x.as_pptr()) else { return };
+        let Ok((cf, cid)) = self.lib.resolve(sf, p) else { return };
+        let key = (cf.cab().to_string(), cid);
+        let clip = match self.clips.get(&key) {
+            Some(c) => c.clone(),
+            None => {
+                let c = match value(&cf, cid).and_then(|cv| audio::clip_from_value(&cv, &cf.open.bundle)) {
+                    Ok(c) => Some(Arc::new(c)),
+                    Err(e) => {
+                        self.out.problems.push(format!("audio clip {cid}: {e}"));
+                        None
+                    }
+                };
+                self.clips.insert(key, c.clone());
+                c
+            }
+        };
+        let Some(clip) = clip else { return };
+        let pan = curve_keys(v.get("panLevelCustomCurve"));
+        self.out.sounds.push(RoomSound {
+            root: self.out.roots.len() - 1,
+            world,
+            clip,
+            volume: float("m_Volume", 1.0),
+            pitch: float("m_Pitch", 1.0),
+            looped: on("Loop"),
+            spatial: pan.first().map_or(0.0, |k| k.1),
+            min_distance: float("MinDistance", 1.0),
+            max_distance: float("MaxDistance", 500.0),
+            rolloff: v.get("rolloffMode").and_then(|x| x.as_i64()).unwrap_or(0),
+            rolloff_curve: curve_keys(v.get("rolloffCustomCurve")),
         });
     }
 
@@ -729,7 +830,7 @@ pub fn parse_layout(text: &str) -> Result<Vec<(String, Option<Mat4>)>, String> {
 
 impl<'a> Builder<'a> {
     fn new(lib: &'a mut Library, kit: &'a mut ShapeKit) -> Self {
-        Builder { lib, kit, out: RoomData::default(), sources: vec![], source_of: HashMap::new(), shaders: HashMap::new(), looks: HashMap::new(), textures: HashMap::new() }
+        Builder { lib, kit, out: RoomData::default(), sources: vec![], source_of: HashMap::new(), shaders: HashMap::new(), looks: HashMap::new(), textures: HashMap::new(), clips: HashMap::new() }
     }
 }
 
