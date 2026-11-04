@@ -2,8 +2,10 @@ package control
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -207,12 +209,33 @@ func (a API) Handler() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-Trace-Id", traceID(r.Header.Get("Traceparent")))
 		if r.ContentLength > 4096 {
 			jsonReply(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "payload_too_large"})
 			return
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+// traceID returns the trace id of a valid W3C traceparent header so a login,
+// reservation and room join can be correlated; otherwise it makes a fresh id.
+func traceID(traceparent string) string {
+	parts := strings.Split(traceparent, "-")
+	if len(parts) == 4 && len(parts[1]) == 32 && parts[1] != strings.Repeat("0", 32) {
+		valid := true
+		for _, c := range parts[1] {
+			if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+				valid = false
+			}
+		}
+		if valid {
+			return parts[1]
+		}
+	}
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }
 
 // For an operator diagnostic endpoint, return a string rather than a secret.
