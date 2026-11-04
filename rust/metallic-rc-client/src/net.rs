@@ -45,8 +45,17 @@ pub struct Room {
     pub private: bool,
 }
 
+/// A room open on the room server right now.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LiveRoom {
+    pub room: String,
+    pub players: usize,
+}
+
 pub struct Session {
     agent: ureq::Agent,
+    /// the name server's address: the room list is beside it
+    server: String,
     services: serde_json::Map<String, Value>,
     pub access_token: String,
     pub refresh_token: String,
@@ -80,6 +89,17 @@ impl Session {
             return Ok(Value::Null);
         }
         serde_json::from_str(&text).map_err(|e| err(&url, e))
+    }
+
+    /// The rooms open on the room server, fullest first (for a rooms page).
+    pub fn live_rooms(&self) -> Result<Vec<LiveRoom>, Error> {
+        let url = format!("{}/realtime/rooms", self.server);
+        let mut r = self.agent.get(&url).header("Authorization", format!("Bearer {}", self.access_token)).call().map_err(|e| err(&url, e))?;
+        let v: Value = r.body_mut().read_json().map_err(|e| err(&url, e))?;
+        Ok(v.as_array().map(|a| a.iter().map(|r| LiveRoom {
+            room: r["room"].as_str().unwrap_or("").to_string(),
+            players: r["players"].as_u64().unwrap_or(0) as usize,
+        }).collect()).unwrap_or_default())
     }
 
     /// Asks matchmaking for a room by name and returns the instance it puts this player in.
@@ -180,6 +200,7 @@ pub fn connect(name_server: &str, login: &Login) -> Result<Session, Error> {
 
     let mut s = Session {
         agent,
+        server: name_server.trim_end_matches('/').to_string(),
         services,
         access_token,
         refresh_token: t["refresh_token"].as_str().unwrap_or("").to_string(),

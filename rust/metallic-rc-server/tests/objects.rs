@@ -1,16 +1,17 @@
 //! Networked objects through the room server, in simulated time over lossy links (10 % loss, up to 30 ms of jitter
 //! each way): instantiate with late joiners, transform sync, ownership takeover (also two claims at once), RPC
-//! targets with buffering, owner and creator leaving, destroy, and the scene's own objects.
+//! targets with buffering, owner and creator leaving, destroy, and the scene's own objects; voice relay; token
+//! checks, rate limits and the live room list.
 #[path = "../../rr-net/tests/common/mod.rs"]
 mod common;
 
 use std::net::SocketAddr;
 
 use common::Link;
-use metallic_rc_server::room::Rooms;
+use metallic_rc_server::room::{LiveRoom, Rooms};
 use rr_net::events::tagged::Value;
 use rr_net::objects::{scene_view_id, ObjectEvent, RpcTarget};
-use rr_net::room::RoomClient;
+use rr_net::room::{RoomClient, RoomEvent};
 use rr_net::sync::Pose;
 
 const STEP: f64 = 0.005;
@@ -21,6 +22,7 @@ struct Player {
     up: Link,
     down: Link,
     got: Vec<ObjectEvent>,
+    events: Vec<RoomEvent>,
     shown: Vec<(i32, Pose)>,
     gone: bool,
 }
@@ -34,16 +36,24 @@ struct World {
 
 impl World {
     fn new() -> Self {
-        World { rooms: Rooms::new(), players: vec![], now: 0.0, seed: 1 }
+        Self::with(Rooms::new())
+    }
+
+    fn with(rooms: Rooms) -> Self {
+        World { rooms, players: vec![], now: 0.0, seed: 1 }
     }
 
     /// Adds a player; returns its index.
     fn join(&mut self, name: &str) -> usize {
+        self.join_signed(name, None)
+    }
+
+    fn join_signed(&mut self, name: &str, token: Option<&str>) -> usize {
         self.seed += 2;
         let addr: SocketAddr = format!("127.0.0.1:{}", 5000 + self.players.len()).parse().unwrap();
-        let client = RoomClient::connect(self.now, "127.0.0.1:4201".parse().unwrap(), "objects", name, [0.0; 3]);
+        let client = RoomClient::connect_signed(self.now, "127.0.0.1:4201".parse().unwrap(), "objects", token, name, [0.0; 3]);
         let (up, down) = (Link::new(self.seed, 0.1, 0.03), Link::new(self.seed + 1, 0.1, 0.03));
-        self.players.push(Player { addr, client, up, down, got: vec![], shown: vec![], gone: false });
+        self.players.push(Player { addr, client, up, down, got: vec![], events: vec![], shown: vec![], gone: false });
         self.players.len() - 1
     }
 
@@ -64,7 +74,11 @@ impl World {
                 while let Some(e) = p.client.poll_object_event() {
                     p.got.push(e);
                 }
+                while let Some(e) = p.client.poll_event() {
+                    p.events.push(e);
+                }
                 p.shown = p.client.object_poses(now, STEP);
+                p.client.remotes(now, STEP);
                 for d in p.up.arrived(now) {
                     self.rooms.receive(now, p.addr, &d);
                 }
@@ -273,4 +287,51 @@ fn voice_reaches_the_rest_of_the_room_stamped_with_the_speaker() {
         assert!(heard.len() >= 35 && heard.iter().all(|v| v.sender == 1 && v.amplitude == 100 && v.frame.len() == 40), "{}", heard.len());
         assert!(heard.windows(2).all(|p| p[0].sequence != p[1].sequence));
     }
+}
+
+#[test]
+fn with_token_checks_only_signed_in_players_join_under_their_account_name() {
+    let auth: metallic_rc_server::room::Auth = std::sync::Arc::new(|t: &str| (t == "good-token").then(|| (42, "Ada Account".to_string())));
+    let mut w = World::with(Rooms::with_auth(Some(auth)));
+    let a = w.join_signed("whatever I say", Some("good-token"));
+    w.wait(1.0);
+    let (b, c) = (w.join_signed("Bo", Some("forged")), w.join("Cy"));
+    let d = w.join_signed("Di", Some("good-token"));
+    w.wait(2.0);
+    assert!(w.p(a).client.is_spawned() && w.p(d).client.is_spawned());
+    for i in [b, c] {
+        assert_eq!(w.p(i).events.first(), Some(&RoomEvent::Refused("not signed in: the room server needs the token from login".into())));
+    }
+    assert!(w.p(d).events.iter().any(|e| matches!(e, RoomEvent::Joined { .. })));
+    assert_eq!(w.p(d).client.shown().iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), vec!["Ada Account"]);
+    assert_eq!(*w.rooms.live().lock().unwrap(), vec![LiveRoom { room: "objects".into(), players: 2 }]);
+}
+
+#[test]
+fn a_flood_is_cut_to_the_rate_limit_and_the_room_list_follows_players() {
+    let mut w = World::new();
+    let a = w.join("Ada");
+    w.wait(1.0);
+    let b = w.join("Bo");
+    w.wait(2.0);
+    assert_eq!(*w.rooms.live().lock().unwrap(), vec![LiveRoom { room: "objects".into(), players: 2 }]);
+    // Bo fires 1000 RPCs in a moment: about the burst (120) gets through, the rest is dropped
+    let now = w.now;
+    for _ in 0..1000 {
+        w.p(b).client.send_rpc(now, 0, "Spam", vec![], RpcTarget::Others);
+    }
+    w.wait(1.0);
+    let spam = w.p(a).rpcs("Spam");
+    assert!((100..=200).contains(&spam), "{spam}");
+    assert!(w.rooms.dropped(2) >= 800, "{}", w.rooms.dropped(2));
+    // normal traffic goes on: moving, and an RPC a little later
+    w.wait(1.0);
+    let now = w.now;
+    w.p(b).client.send_rpc(now, 0, "Hello", vec![], RpcTarget::Others);
+    w.wait(1.0);
+    assert_eq!(w.p(a).rpcs("Hello"), 1);
+    let now = w.now;
+    w.p(b).client.leave(now);
+    w.wait(1.0);
+    assert_eq!(*w.rooms.live().lock().unwrap(), vec![LiveRoom { room: "objects".into(), players: 1 }]);
 }

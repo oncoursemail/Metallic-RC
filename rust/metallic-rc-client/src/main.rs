@@ -511,7 +511,7 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
             if hub.is_ok() { "on" } else { "off" });
         let address = address.unwrap_or_else(|| realtime::default_address(&server));
         let room = room.unwrap_or(s.room.photon_room);
-        match realtime::start(&address, &room, &s.account.display_name, spawn, yaw) {
+        match realtime::start(&address, &room, &s.access_token, &s.account.display_name, spawn, yaw) {
             Ok(rt) if current() => *net_slot.lock().unwrap() = Some(rt),
             Ok(rt) => rt.room.lock().unwrap().leave(rt.now()),
             Err(e) => shared.lock().unwrap().push_str(&format!("  |  room server {address}: {e}")),

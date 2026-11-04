@@ -41,14 +41,20 @@ pub fn view_id(actor: i32) -> i32 {
     actor * 100_000 + 1
 }
 
-/// The connection data a room client sends: which room instance it joins.
-pub fn connection_data(room: &str) -> Vec<u8> {
-    let escaped: String = room.chars().flat_map(|c| match c {
+fn json_string(s: &str) -> String {
+    s.chars().flat_map(|c| match c {
         '"' | '\\' => vec!['\\', c],
         c if (c as u32) < 0x20 => format!("\\u{:04x}", c as u32).chars().collect(),
         c => vec![c],
-    }).collect();
-    format!(r#"{{"RI":"{escaped}"}}"#).into_bytes()
+    }).collect()
+}
+
+/// The connection data a room client sends: which room instance it joins, and the access token from login.
+pub fn connection_data(room: &str, token: Option<&str>) -> Vec<u8> {
+    match token {
+        Some(t) => format!(r#"{{"RI":"{}","AT":"{}"}}"#, json_string(room), json_string(t)).into_bytes(),
+        None => format!(r#"{{"RI":"{}"}}"#, json_string(room)).into_bytes(),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -123,8 +129,13 @@ impl RoomClient {
     /// Starts connecting to the room server at `server` to join `room` as `name`. `spawn` is the feet position this
     /// player hands out when it is the master.
     pub fn connect(now: f64, server: SocketAddr, room: &str, name: &str, spawn: [f32; 3]) -> Self {
+        Self::connect_signed(now, server, room, None, name, spawn)
+    }
+
+    /// As `connect`, sending the access token from login (a server that checks tokens needs it).
+    pub fn connect_signed(now: f64, server: SocketAddr, room: &str, token: Option<&str>, name: &str, spawn: [f32; 3]) -> Self {
         RoomClient {
-            ngo: Client::connect(now, server, connection_data(room)),
+            ngo: Client::connect(now, server, connection_data(room, token)),
             name: name.into(),
             spawn,
             spawn_yaw: 0.0,
@@ -763,7 +774,8 @@ mod tests {
 
     #[test]
     fn connection_data_is_json() {
-        assert_eq!(connection_data("dorm-7"), br#"{"RI":"dorm-7"}"#.to_vec());
-        assert_eq!(connection_data("a\"b\\c\n"), br#"{"RI":"a\"b\\c\u000a"}"#.to_vec());
+        assert_eq!(connection_data("dorm-7", None), br#"{"RI":"dorm-7"}"#.to_vec());
+        assert_eq!(connection_data("a\"b\\c\n", None), br#"{"RI":"a\"b\\c\u000a"}"#.to_vec());
+        assert_eq!(connection_data("d", Some("x.y")), br#"{"RI":"d","AT":"x.y"}"#.to_vec());
     }
 }
