@@ -4,3 +4,4 @@ pub mod net;
 pub mod realtime;
 pub mod room;
 pub mod shapes;
+pub mod ui;

@@ -107,23 +107,23 @@ pub struct RoomData {
     pub problems: Vec<String>,
 }
 
-struct Open {
+pub(crate) struct Open {
     bundle: Bundle,
-    files: Vec<(String, SerializedFile)>,
+    pub(crate) files: Vec<(String, SerializedFile)>,
 }
 
 /// A serialized file inside an open bundle.
 #[derive(Clone)]
-struct FileRef {
-    open: Rc<Open>,
-    index: usize,
+pub(crate) struct FileRef {
+    pub(crate) open: Rc<Open>,
+    pub(crate) index: usize,
 }
 
 impl FileRef {
-    fn sf(&self) -> &SerializedFile {
+    pub(crate) fn sf(&self) -> &SerializedFile {
         &self.open.files[self.index].1
     }
-    fn cab(&self) -> &str {
+    pub(crate) fn cab(&self) -> &str {
         &self.open.files[self.index].0
     }
 }
@@ -154,7 +154,7 @@ impl Library {
         self.cabs.len()
     }
 
-    fn open_bundle(&mut self, path: &Path) -> Result<Rc<Open>, String> {
+    pub(crate) fn open_bundle(&mut self, path: &Path) -> Result<Rc<Open>, String> {
         if let Some(o) = self.open.get(path) {
             return Ok(o.clone());
         }
@@ -165,7 +165,7 @@ impl Library {
         Ok(o)
     }
 
-    fn file(&mut self, cab: &str) -> Result<FileRef, String> {
+    pub(crate) fn file(&mut self, cab: &str) -> Result<FileRef, String> {
         let path = self.cabs.get(cab).cloned().ok_or_else(|| format!("{cab} is in no bundle"))?;
         let open = self.open_bundle(&path)?;
         let index = open.files.iter().position(|(n, _)| n == cab).ok_or_else(|| format!("{cab} missing from its bundle"))?;
@@ -173,7 +173,7 @@ impl Library {
     }
 
     /// The file and path id a PPtr seen in `from` points at.
-    fn resolve(&mut self, from: &FileRef, p: PPtr) -> Result<(FileRef, i64), String> {
+    pub(crate) fn resolve(&mut self, from: &FileRef, p: PPtr) -> Result<(FileRef, i64), String> {
         if p.path_id == 0 {
             return Err("null reference".into());
         }
@@ -193,7 +193,7 @@ fn class_of(f: &FileRef, path_id: i64) -> Option<i32> {
     f.sf().object(path_id).map(|o| o.class_id)
 }
 
-fn value(f: &FileRef, path_id: i64) -> Result<unity_assets::Value, String> {
+pub(crate) fn value(f: &FileRef, path_id: i64) -> Result<unity_assets::Value, String> {
     let o = f.sf().object(path_id).ok_or_else(|| format!("object {path_id} not in {}", f.cab()))?;
     f.sf().read_value(o).map_err(|e| e.to_string())
 }
