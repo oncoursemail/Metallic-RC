@@ -34,7 +34,9 @@ use bevy::{
 use metallic_rc_client::{
     avatar::{self, Drive, Kit, LocalLook, Look, Rig},
     net::{self, Login},
+    netobj,
     player::{self, Controls, LocalAvatar, Player, PlayerSystems, Solids},
+    voice,
     realtime::{self, Realtime},
     room::{self, RoomData},
     settings::{Settings, RESOLUTIONS},
@@ -210,6 +212,8 @@ fn main() {
             ..default()
         }))
         .insert_resource(status)
+        .insert_resource(netobj::RoomLink(net.0.clone()))
+        .add_plugins((netobj::NetObjectsPlugin, voice::VoicePlugin))
         .insert_resource(net)
         .insert_resource(loading)
         .insert_resource(menu)
@@ -372,7 +376,7 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
             if hub.is_ok() { "on" } else { "off" });
         let address = address.unwrap_or_else(|| realtime::default_address(&server));
         let room = room.unwrap_or(s.room.photon_room);
-        match realtime::start(&address, &room, &s.account.display_name, spawn, yaw) {
+        match realtime::start(&address, &room, &s.access_token, &s.account.display_name, spawn, yaw) {
             Ok(rt) if current() => *net_slot.lock().unwrap() = Some(rt),
             Ok(rt) => rt.room.lock().unwrap().leave(rt.now()),
             Err(e) => shared.lock().unwrap().push_str(&format!("  |  room server {address}: {e}")),

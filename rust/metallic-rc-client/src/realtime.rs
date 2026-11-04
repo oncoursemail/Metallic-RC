@@ -30,15 +30,16 @@ impl Realtime {
     }
 }
 
-/// Connects to the room server at `address` to join `room` as `name`, handing out `spawn` (feet position, facing
-/// `yaw`) when this player is the master. The thread ends when the connection does.
-pub fn start(address: &str, room: &str, name: &str, spawn: [f32; 3], yaw: f32) -> std::io::Result<Realtime> {
+/// Connects to the room server at `address` to join `room` as `name` (signed in with the access `token` from login),
+/// handing out `spawn` (feet position, facing `yaw`) when this player is the master. The thread ends when the
+/// connection does.
+pub fn start(address: &str, room: &str, token: &str, name: &str, spawn: [f32; 3], yaw: f32) -> std::io::Result<Realtime> {
     let server: SocketAddr = address.to_socket_addrs()?.next().ok_or_else(|| std::io::Error::other(format!("no address for {address}")))?;
     let socket = UdpSocket::bind(if server.is_ipv4() { "0.0.0.0:0" } else { "[::]:0" })?;
     socket.connect(server)?;
     socket.set_read_timeout(Some(Duration::from_millis(5)))?;
     let start = Instant::now();
-    let rt = Realtime { room: Arc::new(Mutex::new(RoomClient::connect(0.0, server, room, name, spawn).facing(yaw))), start };
+    let rt = Realtime { room: Arc::new(Mutex::new(RoomClient::connect_signed(0.0, server, room, Some(token), name, spawn).facing(yaw))), start };
     let shared = rt.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 2048];

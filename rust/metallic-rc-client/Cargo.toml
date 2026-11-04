@@ -13,6 +13,9 @@ bevy = "0.20"
 ttf-parser = "0.25"
 unity-assets = { version = "0.1.0", path = "../unity-assets" }
 rr-net = { path = "../rr-net" }
+# voice: the audio devices (the version Bevy's audio already pulls in) and Opus (pure Rust, no C toolchain needed)
+cpal = "0.17"
+unsafe-libopus = "0.2"
 
 [dev-dependencies]
 metallic-rc-server = { path = "../metallic-rc-server" }

@@ -4039,6 +4039,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "bevy",
+ "cpal",
  "metallic-rc-server",
  "rr-net",
  "serde_json",
@@ -4046,6 +4047,7 @@ dependencies = [
  "ttf-parser",
  "tungstenite 0.30.0",
  "unity-assets",
+ "unsafe-libopus",
  "ureq",
 ]
 
@@ -4240,6 +4242,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c89e69e7e0f03bea5ef08013795c25018e101932225a656383bd384495ecc367"
 dependencies = [
  "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-complex"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73f88a1307638156682bada9d7604135552957b7818057dcef22705b4d509495"
+dependencies = [
  "num-traits",
 ]
 
@@ -6159,7 +6170,7 @@ version = "2.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86a801b3cea342a06d468c8710662aa29e5e05e4f5c0d62f00bbb7f2ad7941c2"
 dependencies = [
- "rand 0.9.5",
+ "rand 0.10.3",
 ]
 
 [[package]]
@@ -6212,6 +6223,17 @@ dependencies = [
  "lzma-rs",
  "png",
  "texture2ddecoder",
+]
+
+[[package]]
+name = "unsafe-libopus"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c757408e7256c910343c7b215c8c8b878948630eecc774baabcca0972376eb73"
+dependencies = [
+ "arrayref",
+ "num-complex",
+ "num-traits",
 ]
 
 [[package]]

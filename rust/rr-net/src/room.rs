@@ -7,7 +7,11 @@
 //!
 //! A player's look (our avatar's colours and accessory, opaque text to this layer) goes out as RPC `RpcSetLook`,
 //! kept in the room cache so late joiners get it; a change replaces the cached one.
-use std::collections::{HashMap, VecDeque};
+//!
+//! Networked objects (see [`crate::objects`]): `instantiate`, `destroy`, `request_ownership`, `send_rpc`; the
+//! owner's poses go out with the avatar in event 28, everyone else's come back smoothed from `object_poses`, and
+//! what happens to objects comes out of `poll_object_event`, apart from the player events.
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::net::SocketAddr;
 
 use crate::events::ops::{Op, PlayerData, RoomData};
@@ -16,7 +20,9 @@ use crate::events::tagged::Value;
 use crate::events::{RrDelivery, OP_DOWN, OP_UP, RELAY_DOWN, RELAY_UP};
 use crate::ngo::session::TICK_RATE;
 use crate::ngo::{Client, ClientEvent, NgoDelivery};
+use crate::objects::{self, moved, Object, ObjectEvent, RpcTarget};
 use crate::sync::{self, AvatarData, Pose, Smoother};
+use crate::voice::{self, VoicePacket};
 
 pub const PLAYER_PREFAB: &str = "Player";
 const REQUEST_SPAWN: &str = "RpcMasterRequestPlayerSpawn";
@@ -25,20 +31,30 @@ const SPAWN: &str = "RpcSpawnNewPlayer";
 const LOOK: &str = "RpcSetLook";
 /// metres between spawn places round the master's spawn point
 const SPAWN_SPACING: f32 = 1.2;
+/// most ownership claims and samples kept for objects not registered yet
+const MAX_EARLY: usize = 4096;
+/// voice packets held for the game to take (about 1 s per speaker for a few speakers)
+const MAX_VOICE: usize = 256;
 
 /// The player avatar's view id: actor * 100000 plus a sub id (the PUN scheme).
 pub fn view_id(actor: i32) -> i32 {
     actor * 100_000 + 1
 }
 
-/// The connection data a room client sends: which room instance it joins.
-pub fn connection_data(room: &str) -> Vec<u8> {
-    let escaped: String = room.chars().flat_map(|c| match c {
+fn json_string(s: &str) -> String {
+    s.chars().flat_map(|c| match c {
         '"' | '\\' => vec!['\\', c],
         c if (c as u32) < 0x20 => format!("\\u{:04x}", c as u32).chars().collect(),
         c => vec![c],
-    }).collect();
-    format!(r#"{{"RI":"{escaped}"}}"#).into_bytes()
+    }).collect()
+}
+
+/// The connection data a room client sends: which room instance it joins, and the access token from login.
+pub fn connection_data(room: &str, token: Option<&str>) -> Vec<u8> {
+    match token {
+        Some(t) => format!(r#"{{"RI":"{}","AT":"{}"}}"#, json_string(room), json_string(t)).into_bytes(),
+        None => format!(r#"{{"RI":"{}"}}"#, json_string(room)).into_bytes(),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -93,14 +109,33 @@ pub struct RoomClient {
     last_sync: f64,
     next_request: u8,
     events: VecDeque<RoomEvent>,
+    objects: HashMap<i32, Object>,
+    next_sub: i32,
+    object_events: VecDeque<ObjectEvent>,
+    /// ownership claims and the newest sample for views not registered yet (scene objects of a room still loading)
+    early_owner: HashMap<i32, (Option<i32>, i32)>,
+    early_pose: HashMap<i32, (f64, i32, Pose)>,
+    /// scene objects destroyed before this player registered them
+    early_destroyed: HashSet<i32>,
+    /// send every owned object at the next beat (someone joined)
+    resend: bool,
+    voice_in: VecDeque<VoicePacket>,
+    voice_sequence: u16,
+    /// the other players as last drawn
+    shown: Vec<Shown>,
 }
 
 impl RoomClient {
     /// Starts connecting to the room server at `server` to join `room` as `name`. `spawn` is the feet position this
     /// player hands out when it is the master.
     pub fn connect(now: f64, server: SocketAddr, room: &str, name: &str, spawn: [f32; 3]) -> Self {
+        Self::connect_signed(now, server, room, None, name, spawn)
+    }
+
+    /// As `connect`, sending the access token from login (a server that checks tokens needs it).
+    pub fn connect_signed(now: f64, server: SocketAddr, room: &str, token: Option<&str>, name: &str, spawn: [f32; 3]) -> Self {
         RoomClient {
-            ngo: Client::connect(now, server, connection_data(room)),
+            ngo: Client::connect(now, server, connection_data(room, token)),
             name: name.into(),
             spawn,
             spawn_yaw: 0.0,
@@ -117,6 +152,16 @@ impl RoomClient {
             last_sync: 0.0,
             next_request: 0,
             events: VecDeque::new(),
+            objects: HashMap::new(),
+            next_sub: objects::RUNTIME_SUB_OFFSET,
+            object_events: VecDeque::new(),
+            early_owner: HashMap::new(),
+            early_pose: HashMap::new(),
+            early_destroyed: HashSet::new(),
+            resend: false,
+            voice_in: VecDeque::new(),
+            voice_sequence: 0,
+            shown: vec![],
         }
     }
 
@@ -166,9 +211,9 @@ impl RoomClient {
 
     fn send_look(&mut self, now: f64) {
         let Some(look) = self.look.clone() else { return };
-        // drop the cached one (sent to nobody), then cache the new one
-        let remove = Options { cache: relay::REMOVE_FROM_ROOM_CACHE, targets: Some(vec![]), ..Default::default() };
-        self.rpc(now, LOOK, vec![], remove);
+        // drop this player's cached one (filtered by method name), then cache the new one
+        let remove = Options { cache: relay::REMOVE_FROM_ROOM_CACHE, ..Default::default() };
+        self.raise(relay::RPC, RrDelivery::Reliable, remove, &Value::Dictionary(vec![(Value::Byte(2), Value::String(LOOK.into()))]));
         self.rpc(now, LOOK, vec![Value::String(look)], Options { cache: relay::ADD_TO_ROOM_CACHE, ..Default::default() });
     }
 
@@ -204,8 +249,12 @@ impl RoomClient {
     }
 
     fn rpc(&mut self, now: f64, method: &str, params: Vec<Value>, options: Options) {
+        self.rpc_on(now, 0, method, params, options);
+    }
+
+    fn rpc_on(&mut self, now: f64, view: i32, method: &str, params: Vec<Value>, options: Options) {
         let content = Value::Dictionary(vec![
-            (Value::Byte(0), Value::Int(0)),
+            (Value::Byte(0), Value::Int(view)),
             (Value::Byte(1), Value::Int(self.tick(now))),
             (Value::Byte(2), Value::String(method.into())),
             (Value::Byte(3), Value::Array(params)),
@@ -262,8 +311,15 @@ impl RoomClient {
     fn set_master(&mut self, master: Option<u64>, now: f64) {
         let Some(m) = master.map(|m| m as i32) else { return };
         if self.master != Some(m) {
+            let before: Vec<(i32, bool)> = self.objects.keys().map(|&v| (v, self.is_mine(v))).collect();
             self.master = Some(m);
             self.events.push_back(RoomEvent::MasterChanged { actor: m });
+            // the master's objects (scene objects, and those whose owner left) go with it
+            for (view, was) in before {
+                if self.objects[&view].owner.is_none() {
+                    self.owner_moved(view, was);
+                }
+            }
             // a spawn request to a master that left is answered by nobody: ask the new one
             if self.awaiting_spawn {
                 self.request_spawn(now);
@@ -288,8 +344,16 @@ impl RoomClient {
             Op::SelfJoinMarker => self.request_spawn(now),
             Op::RemotePlayerJoined(p) => {
                 let name = p.name.unwrap_or_default();
-                self.names.insert(p.client_id as i32, name.clone());
-                self.events.push_back(RoomEvent::PlayerJoined { actor: p.client_id as i32, name });
+                let actor = p.client_id as i32;
+                self.names.insert(actor, name.clone());
+                self.events.push_back(RoomEvent::PlayerJoined { actor, name });
+                // ownership is not cached: the master tells the newcomer; every owner sends its objects again
+                if self.is_master() && !self.objects.is_empty() {
+                    let all: Vec<_> = self.objects.iter().map(|(&v, o)| (v, o.owner, o.version)).collect();
+                    let options = Options { targets: Some(vec![actor]), ..Default::default() };
+                    self.raise(objects::OWNERSHIP_UPDATE, RrDelivery::Reliable, options, &objects::owners_content(&all));
+                }
+                self.resend = true;
             }
             Op::RemotePlayerLeft { left, update } => {
                 let actor = left as i32;
@@ -297,7 +361,18 @@ impl RoomClient {
                 self.remotes.remove(&actor);
                 self.looks.remove(&actor);
                 self.events.push_back(RoomEvent::PlayerLeft { actor });
+                // its objects stay, and pass to the master (set_master announces them if the master changes too)
+                let left: Vec<i32> = self.objects.iter().filter(|(_, o)| o.owner == Some(actor)).map(|(&v, _)| v).collect();
+                for v in &left {
+                    self.objects.get_mut(v).unwrap().owner = None;
+                }
+                let master = self.master;
                 self.set_master(update.master, now);
+                if self.master == master {
+                    for v in left {
+                        self.owner_moved(v, false);
+                    }
+                }
             }
             Op::RoomUpdate(RoomData { master, .. }) => self.set_master(master, now),
             Op::PlayerUpdate(PlayerData { client_id, name: Some(name), .. }) => {
@@ -322,12 +397,29 @@ impl RoomClient {
                 r.body.push(sent, Pose { position: *position, rotation: *rotation, velocity: [0.0; 3] });
                 self.remotes.insert(p.sender, r);
             }
+            relay::NETWORK_INSTANTIATE => self.on_instantiate(p.sender, &content),
             relay::NETWORK_SYNCHRONIZATION => {
                 let Value::ByteArray(buf) = content else { return };
                 let Ok((tick, _, records)) = sync::read_buffer(&buf) else { return };
-                let Some(r) = self.remotes.get_mut(&p.sender) else { return };
                 let sent = tick as f64 / TICK_RATE;
+                let master = self.master;
                 for (view, kind, bytes) in records {
+                    if kind == sync::NETWORK_TRANSFORM {
+                        let Ok(pose) = sync::decode_transform(bytes) else { continue };
+                        match self.objects.get_mut(&view) {
+                            // only the owner's samples: a former owner's late ones are dropped
+                            Some(o) if o.owner.or(master) == Some(p.sender) && Some(p.sender) != self.actor => o.shown.push(sent, pose),
+                            Some(_) => {}
+                            None if self.early_pose.len() < MAX_EARLY || self.early_pose.contains_key(&view) => {
+                                if self.early_pose.get(&view).is_none_or(|e| e.0 <= sent) {
+                                    self.early_pose.insert(view, (sent, p.sender, pose));
+                                }
+                            }
+                            None => {}
+                        }
+                        continue;
+                    }
+                    let Some(r) = self.remotes.get_mut(&p.sender) else { continue };
                     if view != r.view || kind != sync::PLAYER_AVATAR_DATA {
                         continue;
                     }
@@ -359,11 +451,105 @@ impl RoomClient {
                     (LOOK, [Value::String(look)]) => {
                         self.looks.insert(p.sender, look.clone());
                     }
-                    _ => {}
+                    (REQUEST_SPAWN | SPAWN | LOOK, _) | ("", _) => {}
+                    _ => {
+                        let view = match content.get(0) {
+                            Some(Value::Int(v)) => *v,
+                            _ => 0,
+                        };
+                        self.object_events.push_back(ObjectEvent::Rpc { view, sender: p.sender, method, params });
+                    }
+                }
+            }
+            objects::DESTROY => {
+                if let Some(Value::Int(view)) = content.get(0) {
+                    if self.objects.remove(view).is_some() {
+                        self.object_events.push_back(ObjectEvent::Destroyed { view: *view });
+                    } else if objects::creator(*view) == 0 && self.early_destroyed.len() < MAX_EARLY {
+                        self.early_destroyed.insert(*view);
+                    }
+                }
+            }
+            objects::TRANSFER_OWNERSHIP | objects::OWNERSHIP_UPDATE => {
+                for (view, owner, version) in objects::read_owners(&content) {
+                    self.claim(view, owner, version);
                 }
             }
             _ => {}
         }
+    }
+
+    /// Another player's object (or, from the cache after a rejoin, an old one of this player's).
+    fn on_instantiate(&mut self, sender: i32, content: &Value) {
+        let (Some(address), Some(Value::Vector3(position)), Some(Value::Quaternion(rotation)), Some(Value::IntArray(views))) =
+            (content.get(0).and_then(Value::as_str), content.get(1), content.get(2), content.get(5)) else { return };
+        let Some(&view) = views.first() else { return };
+        if self.objects.contains_key(&view) {
+            return;
+        }
+        let scale = match content.get(3) {
+            Some(Value::Vector3(s)) => *s,
+            _ => [1.0; 3],
+        };
+        let data = match content.get(6) {
+            Some(Value::Array(d)) => d.clone(),
+            _ => vec![],
+        };
+        // the creator owns it, unless it has left already (an object from the cache outlives its creator)
+        let creator = objects::creator(view);
+        let present = self.names.contains_key(&creator) || Some(creator) == self.actor;
+        let owner = (present && creator == sender).then_some(creator);
+        let pose = Pose { position: *position, rotation: *rotation, velocity: [0.0; 3] };
+        self.add_object(view, address.to_string(), owner, pose);
+        let owner = self.owner_of(view).unwrap_or(0);
+        self.object_events.push_back(ObjectEvent::Spawned { view, address: address.into(), position: *position, rotation: *rotation, scale, owner, data });
+    }
+
+    fn add_object(&mut self, view: i32, address: String, owner: Option<i32>, pose: Pose) {
+        let mut o = Object::new(address, owner, pose);
+        o.shown.seed(pose);
+        if let Some((owner, version)) = self.early_owner.remove(&view) {
+            o.claim(owner, version);
+        }
+        if let Some((sent, sender, p)) = self.early_pose.remove(&view) {
+            if o.owner.or(self.master) == Some(sender) {
+                // shown where the owner has it, not eased there from the layout's place
+                o.shown.seed(p);
+                o.shown.push(sent, p);
+            }
+        }
+        self.objects.insert(view, o);
+    }
+
+    fn claim(&mut self, view: i32, owner: Option<i32>, version: i32) {
+        if !self.objects.contains_key(&view) {
+            if self.early_owner.len() < MAX_EARLY && self.early_owner.get(&view).is_none_or(|e| (version, owner.unwrap_or(0)) > (e.1, e.0.unwrap_or(0))) {
+                self.early_owner.insert(view, (owner, version));
+            }
+            return;
+        }
+        let was = self.is_mine(view);
+        if self.objects.get_mut(&view).unwrap().claim(owner, version) {
+            self.owner_moved(view, was);
+        }
+    }
+
+    /// After `view`'s owner changed: hands the pose over between "this player moves it" and "shown from samples",
+    /// and tells the game.
+    fn owner_moved(&mut self, view: i32, was_mine: bool) {
+        let mine = self.is_mine(view);
+        let owner = self.owner_of(view).unwrap_or(0);
+        let Some(o) = self.objects.get_mut(&view) else { return };
+        if mine && !was_mine {
+            // carry on from where it is shown, so taking it over does not make it jump
+            if let Some(p) = o.shown.current() {
+                o.pose = p;
+            }
+            o.sent = None;
+        } else if was_mine && !mine {
+            o.shown.seed(o.pose);
+        }
+        self.object_events.push_back(ObjectEvent::OwnerChanged { view, owner });
     }
 
     pub fn update(&mut self, now: f64) {
@@ -390,6 +576,14 @@ impl RoomClient {
                         self.on_event(now, p);
                     }
                 }
+                ClientEvent::Named { hash: voice::TO_CLIENT, payload } => {
+                    if let Ok(v) = VoicePacket::decode(&payload) {
+                        if self.voice_in.len() >= MAX_VOICE {
+                            self.voice_in.pop_front();
+                        }
+                        self.voice_in.push_back(v);
+                    }
+                }
                 ClientEvent::Named { .. } => {}
             }
         }
@@ -397,9 +591,141 @@ impl RoomClient {
             // keep the 15 Hz beat; after a stall start again rather than send a burst
             self.last_sync = if now - self.last_sync > 2.0 * sync::SEND_INTERVAL { now } else { self.last_sync + sync::SEND_INTERVAL };
             let actor = self.actor.unwrap_or(0);
-            let buf = sync::write_buffer(self.tick(now), actor, &[(view_id(actor), sync::PLAYER_AVATAR_DATA, self.pose.encode())]);
-            self.raise(relay::NETWORK_SYNCHRONIZATION, RrDelivery::Unreliable, Options::default(), &Value::ByteArray(buf));
+            let mut records = vec![(view_id(actor), sync::PLAYER_AVATAR_DATA, self.pose.encode())];
+            // owned objects while they move, for a moment after they stop, and all of them when someone joined
+            let (master, resend) = (self.master, std::mem::take(&mut self.resend));
+            for (&view, o) in self.objects.iter_mut() {
+                if o.owner.or(master) != Some(actor) {
+                    continue;
+                }
+                if o.sent.is_none_or(|s| moved(&s, &o.pose)) {
+                    o.busy_until = now + objects::SETTLE;
+                } else if now >= o.busy_until && !resend {
+                    continue;
+                }
+                records.push((view, sync::NETWORK_TRANSFORM, sync::encode_transform(&o.pose)));
+                o.sent = Some(o.pose);
+            }
+            for buf in sync::write_buffers(self.tick(now), actor, &records) {
+                self.raise(relay::NETWORK_SYNCHRONIZATION, RrDelivery::Unreliable, Options::default(), &Value::ByteArray(buf));
+            }
         }
+    }
+
+    /// Instantiates `address` for everyone (event 29, kept in the room cache after this player leaves); returns its
+    /// view id, owned by this player. `None` before the room is joined.
+    pub fn instantiate(&mut self, now: f64, address: &str, position: [f32; 3], rotation: [f32; 4], scale: [f32; 3], data: Vec<Value>) -> Option<i32> {
+        let actor = self.actor?;
+        self.master?;
+        let view = objects::view_id(actor, self.next_sub);
+        self.next_sub = if self.next_sub + 1 >= objects::MAX_VIEW_IDS { objects::RUNTIME_SUB_OFFSET } else { self.next_sub + 1 };
+        let mut content = vec![
+            (Value::Byte(0), Value::String(address.into())),
+            (Value::Byte(1), Value::Vector3(position)),
+            (Value::Byte(2), Value::Quaternion(rotation)),
+            (Value::Byte(3), Value::Vector3(scale)),
+            (Value::Byte(5), Value::IntArray(vec![view])),
+            (Value::Byte(7), Value::Int(self.tick(now))),
+        ];
+        if !data.is_empty() {
+            content.push((Value::Byte(6), Value::Array(data)));
+        }
+        let options = Options { cache: relay::ADD_TO_ROOM_CACHE_GLOBAL, ..Default::default() };
+        self.raise(relay::NETWORK_INSTANTIATE, RrDelivery::Reliable, options, &Value::Dictionary(content));
+        self.add_object(view, address.into(), Some(actor), Pose { position, rotation, velocity: [0.0; 3] });
+        Some(view)
+    }
+
+    /// Registers one of the room layout's own networked objects (`objects::scene_view_id`), which every player
+    /// loads itself; the master owns it until someone takes it. One destroyed before is not registered.
+    pub fn register_scene_object(&mut self, view: i32, address: &str, position: [f32; 3], rotation: [f32; 4]) {
+        if !self.objects.contains_key(&view) && !self.early_destroyed.contains(&view) {
+            self.add_object(view, address.into(), None, Pose { position, rotation, velocity: [0.0; 3] });
+        }
+    }
+
+    /// Destroys an object for everyone, and takes it (and the RPCs buffered on it) out of the room cache.
+    pub fn destroy(&mut self, view: i32) {
+        if self.objects.remove(&view).is_none() {
+            return;
+        }
+        let creator = objects::creator(view);
+        let remove = |targets: Vec<i32>| Options { cache: relay::REMOVE_FROM_ROOM_CACHE, targets: Some(targets), ..Default::default() };
+        if creator != 0 {
+            let filter = Value::Dictionary(vec![(Value::Byte(5), Value::IntArray(vec![view]))]);
+            self.raise(relay::NETWORK_INSTANTIATE, RrDelivery::Reliable, remove(vec![creator]), &filter);
+        }
+        let everyone: Vec<i32> = self.names.keys().copied().chain(self.actor).collect();
+        let filter = Value::Dictionary(vec![(Value::Byte(0), Value::Int(view))]);
+        self.raise(relay::RPC, RrDelivery::Reliable, remove(everyone), &filter);
+        // a scene object stays in every player's layout, so its destruction is kept for late joiners
+        let cache = if creator == 0 { relay::ADD_TO_ROOM_CACHE_GLOBAL } else { relay::DO_NOT_CACHE };
+        let content = Value::Dictionary(vec![(Value::Byte(0), Value::Int(view))]);
+        self.raise(objects::DESTROY, RrDelivery::Reliable, Options { cache, ..Default::default() }, &content);
+        self.object_events.push_back(ObjectEvent::Destroyed { view });
+    }
+
+    /// The actor that owns `view` (the master for scene objects nobody took).
+    pub fn owner_of(&self, view: i32) -> Option<i32> {
+        self.objects.get(&view)?.owner.or(self.master)
+    }
+
+    pub fn is_mine(&self, view: i32) -> bool {
+        self.actor.is_some() && self.owner_of(view) == self.actor
+    }
+
+    /// Takes `view` over at once (a grab does not wait for the owner); false if there is no such object.
+    pub fn request_ownership(&mut self, view: i32) -> bool {
+        let Some(actor) = self.actor else { return false };
+        self.transfer_ownership(view, actor)
+    }
+
+    /// Gives `view` to `to`; every player settles on the same owner even when two claims cross.
+    pub fn transfer_ownership(&mut self, view: i32, to: i32) -> bool {
+        let Some(o) = self.objects.get(&view) else { return false };
+        if self.owner_of(view) == Some(to) {
+            return true;
+        }
+        let version = o.version + 1;
+        self.claim(view, Some(to), version);
+        let content = objects::owners_content(&[(view, Some(to), version)]);
+        self.raise(objects::TRANSFER_OWNERSHIP, RrDelivery::Reliable, Options::default(), &content);
+        true
+    }
+
+    /// Where this player has an object it owns now; sent with the next movement beat if it moved.
+    pub fn set_object_pose(&mut self, view: i32, pose: Pose) {
+        if let Some(o) = self.objects.get_mut(&view) {
+            o.pose = pose;
+        }
+    }
+
+    /// Objects other players own, as to draw them at local time `now`, `dt` seconds after the previous call.
+    pub fn object_poses(&mut self, now: f64, dt: f64) -> Vec<(i32, Pose)> {
+        let at = self.ngo.server_time(now).unwrap_or(now);
+        let (me, master) = (self.actor, self.master);
+        self.objects.iter_mut()
+            .filter(|(_, o)| me.is_none() || o.owner.or(master) != me)
+            .filter_map(|(&v, o)| Some((v, o.shown.step(at, dt)?)))
+            .collect()
+    }
+
+    /// Calls `method` on `view` (0: the room) for `target`. "All" targets run it here at once too, as an `Rpc`
+    /// object event from this player.
+    pub fn send_rpc(&mut self, now: f64, view: i32, method: &str, params: Vec<Value>, target: RpcTarget) {
+        let (options, local) = target.options();
+        if local || target == RpcTarget::Actor(self.actor.unwrap_or(-1)) {
+            self.object_events.push_back(ObjectEvent::Rpc { view, sender: self.actor.unwrap_or(0), method: method.into(), params: params.clone() });
+        }
+        self.rpc_on(now, view, method, params, options);
+    }
+
+    pub fn poll_object_event(&mut self) -> Option<ObjectEvent> {
+        self.object_events.pop_front()
+    }
+
+    pub fn object_count(&self) -> usize {
+        self.objects.len()
     }
 
     /// The other players' avatars to draw at local time `now`, `dt` seconds after the previous call.
@@ -417,7 +743,28 @@ impl RoomClient {
             })
         }).collect();
         out.sort_by_key(|s| s.actor);
+        self.shown = out.clone();
         out
+    }
+
+    /// The other players as `remotes` last returned them.
+    pub fn shown(&self) -> &[Shown] {
+        &self.shown
+    }
+
+    /// Sends one Opus frame of this player's voice to the room (unreliable, as Dissonance sends voice).
+    pub fn send_voice(&mut self, frame: Vec<u8>, amplitude: u8) {
+        if self.actor.is_none() {
+            return;
+        }
+        self.voice_sequence = self.voice_sequence.wrapping_add(1);
+        let p = VoicePacket { sender: 0, sequence: self.voice_sequence, amplitude, frame };
+        self.ngo.send_named(voice::TO_SERVER, &p.encode(), NgoDelivery::Unreliable);
+    }
+
+    /// The next voice packet another player sent.
+    pub fn poll_voice(&mut self) -> Option<VoicePacket> {
+        self.voice_in.pop_front()
     }
 }
 
@@ -427,7 +774,8 @@ mod tests {
 
     #[test]
     fn connection_data_is_json() {
-        assert_eq!(connection_data("dorm-7"), br#"{"RI":"dorm-7"}"#.to_vec());
-        assert_eq!(connection_data("a\"b\\c\n"), br#"{"RI":"a\"b\\c\u000a"}"#.to_vec());
+        assert_eq!(connection_data("dorm-7", None), br#"{"RI":"dorm-7"}"#.to_vec());
+        assert_eq!(connection_data("a\"b\\c\n", None), br#"{"RI":"a\"b\\c\u000a"}"#.to_vec());
+        assert_eq!(connection_data("d", Some("x.y")), br#"{"RI":"d","AT":"x.y"}"#.to_vec());
     }
 }
