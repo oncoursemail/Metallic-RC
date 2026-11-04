@@ -41,7 +41,10 @@ pub struct MirrorPlugin;
 
 impl Plugin for MirrorPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Reflection>().add_systems(PostUpdate, follow.after(TransformSystems::Propagate));
+        // before the cascades are built: a mirror camera switched on after them is a view without cascades, and
+        // Bevy's prepare_lights panics on that (seen as an intermittent crash when the mirror first comes on screen)
+        app.init_resource::<Reflection>().add_systems(PostUpdate, follow.after(TransformSystems::Propagate)
+            .before(bevy::light::SimulationLightSystems::UpdateDirectionalLightCascades));
     }
 }
 

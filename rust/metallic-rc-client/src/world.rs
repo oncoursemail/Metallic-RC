@@ -532,12 +532,12 @@ fn spawn_arrived(
     }
     // the sky lights the room (sky_on_camera); a flat ambient on top would wash out its shading
     ambient.brightness = 0.0;
-    let sky = images.add(render::sky_cubemap(&render::SimpleGradient::default()));
+    let sky = env.sky.as_ref().map_or_else(|| images.add(render::sky_cubemap(&render::SimpleGradient::default())), |s| s.0.clone());
     let inside = images.add(render::sky_cubemap(&render::SimpleGradient::interior()));
     for cam in &cameras {
         // the room's own environment (render::apply_room_env) replaces the stand-in ambient when it came first
-        let ambient = env.0.as_ref().map_or(inside.clone(), |m| m.0.clone());
-        render::sky_on_camera(&mut commands, cam, sky.clone(), ambient);
+        let ambient = env.ambient.clone().unwrap_or(inside.clone());
+        render::sky_on_camera(&mut commands, cam, sky.clone(), env.sky.as_ref().map_or(Quat::IDENTITY, |s| s.1), ambient);
         commands.entity(cam).insert(audio::listener());
     }
 }
