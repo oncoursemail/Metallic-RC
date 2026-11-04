@@ -170,6 +170,8 @@ pub struct SerializedFile {
     pub ref_types: Vec<SerializedType>,
     pub user_info: String,
     data: Vec<u8>,
+    /// `objects` is in path id order (Unity writes it so), so `object` can binary search
+    sorted: bool,
 }
 
 impl SerializedFile {
@@ -247,6 +249,7 @@ impl SerializedFile {
         }
         let user_info = r.cstr()?;
 
+        let sorted = objects.windows(2).all(|w| w[0].path_id < w[1].path_id);
         Ok(SerializedFile {
             version,
             big_endian,
@@ -259,6 +262,7 @@ impl SerializedFile {
             objects,
             script_types,
             externals,
+            sorted,
             ref_types,
             user_info,
             data,
@@ -266,6 +270,9 @@ impl SerializedFile {
     }
 
     pub fn object(&self, path_id: i64) -> Option<&ObjectInfo> {
+        if self.sorted {
+            return self.objects.binary_search_by_key(&path_id, |o| o.path_id).ok().map(|i| &self.objects[i]);
+        }
         self.objects.iter().find(|o| o.path_id == path_id)
     }
 

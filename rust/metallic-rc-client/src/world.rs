@@ -12,7 +12,7 @@ use std::{
 use bevy::{asset::RenderAssetUsages, audio::AddAudioSource, mesh::{Indices, PrimitiveTopology}, prelude::*};
 use unity_assets::{catalog::{bundle_file, Catalog}, classes, AssetBundleInfo, GameObject, PPtr};
 
-use crate::{audio, collide::{Obb, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
+use crate::{audio, cache, collide::{Obb, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
 
 
 /// Where an address leads: the bundle file and the bundle's own name for the asset (its `m_Container` key).
@@ -282,15 +282,33 @@ impl Loader {
                 return;
             };
             let dir = room::bundle_dir(&game);
+            let t = std::time::Instant::now();
+            let name = world.as_deref().unwrap_or("dorm");
+            // the disk cache first (METALLIC_RC_NO_CACHE skips it, for timing the cold path); the bundles are
+            // indexed after it, as props need them
+            let cached = std::env::var_os("METALLIC_RC_NO_CACHE").is_none()
+                .then(|| cache::file_for(&dir, name, &format!("{:?}", shapes::old_build_dirs().iter().find(|d| d.exists())))).flatten();
+            let hit = cached.as_deref().and_then(cache::read);
+            let from_cache = hit.is_some();
+            if let Some(r) = hit {
+                println!("world {name}: loaded from the cache in {:.2} s", t.elapsed().as_secs_f32());
+                *room.lock().unwrap() = Some(Ok(r));
+            }
             let mut lib = match Library::new(&dir) {
                 Ok(l) => l,
                 Err(e) => return *room.lock().unwrap() = Some(Err(format!("{}: {e}", dir.display()))),
             };
             let (mut kit, mut addresses) = (shape_kit(), None);
-            let t = std::time::Instant::now();
-            let r = load_with(&mut lib, &mut kit, &mut addresses, &dir, world.as_deref());
-            println!("world {}: loaded in {:.2} s", world.as_deref().unwrap_or("dorm"), t.elapsed().as_secs_f32());
-            *room.lock().unwrap() = Some(r);
+            if !from_cache {
+                let r = load_with(&mut lib, &mut kit, &mut addresses, &dir, world.as_deref());
+                println!("world {name}: loaded from the game files in {:.2} s", t.elapsed().as_secs_f32());
+                if let (Ok(r), Some(path)) = (&r, &cached) {
+                    let w = std::time::Instant::now();
+                    cache::write(path, r);
+                    println!("world {name}: cached in {:.2} s", w.elapsed().as_secs_f32());
+                }
+                *room.lock().unwrap() = Some(r);
+            }
             for req in requests {
                 match req {
                     Request::Prop { entity, address } => {
