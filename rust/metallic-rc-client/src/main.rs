@@ -1,5 +1,5 @@
 //! metallic-rc-client [--server http://127.0.0.1:4200] [--name NAME] [--game-dir DIR] [--room NAME] [--realtime ADDR]
-//!                    [--look skin,shirt,accent[,accessory]] [--headless]
+//!                    [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--headless]
 //!
 //! Logs into metallic-rc-server on a background thread, then walks you around the room it puts you in (screen mode:
 //! `player`: WASD, Shift sprint, Space jump, Ctrl crouch, F fly, mouse look after a click; Esc opens or closes the game's menu and frees the mouse). The Dorm's pieces are loaded from the
@@ -19,28 +19,24 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use bevy::{
-    asset::RenderAssetUsages,
-    image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
     input::{
         keyboard::{Key, KeyboardInput},
         mouse::{AccumulatedMouseScroll, MouseScrollUnit},
         ButtonState,
     },
-    mesh::{Indices, PrimitiveTopology},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     window::{CursorGrabMode, CursorOptions, MonitorSelection, PresentMode, PrimaryWindow, WindowMode},
 };
 use metallic_rc_client::{
     avatar::{self, Drive, Kit, LocalLook, Look, Rig},
     net::{self, Login},
     netobj,
-    player::{self, Controls, LocalAvatar, Player, PlayerSystems, Solids},
+    player::{self, Controls, LocalAvatar, Player, PlayerSystems},
     voice,
     realtime::{self, Realtime},
     room::{self, RoomData},
     settings::{Settings, RESOLUTIONS},
-    shapes::{self, ShapeKit},
+    world,
     ui::{input::{self, Pointer}, menu::{self, Action, Painted, Painter, Router}, view},
 };
 use rr_net::{room::RoomEvent, sync::{AvatarData, Pose}};
@@ -55,10 +51,12 @@ struct Args {
     room: Option<String>,
     realtime: Option<String>,
     look: Option<Look>,
+    /// `--world`: a room by Addressables address (world::load)
+    world: Option<String>,
 }
 
 fn args() -> Args {
-    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.55, 0.0, 0.0, 0.0], room: None, realtime: None, look: None };
+    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.55, 0.0, 0.0, 0.0], room: None, realtime: None, look: None, world: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         match k.as_str() {
@@ -72,9 +70,10 @@ fn args() -> Args {
                 a.camera = v.try_into().unwrap_or_else(|_| die("--camera wants x,y,z,yaw,pitch"));
             }
             "--look" => a.look = Some(Look::parse_arg(&it.next().unwrap_or_default()).unwrap_or_else(|e| die(&e))),
+            "--world" => a.world = Some(it.next().unwrap_or_else(|| die("--world needs an address"))),
             "--game-dir" => a.game_dir = Some(it.next().unwrap_or_else(|| die("--game-dir needs a folder")).into()),
             "-h" | "--help" => {
-                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--headless]");
+                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--headless]");
                 std::process::exit(0)
             }
             _ => die(&format!("unknown argument {k}")),
@@ -184,18 +183,7 @@ fn main() {
     let game_dir = a.game_dir.clone().or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()));
     let player = player::PlayerPlugin { game_dir: game_dir.clone() };
     let menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), ..default() };
-    std::thread::spawn(move || {
-        let Some(game) = game_dir else {
-            *slot.lock().unwrap() = Some(Err("no game folder found; pass --game-dir".into()));
-            return;
-        };
-        let dir = room::bundle_dir(&game);
-        let mut lib = match room::Library::new(&dir) {
-            Ok(l) => l,
-            Err(e) => return *slot.lock().unwrap() = Some(Err(format!("{}: {e}", dir.display()))),
-        };
-        *slot.lock().unwrap() = Some(load_dorm(&mut lib, &dir));
-    });
+    let loader = world::Loader::start(game_dir, a.world.clone(), slot);
 
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))));
     let net = Net::default();
@@ -216,6 +204,8 @@ fn main() {
         .add_plugins((netobj::NetObjectsPlugin, voice::VoicePlugin))
         .insert_resource(net)
         .insert_resource(loading)
+        .insert_resource(loader)
+        .add_plugins(world::WorldPlugin)
         .insert_resource(menu)
         .insert_resource(prefs)
         .insert_resource(account)
@@ -251,8 +241,8 @@ fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Me
     }
     commands.spawn((Mesh3d(meshes.add(Cuboid::new(1.2, 0.5, 2.1))), MeshMaterial3d(bed), Transform::from_xyz(-2.2, 0.25, -2.6), StandIn));
     commands.spawn((Mesh3d(meshes.add(Cuboid::new(1.4, 0.75, 0.7))), MeshMaterial3d(wood), Transform::from_xyz(2.2, 0.375, -3.4), StandIn));
-    commands.spawn((PointLight { intensity: 400_000.0, shadow_maps_enabled: true, ..default() }, Transform::from_xyz(0.0, h - 0.2, 0.0)));
-    commands.spawn((DirectionalLight { illuminance: 3000.0, ..default() }, Transform::from_xyz(2.0, 6.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y)));
+    commands.spawn((PointLight { intensity: 400_000.0, shadow_maps_enabled: true, ..default() }, Transform::from_xyz(0.0, h - 0.2, 0.0), StandIn));
+    commands.spawn((DirectionalLight { illuminance: 3000.0, ..default() }, Transform::from_xyz(2.0, 6.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y), StandIn));
 
     player::spawn(&mut commands, start.0, FOV);
     commands.spawn((
@@ -623,28 +613,7 @@ fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>
     }
 }
 
-/// Our placement of the Dorm pieces the game does not author in place (the original layout is in the scrambled
-/// level files).
-const DORM_LAYOUT: &str = include_str!("../rooms/dorm.layout");
-
-/// The Dorm's pieces, from the Addressables bundle that holds them (found with unity-assets' catalog tool).
-fn load_dorm(lib: &mut room::Library, dir: &std::path::Path) -> Result<RoomData, String> {
-    let layout = room::parse_layout(DORM_LAYOUT)?;
-    // the Maker Pen textures come from an older install, when there is one
-    let mut kit = ShapeKit::new(shapes::old_build_dirs().iter().find(|d| d.exists()).map(|d| d.as_path()));
-    room::load_prefabs(lib, &mut kit, dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"), &layout)
-}
-
-fn spawn_room(
-    mut commands: Commands,
-    loading: Res<Loading>,
-    status: Res<Status>,
-    stand_in: Query<Entity, With<StandIn>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    mut solids: ResMut<Solids>,
-) {
+fn spawn_room(mut commands: Commands, loading: Res<Loading>, status: Res<Status>, stand_in: Query<Entity, With<StandIn>>, mut arrived: ResMut<world::Arrived>) {
     let Some(result) = loading.0.lock().unwrap().take() else { return };
     let r = match result {
         Ok(r) => r,
@@ -656,39 +625,6 @@ fn spawn_room(
     for e in &stand_in {
         commands.entity(e).despawn();
     }
-    let mats: Vec<Handle<StandardMaterial>> = r.materials.iter().map(|m| {
-        let base_color_texture = m.texture.as_ref().map(|(w, h, px)| {
-            let mut img = Image::new(Extent3d { width: *w, height: *h, depth_or_array_layers: 1 }, TextureDimension::D2, px.clone(),
-                TextureFormat::Rgba8UnormSrgb, RenderAssetUsages::RENDER_WORLD);
-            img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-                address_mode_u: ImageAddressMode::Repeat,
-                address_mode_v: ImageAddressMode::Repeat,
-                ..ImageSamplerDescriptor::linear()
-            });
-            images.add(img)
-        });
-        let [cr, cg, cb, ca] = m.color;
-        materials.add(StandardMaterial {
-            base_color: Color::srgba(cr, cg, cb, ca),
-            base_color_texture,
-            perceptual_roughness: m.roughness.clamp(0.05, 1.0),
-            metallic: 0.0,
-            double_sided: true,
-            cull_mode: None,
-            ..default()
-        })
-    }).collect();
-    for p in r.parts {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, p.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, p.normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, p.uvs);
-        if !p.colors.is_empty() {
-            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, p.colors);
-        }
-        mesh.insert_indices(Indices::U32(p.indices));
-        commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(mats[p.material].clone()), Transform::from_matrix(p.world), Name::new(p.name)));
-    }
-    status.0.lock().unwrap().push_str(&format!("  |  {} Dorm pieces from the game files", r.roots.len()));
-    solids.0 = r.colliders;
+    status.0.lock().unwrap().push_str(&format!("  |  {} room pieces from the game files", r.roots.len()));
+    arrived.0 = Some(r);
 }

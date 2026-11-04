@@ -6,6 +6,11 @@ pub const HEIGHT: f32 = 1.7;
 pub const RADIUS: f32 = 0.25;
 pub const STEP: f32 = 0.25;
 
+/// The boxes the player walks against: the room's fixed colliders plus the props' where they are now (kept by
+/// `world::WorldPlugin`).
+#[derive(bevy::prelude::Resource, Default)]
+pub struct Solids(pub Vec<Obb>);
+
 /// An oriented box in the client's space.
 #[derive(Clone, Debug)]
 pub struct Obb {
@@ -33,6 +38,18 @@ impl Obb {
             q += self.axes[i] * d.dot(self.axes[i]).clamp(-self.half[i], self.half[i]);
         }
         q
+    }
+
+    /// The box under a further transform (a prop moving it); a scale stretches the half sizes along the axes.
+    pub fn transformed(&self, m: Mat4) -> Self {
+        let mut axes = self.axes;
+        let mut half = self.half;
+        for i in 0..3 {
+            let a = m.transform_vector3(self.axes[i]);
+            half[i] *= a.length();
+            axes[i] = a.normalize_or_zero();
+        }
+        Obb { center: m.transform_point3(self.center), axes, half }
     }
 
     /// The highest point of the box.
@@ -157,5 +174,17 @@ mod tests {
         let table = cube(Vec3::new(1.5, 0.4, 0.0), Vec3::new(1.0, 0.8, 2.0));
         let (p, _) = move_capsule(&[floor, table], Vec3::new(0.7, 0.0, 0.0), Vec3::new(0.2, 0.0, 0.0));
         assert!(p.y.abs() < 1e-3 && p.x <= 1.0 - RADIUS + 1e-3, "{p}");
+    }
+
+    #[test]
+    fn a_box_follows_its_prop() {
+        let b = Obb::from_box_collider(Mat4::IDENTITY, [0.0, 0.5, 0.0], [1.0, 1.0, 1.0]);
+        let m = Mat4::from_scale_rotation_translation(Vec3::splat(2.0), bevy::math::Quat::from_rotation_y(0.5), Vec3::new(3.0, 0.0, 0.0));
+        let t = b.transformed(m);
+        assert!((t.center - Vec3::new(3.0, 1.0, 0.0)).length() < 1e-5);
+        assert!((t.half - Vec3::ONE).length() < 1e-5);
+        // round trip
+        let back = t.transformed(m.inverse());
+        assert!((back.center - b.center).length() < 1e-5 && (back.half - b.half).length() < 1e-5);
     }
 }

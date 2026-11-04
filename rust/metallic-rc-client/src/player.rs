@@ -29,9 +29,8 @@ pub use tuning::Tuning;
 /// Eyes above the feet when standing, before the tuning arrives (the first-person preset's 1.35 + 0.2).
 pub const EYE: f32 = 1.55;
 
-/// What the player bumps into: the room's box colliders, once it is loaded.
-#[derive(Resource, Default)]
-pub struct Solids(pub Vec<Obb>);
+/// What the player bumps into: the room's box colliders, kept by `world::WorldPlugin`.
+pub use crate::collide::Solids;
 
 /// The settings and whether the keyboard belongs to a text field; the game fills them in each frame.
 #[derive(Resource, Default)]

@@ -22,6 +22,8 @@ pub use objects::*;
 pub use reader::Reader;
 pub use serialized::{External, ObjectInfo, SerializedFile, SerializedType, TypeNode, TypeTree};
 pub use value::{PPtr, Value};
+/// The LZ4 block codec the bundles use, for callers that keep their own compressed data (the client's cache).
+pub use lz4_flex;
 
 use std::fmt;
 

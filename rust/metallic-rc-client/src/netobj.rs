@@ -10,7 +10,7 @@
 //!   others' objects get their Transform from the owner, smoothed. When someone else takes an object, `mine` turns
 //!   false: whoever holds it should let go.
 //!
-//! `Prop` and `spawn_prop` here are stand-ins for the world lane's (not merged yet): a plain box per address.
+//! `spawn_prop` here builds the game's prefab through `world::spawn_prop`; `debug/` and `test/` addresses get a box.
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -21,6 +21,7 @@ use rr_net::objects::{scene_view_id, ObjectEvent, RpcTarget};
 use rr_net::sync::Pose;
 
 use crate::realtime::Realtime;
+use crate::world;
 
 pub struct NetObjectsPlugin;
 
@@ -77,12 +78,16 @@ impl Views {
     }
 }
 
-/// Stand-in for the world lane's prop marker.
+/// A networked object with no prefab behind it (test and debug addresses, or no game files): a 0.3 m box.
 #[derive(Component)]
 pub struct Prop;
 
-/// Stand-in for the world lane's `spawn_prop`: a 0.3 m box tinted by its address.
-pub fn spawn_prop(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, address: &str, at: Transform) -> Entity {
+/// The object for `address`: the prefab from the game files through the world loader, or a 0.3 m box tinted by its
+/// address for `debug/` and `test/` addresses and when there is no loader.
+pub fn spawn_prop(commands: &mut Commands, loader: Option<&world::Loader>, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, address: &str, at: Transform) -> Entity {
+    if let Some(loader) = loader.filter(|_| !address.starts_with("debug/") && !address.starts_with("test/")) {
+        return world::spawn_prop(commands, loader, address, at);
+    }
     let hue = address.bytes().fold(7u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32)) % 360;
     let material = materials.add(StandardMaterial { base_color: Color::hsl(hue as f32, 0.6, 0.55), ..default() });
     commands.spawn((Prop, Mesh3d(meshes.add(Cuboid::new(0.3, 0.3, 0.3))), MeshMaterial3d(material), at, Name::new(format!("prop {address}")))).id()
@@ -96,6 +101,7 @@ pub struct NetObjects<'w, 's> {
     objects: Query<'w, 's, &'static NetObject>,
     meshes: ResMut<'w, Assets<Mesh>>,
     materials: ResMut<'w, Assets<StandardMaterial>>,
+    loader: Option<Res<'w, world::Loader>>,
 }
 
 impl NetObjects<'_, '_> {
@@ -103,7 +109,7 @@ impl NetObjects<'_, '_> {
     pub fn net_spawn(&mut self, address: &str, at: Transform) -> Option<Entity> {
         let rt = self.link.get()?;
         let view = rt.room.lock().unwrap().instantiate(rt.now(), address, at.translation.into(), at.rotation.to_array(), at.scale.into(), vec![])?;
-        let e = spawn_prop(&mut self.commands, &mut self.meshes, &mut self.materials, address, at);
+        let e = spawn_prop(&mut self.commands, self.loader.as_deref(), &mut self.meshes, &mut self.materials, address, at);
         let actor = rt.room.lock().unwrap().actor().unwrap_or(0);
         self.commands.entity(e).insert(NetObject { view, address: address.into(), owner: actor, mine: true });
         self.views.by_view.insert(view, e);
@@ -151,6 +157,7 @@ fn object_events(
     mut objects: Query<&mut NetObject>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    loader: Option<Res<world::Loader>>,
     mut rpcs: MessageWriter<NetRpc>,
 ) {
     let rt = link.get();
@@ -170,7 +177,7 @@ fn object_events(
                     continue;
                 }
                 let at = Transform { translation: position.into(), rotation: Quat::from_array(rotation), scale: scale.into() };
-                let e = spawn_prop(&mut commands, &mut meshes, &mut materials, &address, at);
+                let e = spawn_prop(&mut commands, loader.as_deref(), &mut meshes, &mut materials, &address, at);
                 let mine = room.is_mine(view);
                 commands.entity(e).insert(NetObject { view, address, owner, mine });
                 views.by_view.insert(view, e);

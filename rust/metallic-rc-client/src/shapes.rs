@@ -160,3 +160,56 @@ pub fn mean_alpha(t: &Pixels) -> f32 {
     }
     t.2.chunks_exact(4).map(|p| p[3] as u64).sum::<u64>() as f32 / (n as f32 * 255.0)
 }
+
+/// The AG shaders' emission colour, baked: `rgb * a * tint` (linear light), stored sRGB and opaque; the material
+/// multiplies it by `_EmissivePower`.
+pub fn bake_emission(src: &Pixels, tint: [f32; 3]) -> Pixels {
+    let lin: Vec<f32> = (0..256).map(|i| to_linear(i as f32 / 255.0)).collect();
+    let mut px = src.2.clone();
+    for p in px.chunks_exact_mut(4) {
+        let a = p[3] as f32 / 255.0;
+        for c in 0..3 {
+            p[c] = (to_srgb((lin[p[c] as usize] * a * tint[c]).clamp(0.0, 1.0)) * 255.0 + 0.5) as u8;
+        }
+        p[3] = 255;
+    }
+    (src.0, src.1, px)
+}
+
+/// A spec-gloss map turned into Bevy's metallic-roughness layout: green = 1 - alpha * smoothness, blue (metallic) 0.
+pub fn roughness_from_gloss(src: &Pixels, smoothness: f32) -> Pixels {
+    let mut px = src.2.clone();
+    for p in px.chunks_exact_mut(4) {
+        let g = 1.0 - p[3] as f32 / 255.0 * smoothness;
+        p.copy_from_slice(&[0, (g.clamp(0.0, 1.0) * 255.0 + 0.5) as u8, 0, 255]);
+    }
+    (src.0, src.1, px)
+}
+
+/// The mean over a spec map of its brightest channel (as stored, the map is linear), 0..1.
+pub fn mean_rgb_max(t: &Pixels) -> f32 {
+    let n = t.2.len() / 4;
+    if n == 0 {
+        return 0.0;
+    }
+    t.2.chunks_exact(4).map(|p| p[0].max(p[1]).max(p[2]) as u64).sum::<u64>() as f32 / (n as f32 * 255.0)
+}
+
+/// A Unity normal map as full RGB normals. Unity packs them two ways: DXT5nm (x in alpha, y in green, red all
+/// white) and plain RG(B); z is rebuilt from x and y.
+pub fn unpack_normals(src: &Pixels) -> Pixels {
+    let n = (src.2.len() / 4).max(1);
+    let red_white = src.2.chunks_exact(4).filter(|p| p[0] >= 250).count() * 10 >= n * 9;
+    let mut px = src.2.clone();
+    for p in px.chunks_exact_mut(4) {
+        let x = if red_white { p[3] } else { p[0] } as f32 / 127.5 - 1.0;
+        let y = p[1] as f32 / 127.5 - 1.0;
+        let z = (1.0 - x * x - y * y).max(0.0).sqrt();
+        p.copy_from_slice(&[p_byte(x), p_byte(y), p_byte(z), 255]);
+    }
+    (src.0, src.1, px)
+}
+
+fn p_byte(v: f32) -> u8 {
+    ((v * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0 + 0.5) as u8
+}
