@@ -6,4 +6,5 @@ pub mod realtime;
 pub mod room;
 pub mod settings;
 pub mod shapes;
+pub mod social;
 pub mod ui;

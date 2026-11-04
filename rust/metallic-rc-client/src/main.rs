@@ -254,6 +254,7 @@ fn main() {
         .insert_resource(Start(a.camera))
         .init_resource::<Solids>()
         .add_plugins(avatar::AvatarPlugin)
+        .add_plugins(metallic_rc_client::social::SocialPlugin)
         .insert_resource(LocalLook(look))
         .init_resource::<LookPanel>()
         .init_resource::<ThirdPerson>()
@@ -502,6 +503,7 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
         if !current() {
             return;
         }
+        metallic_rc_client::social::attach(&s);
         let hub = s.open_hub();
         *shared.lock().unwrap() = format!("{}  |  {} ({})  |  {}  |  notifications {}", s.motd, s.account.display_name,
             s.account.username, if s.room.private { format!("{} (private)", s.room.name) } else { s.room.name.clone() },
