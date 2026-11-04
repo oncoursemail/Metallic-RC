@@ -61,6 +61,11 @@ impl Obb {
     }
 }
 
+/// Whether a sphere touches none of the boxes.
+pub fn sphere_clear(boxes: &[Obb], c: Vec3, r: f32) -> bool {
+    boxes.iter().all(|b| b.push(c, r).is_none())
+}
+
 /// Moves feet by `motion` through the boxes. Returns the new feet position and whether it stands on something.
 /// A long move (a slow frame, a fast fall) goes in steps of at most half the radius, so it cannot pass through a
 /// thin box.

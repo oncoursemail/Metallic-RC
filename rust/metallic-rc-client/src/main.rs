@@ -1,13 +1,15 @@
 //! metallic-rc-client [--server http://127.0.0.1:4200] [--name NAME] [--game-dir DIR] [--room NAME] [--realtime ADDR]
-//!                    [--headless]
+//!                    [--look skin,shirt,accent[,accessory]] [--headless]
 //!
 //! Logs into metallic-rc-server on a background thread, then walks you around the room it puts you in (screen mode:
 //! WASD, Shift sprint, Space jump, F fly (Space/Ctrl up/down), mouse look after a click, Esc opens or closes the game's menu and frees the mouse). The Dorm's pieces are loaded from the
 //! installed game (`--game-dir`, default: the Steam copies in `room::GAME_DIRS`); until they arrive, or without a
 //! game folder, a stand-in box is shown.
 //! After login it joins the room on the room server (`--realtime`, default: the server's host, UDP port 4201); other
-//! players there show as capsules. `--room` picks the room instance (default: the one matchmaking gave), so two
-//! windows given the same `--room` meet.
+//! players there show as avatars (`avatar`) with their name over the head. `--room` picks the room instance (default:
+//! the one matchmaking gave), so two windows given the same `--room` meet.
+//! V switches between first and third person; C opens the look panel (saved to `%LOCALAPPDATA%\Metallic-RC\avatar.json`;
+//! `--look` sets one for this run only).
 //! `--headless` only runs the network start-up and prints where it ended up (for scripts and checks).
 use std::sync::{Arc, Mutex};
 
@@ -21,6 +23,7 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 use metallic_rc_client::{
+    avatar::{self, Drive, Kit, LocalLook, Look, LookPanel, Rig},
     collide::{self, Obb},
     net::{self, Login},
     realtime::{self, Realtime},
@@ -39,10 +42,11 @@ struct Args {
     camera: [f32; 5],
     room: Option<String>,
     realtime: Option<String>,
+    look: Option<Look>,
 }
 
 fn args() -> Args {
-    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.55, 0.0, 0.0, 0.0], room: None, realtime: None };
+    let mut a = Args { server: "http://127.0.0.1:4200".into(), name: "Player".into(), headless: false, game_dir: None, camera: [0.0, 1.55, 0.0, 0.0, 0.0], room: None, realtime: None, look: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         match k.as_str() {
@@ -55,9 +59,10 @@ fn args() -> Args {
                 let v: Vec<f32> = it.next().unwrap_or_default().split(',').filter_map(|x| x.trim().parse().ok()).collect();
                 a.camera = v.try_into().unwrap_or_else(|_| die("--camera wants x,y,z,yaw,pitch"));
             }
+            "--look" => a.look = Some(Look::parse_arg(&it.next().unwrap_or_default()).unwrap_or_else(|e| die(&e))),
             "--game-dir" => a.game_dir = Some(it.next().unwrap_or_else(|| die("--game-dir needs a folder")).into()),
             "-h" | "--help" => {
-                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--headless]");
+                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--headless]");
                 std::process::exit(0)
             }
             _ => die(&format!("unknown argument {k}")),
@@ -88,6 +93,18 @@ struct RoomText;
 /// Another player's avatar, by actor number.
 #[derive(Component)]
 struct Avatar(i32);
+
+/// This player's own avatar: only its hands show in first person.
+#[derive(Component)]
+struct LocalAvatar;
+
+/// The camera, a child of the player (at the eyes): there in first person, behind the shoulder in third.
+#[derive(Component)]
+struct View;
+
+/// V toggles it.
+#[derive(Resource, Default)]
+struct ThirdPerson(bool);
 
 /// The Dorm as the loader thread hands it over; taken once by `spawn_room`.
 #[derive(Resource, Clone)]
@@ -134,6 +151,9 @@ const GRAVITY: f32 = 9.81;
 const MAX_FALL: f32 = 20.0;
 /// eyes above the feet
 const EYE: f32 = 1.55;
+const FOV: f32 = 60.0;
+/// ThirdPersonOverShoulder: from the pivot (1.6 m, so 0.05 above the eyes), right 0.4875 and back 1.8, FOV x0.85
+const SHOULDER: Vec3 = Vec3::new(0.4875, 0.05, 1.8);
 
 fn main() {
     let a = args();
@@ -146,6 +166,8 @@ fn main() {
         return;
     }
 
+    // --look for this run, else the saved one, else one picked by name
+    let look = a.look.or_else(Look::load).unwrap_or_else(|| Look::for_name(&a.name));
     let loading = Loading(Arc::new(Mutex::new(None)));
     let slot = loading.0.clone();
     let menu = MenuSlot::default();
@@ -205,9 +227,14 @@ fn main() {
         .init_resource::<Menu>()
         .insert_resource(Start(a.camera))
         .init_resource::<Solids>()
+        .add_plugins(avatar::AvatarPlugin)
+        .insert_resource(LocalLook(look))
+        .init_resource::<LookPanel>()
+        .init_resource::<ThirdPerson>()
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
-        .add_systems(Update, (toggle_menu, grab_mouse.after(toggle_menu), look_and_walk, show_status, spawn_room, realtime_sync.after(look_and_walk)))
+        .add_systems(Update, (toggle_menu, grab_mouse.after(toggle_menu), look_and_walk, show_status, spawn_room,
+            avatar::panel::look_panel, camera_view.after(look_and_walk), local_avatar.after(camera_view), realtime_sync.after(local_avatar)))
         .run();
 }
 
@@ -236,11 +263,15 @@ fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Me
     let [x, y, z, yaw, pitch] = start.0;
     let (yaw, pitch) = (yaw.to_radians(), pitch.to_radians());
     commands.spawn((
-        Camera3d::default(),
-        Projection::Perspective(PerspectiveProjection { fov: 60f32.to_radians(), near: 0.06, ..default() }),
         // a start view above head height (an overview) starts flying instead of falling to the floor
         Player { yaw, pitch, flying: y > EYE + 0.5, ..default() },
         Transform::from_xyz(x, y, z).with_rotation(Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0)),
+        Visibility::default(),
+    )).with_child((
+        Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection { fov: FOV.to_radians(), near: 0.06, ..default() }),
+        View,
+        Transform::default(),
     ));
     commands.spawn((
         Text::new(""),
@@ -254,27 +285,107 @@ fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Me
     ));
 }
 
-/// Shapes for other players: a 1.7 m capsule and a visor on the side they face.
-struct AvatarLook {
-    body: Handle<Mesh>,
-    visor: Handle<Mesh>,
-    skin: Handle<StandardMaterial>,
-    glass: Handle<StandardMaterial>,
+/// V switches first and third person. The camera eases to its place: at the eyes, over the shoulder (pulled in
+/// where a wall is in the way), or, while the look panel is open, in front of the player looking back at it.
+fn camera_view(
+    time: Res<Time>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut third: ResMut<ThirdPerson>,
+    panel: Res<LookPanel>,
+    solids: Res<Solids>,
+    player: Single<(&Player, &Transform), Without<View>>,
+    mut view: Single<(&mut Transform, &mut Projection), With<View>>,
+) {
+    if keys.just_pressed(KeyCode::KeyV) {
+        third.0 = !third.0;
+    }
+    let (p, eye) = *player;
+    let (tr, projection) = &mut *view;
+    let (want, fov) = if panel.open.is_some() {
+        // world place first: 2.2 m in front, a little above the chest, looking back at the whole body
+        let body = Quat::from_rotation_y(p.yaw);
+        let feet = eye.translation - Vec3::Y * EYE;
+        let at = Transform::from_translation(feet + body * Vec3::new(0.0, 1.3, -2.2)).looking_at(feet + Vec3::Y * 0.95, Vec3::Y);
+        (Transform::from_matrix(eye.to_matrix().inverse() * at.to_matrix()), FOV * 0.85)
+    } else if third.0 {
+        let far = eye.transform_point(SHOULDER);
+        // the furthest place along the way where a 0.15 m ball touches no wall
+        let clear = (1..=20).map(|i| i as f32 / 20.0).take_while(|f| collide::sphere_clear(&solids.0, eye.translation.lerp(far, *f), 0.15)).last();
+        (Transform::from_translation(SHOULDER * clear.unwrap_or(0.0)), FOV * 0.85)
+    } else {
+        (Transform::default(), FOV)
+    };
+    // CameraBlendTime 0.1 s
+    let k = 1.0 - (-time.delta_secs() / 0.05).exp();
+    tr.translation = tr.translation.lerp(want.translation, k);
+    tr.rotation = tr.rotation.slerp(want.rotation, k);
+    if let Projection::Perspective(pp) = &mut **projection {
+        pp.fov += (fov.to_radians() - pp.fov) * k;
+    }
 }
 
-/// Each frame: take the room's news, hand it the local pose, and move (or add, or remove) the other players.
+/// The local player's own avatar: spawned once the kit is made, kept at the feet, driven by the movement, with the
+/// screen-mode hands low in front of the eyes (swaying as the view turns and bobbing with the stride).
+#[allow(clippy::too_many_arguments)]
+fn local_avatar(
+    mut commands: Commands,
+    time: Res<Time>,
+    kit: Option<Res<Kit>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    look: Res<LocalLook>,
+    third: Res<ThirdPerson>,
+    panel: Res<LookPanel>,
+    motion: Res<AccumulatedMouseMotion>,
+    player: Single<(&Player, &Transform), Without<LocalAvatar>>,
+    mut mine: Query<(&mut Transform, &mut Drive, &mut Rig), With<LocalAvatar>>,
+    mut last_feet: Local<Option<Vec3>>,
+    mut sway: Local<Vec2>,
+) {
+    let (p, eye) = *player;
+    let feet = eye.translation - Vec3::Y * EYE;
+    let at = Transform::from_translation(feet).with_rotation(Quat::from_rotation_y(p.yaw));
+    let Ok((mut tr, mut drive, mut rig)) = mine.single_mut() else {
+        if let Some(kit) = kit {
+            let e = avatar::spawn(&mut commands, &kit, &mut materials, look.0, at, None, 0);
+            commands.entity(e).insert((LocalAvatar, Name::new("local avatar")));
+        }
+        return;
+    };
+    let dt = time.delta_secs().max(1e-3);
+    drive.velocity = last_feet.map_or(Vec3::ZERO, |l| (feet - l) / dt);
+    *last_feet = Some(feet);
+    (drive.grounded, drive.flying, drive.head) = (Some(p.grounded), p.flying, Some(eye.rotation));
+    // the hands lag a little behind the turning view
+    let target = (-motion.delta * 0.0004).clamp(Vec2::splat(-0.04), Vec2::splat(0.04)) * Vec2::new(1.0, -1.0);
+    *sway = sway.lerp(target, 1.0 - (-dt * 8.0).exp());
+    let bob = -0.015 * rig.anim.phase.sin().abs() * (rig.anim.speed / 3.0).min(1.0);
+    drive.hands = avatar::screen_hands(eye, *sway, bob).map(Some);
+    *tr = at;
+    let first_person = !third.0 && panel.open.is_none();
+    if rig.first_person != first_person {
+        rig.first_person = first_person;
+    }
+    if rig.look != look.0 {
+        rig.look = look.0;
+    }
+}
+
+/// Each frame: take the room's news, hand it the local pose and look, and move (or add, or remove) the other players'
+/// avatars.
 #[allow(clippy::too_many_arguments)]
 fn realtime_sync(
     mut commands: Commands,
     time: Res<Time>,
     net: Res<Net>,
-    mut player: Single<(&mut Player, &mut Transform), Without<Avatar>>,
-    mut avatars: Query<(Entity, &Avatar, &mut Transform), Without<Player>>,
+    kit: Option<Res<Kit>>,
+    look: Res<LocalLook>,
+    mut player: Single<(&mut Player, &mut Transform), (Without<Avatar>, Without<LocalAvatar>)>,
+    mine: Query<&Drive, (With<LocalAvatar>, Without<Avatar>)>,
+    mut avatars: Query<(Entity, &Avatar, &mut Transform, &mut Drive, &mut Rig), (Without<Player>, Without<LocalAvatar>)>,
     mut text: Single<&mut Text, (With<RoomText>, Without<StatusText>)>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut look: Local<Option<AvatarLook>>,
     mut last_feet: Local<Option<Vec3>>,
+    mut sent_look: Local<Option<Look>>,
 ) {
     let Some(rt) = net.0.lock().unwrap().clone() else { return };
     let dt = time.delta_secs_f64();
@@ -292,7 +403,18 @@ fn realtime_sync(
     let velocity = last_feet.map_or(Vec3::ZERO, |l| (feet - l) / dt.max(1e-3) as f32);
     *last_feet = Some(feet);
     let body = Pose { position: feet.into(), rotation: Quat::from_rotation_y(p.yaw).to_array(), velocity: velocity.into() };
-    room.set_pose(AvatarData { tracking_space: Some(body), head: Some(Pose { position: t.translation.into(), rotation: t.rotation.to_array(), ..body }), ..default() });
+    let hand = |h: Option<Transform>| h.map(|h| Pose { position: h.translation.into(), rotation: h.rotation.to_array(), ..body });
+    let hands = mine.single().map_or([None, None], |d| d.hands);
+    room.set_pose(AvatarData {
+        tracking_space: Some(body),
+        head: Some(Pose { position: t.translation.into(), rotation: t.rotation.to_array(), ..body }),
+        left_hand: hand(hands[0]),
+        right_hand: hand(hands[1]),
+    });
+    if *sent_look != Some(look.0) {
+        room.set_look(rt.now(), look.0.to_json());
+        *sent_look = Some(look.0);
+    }
     let shown = room.remotes(rt.now(), dt);
     let line = match room.actor() {
         _ if room.is_closed() => "Room: disconnected".to_string(),
@@ -308,29 +430,29 @@ fn realtime_sync(
         text.0 = line;
     }
 
-    let look = look.get_or_insert_with(|| AvatarLook {
-        body: meshes.add(Capsule3d::new(collide::RADIUS, collide::HEIGHT - 2.0 * collide::RADIUS)),
-        visor: meshes.add(Cuboid::new(0.3, 0.1, 0.06)),
-        skin: materials.add(Color::srgb(0.95, 0.62, 0.25)),
-        glass: materials.add(Color::srgb(0.08, 0.1, 0.14)),
-    });
+    let Some(kit) = kit else { return };
+    let look_of = |s: &rr_net::room::Shown| s.look.as_deref().and_then(Look::from_json).unwrap_or_else(|| Look::for_name(&s.name));
+    let pose = |p: Pose| Transform::from_translation(Vec3::from(p.position)).with_rotation(Quat::from_array(p.rotation));
     let mut have = vec![];
-    for (e, a, mut tr) in &mut avatars {
+    for (e, a, mut tr, mut drive, mut rig) in &mut avatars {
         match shown.iter().find(|s| s.actor == a.0) {
             Some(s) => {
-                tr.translation = Vec3::from(s.body.position);
-                tr.rotation = Quat::from_array(s.body.rotation);
+                *tr = pose(s.body);
+                drive.velocity = Vec3::from(s.body.velocity);
+                drive.head = s.head.map(|h| Quat::from_array(h.rotation));
+                drive.hands = [s.left_hand.map(pose), s.right_hand.map(pose)];
+                let l = look_of(s);
+                if rig.look != l {
+                    rig.look = l;
+                }
                 have.push(a.0);
             }
             None => commands.entity(e).despawn(),
         }
     }
     for s in shown.iter().filter(|s| !have.contains(&s.actor)) {
-        let at = Transform::from_translation(Vec3::from(s.body.position)).with_rotation(Quat::from_array(s.body.rotation));
-        commands.spawn((Avatar(s.actor), at, Visibility::default(), Name::new(format!("player {} {}", s.actor, s.name)))).with_children(|c| {
-            c.spawn((Mesh3d(look.body.clone()), MeshMaterial3d(look.skin.clone()), Transform::from_xyz(0.0, collide::HEIGHT / 2.0, 0.0)));
-            c.spawn((Mesh3d(look.visor.clone()), MeshMaterial3d(look.glass.clone()), Transform::from_xyz(0.0, EYE, -collide::RADIUS)));
-        });
+        let e = avatar::spawn(&mut commands, &kit, &mut materials, look_of(s), pose(s.body), Some(&s.name), s.actor as u32);
+        commands.entity(e).insert((Avatar(s.actor), Name::new(format!("player {} {}", s.actor, s.name))));
     }
 }
 

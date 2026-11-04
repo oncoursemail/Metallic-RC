@@ -1,5 +1,5 @@
 //! Avatar movement (realtime.md section 6): event 28 carries, 15 times a second, one bit-packed record per synced
-//! object. A screen-mode player sends PlayerAvatarData: tracking space (the feet) and head, no hands.
+//! object. A screen-mode player sends PlayerAvatarData: tracking space (the feet), head and (ours) the two hands.
 //!
 //! Field order follows the spec; bit order (least significant first), the 10-bit ranges and the record header are our
 //! reading (open item 4) and are checked against the stock client later.

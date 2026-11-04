@@ -4,6 +4,9 @@
 //! Spawning follows the 2026 R1 order (realtime.md 5.6): after the cached-event replay the player asks the master
 //! with RPC `RpcMasterRequestPlayerSpawn`; the master answers `RpcSpawnNewPlayer` to that player alone. The master
 //! spawns itself. RPCs name their method (key 2): the RpcList index table (key 4) is not known yet.
+//!
+//! A player's look (our avatar's colours and accessory, opaque text to this layer) goes out as RPC `RpcSetLook`,
+//! kept in the room cache so late joiners get it; a change replaces the cached one.
 use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 
@@ -18,6 +21,8 @@ use crate::sync::{self, AvatarData, Pose, Smoother};
 pub const PLAYER_PREFAB: &str = "Player";
 const REQUEST_SPAWN: &str = "RpcMasterRequestPlayerSpawn";
 const SPAWN: &str = "RpcSpawnNewPlayer";
+/// our own RPC, not the stock client's
+const LOOK: &str = "RpcSetLook";
 /// metres between spawn places round the master's spawn point
 const SPAWN_SPACING: f32 = 1.2;
 
@@ -56,12 +61,18 @@ pub struct Shown {
     /// tracking space: the feet, turned with the body
     pub body: Pose,
     pub head: Option<Pose>,
+    pub left_hand: Option<Pose>,
+    pub right_hand: Option<Pose>,
+    /// the look the player last announced, if any
+    pub look: Option<String>,
 }
 
 struct Remote {
     view: i32,
     body: Smoother,
     head: Smoother,
+    left: Smoother,
+    right: Smoother,
 }
 
 pub struct RoomClient {
@@ -73,6 +84,8 @@ pub struct RoomClient {
     master: Option<i32>,
     names: HashMap<i32, String>,
     remotes: HashMap<i32, Remote>,
+    looks: HashMap<i32, String>,
+    look: Option<String>,
     awaiting_spawn: bool,
     spawned: bool,
     closed: bool,
@@ -95,6 +108,8 @@ impl RoomClient {
             master: None,
             names: HashMap::new(),
             remotes: HashMap::new(),
+            looks: HashMap::new(),
+            look: None,
             awaiting_spawn: false,
             spawned: false,
             closed: false,
@@ -136,6 +151,25 @@ impl RoomClient {
     /// The local avatar's pose; sent with the next movement event.
     pub fn set_pose(&mut self, pose: AvatarData) {
         self.pose = pose;
+    }
+
+    /// This player's look; announced at spawn, or now (replacing the cached one) when already spawned.
+    pub fn set_look(&mut self, now: f64, look: String) {
+        if self.look.as_ref() == Some(&look) {
+            return;
+        }
+        self.look = Some(look);
+        if self.spawned {
+            self.send_look(now);
+        }
+    }
+
+    fn send_look(&mut self, now: f64) {
+        let Some(look) = self.look.clone() else { return };
+        // drop the cached one (sent to nobody), then cache the new one
+        let remove = Options { cache: relay::REMOVE_FROM_ROOM_CACHE, targets: Some(vec![]), ..Default::default() };
+        self.rpc(now, LOOK, vec![], remove);
+        self.rpc(now, LOOK, vec![Value::String(look)], Options { cache: relay::ADD_TO_ROOM_CACHE, ..Default::default() });
     }
 
     pub fn receive(&mut self, now: f64, datagram: &[u8]) {
@@ -222,6 +256,7 @@ impl RoomClient {
         let options = Options { cache: relay::ADD_TO_ROOM_CACHE, ..Default::default() };
         self.raise(relay::NETWORK_INSTANTIATE, RrDelivery::Reliable, options, &content);
         self.events.push_back(RoomEvent::Spawned { position, rotation });
+        self.send_look(now);
     }
 
     fn set_master(&mut self, master: Option<u64>, now: f64) {
@@ -260,6 +295,7 @@ impl RoomClient {
                 let actor = left as i32;
                 self.names.remove(&actor);
                 self.remotes.remove(&actor);
+                self.looks.remove(&actor);
                 self.events.push_back(RoomEvent::PlayerLeft { actor });
                 self.set_master(update.master, now);
             }
@@ -282,7 +318,7 @@ impl RoomClient {
                     Some(Value::Int(t)) => *t as f64 / TICK_RATE,
                     _ => p.tick as f64 / TICK_RATE,
                 };
-                let mut r = Remote { view, body: Smoother::default(), head: Smoother::default() };
+                let mut r = Remote { view, body: Smoother::default(), head: Smoother::default(), left: Smoother::default(), right: Smoother::default() };
                 r.body.push(sent, Pose { position: *position, rotation: *rotation, velocity: [0.0; 3] });
                 self.remotes.insert(p.sender, r);
             }
@@ -299,8 +335,10 @@ impl RoomClient {
                         if let Some(b) = a.tracking_space {
                             r.body.push(sent, b);
                         }
-                        if let Some(h) = a.head {
-                            r.head.push(sent, h);
+                        for (s, p) in [(&mut r.head, a.head), (&mut r.left, a.left_hand), (&mut r.right, a.right_hand)] {
+                            if let Some(p) = p {
+                                s.push(sent, p);
+                            }
                         }
                     }
                 }
@@ -318,6 +356,9 @@ impl RoomClient {
                         self.rpc(now, SPAWN, params, Options { targets: Some(vec![p.sender]), ..Default::default() });
                     }
                     (SPAWN, [_, Value::Vector3(pos), Value::Quaternion(rot), ..]) => self.spawn_self(now, *pos, *rot),
+                    (LOOK, [Value::String(look)]) => {
+                        self.looks.insert(p.sender, look.clone());
+                    }
                     _ => {}
                 }
             }
@@ -365,7 +406,15 @@ impl RoomClient {
     pub fn remotes(&mut self, now: f64, dt: f64) -> Vec<Shown> {
         let at = self.ngo.server_time(now).unwrap_or(now);
         let mut out: Vec<Shown> = self.remotes.iter_mut().filter_map(|(&actor, r)| {
-            Some(Shown { actor, name: self.names.get(&actor).cloned().unwrap_or_default(), body: r.body.step(at, dt)?, head: r.head.step(at, dt) })
+            Some(Shown {
+                actor,
+                name: self.names.get(&actor).cloned().unwrap_or_default(),
+                body: r.body.step(at, dt)?,
+                head: r.head.step(at, dt),
+                left_hand: r.left.step(at, dt),
+                right_hand: r.right.step(at, dt),
+                look: self.looks.get(&actor).cloned(),
+            })
         }).collect();
         out.sort_by_key(|s| s.actor);
         out
