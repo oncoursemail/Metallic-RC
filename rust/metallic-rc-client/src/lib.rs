@@ -2,6 +2,7 @@
 pub mod avatar;
 pub mod collide;
 pub mod net;
+pub mod netobj;
 pub mod realtime;
 pub mod room;
 pub mod settings;

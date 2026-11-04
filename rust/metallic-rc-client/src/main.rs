@@ -35,6 +35,7 @@ use metallic_rc_client::{
     avatar::{self, Drive, Kit, LocalLook, Look, LookPanel, Rig},
     collide::{self, Obb},
     net::{self, Login},
+    netobj,
     realtime::{self, Realtime},
     room::{self, RoomData},
     settings::{Settings, RESOLUTIONS},
@@ -245,6 +246,8 @@ fn main() {
             ..default()
         }))
         .insert_resource(status)
+        .insert_resource(netobj::RoomLink(net.0.clone()))
+        .add_plugins(netobj::NetObjectsPlugin)
         .insert_resource(net)
         .insert_resource(loading)
         .insert_resource(menu)
