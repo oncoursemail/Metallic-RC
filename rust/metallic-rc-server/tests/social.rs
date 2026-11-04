@@ -184,7 +184,7 @@ async fn profiles_and_inventory_are_saved() {
     // the starter kit
     let inv = get(a, "/api/inventory/v1/me", &ta).await;
     let ids: Vec<_> = inv.as_array().unwrap().iter().map(|i| i["itemId"].as_str().unwrap().to_string()).collect();
-    assert_eq!(ids, ["accessory:antenna", "accessory:headphones", "accessory:halo"]);
+    assert_eq!(ids, metallic_rc_server::inventory::STARTER);
     assert_eq!(inv[0]["source"], "starter");
 
     let look = json!({"skin": "#F2C99B", "shirt": "#2b5fd9", "accent": "#3df5ff", "accessory": "halo"});
@@ -193,12 +193,19 @@ async fn profiles_and_inventory_are_saved() {
     assert_eq!(st, 200, "{p}");
     assert_eq!(p["displayName"], "Ann the Bold");
     assert_eq!(p["look"]["skin"], "#f2c99b", "colours are kept in lower case");
+    // the newer zones, eye style and outfit are kept too; an outfit nobody owns is refused below
+    let look = json!({"skin": "#f2c99b", "shirt": "#2b5fd9", "accent": "#3df5ff", "accessory": "goggles", "pants": "#3A3F4B", "visor": "#0f1117",
+        "eyes": "happy", "outfit": "scarf"});
+    let (st, p) = post(a, "/api/profile/v1/me", &ta, Some(&json!({"look": look}).to_string())).await;
+    assert_eq!(st, 200, "{p}");
+    assert_eq!((p["look"]["pants"].as_str(), p["look"]["eyes"].as_str(), p["look"]["outfit"].as_str()), (Some("#3a3f4b"), Some("happy"), Some("scarf")));
     // the old account call shows the new name too
     assert_eq!(get(a, "/accounts/account/me", &ta).await["displayName"], "Ann the Bold");
 
     for bad in [
         json!({"look": {"skin": "red", "shirt": "#000000", "accent": "#000000"}}),
         json!({"look": {"skin": "#000000", "shirt": "#000000", "accent": "#000000", "accessory": "crown"}}),
+        json!({"look": {"skin": "#000000", "shirt": "#000000", "accent": "#000000", "outfit": "cape"}}),
         json!({"displayName": ""}),
         json!({"displayName": "x".repeat(33)}),
         json!({"bio": "b".repeat(513)}),
@@ -224,9 +231,10 @@ async fn profiles_and_inventory_are_saved() {
     let s = start(&dir).await;
     let (ta, _) = login(s.addr, "Ann").await;
     let p = get(s.addr, &format!("/api/profile/v1/{ida}"), &ta).await;
-    assert_eq!(p["look"], json!({"skin": "#f2c99b", "shirt": "#2b5fd9", "accent": "#3df5ff", "accessory": "halo"}));
+    assert_eq!(p["look"], json!({"skin": "#f2c99b", "shirt": "#2b5fd9", "accent": "#3df5ff", "accessory": "goggles", "pants": "#3a3f4b",
+        "visor": "#0f1117", "eyes": "happy", "outfit": "scarf"}));
     assert_eq!(p["bio"], "builds robots");
-    assert_eq!(get(s.addr, "/api/inventory/v1/me", &ta).await.as_array().unwrap().len(), 3);
+    assert_eq!(get(s.addr, "/api/inventory/v1/me", &ta).await.as_array().unwrap().len(), metallic_rc_server::inventory::STARTER.len());
 }
 
 // ---- 3. friends and blocking, 4. notifications ----

@@ -1,5 +1,5 @@
 //! metallic-rc-client [--server http://127.0.0.1:4200] [--name NAME] [--game-dir DIR] [--room NAME] [--realtime ADDR]
-//!                    [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--headless]
+//!                    [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--ref-install DIR|none] [--headless]
 //!
 //! Logs into metallic-rc-server on a background thread, then walks you around the room it puts you in (screen mode:
 //! `player`: WASD, Shift sprint, Space jump, Ctrl crouch, F fly, mouse look after a click; Esc opens or closes the game's menu and frees the mouse). The Dorm's pieces are loaded from the
@@ -72,6 +72,7 @@ fn args() -> Args {
             "--look" => a.look = Some(Look::parse_arg(&it.next().unwrap_or_default()).unwrap_or_else(|e| die(&e))),
             "--world" => a.world = Some(it.next().unwrap_or_else(|| die("--world needs an address"))),
             "--game-dir" => a.game_dir = Some(it.next().unwrap_or_else(|| die("--game-dir needs a folder")).into()),
+            "--ref-install" => metallic_rc_client::levels::set_ref_install(Some(&it.next().unwrap_or_else(|| die("--ref-install needs a folder or none")))),
             "-h" | "--help" => {
                 println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--headless]");
                 std::process::exit(0)

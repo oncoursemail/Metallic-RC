@@ -4,6 +4,7 @@ pub mod cache;
 pub mod avatar;
 pub mod collide;
 pub mod interact;
+pub mod levels;
 pub mod mirror;
 pub mod net;
 pub mod netobj;

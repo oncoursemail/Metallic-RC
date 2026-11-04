@@ -9,6 +9,7 @@ mod reader;
 pub mod bundle;
 pub mod catalog;
 pub mod classes;
+pub mod level;
 pub mod objects;
 pub mod serialized;
 pub mod stripped;

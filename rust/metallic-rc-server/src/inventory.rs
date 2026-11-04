@@ -2,7 +2,7 @@
 //! Every account gets the starter kit the first time its inventory is read or its look checked.
 //!
 //! Ours: `GET api/inventory/v1/me` -> `[{itemId, category, grantedAt, source}]`. Item ids are `<category>:<name>`;
-//! `accessory:*` are the robot avatar's accessories (`none` needs no item).
+//! `accessory:*` and `outfit:*` are the robot avatar's accessories and outfit pieces (`none` needs no item).
 use axum::{extract::State, http::HeaderMap, response::Response, routing::get, Json, Router};
 use serde_json::{json, Value};
 
@@ -12,8 +12,9 @@ use crate::{
     Shared,
 };
 
-/// What every account starts with: the robot's accessories.
-pub const STARTER: [&str; 3] = ["accessory:antenna", "accessory:headphones", "accessory:halo"];
+/// What every account starts with: the robot's accessories and outfit pieces.
+pub const STARTER: [&str; 11] = ["accessory:antenna", "accessory:headphones", "accessory:halo", "accessory:cap", "accessory:beanie",
+    "accessory:ears", "accessory:sprout", "accessory:goggles", "outfit:scarf", "outfit:backpack", "outfit:bowtie"];
 
 pub fn routes() -> Router<Shared> {
     Router::new().route("/api/inventory/v1/me", get(mine))

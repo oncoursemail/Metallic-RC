@@ -103,7 +103,7 @@ fn two_players_friend_party_join_and_survive_a_restart() {
     assert_eq!((p.bio.as_str(), p.look), ("hi from Ann", Some(halo)));
     assert_eq!(cb.bio(ann.account.id).unwrap(), "hi from Ann");
     assert!(ca.update_profile(&ProfileUpdate { display_name: Some(String::new()), ..Default::default() }).is_err());
-    assert_eq!(ca.inventory().unwrap().len(), 3);
+    assert_eq!(ca.inventory().unwrap().len(), metallic_rc_server::inventory::STARTER.len());
 
     // party: Ann invites, Bob joins, Ann goes to the Rec Center and Bob follows into the same instance
     let party = ca.invite_to_party(bob.account.id).unwrap().unwrap();
@@ -135,7 +135,7 @@ fn two_players_friend_party_join_and_survive_a_restart() {
     assert_eq!((f[0].account_id, f[0].relation), (bob.account.id, Relation::Friend));
     let p = cb.profile(Some(ann.account.id)).unwrap();
     assert_eq!((p.bio.as_str(), p.look), ("hi from Ann", Some(halo)), "the look is kept on the server");
-    assert_eq!(ca.inventory().unwrap().len(), 3);
+    assert_eq!(ca.inventory().unwrap().len(), metallic_rc_server::inventory::STARTER.len());
     assert!(cb.notifications().unwrap().iter().any(|n| n.kind == NoticeKind::FriendRequest));
     assert!(ca.party().unwrap().is_none(), "parties end with a restart");
 
@@ -150,7 +150,7 @@ fn two_players_friend_party_join_and_survive_a_restart() {
     run_until(&mut app, "the profile", |a| a.world().resource::<MyProfile>().0.is_some());
     run_until(&mut app, "the saved look", |a| a.world().resource::<LocalLook>().0 == halo);
     assert_eq!(app.world().resource::<social::Friends>().0[0].relation, Relation::Friend);
-    assert_eq!(app.world().resource::<social::Inventory>().0.len(), 3);
+    assert_eq!(app.world().resource::<social::Inventory>().0.len(), metallic_rc_server::inventory::STARTER.len());
 
     // Bob invites Ann: a notice arrives; Ann joins through the plugin and follows Bob into his private dorm
     let party = cb.invite_to_party(ann.account.id).unwrap().unwrap();
