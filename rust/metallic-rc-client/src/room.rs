@@ -8,6 +8,8 @@ use std::{collections::HashMap, path::{Path, PathBuf}, rc::Rc};
 use bevy::math::{Mat4, Quat, Vec3};
 use unity_assets::{classes, Bundle, GameObject, Material, Mesh, MeshFilter, MeshRenderer, PPtr, SerializedFile, Texture2D, Transform};
 
+use crate::{collide::Obb, shapes::{self, Pixels, ShapeKit}};
+
 /// The default place of the game files: the Steam copy kept for this work, then the installed game.
 pub const GAME_DIRS: [&str; 2] = [
     r"C:\Program Files (x86)\Steam\steamapps\content\app_471710\depot_471711",
@@ -29,7 +31,7 @@ pub struct Part {
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
     pub uvs: Vec<[f32; 2]>,
-    /// vertex colours (Maker Pen shapes carry their colour here); empty when the mesh has none
+    /// vertex colours, for the shaders that use them unbaked; usually empty
     pub colors: Vec<[f32; 4]>,
     pub indices: Vec<u32>,
     pub material: usize,
@@ -37,11 +39,62 @@ pub struct Part {
 
 pub struct RoomMaterial {
     pub name: String,
+    /// the shader's name, as the game files give it
+    pub shader: String,
+    /// sRGB tint multiplied with the texture
     pub color: [f32; 4],
-    /// width, height, RGBA8 rows top-down
-    pub texture: Option<(u32, u32, Vec<u8>)>,
+    /// width, height, RGBA8 rows top-down; recolour tints are already baked in
+    pub texture: Option<Pixels>,
+    /// 1 - smoothness (specular workflow: the spec-gloss map's mean alpha times `_Smoothness`)
+    pub roughness: f32,
+}
+
+/// How a game shader colours its surface (docs/agents/rc-spec/rendering.md in the private notes).
+#[derive(Clone, Copy, PartialEq)]
+enum Shading {
+    /// `_BaseColor` times `_BaseMap`
+    Lit,
+    /// `AG/Standard-Opaque-Instanced`: `rgb * lerp(1, vertex colour * _InstanceColor, a)`
+    Recolor,
+    /// `AG/MakerPenShape`: the prop's SandboxColorable picks a palette colour and a Maker Pen material
+    MakerPen,
+}
+
+fn shading(shader: &str) -> Shading {
+    match shader {
+        "AG/MakerPenShape" => Shading::MakerPen,
+        "AG/Standard-Opaque-Instanced" => Shading::Recolor,
+        _ => Shading::Lit,
+    }
+}
+
+/// A game material as read, before a prop's colours are applied.
+struct Source {
+    name: String,
+    shader: String,
+    color: [f32; 4],
+    /// `_InstanceColor`, linear
+    instance: [f32; 3],
+    texture: Option<Pixels>,
+    roughness: f32,
     /// interaction volumes and UI masks: present in the prefab, never seen in the game
-    pub hidden: bool,
+    hidden: bool,
+}
+
+/// What a prop's SandboxColorable sets on its Maker Pen pieces: `ShapeColor` and `ShapeMaterial` ids.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Hash)]
+struct Colorable {
+    color: Option<i32>,
+    material: Option<i32>,
+}
+
+/// One drawn look of a source material.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum Variant {
+    Plain,
+    /// a recolour tint from a uniform vertex colour, 8 bits per channel
+    Tint([u8; 3]),
+    Shape(Colorable),
 }
 
 #[derive(Default)]
@@ -49,6 +102,8 @@ pub struct RoomData {
     pub parts: Vec<Part>,
     pub materials: Vec<RoomMaterial>,
     pub roots: Vec<String>,
+    /// the solid BoxColliders (triggers left out), for walking
+    pub colliders: Vec<Obb>,
     pub problems: Vec<String>,
 }
 
@@ -131,6 +186,9 @@ impl Library {
     }
 }
 
+/// Unity's BoxCollider class.
+const BOX_COLLIDER: i32 = 65;
+
 fn class_of(f: &FileRef, path_id: i64) -> Option<i32> {
     f.sf().object(path_id).map(|o| o.class_id)
 }
@@ -138,6 +196,12 @@ fn class_of(f: &FileRef, path_id: i64) -> Option<i32> {
 fn value(f: &FileRef, path_id: i64) -> Result<unity_assets::Value, String> {
     let o = f.sf().object(path_id).ok_or_else(|| format!("object {path_id} not in {}", f.cab()))?;
     f.sf().read_value(o).map_err(|e| e.to_string())
+}
+
+/// Linear colour to sRGB, opaque.
+fn srgb(c: [f32; 3]) -> [f32; 4] {
+    let s = |x: f32| if x <= 0.003_130_8 { x * 12.92 } else { 1.055 * x.powf(1.0 / 2.4) - 0.055 };
+    [s(c[0]), s(c[1]), s(c[2]), 1.0]
 }
 
 fn unity_to_bevy(t: &Transform) -> Mat4 {
@@ -148,58 +212,150 @@ fn unity_to_bevy(t: &Transform) -> Mat4 {
 
 struct Builder<'a> {
     lib: &'a mut Library,
+    kit: &'a mut ShapeKit,
     out: RoomData,
-    materials: HashMap<(String, i64), usize>,
+    sources: Vec<Source>,
+    source_of: HashMap<(String, i64), usize>,
+    shaders: HashMap<(String, i64), String>,
+    looks: HashMap<(usize, Variant), usize>,
 }
 
 impl Builder<'_> {
-    fn material(&mut self, f: &FileRef, p: PPtr) -> usize {
-        let Ok((mf, id)) = self.lib.resolve(f, p) else { return self.fallback_material() };
+    fn texture(&mut self, from: &FileRef, p: PPtr) -> Option<Pixels> {
+        let (tf, tid) = self.lib.resolve(from, p).ok()?;
+        let tex = value(&tf, tid).ok().and_then(|v| Texture2D::from_value(&v, &tf.open.bundle).ok())?;
+        let px = tex.decode_rgba8().ok()?;
+        Some((tex.width as u32, tex.height as u32, px))
+    }
+
+    fn shader_name(&mut self, from: &FileRef, p: PPtr) -> String {
+        let Ok((sf, id)) = self.lib.resolve(from, p) else { return String::new() };
+        let key = (sf.cab().to_string(), id);
+        if let Some(n) = self.shaders.get(&key) {
+            return n.clone();
+        }
+        let name = value(&sf, id).ok()
+            .and_then(|v| v.path("m_ParsedForm/m_Name").and_then(|n| n.as_str()).map(String::from))
+            .unwrap_or_default();
+        self.shaders.insert(key, name.clone());
+        name
+    }
+
+    /// The game material a renderer slot points at, read once.
+    fn source(&mut self, f: &FileRef, p: PPtr) -> usize {
+        let Ok((mf, id)) = self.lib.resolve(f, p) else { return self.fallback_source() };
         let key = (mf.cab().to_string(), id);
-        if let Some(&i) = self.materials.get(&key) {
+        if let Some(&i) = self.source_of.get(&key) {
             return i;
         }
         let m = match value(&mf, id).and_then(|v| Material::from_value(&v).map_err(|e| e.to_string())) {
             Ok(m) => m,
             Err(e) => {
                 self.out.problems.push(format!("material {id}: {e}"));
-                return self.fallback_material();
+                return self.fallback_source();
             }
         };
-        let color = m.colors.iter().find(|(n, _)| matches!(n.as_str(), "_Color" | "_BaseColor" | "_MainColor")).map(|c| c.1).unwrap_or([1.0; 4]);
+        let shader = self.shader_name(&mf, m.shader);
+        let color_of = |names: &[&str]| m.colors.iter().find(|(n, _)| names.contains(&n.as_str())).map(|c| c.1);
+        let color = color_of(&["_BaseColor", "_Color", "_MainColor"]).unwrap_or([1.0; 4]);
+        let instance = color_of(&["_InstanceColor"]).map_or([1.0; 3], |c| shapes::linear([c[0], c[1], c[2]]));
+        let float = |name: &str| m.floats.iter().find(|(n, _)| n == name).map(|f| f.1);
+        let tex = |names: &[&str]| m.textures.iter().filter(|t| t.texture.path_id != 0).find(|t| names.contains(&t.name.as_str())).map(|t| t.texture);
         // Rec Room's own shaders name their albedo differently; take the first likely colour map
-        let pick = m.textures.iter()
-            .filter(|t| t.texture.path_id != 0)
-            .find(|t| ["_MainTex", "_BaseMap", "_Albedo", "_BaseColorMap", "_Diffuse"].contains(&t.name.as_str()))
+        let pick = tex(&["_MainTex", "_BaseMap", "_Albedo", "_BaseColorMap", "_Diffuse"])
             .or_else(|| m.textures.iter().filter(|t| t.texture.path_id != 0).find(|t| {
                 let n = t.name.to_ascii_lowercase();
                 !(n.contains("norm") || n.contains("bump") || n.contains("spec") || n.contains("mask") || n.contains("ao") || n.contains("light"))
-            }));
-        let texture = pick.and_then(|t| {
-            let (tf, tid) = self.lib.resolve(&mf, t.texture).ok()?;
-            let tex = value(&tf, tid).ok().and_then(|v| Texture2D::from_value(&v, &tf.open.bundle).ok())?;
-            let px = tex.decode_rgba8().ok()?;
-            Some((tex.width as u32, tex.height as u32, px))
-        });
+            }).map(|t| t.texture));
+        let texture = pick.and_then(|t| self.texture(&mf, t));
+        let gloss = tex(&["_SpecGlossMap"]).and_then(|t| self.texture(&mf, t)).map_or(1.0, |t| shapes::mean_alpha(&t));
+        let roughness = 1.0 - gloss * float("_Smoothness").or(float("_Glossiness")).unwrap_or(0.2);
         let hidden = ["InteractionVolume", "Mask_Mat", "LightShaft", "Light_Shaft"].iter().any(|k| m.name.contains(k));
-        self.out.materials.push(RoomMaterial { name: m.name, color, texture, hidden });
-        let i = self.out.materials.len() - 1;
-        self.materials.insert(key, i);
+        self.sources.push(Source { name: m.name, shader, color, instance, texture, roughness, hidden });
+        let i = self.sources.len() - 1;
+        self.source_of.insert(key, i);
         i
     }
 
-    fn fallback_material(&mut self) -> usize {
-        if let Some(&i) = self.materials.get(&(String::new(), 0)) {
+    fn fallback_source(&mut self) -> usize {
+        if let Some(&i) = self.source_of.get(&(String::new(), 0)) {
             return i;
         }
-        self.out.materials.push(RoomMaterial { name: "missing".into(), color: [0.8, 0.8, 0.8, 1.0], texture: None, hidden: false });
-        let i = self.out.materials.len() - 1;
-        self.materials.insert((String::new(), 0), i);
+        self.sources.push(Source { name: "missing".into(), shader: String::new(), color: [0.8, 0.8, 0.8, 1.0], instance: [1.0; 3], texture: None, roughness: 0.8, hidden: false });
+        let i = self.sources.len() - 1;
+        self.source_of.insert((String::new(), 0), i);
         i
+    }
+
+    /// The material drawn for a source in one variant, made once.
+    fn look(&mut self, src: usize, v: Variant) -> usize {
+        if let Some(&i) = self.looks.get(&(src, v)) {
+            return i;
+        }
+        let s = &self.sources[src];
+        let (mut name, shader, mut roughness) = (s.name.clone(), s.shader.clone(), s.roughness);
+        let (color, texture) = match v {
+            Variant::Plain => (s.color, s.texture.clone()),
+            Variant::Tint(q) => {
+                let tint: [f32; 3] = std::array::from_fn(|c| q[c] as f32 / 255.0 * s.instance[c]);
+                match &s.texture {
+                    Some(t) => ([1.0; 4], Some(shapes::bake_tint(t, tint))),
+                    None => (srgb(tint), None),
+                }
+            }
+            Variant::Shape(c) => {
+                let own = [s.color[0], s.color[1], s.color[2]];
+                let tint = shapes::linear(c.color.and_then(|id| self.kit.color(id)).unwrap_or(own));
+                let shape = c.material.and_then(|id| self.kit.material(id))
+                    .map(|m| (m.name.clone(), m.smoothness, m.base_map.clone(), m.spec_map.clone()));
+                match shape {
+                    Some((mname, smoothness, base_map, spec_map)) => {
+                        name = format!("{name} ({mname})");
+                        if let Some(gloss) = self.kit.texture(&spec_map).map(shapes::mean_alpha) {
+                            roughness = 1.0 - gloss * smoothness;
+                        }
+                        match self.kit.texture(&base_map) {
+                            Some(t) => ([1.0; 4], Some(shapes::bake_tint(t, tint))),
+                            None => (srgb(tint), None),
+                        }
+                    }
+                    // the material's own _BaseMap is empty (white) and its _SpecGlossMap black (no gloss)
+                    None => {
+                        roughness = 1.0;
+                        (srgb(tint), None)
+                    }
+                }
+            }
+        };
+        self.out.materials.push(RoomMaterial { name, shader, color, texture, roughness });
+        let i = self.out.materials.len() - 1;
+        self.looks.insert((src, v), i);
+        i
+    }
+
+    /// The SandboxColorable among a GameObject's components, if any.
+    fn colorable(&mut self, gf: &FileRef, components: &[PPtr]) -> Option<Colorable> {
+        for &c in components {
+            let Ok((cf, cid)) = self.lib.resolve(gf, c) else { continue };
+            if class_of(&cf, cid) != Some(classes::MONO_BEHAVIOUR) {
+                continue;
+            }
+            let Ok(v) = value(&cf, cid) else { continue };
+            if v.get("RecolorMode").is_none() || v.get("DefaultColor").is_none() {
+                continue;
+            }
+            let on = |k: &str| v.get(k).and_then(|x| x.as_i64()).unwrap_or(0) != 0;
+            let id = |k: &str| v.get(k).and_then(|x| x.as_i64()).map(|x| x as i32);
+            return Some(Colorable {
+                color: if on("UseDefaultColor") { id("DefaultColor") } else { None },
+                material: if on("UseDefaultMaterial") { id("DefaultMaterial") } else { None },
+            });
+        }
+        None
     }
 
     /// Adds a GameObject (given by its Transform) and its active children.
-    fn walk(&mut self, f: &FileRef, transform_id: i64, parent: Mat4) {
+    fn walk(&mut self, f: &FileRef, transform_id: i64, parent: Mat4, colorable: Colorable) {
         let Ok(t) = value(f, transform_id).and_then(|v| Transform::from_value(&v).map_err(|e| e.to_string())) else { return };
         let Ok((gf, gid)) = self.lib.resolve(f, t.game_object) else { return };
         let Ok(go) = value(&gf, gid).and_then(|v| GameObject::from_value(&v).map_err(|e| e.to_string())) else { return };
@@ -209,6 +365,7 @@ impl Builder<'_> {
             return;
         }
         let world = parent * unity_to_bevy(&t);
+        let colorable = self.colorable(&gf, &go.components).unwrap_or(colorable);
 
         let (mut filter, mut renderer) = (None, None);
         for &c in &go.components {
@@ -216,22 +373,31 @@ impl Builder<'_> {
             match class_of(&cf, cid) {
                 Some(classes::MESH_FILTER) => filter = value(&cf, cid).ok().and_then(|v| MeshFilter::from_value(&v).ok()).map(|m| (cf, m)),
                 Some(classes::MESH_RENDERER) => renderer = value(&cf, cid).ok().and_then(|v| MeshRenderer::from_value(&v).ok()).map(|r| (cf, r)),
+                Some(BOX_COLLIDER) => {
+                    let Ok(v) = value(&cf, cid) else { continue };
+                    let on = |k: &str| v.get(k).and_then(|x| x.as_i64()).unwrap_or(0) != 0;
+                    let vec3 = |k: &str| v.get(k).map(|x| x.floats()).filter(|f| f.len() == 3).map(|f| [f[0], f[1], f[2]]);
+                    if let (true, false, Some(size), Some(center)) = (on("m_Enabled"), on("m_IsTrigger"), vec3("m_Size"), vec3("m_Center")) {
+                        self.out.colliders.push(Obb::from_box_collider(world, center, size));
+                    }
+                }
                 _ => {}
             }
         }
         if let (Some((ff, filter)), Some((rf, renderer))) = (filter, renderer) {
             if renderer.enabled {
-                self.add_mesh(&go.name, world, &ff, filter.mesh, &rf, &renderer.materials);
+                self.add_mesh(&go.name, world, &ff, filter.mesh, &rf, &renderer.materials, colorable);
             }
         }
         for &child in &t.children {
             if let Ok((cf, cid)) = self.lib.resolve(f, child) {
-                self.walk(&cf, cid, world);
+                self.walk(&cf, cid, world, colorable);
             }
         }
     }
 
-    fn add_mesh(&mut self, name: &str, world: Mat4, ff: &FileRef, mesh: PPtr, rf: &FileRef, materials: &[PPtr]) {
+    #[allow(clippy::too_many_arguments)]
+    fn add_mesh(&mut self, name: &str, world: Mat4, ff: &FileRef, mesh: PPtr, rf: &FileRef, materials: &[PPtr], colorable: Colorable) {
         let m = match self.lib.resolve(ff, mesh).and_then(|(mf, id)| value(&mf, id).and_then(|v| Mesh::from_value(&v, &mf.open.bundle).map_err(|e| e.to_string()))) {
             Ok(m) => m,
             Err(e) => return self.out.problems.push(format!("{name}: mesh: {e}")),
@@ -243,12 +409,14 @@ impl Builder<'_> {
         }
         let mut normals: Vec<_> = m.normals().into_iter().map(flip).collect();
         normals.resize(positions.len(), [0.0, 1.0, 0.0]);
-        let mut uvs: Vec<_> = m.uv(0).into_iter().map(|[u, v]| [u, 1.0 - v]).collect();
-        uvs.resize(positions.len(), [0.0, 0.0]);
+        let mut raw_uvs = m.uv(0);
+        raw_uvs.resize(positions.len(), [0.0, 0.0]);
         let mut colors = m.colors();
         if !colors.is_empty() {
             colors.resize(positions.len(), [1.0; 4]);
         }
+        // a recolour prop's vertex colour is one colour per mesh in practice; it is baked into its texture
+        let uniform = colors.first().filter(|c0| colors.iter().all(|c| c == *c0)).map(|c| c.map(|x| (x.clamp(0.0, 1.0) * 255.0).round() as u8));
         for (i, sub) in m.submeshes.iter().enumerate() {
             // topology 0 = triangles; lines and points are not drawn
             if sub.topology != 0 {
@@ -258,13 +426,27 @@ impl Builder<'_> {
             for tri in idx.chunks_exact_mut(3) {
                 tri.swap(1, 2);
             }
-            let material = match materials.get(i).or(materials.last()) {
-                Some(&p) => self.material(rf, p),
-                None => self.fallback_material(),
+            let src = match materials.get(i).or(materials.last()) {
+                Some(&p) => self.source(rf, p),
+                None => self.fallback_source(),
             };
-            if self.out.materials[material].hidden {
+            if self.sources[src].hidden {
                 continue;
             }
+            // Maker Pen pieces repeat their material's texture every `size` metres of uv0; others use uv0 as it is
+            let (variant, part_colors, size) = match shading(&self.sources[src].shader) {
+                Shading::MakerPen => {
+                    let size = colorable.material.and_then(|id| self.kit.material(id)).map_or(1.0, |m| m.size);
+                    (Variant::Shape(colorable), vec![], size)
+                }
+                Shading::Recolor => match uniform {
+                    Some(q) => (Variant::Tint([q[0], q[1], q[2]]), vec![], 1.0),
+                    None => (Variant::Plain, colors.clone(), 1.0),
+                },
+                Shading::Lit => (Variant::Plain, vec![], 1.0),
+            };
+            let material = self.look(src, variant);
+            let uvs = raw_uvs.iter().map(|[u, v]| [u / size, 1.0 - v / size]).collect();
             self.out.parts.push(Part {
                 name: name.to_string(),
                 root: self.out.roots.len() - 1,
@@ -272,8 +454,8 @@ impl Builder<'_> {
                 world,
                 positions: positions.clone(),
                 normals: normals.clone(),
-                uvs: uvs.clone(),
-                colors: colors.clone(),
+                uvs,
+                colors: part_colors,
                 indices: idx,
                 material,
             });
@@ -318,9 +500,9 @@ pub fn parse_layout(text: &str) -> Result<Vec<(String, Option<Mat4>)>, String> {
 
 /// Every root prefab in `bundle` whose name passes `want`. A prefab named in `layout` is placed there (once per
 /// entry); the others stay where their own root transform puts them.
-pub fn load_prefabs(lib: &mut Library, dir: &Path, bundle: &str, want: impl Fn(&str) -> bool, layout: &[(String, Option<Mat4>)]) -> Result<RoomData, String> {
+pub fn load_prefabs(lib: &mut Library, kit: &mut ShapeKit, dir: &Path, bundle: &str, want: impl Fn(&str) -> bool, layout: &[(String, Option<Mat4>)]) -> Result<RoomData, String> {
     let open = lib.open_bundle(&dir.join(bundle))?;
-    let mut b = Builder { lib, out: RoomData::default(), materials: HashMap::new() };
+    let mut b = Builder { lib, kit, out: RoomData::default(), sources: vec![], source_of: HashMap::new(), shaders: HashMap::new(), looks: HashMap::new() };
     for index in 0..open.files.len() {
         let f = FileRef { open: open.clone(), index };
         let roots: Vec<(String, i64)> = f.sf().objects.iter()
@@ -344,7 +526,7 @@ pub fn load_prefabs(lib: &mut Library, dir: &Path, bundle: &str, want: impl Fn(&
             let places: Vec<Mat4> = if entries.is_empty() { vec![Mat4::IDENTITY] } else { entries.into_iter().flatten().collect() };
             for place in places {
                 b.out.roots.push(name.clone());
-                b.walk(&tf, tid, place);
+                b.walk(&tf, tid, place, Colorable::default());
             }
         }
     }

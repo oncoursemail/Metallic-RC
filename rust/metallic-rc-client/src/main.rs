@@ -17,8 +17,10 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 use metallic_rc_client::{
+    collide::{self, Obb},
     net::{self, Login},
     room::{self, RoomData},
+    shapes::{self, ShapeKit},
 };
 
 struct Args {
@@ -72,6 +74,10 @@ struct Loading(Arc<Mutex<Option<Result<RoomData, String>>>>);
 #[derive(Resource)]
 struct Start([f32; 5]);
 
+/// What the player bumps into: the room's box colliders, once it is loaded.
+#[derive(Resource, Default)]
+struct Solids(Vec<Obb>);
+
 /// The stand-in room, removed when the real one arrives.
 #[derive(Component)]
 struct StandIn;
@@ -83,6 +89,7 @@ struct Player {
     /// vertical speed, m/s
     fall: f32,
     flying: bool,
+    grounded: bool,
 }
 
 // Screen-mode movement constants of the 2026 client (docs/agents/rc-spec/player.md in the private notes).
@@ -142,6 +149,7 @@ fn main() {
         .insert_resource(status)
         .insert_resource(loading)
         .insert_resource(Start(a.camera))
+        .init_resource::<Solids>()
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
         .add_systems(Update, (grab_mouse, look_and_walk, show_status, spawn_room))
@@ -176,7 +184,7 @@ fn setup(mut commands: Commands, start: Res<Start>, mut meshes: ResMut<Assets<Me
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection { fov: 60f32.to_radians(), near: 0.06, ..default() }),
         // a start view above head height (an overview) starts flying instead of falling to the floor
-        Player { yaw, pitch, fall: 0.0, flying: y > EYE + 0.5 },
+        Player { yaw, pitch, flying: y > EYE + 0.5, ..default() },
         Transform::from_xyz(x, y, z).with_rotation(Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0)),
     ));
     commands.spawn((
@@ -203,6 +211,7 @@ fn look_and_walk(
     motion: Res<AccumulatedMouseMotion>,
     cursor: Single<&CursorOptions, With<PrimaryWindow>>,
     mut player: Single<(&mut Player, &mut Transform)>,
+    solids: Res<Solids>,
 ) {
     let (p, t) = &mut *player;
     if cursor.grab_mode != CursorGrabMode::None {
@@ -235,18 +244,26 @@ fn look_and_walk(
         return;
     }
     let speed = if keys.pressed(KeyCode::ShiftLeft) { WALK * SPRINT } else { WALK };
-    t.translation += go.normalize_or_zero() * speed * dt;
-    // the floor is the only thing to stand on until room collision is in
-    let on_ground = t.translation.y <= EYE + 0.001;
-    if on_ground && keys.just_pressed(KeyCode::Space) {
+    if p.grounded && keys.just_pressed(KeyCode::Space) {
         p.fall = (2.0 * GRAVITY * JUMP_HEIGHT).sqrt();
     }
     p.fall = (p.fall - GRAVITY * dt).max(-MAX_FALL);
-    t.translation.y += p.fall * dt;
-    if t.translation.y < EYE {
-        t.translation.y = EYE;
+    let motion = go.normalize_or_zero() * speed * dt + Vec3::Y * p.fall * dt;
+    let feet = t.translation - Vec3::Y * EYE;
+    let (mut feet, mut grounded) = collide::move_capsule(&solids.0, feet, motion);
+    // the stand-in room has no colliders: its floor is y = 0
+    if solids.0.is_empty() && feet.y < 0.0 {
+        (feet.y, grounded) = (0.0, true);
+    }
+    if grounded && p.fall < 0.0 {
         p.fall = 0.0;
     }
+    // a head bump ends the jump
+    if feet.y < t.translation.y - EYE + motion.y - 1e-4 && p.fall > 0.0 {
+        p.fall = 0.0;
+    }
+    p.grounded = grounded;
+    t.translation = feet + Vec3::Y * EYE;
 }
 
 fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>>) {
@@ -265,7 +282,9 @@ fn load_dorm(game_dir: &std::path::Path) -> Result<RoomData, String> {
     let dir = room::bundle_dir(game_dir);
     let mut lib = room::Library::new(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let layout = room::parse_layout(DORM_LAYOUT)?;
-    room::load_prefabs(&mut lib, &dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"), &layout)
+    // the Maker Pen textures come from an older install, when there is one
+    let mut kit = ShapeKit::new(shapes::old_build_dirs().iter().find(|d| d.exists()).map(|d| d.as_path()));
+    room::load_prefabs(&mut lib, &mut kit, &dir, "43ea1176ca25c0333547813ec3298808.bundle", |n| n.starts_with("(Dorm_"), &layout)
 }
 
 fn spawn_room(
@@ -276,6 +295,7 @@ fn spawn_room(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    mut solids: ResMut<Solids>,
 ) {
     let Some(result) = loading.0.lock().unwrap().take() else { return };
     let r = match result {
@@ -303,7 +323,8 @@ fn spawn_room(
         materials.add(StandardMaterial {
             base_color: Color::srgba(cr, cg, cb, ca),
             base_color_texture,
-            perceptual_roughness: 0.8,
+            perceptual_roughness: m.roughness.clamp(0.05, 1.0),
+            metallic: 0.0,
             double_sided: true,
             cull_mode: None,
             ..default()
@@ -321,4 +342,5 @@ fn spawn_room(
         commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(mats[p.material].clone()), Transform::from_matrix(p.world), Name::new(p.name)));
     }
     status.0.lock().unwrap().push_str(&format!("  |  {} Dorm pieces from the game files", r.roots.len()));
+    solids.0 = r.colliders;
 }
