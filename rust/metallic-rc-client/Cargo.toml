@@ -16,6 +16,21 @@ rr-net = { path = "../rr-net" }
 # voice: the audio devices (the version Bevy's audio already pulls in) and Opus (pure Rust, no C toolchain needed)
 cpal = "0.17"
 unsafe-libopus = "0.2"
+# texture block compression (BC7/BC5/ASTC) for texprep: Intel ISPC kernels, prebuilt for Windows, Linux and Android
+intel_tex_2 = "0.5"
+
+# Android (phones, Quest): Bevy's GameActivity glue (the APK's Java side comes from the Gradle project, see
+# docs/agents/metallic-rc-engine-20261104.md)
+[target.'cfg(target_os = "android")'.dependencies]
+bevy = { version = "0.20", features = ["android-game-activity"] }
+
+[features]
+# profiling: `--features tracy` streams CPU and GPU zones to the Tracy profiler (GUI v0.14.x); `--features
+# trace_chrome` writes a trace-*.json for chrome://tracing or Perfetto. Both slow the game down a little.
+tracy = ["bevy/trace_tracy"]
+trace_chrome = ["bevy/trace_chrome"]
+# OpenXR (Quest, PC VR): only the seam for now, see src/platform/xr.rs
+xr = []
 
 [dev-dependencies]
 metallic-rc-server = { path = "../metallic-rc-server" }

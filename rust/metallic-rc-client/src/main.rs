@@ -223,6 +223,8 @@ fn main() {
         .add_plugins(avatar::AvatarPlugin)
         .add_plugins(metallic_rc_client::social::SocialPlugin)
         .add_plugins(player)
+        // engine lane: quality tiers, texture mips/compression, platform defaults (touch, mobile)
+        .add_plugins((metallic_rc_client::quality::QualityPlugin, metallic_rc_client::texprep::TexPrepPlugin, metallic_rc_client::platform::PlatformPlugin::default()))
         .insert_resource(LocalLook(look))
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
