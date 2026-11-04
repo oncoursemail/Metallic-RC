@@ -143,10 +143,12 @@ async fn rooms_bulk(RawQuery(q): RawQuery) -> Json<Value> {
 
 /// Every room this server has, for the rooms browser: `{Results, TotalResults}` as RecNet's paged room lists send
 /// them. `take` and `skip` page it. Player counts are not in it yet (they live in the realtime room server).
-async fn rooms_hot(RawQuery(q): RawQuery) -> Json<Value> {
+async fn rooms_hot(State(app): State<Shared>, RawQuery(q): RawQuery) -> Json<Value> {
     let num = |k: &str| query_all(&q, k).first().and_then(|v| v.parse::<usize>().ok());
-    let rooms: Vec<Value> = ROOMS.iter().skip(num("skip").unwrap_or(0)).take(num("take").unwrap_or(usize::MAX)).map(room_json).collect();
-    Json(json!({ "Results": rooms, "TotalResults": ROOMS.len() }))
+    // the built-in rooms, then the player-made ones (creations.rs)
+    let all: Vec<Value> = ROOMS.iter().map(room_json).chain(crate::creations::listed(&app)).collect();
+    let rooms: Vec<Value> = all.iter().skip(num("skip").unwrap_or(0)).take(num("take").unwrap_or(usize::MAX)).cloned().collect();
+    Json(json!({ "Results": rooms, "TotalResults": all.len() }))
 }
 
 async fn room(Path(id): Path<String>) -> Result<Json<Value>, StatusCode> {
@@ -159,7 +161,8 @@ async fn room(Path(id): Path<String>) -> Result<Json<Value>, StatusCode> {
 async fn goto_room(State(app): State<Shared>, h: HeaderMap, Path(name): Path<String>) -> Result<Json<Value>, Response> {
     let a = who(&app, &h)?;
     let Some(r) = find_room(&name) else {
-        return Ok(Json(json!({ "errorCode": 1, "roomInstance": null })));
+        let made = crate::creations::goto(&app, &a, &name);
+        return Ok(Json(json!({ "errorCode": if made.is_some() { 0 } else { 1 }, "roomInstance": made })));
     };
     let instance_id = if r.id == 1 { 1_000_000 + a.account_id } else { r.id };
     let photon_room = if r.id == 1 { format!("dorm-{}", a.account_id) } else { format!("room-{}", r.id) };
