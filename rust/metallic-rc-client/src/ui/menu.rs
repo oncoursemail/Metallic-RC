@@ -316,10 +316,30 @@ fn hidden(class: &str, d: &Value, ctx: &Ctx) -> Option<bool> {
         | "HideIfNoUnreadMessagesImpl" | "HideIfNoNavBarPeopleButtonUnreadImpl" | "HideIfShoppingBagEmptyImpl"
         | "HideIfShouldHideFriendsButtonBadgeImpl" => true,
         "HideIfCannotWatchChatImpl" | "HideIfCannotCreateRoomsImpl" => false,
+        // placeholder data (the server has no friends, notifications, items or tokens for the menu yet): empty lists
+        // show their empty-list messages, the no-search-results one stays hidden; the account a page shows is the
+        // local player's (online, not a junior, not their own friend, not blocked or favourited)
+        "HideIfNoUnreadFriendRequestsImpl" | "HideIfSearchResultExistsImpl" | "HideIfLocalAccountImpl" | "HideIfNotFriendImpl"
+        | "HideIfNotBlockingLocalPlayerImpl" | "HideIfNotFavoritedByLocalPlayerImpl" | "HideIfNoTokenRestrictedBalanceImpl" => true,
+        "HideIfItemsExistImpl" | "HideIfNotEmptyImpl" | "HideIfNoSubtabsImpl" | "HideIfNotLocalAccountImpl" | "HideIfJuniorAccountImpl"
+        | "HideIfOfflineImpl" | "HideIfActuallyOfflineImpl" | "HideIfBlockingLocalPlayerImpl" | "HideIfBlockedByLocalPlayerImpl" => false,
+        "HideIfEmptyImpl" => true,
         "HideIfScreensInputModeImpl" => input == Some(1),
         "HideIfNotScreensInputModeImpl" => input != Some(1),
         _ => return None,
     })
+}
+
+/// What an account or commerce text impl shows for the local player: the name (no separate display name yet),
+/// level 1 and no tokens until the server has them (placeholders); the impl's `prefix` goes first.
+fn account_text(class: &str, d: &Value, account: &str) -> Option<String> {
+    let value = match class {
+        "AccountModelController/DisplayNameTextImpl" | "AccountModelController/UsernameTextImpl" => account,
+        "AccountModelController/LevelTextImpl" | "PlayerProgressionWatchHomeModelController/LevelTextImpl" => "1",
+        "PlayerCommerceModelController/TokenBalanceTextImpl" => "0",
+        _ => return None,
+    };
+    Some(format!("{}{value}", d.get("prefix").and_then(Value::as_str).unwrap_or("")))
 }
 
 /// Gives a copied subtree ids of its own (object ids xor `salt`), references inside it included.
@@ -537,6 +557,9 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             if name == "LogoutButtonTextImpl" {
                 texts.extend(pptr(d, "textMeshProUGUI").map(|t| (t, "Switch Account".to_string())));
             }
+            if let Some(text) = account_text(class, d, ctx.account) {
+                texts.extend(pptr(d, "textMeshProUGUI").map(|t| (t, text)));
+            }
             if name == "ManualLoginUsernameInputFieldImpl" {
                 if let Some(f) = pptr(d, "inputField") {
                     w.actions.insert(f, Action::Field);
@@ -581,7 +604,12 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             }
         }
     }
+    // a Hideable several controllers drive is hidden when any of them hides it (INFERRED from RRUI's Hideable)
+    let mut hidden_by: HashMap<i64, bool> = HashMap::new();
     for (h, hide) in hides {
+        *hidden_by.entry(h).or_default() |= hide;
+    }
+    for (h, hide) in hidden_by {
         show(&mut page, h, !hide);
     }
     // the login page logs in by name only: passwords, password resets, new accounts and the terms are not ours
@@ -988,6 +1016,10 @@ mod tests {
         assert_eq!(radio("SettingsModelController/VoicePitchRadioToggleImpl", &pitch), Some(("voice_pitch".to_string(), 2.0)));
         assert_eq!(radio("SettingsModelController/GraphicsQualityToggleImpl", &s(vec![("defaultQualityMapping", Value::Int(3))])), Some(("graphics_quality".to_string(), 3.0)));
         assert_eq!(radio("SettingsModelController/AutoSprintToggleImpl", &pitch), None);
+        let lvl = s(vec![("textMeshProUGUI", ptr(1)), ("prefix", Value::String("Lvl ".into()))]);
+        assert_eq!(account_text("AccountModelController/LevelTextImpl", &lvl, "me").as_deref(), Some("Lvl 1"));
+        assert_eq!(account_text("AccountModelController/DisplayNameTextImpl", &s(vec![]), "me").as_deref(), Some("me"));
+        assert_eq!(account_text("AccountModelController/PresenceTextImpl", &s(vec![]), "me"), None);
     }
 
     #[test]
