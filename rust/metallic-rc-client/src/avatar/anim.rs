@@ -1,6 +1,7 @@
 //! The avatar's animation state, without Bevy: which way it moves (idle, walk, run, jump, fall, fly) from its velocity,
-//! a stride phase, blinking and talking, and the body pose that follows from them in the avatar's own space (+y up,
-//! facing -z, feet at the origin).
+//! a stride phase, blinking and talking, crouching, and the body pose that follows from them in the avatar's own space
+//! (+y up, facing -z, feet at the origin). The body pose cross-fades from one move to the next (`FADE`) instead of
+//! snapping, so walk, run, jump, fall and crouch blend.
 use bevy::math::Vec3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -14,6 +15,17 @@ pub enum Move {
     Fly,
 }
 
+/// A hand's shape.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Grip {
+    #[default]
+    Open,
+    /// the index finger out: aiming at something to use
+    Point,
+    /// closed round something held
+    Hold,
+}
+
 /// What drives the animation this frame.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Input {
@@ -23,6 +35,8 @@ pub struct Input {
     pub grounded: Option<bool>,
     pub flying: bool,
     pub talking: bool,
+    /// 0 standing, 1 fully crouched
+    pub crouch: f32,
 }
 
 /// below this the avatar stands
@@ -34,6 +48,10 @@ const AIR: f32 = 0.12;
 /// a remote avatar moving up or down faster than this is taken to be in the air
 const AIR_SPEED: f32 = 0.6;
 const BLINK: f32 = 0.14;
+/// INFERRED: time constant of the cross-fade between poses (the game's screen animations fade in 0.1 to 0.2 s)
+const FADE: f32 = 0.08;
+/// how far the hips drop when fully crouched, metres
+pub const CROUCH_DROP: f32 = 0.3;
 
 #[derive(Clone, Debug, Default)]
 pub struct Anim {
@@ -49,6 +67,9 @@ pub struct Anim {
     blink: Option<f32>,
     seed: u32,
     mouth: f32,
+    crouch: f32,
+    /// the pose on show, fading toward the current move's
+    shown: Option<Pose>,
 }
 
 /// The body pose in the avatar's own space.
@@ -66,6 +87,24 @@ pub struct Pose {
     pub eyes: f32,
     /// 0 shut, 1 wide open
     pub mouth: f32,
+    /// how far the hips are down, metres
+    pub drop: f32,
+}
+
+impl Pose {
+    /// Part way (`k`, 0..1) from this pose to `to`; eyes and mouth are `to`'s (they have their own timing).
+    pub fn blend(&self, to: &Pose, k: f32) -> Pose {
+        let f = |a: f32, b: f32| a + (b - a) * k;
+        Pose {
+            bob: f(self.bob, to.bob),
+            lean: f(self.lean, to.lean),
+            legs: [f(self.legs[0], to.legs[0]), f(self.legs[1], to.legs[1])],
+            hands: [self.hands[0].lerp(to.hands[0], k), self.hands[1].lerp(to.hands[1], k)],
+            eyes: to.eyes,
+            mouth: to.mouth,
+            drop: f(self.drop, to.drop),
+        }
+    }
 }
 
 impl Anim {
@@ -122,9 +161,21 @@ impl Anim {
         // talking opens and closes the mouth at syllable pace, with some unevenness
         let target = if i.talking { 0.25 + 0.75 * ((self.time * 11.0).sin() * (self.time * 4.3).sin()).abs() } else { 0.0 };
         self.mouth += (target - self.mouth) * (1.0 - (-dt * 25.0).exp());
+        self.crouch = i.crouch.clamp(0.0, 1.0);
+        let to = self.target();
+        self.shown = Some(match self.shown {
+            Some(s) => s.blend(&to, 1.0 - (-dt / FADE).exp()),
+            None => to,
+        });
     }
 
+    /// The pose on show.
     pub fn pose(&self) -> Pose {
+        self.shown.unwrap_or_else(|| self.target())
+    }
+
+    /// The current move's own pose, before the cross-fade.
+    pub fn target(&self) -> Pose {
         let (s, idle) = (self.phase.sin(), (self.time * 2.1).sin());
         let rest = [Vec3::new(-0.28, 0.82, -0.12), Vec3::new(0.28, 0.82, -0.12)];
         let walking = matches!(self.state, Move::Walk | Move::Run) || self.phase.sin().abs() > 1e-3;
@@ -134,7 +185,8 @@ impl Anim {
             Move::Fly => (0.03 * idle, 0.3, [-0.35 + 0.08 * idle, -0.3 - 0.08 * idle], rest.map(|h| h + Vec3::new(0.0, 0.05, 0.12))),
             _ if walking => {
                 let run = self.state == Move::Run;
-                let amp = if run { 0.7 } else { 0.45 } * (self.speed / 2.0).clamp(0.3, 1.0);
+                // crouched steps are shorter
+                let amp = if run { 0.7 } else { 0.45 } * (self.speed / 2.0).clamp(0.3, 1.0) * (1.0 - 0.4 * self.crouch);
                 let legs = [-s * amp, s * amp];
                 // the hips dip as the legs spread (legs 0.6 m long), and the hands swing against the legs
                 let bob = -(1.0 - legs[0].cos()) * 0.6;
@@ -149,7 +201,10 @@ impl Anim {
             Some(b) => (2.0 * b / BLINK - 1.0).abs(),
             None => 1.0,
         };
-        Pose { bob, lean, legs, hands, eyes, mouth: self.mouth }
+        // crouching: the hips go down (the legs telescope), the body leans in and the hands come down with it
+        let drop = CROUCH_DROP * self.crouch;
+        let hands = hands.map(|h| h - Vec3::Y * drop + Vec3::new(0.0, 0.0, -0.08 * self.crouch));
+        Pose { bob, lean: lean + 0.25 * self.crouch, legs, hands, eyes, mouth: self.mouth, drop }
     }
 }
 
@@ -221,6 +276,39 @@ mod tests {
         // stopping brings the feet together
         run(&mut a, 1.5, going(0.0, 0.0));
         assert!(a.pose().legs[0].abs() < 0.01, "{:?}", a.pose().legs);
+    }
+
+    #[test]
+    fn moves_cross_fade_instead_of_snapping() {
+        let mut a = Anim::new(5);
+        run(&mut a, 0.5, Input { grounded: Some(true), ..going(0.0, 0.0) });
+        let before = a.pose();
+        // in the air: the jump pose is the target at once, the shown pose gets there over a few frames
+        run(&mut a, 0.15, Input { grounded: Some(false), ..going(0.0, 3.0) });
+        assert_eq!(a.state, Move::Jump);
+        a.step(1.0 / 60.0, Input { grounded: Some(false), ..going(0.0, 3.0) });
+        let (shown, target) = (a.pose(), a.target());
+        assert!(shown.legs[0] > before.legs[0] && shown.legs[0] < target.legs[0], "{shown:?} {target:?}");
+        run(&mut a, 0.5, Input { grounded: Some(false), ..going(0.0, 3.0) });
+        assert!((a.pose().legs[0] - a.target().legs[0]).abs() < 1e-3);
+    }
+
+    #[test]
+    fn crouching_lowers_the_hips_and_shortens_the_stride() {
+        let mut a = Anim::new(9);
+        let widest = |a: &mut Anim, crouch: f32| {
+            let mut w = 0f32;
+            for _ in 0..120 {
+                a.step(1.0 / 60.0, Input { crouch, ..going(2.25, 0.0) });
+                w = w.max(a.pose().legs[0].abs());
+            }
+            w
+        };
+        let standing = widest(&mut a, 0.0);
+        assert!(a.pose().drop.abs() < 1e-3);
+        let crouched = widest(&mut a, 1.0);
+        assert!((a.pose().drop - CROUCH_DROP).abs() < 1e-3 && a.pose().lean > 0.2);
+        assert!(crouched < standing * 0.8, "{crouched} {standing}");
     }
 
     #[test]
