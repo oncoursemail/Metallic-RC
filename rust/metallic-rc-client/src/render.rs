@@ -122,6 +122,7 @@ const AG_SPEC_MAP: u32 = 4;
 const AG_EMISSION_MAP: u32 = 8;
 const AG_URP_LIT: u32 = 16;
 const AG_ALPHA_FROM_MAP: u32 = 32;
+const AG_MIRROR: u32 = 64;
 
 impl MaterialExtension for AgSurface {
     fn fragment_shader() -> ShaderRef {
@@ -152,6 +153,7 @@ pub fn material(m: &RoomMaterial, images: &mut Assets<Image>, textures: &mut Tex
         (m.emissive_map.is_some(), AG_EMISSION_MAP),
         (!m.masked && !m.unlit, AG_URP_LIT),
         (matches!(m.blend, Blend::Mask(_)), AG_ALPHA_FROM_MAP),
+        (m.shader == "AG/Mirror", AG_MIRROR),
     ].iter().filter(|f| f.0).fold(0, |a, f| a | f.1);
     let uv_transform = Affine2::from_scale_angle_translation(Vec2::from(m.uv_scale), 0.0, Vec2::from(m.uv_offset));
     let [sx, sy] = m.uv_scale;
@@ -241,13 +243,14 @@ pub struct LookPlugin;
 impl Plugin for LookPlugin {
     fn build(&self, app: &mut App) {
         bevy::asset::embedded_asset!(app, "ag_surface.wesl");
-        app.add_plugins(MaterialPlugin::<AgMaterial>::default())
+        app.add_plugins((MaterialPlugin::<AgMaterial>::default(), crate::mirror::MirrorPlugin))
             .insert_resource(DirectionalLightShadowMap { size: 4096 })
             .add_systems(Update, dress_cameras);
     }
 }
 
-fn dress_cameras(mut commands: Commands, cameras: Query<Entity, Added<Camera3d>>) {
+/// Mirror cameras get only the tone curve (mirror.rs): their picture is small on screen.
+fn dress_cameras(mut commands: Commands, cameras: Query<Entity, (Added<Camera3d>, Without<crate::mirror::MirrorCamera>)>) {
     for cam in &cameras {
         commands.entity(cam).insert((
             Hdr,

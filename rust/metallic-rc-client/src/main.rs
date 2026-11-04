@@ -639,10 +639,21 @@ fn grab_mouse(mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>, mouse
     }
 }
 
-fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>>) {
+/// The status line is a toast: up for a few seconds after it changes, then faded out. F3 keeps it and the room
+/// line up (debug view).
+#[allow(clippy::too_many_arguments)]
+fn show_status(status: Res<Status>, time: Res<Time>, keys: Res<ButtonInput<KeyCode>>, mut debug: Local<bool>, mut since: Local<f32>,
+               mut text: Single<(&mut Text, &mut TextColor), With<StatusText>>, mut room: Query<&mut Visibility, With<RoomText>>) {
     let now = format!("{}{}", status.0.lock().unwrap(), status.1.lock().unwrap());
-    if text.0 != now {
-        text.0 = now;
+    *debug ^= keys.just_pressed(KeyCode::F3);
+    if text.0 .0 != now {
+        text.0 .0 = now;
+        *since = 0.0;
+    }
+    *since += time.delta_secs();
+    text.1 .0.set_alpha(if *debug { 1.0 } else { (6.0 - *since).clamp(0.0, 1.0) });
+    for mut v in &mut room {
+        *v = if *debug { Visibility::Inherited } else { Visibility::Hidden };
     }
 }
 

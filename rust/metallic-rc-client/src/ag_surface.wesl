@@ -6,6 +6,7 @@ import bevy_pbr::render::{
     pbr_fragment::pbr_input_from_standard_material,
     pbr_functions::{alpha_discard, apply_pbr_lighting, main_pass_post_lighting_processing},
     pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
+    mesh_view_bindings::view,
 };
 
 struct AgParams {
@@ -26,6 +27,8 @@ const AG_SPEC_MAP: u32 = 4u;
 const AG_EMISSION_MAP: u32 = 8u;
 const AG_URP_LIT: u32 = 16u;
 const AG_ALPHA_FROM_MAP: u32 = 32u;
+// AG/Mirror: the emission slot holds the mirror camera's picture, sampled at the screen position
+const AG_MIRROR: u32 = 64u;
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(100) var<uniform> ag: AgParams;
 @group(constants::MATERIAL_BIND_GROUP) @binding(101) var ag_base: texture_2d<f32>;
@@ -56,9 +59,14 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> Fragment
     if (ag.flags & AG_SPEC_MAP) != 0u {
         sg = textureSample(ag_spec, ag_spec_sampler, uv);
     }
+    let mirror = (ag.flags & AG_MIRROR) != 0u;
+    var euv = uv;
+    if mirror {
+        euv = (in.position.xy - view.viewport.xy) / view.viewport.zw;
+    }
     var em = vec3<f32>(1.0);
-    if (ag.flags & AG_EMISSION_MAP) != 0u {
-        em = textureSample(ag_emission, ag_emission_sampler, uv).rgb;
+    if (ag.flags & (AG_EMISSION_MAP | AG_MIRROR)) != 0u {
+        em = textureSample(ag_emission, ag_emission_sampler, euv).rgb;
     }
 
     // albedo: the AG lit shaders mask the tint with the base map's alpha; URP Lit and the unlit ones multiply
@@ -67,6 +75,11 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> Fragment
     if masked {
         albedo = b.rgb * mix(vec3<f32>(1.0), tint, b.a);
         emission += b.rgb * b.a * ag.emission.a * tint;
+    }
+    // AG/Mirror: the smudge map times the reflection
+    if mirror {
+        albedo *= em;
+        emission = vec3<f32>(0.0);
     }
     var alpha = ag.tint.a * vc.a;
     if !masked || (ag.flags & AG_ALPHA_FROM_MAP) != 0u {

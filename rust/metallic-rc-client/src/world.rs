@@ -425,6 +425,11 @@ fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option
     }
     let inverse: Vec<Mat4> = r.places.iter().map(|m| m.inverse()).collect();
     for p in r.parts {
+        // a mirror's glass: its mean normal and centre, for the mirror camera
+        let glass = (r.materials[p.material].shader == "AG/Mirror" && !p.positions.is_empty()).then(|| {
+            let mean = |v: &[[f32; 3]]| v.iter().fold(Vec3::ZERO, |a, x| a + Vec3::from(*x)) / v.len().max(1) as f32;
+            crate::mirror::Mirror { normal: mean(&p.normals).normalize_or(Vec3::Z), center: mean(&p.positions) }
+        });
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, p.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, p.normals);
@@ -438,6 +443,9 @@ fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option
         }
         let local = Transform::from_matrix(inverse[p.root] * p.world);
         let child = commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(mats[p.material].clone()), local, Name::new(p.name))).id();
+        if let Some(m) = glass {
+            commands.entity(child).insert(m);
+        }
         commands.entity(roots[p.root]).add_child(child);
     }
     for l in &r.lights {
