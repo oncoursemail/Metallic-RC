@@ -436,7 +436,7 @@ fn draw(looks: &mut Looks, e: &Element, at: &Places, index: &mut usize) -> Optio
         paint.extend(tiles);
     }
     if let Some(c) = e.component(TEXT) {
-        let (text, mut size, wrap, margin) = text_settings(c);
+        let (mut text, mut size, mut wrap, margin) = text_settings(c);
         let font = looks.font(c);
         if let (Some(f), true) = (&font, c.value.get("m_enableAutoSizing").and_then(Value::as_bool).unwrap_or(false)) {
             // shrink until it fits, as TMP's auto size does
@@ -451,6 +451,9 @@ fn draw(looks: &mut Looks, e: &Element, at: &Places, index: &mut usize) -> Optio
                 }
                 size = (size - 1.0).max(min);
             }
+        }
+        if let Some(f) = &font {
+            (text, wrap) = fit(looks, f, text, size, wrap, &rect, margin, c.value.get("m_overflowMode").and_then(Value::as_i64).unwrap_or(0));
         }
         let v = &c.value;
         let (h, vert) = match (v.get("m_HorizontalAlignment").and_then(Value::as_i64), v.get("m_VerticalAlignment").and_then(Value::as_i64)) {
@@ -477,6 +480,36 @@ fn draw(looks: &mut Looks, e: &Element, at: &Places, index: &mut usize) -> Optio
     let interact = e.components.iter().find(|c| c.enabled && selectable(c)).map(|c| interact(c, at));
     let children = e.children.iter().filter_map(|c| draw(looks, c, at, index)).collect();
     Some(Drawn { name: e.name.clone(), transform: e.transform, rect, clip, raycast, interact, paint, children })
+}
+
+/// TMP's overflow modes, as far as the box goes: text that fits on one line is drawn on one line (so the renderer's
+/// own measure does not wrap a label sized to it), and Ellipsis (1) or Truncate (3) cut what does not fit in the box,
+/// Ellipsis ending the cut with "...". Other modes let the text run over.
+#[allow(clippy::too_many_arguments)]
+fn fit(looks: &mut Looks, f: &Font, text: String, size: f32, wrap: bool, rect: &Placed, margin: [f32; 4], overflow: i64) -> (String, bool) {
+    let (w, h) = ((rect.w - margin[0] - margin[2]).max(0.0), rect.h - margin[1] - margin[3] + 0.01);
+    let k = size / f.point_size;
+    let height = |n: usize| (f.ascent - f.descent) * k + n.saturating_sub(1) as f32 * f.line_height * k;
+    let fits = |looks: &mut Looks, t: &str| {
+        let lines = looks.wrap(f, t, size, wrap.then_some(w));
+        lines.iter().all(|x| *x <= w + 0.01) && height(lines.len()) <= h || !wrap && lines.len() == 1 && lines[0] <= w + 0.01
+    };
+    let one_line = |looks: &mut Looks, t: &str| !t.contains('\n') && looks.wrap(f, t, size, None)[0] <= w + 0.01;
+    if !matches!(overflow, 1 | 3) || fits(looks, &text) {
+        let single = one_line(looks, &text);
+        return (text, wrap && !single);
+    }
+    let mut chars: Vec<char> = text.chars().collect();
+    while !chars.is_empty() {
+        chars.pop();
+        let cut: String = chars.iter().collect::<String>().trim_end().to_string();
+        let t = if overflow == 1 { format!("{cut}...") } else { cut };
+        if fits(looks, &t) {
+            let single = one_line(looks, &t);
+            return (t, wrap && !single);
+        }
+    }
+    (String::new(), wrap)
 }
 
 /// A Unity Gradient's colour keys times the image colour. INFERRED: UIGradient type 0 runs left to right, as angle 0

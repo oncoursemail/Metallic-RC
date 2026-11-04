@@ -99,6 +99,12 @@ pub enum Action {
     Quit,
     /// flip a switch setting
     Toggle(String),
+    /// set a setting to one of its values (a radio button, or an option of a choice dialog)
+    Choose(String, f64),
+    /// open the choice dialog of a dropdown setting
+    Dropdown(String),
+    /// close the choice dialog
+    CloseDialog,
     /// a slider setting, set by dragging
     Slider(String),
     /// log in as this account
@@ -121,6 +127,8 @@ pub struct Ctx<'a> {
     pub focused: bool,
     /// scroll offsets by ScrollRect component id, in canvas units down from the top
     pub scroll: &'a HashMap<i64, f32>,
+    /// the dropdown setting whose choice dialog is open
+    pub choosing: Option<&'a str>,
 }
 
 /// A page made ready to lay out.
@@ -131,19 +139,27 @@ pub struct Built {
     pub scrolls: Vec<(i64, i64, i64)>,
 }
 
-/// Rows the client adds to a page, copied from rows of the game's pages: a slider row and a switch row.
+/// Rows the client adds to a page, copied from rows of the game's pages: a slider row, a switch row, and a radio
+/// group (for choice dialogs).
+#[derive(Default)]
 pub struct Donors {
     pub slider: Option<Element>,
     pub switch: Option<Element>,
+    pub radio: Option<Element>,
 }
 
 impl Donors {
-    /// The Head Bob slider row of the Controls tab and the VSync switch row of the Visuals tab.
+    /// The Head Bob slider row of the Controls tab, the VSync switch row and the Graphics Quality radio group of the
+    /// Visuals tab.
     pub fn find(controls: Option<&Element>, visuals: Option<&Element>) -> Donors {
         let row = |root: Option<&Element>, class: &str, name: &str| {
             root.and_then(|r| find(r, &|e| e.name.contains(name) && e.walk().iter().any(|(_, k)| k.impls().iter().any(|(c, _)| c.ends_with(class))))).cloned()
         };
-        Donors { slider: row(controls, "/HeadBobSliderImpl", "[Slider"), switch: row(visuals, "/EnableVSyncToggleImpl", "[PanelWithPaddingHorizontal]") }
+        Donors {
+            slider: row(controls, "/HeadBobSliderImpl", "[Slider"),
+            switch: row(visuals, "/EnableVSyncToggleImpl", "[PanelWithPaddingHorizontal]"),
+            radio: row(visuals, "/GraphicsQualityToggleImpl", "[RadioButtonSelection]"),
+        }
     }
 }
 
@@ -225,11 +241,17 @@ fn setting(class: &str, d: &Value) -> Option<String> {
         "EnableVSyncToggleImpl" => "vsync".to_string(),
         // axis 0 is the mouse, 1 and 2 the look axes (from the row labels)
         "CameraVerticalSensitivitySliderImpl" => ["mouse_sensitivity", "look_horizontal", "look_vertical"].get(n("axis") as usize)?.to_string(),
-        // volume types from the row labels: 0 overall, 2 sounds, 3 music
+        // volume types from the Audio tab's row labels (0 overall, 1 in-room voice, 2 sounds, 3 music, 4 ambience,
+        // 5 voice call, 6 other roomies, 7 game AI)
         "VolumeSliderImpl" => match n("Type") {
             0 => "volume_master".to_string(),
+            1 => "volume_voice".to_string(),
             2 => "volume_sfx".to_string(),
             3 => "volume_music".to_string(),
+            4 => "volume_ambience".to_string(),
+            5 => "volume_voice_call".to_string(),
+            6 => "volume_roomies".to_string(),
+            7 => "volume_game_ai".to_string(),
             t => format!("volume_{t}"),
         },
         // radio groups pick one of several values; not handled yet
@@ -237,6 +259,30 @@ fn setting(class: &str, d: &Value) -> Option<String> {
         _ => snake(name.strip_suffix("ToggleImpl").or_else(|| name.strip_suffix("SliderImpl"))?),
     })
 }
+
+/// The setting a radio button sets and the value it sets it to: `XRadioToggleImpl` sets `x` to its one number field
+/// (`Mode`, `Size`, ...); the graphics quality buttons set the quality level they map to on PC.
+fn radio(class: &str, d: &Value) -> Option<(String, f64)> {
+    let name = class.strip_prefix("SettingsModelController/")?;
+    if name == "GraphicsQualityToggleImpl" {
+        return Some(("graphics_quality".into(), d.get("defaultQualityMapping")?.as_i64()? as f64));
+    }
+    let base = name.strip_suffix("RadioToggleImpl")?;
+    let Value::Struct { fields, .. } = d else { return None };
+    let v = fields.iter().find_map(|(_, v)| matches!(v, Value::Int(_) | Value::UInt(_)).then(|| v.as_i64()).flatten())?;
+    Some((snake(base), v as f64))
+}
+
+/// Dropdown buttons (`ShowXButtonImpl`, which open a radio-button dialog in the game): the setting, the dialog's title
+/// and the options in enum order. Names INFERRED from the enum members (the game shows localized strings).
+const DROPDOWNS: &[(&str, &str, &str, &[&str])] = &[
+    ("ShowSprintModeSelectionButtonImpl", "sprint_input_mode", "Sprint Input Mode", &["Hold", "Toggle", "Press"]),
+    ("ShowVoiceCallRoomVoiceChatModeDropdownButtonImpl", "voice_call_room_voice_mode", "While in Voice Call...", &["Room Voices On", "Mute Myself", "Room Voices Off"]),
+];
+
+/// The PC bit of GraphicsQualityToggleImpl.PlatformFlags (ANDROID, IOS, EDITOR, PC_AND_PCVR as 1, 2, 4, 8: INFERRED
+/// order of the flag values).
+const PC_AND_PCVR: i64 = 8;
 
 /// Hide-if impls: Some(true) to hide their Hideable, Some(false) to show it, None to leave it. The client is on a PC
 /// screen with mouse and keyboard (INFERRED: input type 1, from the `[MKB_ONLY]` rows), not a developer, not junior.
@@ -448,6 +494,20 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             if name == "CachedAccountCardSpawnerImpl" {
                 cards = pptr(d, "recyclingListScrollRect");
             }
+            if let (Some((key, value)), Some(b), Some(t)) = (radio(class, d), button, pptr(d, "toggleTheme")) {
+                w.actions.insert(b, Action::Choose(key.clone(), value));
+                if ctx.settings.get(&key) == value {
+                    active.insert(t);
+                }
+            }
+            if name == "GraphicsQualityToggleImpl" && d.get("supportedPlatforms").and_then(Value::as_i64).is_some_and(|p| p & PC_AND_PCVR == 0) {
+                hides.extend(pptr(d, "radioOptionHideable").map(|h| (h, true)));
+            }
+            if let (Some((_, key, _, options)), Some(b)) = (DROPDOWNS.iter().find(|x| x.0 == name), button) {
+                w.actions.insert(b, Action::Dropdown(key.to_string()));
+                let i = (ctx.settings.get(key).max(0.0) as usize).min(options.len() - 1);
+                texts.extend(pptr(d, "text").map(|t| (t, options[i].to_string())));
+            }
             if let Some(key) = setting(class, d) {
                 if let (Some(b), Some(t)) = (button, pptr(d, "toggleTheme")) {
                     w.actions.insert(b, Action::Toggle(key.clone()));
@@ -481,6 +541,10 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     if let Some(list) = cards {
         account_cards(&mut page, list, ctx, &mut w.actions);
     }
+    let dialog = ctx.choosing.and_then(|k| DROPDOWNS.iter().find(|d| d.1 == k));
+    if let (Some((_, key, title, options)), Some(donor)) = (dialog, &donors.radio) {
+        choice_dialog(&mut page, donor, key, title, options, ctx.settings.get(key), &mut w.actions, &mut active);
+    }
     // scroll views: the content moves up by the offset
     let mut scrolls = vec![];
     for (_, e) in page.walk() {
@@ -500,6 +564,76 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     Built { page, actions: w.actions, scrolls }
 }
 
+fn strukt(fields: Vec<(&str, Value)>) -> Value {
+    Value::Struct { type_name: "".into(), fields: fields.into_iter().map(|(k, v)| (k.into(), v)).collect() }
+}
+
+/// A component made here rather than read from a prefab.
+fn made(class: &str, id: i64, fields: Vec<(&str, Value)>) -> prefab::Component {
+    prefab::Component { class: class.into(), value: strukt(fields), file: None, id, enabled: true, themed: Default::default() }
+}
+
+/// A LayoutElement that takes its element out of its parent's layout group (page roots often have one).
+fn free(id: i64) -> prefab::Component {
+    made("UnityEngine.UI.LayoutElement", id, vec![("m_IgnoreLayout", Value::Bool(true))])
+}
+
+/// Ids of the elements and components the client makes (high bits no prefab object id was seen to use: INFERRED).
+const MADE: i64 = 0x7e5a << 48;
+
+/// The choice dialog of a dropdown: the screen dimmed (a click on it closes the dialog) and, in the middle, a copy of
+/// the game's radio group (the Graphics Quality one) titled `title` with one radio button per option, the current
+/// one on. INFERRED: the game shows these choices as a radio-button dialog (DynamicRadioButtonData); its dialog
+/// prefab is not read, the radio group stands in for it.
+#[allow(clippy::too_many_arguments)]
+fn choice_dialog(page: &mut Element, donor: &Element, key: &str, title: &str, options: &[&str], current: f64, actions: &mut HashMap<i64, Action>, active: &mut HashSet<i64>) {
+    let color = |r: f64, g: f64, b: f64, a: f64| strukt(vec![("r", Value::Float(r)), ("g", Value::Float(g)), ("b", Value::Float(b)), ("a", Value::Float(a))]);
+    let dim = MADE | 1;
+    let full = prefab::RectRules { anchor_min: [0.0; 2], anchor_max: [1.0; 2], size_delta: [0.0; 2], ..Default::default() };
+    let dimmer = Element {
+        name: "(dialog dimmer)".into(), active: true, id: MADE, transform: MADE | 2, rect: full, children: vec![],
+        components: vec![
+            made("UnityEngine.UI.Image", MADE | 3, vec![("m_Color", color(0.0, 0.0, 0.0, 0.55)), ("m_RaycastTarget", Value::Bool(true))]),
+            made("UnityEngine.UI.Button", dim, vec![("m_Interactable", Value::Bool(true)), ("m_Colors", strukt(vec![])), ("m_Transition", Value::Int(0))]),
+            free(MADE | 4),
+        ],
+    };
+    actions.insert(dim, Action::CloseDialog);
+    let mut panel = fresh(donor, MADE | 1 << 40);
+    // the copy's controllers would wire it to graphics quality
+    panel.each_mut(&mut |e| e.components.retain(|c| c.value.get("implementation").is_none()));
+    panel.rect = prefab::RectRules { anchor_min: [0.5; 2], anchor_max: [0.5; 2], size_delta: [1323.0, 241.0], ..Default::default() };
+    panel.components.insert(0, free(MADE | 5));
+    let header = find(&panel, &|e| e.name.starts_with("[InputHeader]")).and_then(|h| h.walk().iter().find_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id)));
+    if let Some(id) = header {
+        set_text(&mut panel, id, title);
+    }
+    let is_row = |e: &Element| e.children.iter().any(|k| k.name.starts_with("[RadioButton]"));
+    let Some(row) = find_mut(&mut panel, &is_row) else { return };
+    // the Low button: shown on PC (Fast is not)
+    let Some(template) = row.children.iter().find(|k| k.name.starts_with("[RadioButton] (1)")).or(row.children.first()).cloned() else { return };
+    row.children.clear();
+    for (i, label) in options.iter().enumerate() {
+        let mut option = fresh(&template, MADE | (i as i64 + 2) << 40);
+        option.active = true;
+        let text = option.walk().iter().find_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id));
+        if let Some(t) = text {
+            set_text(&mut option, t, label);
+        }
+        for (_, e) in option.walk() {
+            if let Some(b) = e.component("RRUI.MultiGraphicButton") {
+                actions.insert(b.id, Action::Choose(key.to_string(), i as f64));
+            }
+            if let Some(t) = e.component("RRUI.Theme.ToggleTheme").filter(|_| i as f64 == current) {
+                active.insert(t.id);
+            }
+        }
+        row.children.push(option);
+    }
+    page.children.push(dimmer);
+    page.children.push(panel);
+}
+
 /// The canvas a page is laid out on. INFERRED: the escape menu's host canvas is not in its prefab (this size fits
 /// its content); the title pages use the title surface, 1920 x 1080, and the watch pages a watch-shaped one.
 pub fn canvas(page: &str) -> [f32; 2] {
@@ -511,7 +645,7 @@ pub fn canvas(page: &str) -> [f32; 2] {
 }
 
 /// A page to paint, with the state it shows.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Request {
     pub page: String,
     pub back_stack: usize,
@@ -520,6 +654,7 @@ pub struct Request {
     pub typed: String,
     pub focused: bool,
     pub scroll: HashMap<i64, f32>,
+    pub choosing: Option<String>,
 }
 
 /// A painted page: what to draw and what its selectables do.
@@ -565,13 +700,14 @@ impl Painter {
                 while let Ok(newer) = asked.try_recv() {
                     r = newer;
                 }
+                if donors.is_none() && r.page.starts_with("(Watch_Settings") {
+                    let (c, v) = (template(&mut looks, CONTROLS).ok(), template(&mut looks, VISUALS).ok());
+                    donors = Some(Donors::find(c.as_ref(), v.as_ref()));
+                }
                 let painted = template(&mut looks, &r.page).map(|t| {
-                    if r.page == VISUALS && donors.is_none() {
-                        let c = template(&mut looks, CONTROLS).ok();
-                        donors = Some(Donors::find(c.as_ref(), Some(&t)));
-                    }
-                    let none = Donors { slider: None, switch: None };
-                    let ctx = Ctx { page: &r.page, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused, scroll: &r.scroll };
+                    let none = Donors::default();
+                    let ctx = Ctx { page: &r.page, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused,
+                        scroll: &r.scroll, choosing: r.choosing.as_deref() };
                     let b = build(&t, &ctx, &theme, donors.as_ref().unwrap_or(&none));
                     Painted { drawn: paint::page_with(&mut looks, &b.page, canvas(&r.page)), page: r.page, actions: b.actions, scrolls: b.scrolls }
                 });
@@ -692,7 +828,7 @@ mod tests {
         let mut st = Settings::default();
         st.set("invert_y", 1.0);
         let scroll = HashMap::new();
-        let ctx = Ctx { page: ESCAPE, back_stack: 0, settings: &st, account: "me", typed: "", focused: false, scroll: &scroll };
+        let ctx = Ctx { page: ESCAPE, back_stack: 0, settings: &st, account: "me", typed: "", focused: false, scroll: &scroll, choosing: None };
         let mut w = Wiring::default();
         // the theme is not needed to see the wiring: build's steps before it
         let mut hides = vec![];
@@ -712,6 +848,10 @@ mod tests {
         assert_eq!(page_of(ROUTES[0].0), Some(CONTROLS));
         assert_eq!(setting("SettingsModelController/AutoSprintToggleImpl", &s(vec![])).as_deref(), Some("auto_sprint"));
         assert_eq!(setting("SettingsModelController/VolumeSliderImpl", &s(vec![("Type", Value::Int(3))])).as_deref(), Some("volume_music"));
+        let pitch = s(vec![("button", ptr(1)), ("toggleTheme", ptr(2)), ("Mode", Value::UInt(2))]);
+        assert_eq!(radio("SettingsModelController/VoicePitchRadioToggleImpl", &pitch), Some(("voice_pitch".to_string(), 2.0)));
+        assert_eq!(radio("SettingsModelController/GraphicsQualityToggleImpl", &s(vec![("defaultQualityMapping", Value::Int(3))])), Some(("graphics_quality".to_string(), 3.0)));
+        assert_eq!(radio("SettingsModelController/AutoSprintToggleImpl", &pitch), None);
     }
 
     #[test]

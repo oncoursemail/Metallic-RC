@@ -417,6 +417,17 @@ impl<'a> Pass<'a> {
                 (1, 1) => self.set_size(n, 1, self.nodes[n].size[0] / ratio),
                 // height controls width
                 (2, 0) => self.set_size(n, 0, self.nodes[n].size[1] * ratio),
+                // fit in or envelope the parent, centred on it (done once the parent's height is known)
+                (3 | 4, 1) => {
+                    let p = self.parent_size(n);
+                    let by_height = p[1] * ratio;
+                    let size = if (by_height <= p[0]) == (mode == 3) { [by_height, p[1]] } else { [p[0], p[0] / ratio] };
+                    let r = &mut self.nodes[n].rules;
+                    (r.anchor_min, r.anchor_max, r.anchored_position) = ([0.0; 2], [1.0; 2], [0.0; 2]);
+                    r.size_delta = [size[0] - p[0], size[1] - p[1]];
+                    self.nodes[n].size = size;
+                    self.resize_children(n);
+                }
                 _ => {}
             }
         }
@@ -675,6 +686,17 @@ mod tests {
         assert_eq!(laid.boxes[2].2.h, 600.0);
         assert_eq!(laid.boxes[3].2, Placed { x: 0.0, y: 0.0, w: 300.0, h: 40.0 });
         assert_eq!(laid.boxes[4].2.y, 40.0);
+    }
+
+    #[test]
+    fn an_aspect_fitter_fits_in_or_envelopes_its_parent() {
+        let fitter = |mode: i64| comp(ASPECT_FITTER, &[("m_AspectMode", Value::Int(mode)), ("m_AspectRatio", Value::Float(1.0))]);
+        let parent = RectRules { anchor_min: [0.0, 1.0], anchor_max: [0.0, 1.0], size_delta: [64.0, 110.0], pivot: [0.0, 1.0], ..Default::default() };
+        for (mode, want) in [(3, Placed { x: 0.0, y: 23.0, w: 64.0, h: 64.0 }), (4, Placed { x: -23.0, y: 0.0, w: 110.0, h: 110.0 })] {
+            let dot = el("dot", zero(), vec![fitter(mode)], vec![]);
+            let page = el("page", RectRules::default(), vec![], vec![el("indicator", parent, vec![], vec![dot])]);
+            assert_eq!(lay_out(&page, [800.0, 600.0], &mut Rough).boxes[2].2, want, "mode {mode}");
+        }
     }
 
     #[test]

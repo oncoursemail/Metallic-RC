@@ -17,6 +17,13 @@ const DEFAULTS: &[(&str, f64)] = &[
     ("volume_master", 100.0),
     ("volume_music", 100.0),
     ("volume_sfx", 100.0),
+    ("volume_ambience", 100.0),
+    ("volume_voice", 100.0),
+    ("volume_voice_call", 100.0),
+    ("volume_roomies", 100.0),
+    ("volume_game_ai", 100.0),
+    ("graphics_quality", 2.0),
+    ("sprint_input_mode", 0.0),
     ("vsync", 1.0),
     ("fullscreen", 0.0),
     ("resolution", 0.0),
@@ -100,6 +107,40 @@ impl Settings {
     }
 }
 
+/// The volume settings as gains from 0 to 1, for whatever plays sound (room audio, voice, music): `master` is the
+/// overall volume and the others are already multiplied by it. Kept current by the game as the sliders move.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq)]
+pub struct Volumes {
+    pub master: f32,
+    pub music: f32,
+    pub sfx: f32,
+    pub ambience: f32,
+    /// other players' voices in the room
+    pub voice: f32,
+    pub voice_call: f32,
+}
+
+impl Volumes {
+    pub fn from(s: &Settings) -> Volumes {
+        let gain = |k: &str| (s.get(k) as f32 / 100.0).clamp(0.0, 1.0);
+        let master = gain("volume_master");
+        Volumes {
+            master,
+            music: master * gain("volume_music"),
+            sfx: master * gain("volume_sfx"),
+            ambience: master * gain("volume_ambience"),
+            voice: master * gain("volume_voice"),
+            voice_call: master * gain("volume_voice_call"),
+        }
+    }
+}
+
+impl Default for Volumes {
+    fn default() -> Self {
+        Volumes::from(&Settings::default())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,6 +162,17 @@ mod tests {
         assert_eq!(back.accounts, ["alice", "bob"]);
         assert!(back.on("invert_y") && back.get("fov") == 60.0);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn volumes_are_gains_under_the_master_volume() {
+        let mut s = Settings::default();
+        assert_eq!(Volumes::from(&s).music, 1.0);
+        s.set("volume_master", 50.0);
+        s.set("volume_music", 40.0);
+        s.set("volume_voice", 150.0);
+        let v = Volumes::from(&s);
+        assert_eq!((v.master, v.music, v.voice, v.sfx), (0.5, 0.2, 0.5, 0.5));
     }
 
     #[test]

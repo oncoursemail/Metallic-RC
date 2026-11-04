@@ -37,7 +37,7 @@ use metallic_rc_client::{
     net::{self, Login},
     realtime::{self, Realtime},
     room::{self, RoomData},
-    settings::{Settings, RESOLUTIONS},
+    settings::{Settings, Volumes, RESOLUTIONS},
     shapes::{self, ShapeKit},
     ui::{input::{self, Pointer}, menu::{self, Action, Painted, Painter, Router}, view},
 };
@@ -86,9 +86,10 @@ fn die(msg: &str) -> ! {
     std::process::exit(2)
 }
 
-/// What the network thread has to say, shown on screen.
+/// What the network thread has to say, shown on screen: the login's line, then notes from the rest of the game (the
+/// room's pieces, menu errors), which a new login keeps.
 #[derive(Resource, Clone)]
-struct Status(Arc<Mutex<String>>);
+struct Status(Arc<Mutex<String>>, Arc<Mutex<String>>);
 
 #[derive(Component)]
 struct StatusText;
@@ -131,6 +132,8 @@ struct Menu {
     typed: String,
     focused: bool,
     scroll: HashMap<i64, f32>,
+    /// the dropdown setting whose choice dialog is open
+    choosing: Option<String>,
 }
 
 impl Menu {
@@ -142,7 +145,7 @@ impl Menu {
     fn ask(&self, settings: &Settings, account: &str) {
         let (Some(p), Some(page)) = (&self.painter, self.router.top()) else { return };
         p.ask(menu::Request { page: page.into(), back_stack: self.router.back_stack(), settings: settings.clone(), account: account.into(),
-            typed: self.typed.clone(), focused: self.focused, scroll: self.scroll.clone() });
+            typed: self.typed.clone(), focused: self.focused, scroll: self.scroll.clone(), choosing: self.choosing.clone() });
     }
 }
 
@@ -230,7 +233,7 @@ fn main() {
         *slot.lock().unwrap() = Some(load_dorm(&mut lib, &dir));
     });
 
-    let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))));
+    let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))), Arc::default());
     let net = Net::default();
     let [x, y, z, yaw, _] = a.camera;
     let account = Account { server: a.server.clone(), realtime: a.realtime.clone(), room: a.room.clone(), spawn: [x, (y - EYE).max(0.0), z],
@@ -248,6 +251,7 @@ fn main() {
         .insert_resource(net)
         .insert_resource(loading)
         .insert_resource(menu)
+        .insert_resource(Volumes::from(&prefs.s))
         .insert_resource(prefs)
         .insert_resource(account)
         .init_resource::<view::Uploaded>()
@@ -558,6 +562,8 @@ fn use_menu(
     if keys.just_pressed(KeyCode::Escape) {
         if menu.focused {
             menu.focused = false;
+        } else if menu.choosing.is_some() {
+            menu.choosing = None;
         } else if menu.open() {
             menu.router.close();
         } else {
@@ -613,6 +619,12 @@ fn use_menu(
             prefs.s.set(&key, if on { 0.0 } else { 1.0 });
             prefs.changed = true;
         }
+        Some(Action::Choose(key, v)) => {
+            prefs.s.set(&key, v);
+            (prefs.changed, menu.choosing) = (true, None);
+        }
+        Some(Action::Dropdown(key)) => menu.choosing = Some(key),
+        Some(Action::CloseDialog) => menu.choosing = None,
         Some(Action::Field) => menu.focused = true,
         Some(Action::Login) => switch_to = Some(menu.typed.trim().to_string()).filter(|n| !n.is_empty()),
         Some(Action::Account(name)) => switch_to = Some(name),
@@ -633,7 +645,7 @@ fn use_menu(
         (menu.typed, menu.focused) = (String::new(), false);
     }
     if menu.router.top().map(str::to_string) != page {
-        menu.pointer = Pointer::default();
+        (menu.pointer, menu.choosing) = (Pointer::default(), None);
     }
     if repaint || act.is_some() {
         menu.ask(&prefs.s, &account.name);
@@ -659,7 +671,7 @@ fn show_menu(
     while let Some(r) = menu.painter.as_ref().and_then(Painter::take) {
         match r {
             Ok(p) => next = Some(p),
-            Err(e) => status.0.lock().unwrap().push_str(&format!("  |  menu: {e}")),
+            Err(e) => status.1.lock().unwrap().push_str(&format!("  |  menu: {e}")),
         }
     }
     let resized = menu.shown.as_ref().is_some_and(|s| s.2 != size);
@@ -686,13 +698,15 @@ fn not_typing(menu: Res<Menu>) -> bool {
     !menu.focused
 }
 
-/// Puts changed window settings into effect and saves the settings (`camera_view` follows the field of view).
-fn apply_settings(mut prefs: ResMut<Prefs>, mut window: Single<&mut Window, With<PrimaryWindow>>) {
+/// Puts changed window settings and volumes into effect and saves the settings (`camera_view` follows the field of
+/// view).
+fn apply_settings(mut prefs: ResMut<Prefs>, mut window: Single<&mut Window, With<PrimaryWindow>>, mut volumes: ResMut<Volumes>) {
     if !prefs.changed {
         return;
     }
     prefs.changed = false;
     let s = &prefs.s;
+    volumes.set_if_neq(Volumes::from(s));
     let present = if s.on("vsync") { PresentMode::AutoVsync } else { PresentMode::AutoNoVsync };
     if window.present_mode != present {
         window.present_mode = present;
@@ -795,7 +809,7 @@ fn look_and_walk(
 }
 
 fn show_status(status: Res<Status>, mut text: Single<&mut Text, With<StatusText>>) {
-    let now = status.0.lock().unwrap().clone();
+    let now = format!("{}{}", status.0.lock().unwrap(), status.1.lock().unwrap());
     if text.0 != now {
         text.0 = now;
     }
@@ -827,7 +841,7 @@ fn spawn_room(
     let r = match result {
         Ok(r) => r,
         Err(e) => {
-            status.0.lock().unwrap().push_str(&format!("  |  room: {e}"));
+            status.1.lock().unwrap().push_str(&format!("  |  room: {e}"));
             return;
         }
     };
@@ -867,6 +881,6 @@ fn spawn_room(
         mesh.insert_indices(Indices::U32(p.indices));
         commands.spawn((Mesh3d(meshes.add(mesh)), MeshMaterial3d(mats[p.material].clone()), Transform::from_matrix(p.world), Name::new(p.name)));
     }
-    status.0.lock().unwrap().push_str(&format!("  |  {} Dorm pieces from the game files", r.roots.len()));
+    status.1.lock().unwrap().push_str(&format!("  |  {} Dorm pieces from the game files", r.roots.len()));
     solids.0 = r.colliders;
 }
