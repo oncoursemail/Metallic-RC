@@ -13,6 +13,7 @@ use rr_net::events::relay::{self, Proxied, Raise, Receivers};
 use rr_net::events::tagged::Value;
 use rr_net::events::{OP_DOWN, OP_UP, RELAY_DOWN, RELAY_UP};
 use rr_net::ngo::{NgoDelivery, Server, ServerEvent};
+use rr_net::voice::{self, VoicePacket};
 
 /// The approval payload the 2026 client takes as success.
 const APPROVED: &str = r#"{"DR":"Carrot"}"#;
@@ -111,8 +112,22 @@ impl Rooms {
                         self.relay(now, from, r);
                     }
                 }
+                ServerEvent::Named { from, hash: voice::TO_SERVER, mut payload } => {
+                    if VoicePacket::stamp(&mut payload, from as u16) {
+                        self.voice(from, &payload);
+                    }
+                }
                 ServerEvent::Named { .. } => {}
             }
+        }
+    }
+
+    /// Passes a voice packet (stamped with the speaker) to the rest of the speaker's room.
+    fn voice(&mut self, from: u64, payload: &[u8]) {
+        let Some(room) = self.room_of.get(&from).and_then(|n| self.rooms.get(n)) else { return };
+        let to: Vec<u64> = room.members.iter().map(|p| p.client_id).filter(|&c| c != from).collect();
+        for c in to {
+            self.ngo.send_named(c, voice::TO_CLIENT, payload, NgoDelivery::Unreliable);
         }
     }
 

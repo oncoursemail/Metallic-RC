@@ -22,6 +22,7 @@ use crate::ngo::session::TICK_RATE;
 use crate::ngo::{Client, ClientEvent, NgoDelivery};
 use crate::objects::{self, moved, Object, ObjectEvent, RpcTarget};
 use crate::sync::{self, AvatarData, Pose, Smoother};
+use crate::voice::{self, VoicePacket};
 
 pub const PLAYER_PREFAB: &str = "Player";
 const REQUEST_SPAWN: &str = "RpcMasterRequestPlayerSpawn";
@@ -32,6 +33,8 @@ const LOOK: &str = "RpcSetLook";
 const SPAWN_SPACING: f32 = 1.2;
 /// most ownership claims and samples kept for objects not registered yet
 const MAX_EARLY: usize = 4096;
+/// voice packets held for the game to take (about 1 s per speaker for a few speakers)
+const MAX_VOICE: usize = 256;
 
 /// The player avatar's view id: actor * 100000 plus a sub id (the PUN scheme).
 pub fn view_id(actor: i32) -> i32 {
@@ -110,6 +113,10 @@ pub struct RoomClient {
     early_destroyed: HashSet<i32>,
     /// send every owned object at the next beat (someone joined)
     resend: bool,
+    voice_in: VecDeque<VoicePacket>,
+    voice_sequence: u16,
+    /// the other players as last drawn
+    shown: Vec<Shown>,
 }
 
 impl RoomClient {
@@ -141,6 +148,9 @@ impl RoomClient {
             early_pose: HashMap::new(),
             early_destroyed: HashSet::new(),
             resend: false,
+            voice_in: VecDeque::new(),
+            voice_sequence: 0,
+            shown: vec![],
         }
     }
 
@@ -555,6 +565,14 @@ impl RoomClient {
                         self.on_event(now, p);
                     }
                 }
+                ClientEvent::Named { hash: voice::TO_CLIENT, payload } => {
+                    if let Ok(v) = VoicePacket::decode(&payload) {
+                        if self.voice_in.len() >= MAX_VOICE {
+                            self.voice_in.pop_front();
+                        }
+                        self.voice_in.push_back(v);
+                    }
+                }
                 ClientEvent::Named { .. } => {}
             }
         }
@@ -714,7 +732,28 @@ impl RoomClient {
             })
         }).collect();
         out.sort_by_key(|s| s.actor);
+        self.shown = out.clone();
         out
+    }
+
+    /// The other players as `remotes` last returned them.
+    pub fn shown(&self) -> &[Shown] {
+        &self.shown
+    }
+
+    /// Sends one Opus frame of this player's voice to the room (unreliable, as Dissonance sends voice).
+    pub fn send_voice(&mut self, frame: Vec<u8>, amplitude: u8) {
+        if self.actor.is_none() {
+            return;
+        }
+        self.voice_sequence = self.voice_sequence.wrapping_add(1);
+        let p = VoicePacket { sender: 0, sequence: self.voice_sequence, amplitude, frame };
+        self.ngo.send_named(voice::TO_SERVER, &p.encode(), NgoDelivery::Unreliable);
+    }
+
+    /// The next voice packet another player sent.
+    pub fn poll_voice(&mut self) -> Option<VoicePacket> {
+        self.voice_in.pop_front()
     }
 }
 

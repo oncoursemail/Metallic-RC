@@ -252,3 +252,25 @@ fn scene_objects_are_shared_by_view_id() {
     w.p(d).client.register_scene_object(chair, "Dorm/Chair", [0.0; 3], [0.0, 0.0, 0.0, 1.0]);
     assert!(w.p(d).client.is_spawned() && w.p(d).client.object_count() == 0);
 }
+
+#[test]
+fn voice_reaches_the_rest_of_the_room_stamped_with_the_speaker() {
+    let mut w = World::new();
+    let a = w.join("Ada");
+    w.wait(1.0);
+    let (b, c) = (w.join("Bo"), w.join("Cy"));
+    w.wait(2.0);
+    for k in 0..50u8 {
+        w.p(a).client.send_voice(vec![k; 40], 100);
+        w.wait(0.02);
+    }
+    w.wait(0.5);
+    let got = |w: &mut World, i: usize| std::iter::from_fn(|| w.p(i).client.poll_voice()).collect::<Vec<_>>();
+    let (at_a, at_b, at_c) = (got(&mut w, a), got(&mut w, b), got(&mut w, c));
+    assert!(at_a.is_empty());
+    for heard in [at_b, at_c] {
+        // unreliable: most frames arrive through 10 % loss each way, in order of sequence, from actor 1
+        assert!(heard.len() >= 35 && heard.iter().all(|v| v.sender == 1 && v.amplitude == 100 && v.frame.len() == 40), "{}", heard.len());
+        assert!(heard.windows(2).all(|p| p[0].sequence != p[1].sequence));
+    }
+}

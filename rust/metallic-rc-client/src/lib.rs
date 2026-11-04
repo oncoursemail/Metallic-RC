@@ -8,3 +8,4 @@ pub mod room;
 pub mod settings;
 pub mod shapes;
 pub mod ui;
+pub mod voice;

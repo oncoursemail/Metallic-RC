@@ -8,6 +8,7 @@
 //! - [`events`]: the Rec Room server operations and relayed events carried in NamedMessages;
 //! - [`sync`]: the movement records of event 28 (avatars and objects) and the smoothing of what others move;
 //! - [`objects`]: networked objects: view ids, instantiate and destroy, ownership, RPC targets;
+//! - [`voice`]: voice packets (Dissonance VoiceData) relayed through the room;
 //! - [`room`]: a player's side of a room (join, spawn, movement), used by the game client and the tests.
 //!
 //! No sockets here: callers feed datagrams in and take datagrams out, so the same code runs in tests, the game
@@ -19,3 +20,4 @@ pub mod ngo;
 pub mod objects;
 pub mod room;
 pub mod sync;
+pub mod voice;
