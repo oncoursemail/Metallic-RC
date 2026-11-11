@@ -3,17 +3,22 @@
 //! look's colours, and the real Rec Room eye and mouth sprites are placed on the face as decals. Per-joint skinning and
 //! real store outfits come next; until then the body is static in its bind pose but still moves with its root.
 use std::path::Path;
+use std::sync::Arc;
 
 use bevy::{
     asset::RenderAssetUsages,
+    camera::visibility::NoFrustumCulling,
     image::Image,
-    mesh::{Indices, PrimitiveTopology},
+    mesh::{
+        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+        Indices, PrimitiveTopology,
+    },
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 use unity_assets::{Bundle, Mesh as UMesh, SerializedFile, Texture2D};
 
-use super::Rig;
+use super::{anim, skin, Rig};
 use crate::room;
 
 /// The avatar skin bundle inside the install, and the body + nose mesh objects in it.
@@ -38,6 +43,20 @@ pub struct Roomie {
     pub eye_mat: Handle<StandardMaterial>,
     pub mouth_quad: Handle<Mesh>,
     pub mouth_mat: Handle<StandardMaterial>,
+    /// the real joint rig and its inverse bind poses, when the body is skinned (else the body is the static bind pose)
+    pub rig: Option<Arc<skin::RigDef>>,
+    pub inverse_bindposes: Option<Handle<SkinnedMeshInverseBindposes>>,
+}
+
+/// The real avatar's spawned joint entities (rig order) and the standing skeleton node, kept on the avatar root so the
+/// animation can pose the joints and bob/lower the whole body.
+#[derive(Component)]
+pub struct Skeleton {
+    pub joints: Vec<Entity>,
+    /// the node carrying the stand-up; its vertical offset bobs/lowers the body
+    pub root_node: Entity,
+    /// eased finger curls per hand (outer three fingers, index, thumb) so grips don't snap
+    pub curls: [[f32; 3]; 2],
 }
 
 /// Marks a `Rig` whose real body has been attached, so it is attached once.
@@ -209,21 +228,35 @@ pub fn load_roomie(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    mut binds: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     let Some(dir) = room::GAME_DIRS.iter().map(Path::new).find(|p| p.exists()) else {
         return;
     };
-    let Some([skin, shirt, pants]) = load_bodies(dir) else {
-        info!("avatar: no real body in the game files, using the procedural avatar");
-        return;
+    // the skinned body (per-joint rig) is preferred; if its skin data can't be read, fall back to the static bind pose
+    let (bodies, rig, inverse_bindposes) = match skin::load(dir) {
+        Some(l) => {
+            info!("avatar: real Rec Room body loaded skinned ({} joints)", l.rig.joints.len());
+            (l.meshes, Some(Arc::new(l.rig)), Some(binds.add(SkinnedMeshInverseBindposes::from(l.inverse_bindposes))))
+        }
+        None => match load_bodies(dir) {
+            Some(m) => {
+                info!("avatar: real Rec Room body loaded static (no skin data)");
+                (m, None, None)
+            }
+            None => {
+                info!("avatar: no real body in the game files, using the procedural avatar");
+                return;
+            }
+        },
     };
+    let [skin, shirt, pants] = bodies;
     let (Some((eye_img, eye_a)), Some((mouth_img, mouth_a))) =
         (load_face_sprite(dir, EYE_BUNDLE, EYE_PATHID), load_face_sprite(dir, MOUTH_BUNDLE, MOUTH_PATHID))
     else {
         info!("avatar: real body loaded, but the face sprites could not be read");
         return;
     };
-    info!("avatar: real Rec Room body, nose and face sprites loaded from the game files");
     commands.insert_resource(Roomie {
         skin: meshes.add(skin),
         shirt: meshes.add(shirt),
@@ -232,6 +265,8 @@ pub fn load_roomie(
         eye_mat: decal(&mut materials, images.add(eye_img)),
         mouth_quad: meshes.add(Rectangle::new(MOUTH_W, MOUTH_W * mouth_a)),
         mouth_mat: decal(&mut materials, images.add(mouth_img)),
+        rig,
+        inverse_bindposes,
     });
 }
 
@@ -245,6 +280,8 @@ fn solid(materials: &mut Assets<StandardMaterial>, c: [u8; 3], roughness: f32) -
 }
 
 /// Attaches the real body (skin/shirt/pants) and face under every `Rig` once. First-person rigs get no body yet.
+/// With a skinned rig the body deforms per joint (the joint hierarchy is spawned under the avatar and the meshes get a
+/// `SkinnedMesh`); otherwise it is the static bind pose. Either way the face decals ride the head.
 pub fn attach_real(
     mut commands: Commands,
     roomie: Option<Res<Roomie>>,
@@ -263,29 +300,63 @@ pub fn attach_real(
             .id();
 
         let look = &rig.look;
-        let stand = Transform::from_rotation(stand());
-        for (mesh, mat) in [
-            (roomie.skin.clone(), solid(&mut materials, look.skin, 0.55)),
-            (roomie.shirt.clone(), solid(&mut materials, look.shirt, 0.8)),
-            (roomie.pants.clone(), solid(&mut materials, look.pants, 0.75)),
-        ] {
-            commands.spawn((Mesh3d(mesh), MeshMaterial3d(mat), stand, ChildOf(visual)));
-        }
+        let mats = [
+            solid(&mut materials, look.skin, 0.55),
+            solid(&mut materials, look.shirt, 0.8),
+            solid(&mut materials, look.pants, 0.75),
+        ];
+        let regions = [roomie.skin.clone(), roomie.shirt.clone(), roomie.pants.clone()];
 
-        // the real face sprites as decals on the head, facing -z; the right eye is the same sprite mirrored in x.
+        // where the face decals hang: under the head joint when skinned (so they follow the head), else the visual node
         let face = Quat::from_rotation_y(std::f32::consts::PI);
+        let decal_parent = match (&roomie.rig, &roomie.inverse_bindposes) {
+            (Some(rigdef), Some(binds)) => {
+                // the standing skeleton: a node with the stand-up, the joints under it, the meshes skinned to them
+                let skeleton_node = commands.spawn((Transform::from_rotation(stand()), Visibility::default(), ChildOf(visual))).id();
+                let joints = skin::spawn_skeleton(&mut commands, rigdef, skeleton_node);
+                for (mesh, mat) in regions.into_iter().zip(mats) {
+                    // skinned geometry is placed by the joints, not by this entity's transform, so its default AABB is
+                    // in the wrong place and frustum culling would wrongly hide it up close; skip culling for it.
+                    commands.spawn((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(mat),
+                        Transform::default(),
+                        SkinnedMesh { inverse_bindposes: binds.clone(), joints: joints.clone() },
+                        NoFrustumCulling,
+                        ChildOf(visual),
+                    ));
+                }
+                // a group under the head joint whose transform cancels the head's bind pose, so decals placed in the
+                // standing avatar frame (EYE_POS / MOUTH_POS) land on the face and then follow the head joint.
+                let head = rigdef.head;
+                let cancel = (Mat4::from_quat(stand()) * rigdef.bind_world[head]).inverse();
+                let group = commands.spawn((Transform::from_matrix(cancel), Visibility::default(), ChildOf(joints[head]))).id();
+                commands.entity(root).insert(Skeleton { joints, root_node: skeleton_node, curls: [anim::Grip::Open.curls(); 2] });
+                group
+            }
+            _ => {
+                let stand = Transform::from_rotation(stand());
+                for (mesh, mat) in regions.into_iter().zip(mats) {
+                    commands.spawn((Mesh3d(mesh), MeshMaterial3d(mat), stand, ChildOf(visual)));
+                }
+                visual
+            }
+        };
+
+        // the real face sprites as decals, facing -z; the right eye is the same sprite mirrored in x.
         for (i, p) in EYE_POS.into_iter().enumerate() {
             let scale = Vec3::new(if i == 0 { 1.0 } else { -1.0 }, 1.0, 1.0);
             commands.spawn((Mesh3d(roomie.eye_quad.clone()), MeshMaterial3d(roomie.eye_mat.clone()),
-                Transform { translation: p, rotation: face, scale }, ChildOf(visual)));
+                Transform { translation: p, rotation: face, scale }, ChildOf(decal_parent)));
         }
         commands.spawn((Mesh3d(roomie.mouth_quad.clone()), MeshMaterial3d(roomie.mouth_mat.clone()),
-            Transform { translation: MOUTH_POS, rotation: face, ..default() }, ChildOf(visual)));
+            Transform { translation: MOUTH_POS, rotation: face, ..default() }, ChildOf(decal_parent)));
     }
 }
 
 /// A gentle idle: the avatar breathes (a small vertical bob + a hair of scale) and sways, each offset by its phase, so
-/// a standing avatar is never dead-still. Replaced by real locomotion once skinning lands.
+/// a standing avatar is never dead-still. The skinned body is posed per joint instead (`animate_skeleton`), so this
+/// only moves the static-body avatars.
 pub fn idle(time: Res<Time>, mut visuals: Query<(&Visual, &mut Transform)>) {
     let t = time.elapsed_secs();
     for (v, mut tr) in &mut visuals {
@@ -294,5 +365,39 @@ pub fn idle(time: Res<Time>, mut visuals: Query<(&Visual, &mut Transform)>) {
         let s = 1.0 + b.sin() * 0.004;
         tr.scale = Vec3::new(1.0, s, 1.0);
         tr.rotation = Quat::from_rotation_z((t * 0.8 + v.phase).sin() * 0.012);
+    }
+}
+
+/// TEMP (stage 2): pose the real skeleton from an env test spec `TP="Jnt.Name:axis:deg,..."` so we can discover each
+/// joint's local bend axes before wiring real locomotion. Resets every joint to its bind pose, then applies the spec.
+pub fn animate_skeleton(
+    roomie: Option<Res<Roomie>>,
+    skels: Query<&Skeleton>,
+    mut xf: Query<&mut Transform>,
+) {
+    let Some(roomie) = roomie else { return };
+    let Some(rig) = &roomie.rig else { return };
+    let spec = std::env::var("TP").unwrap_or_default();
+    for skel in &skels {
+        for (i, j) in rig.joints.iter().enumerate() {
+            if let Ok(mut t) = xf.get_mut(skel.joints[i]) {
+                *t = j.local;
+            }
+        }
+        for part in spec.split(',').filter(|s| !s.is_empty()) {
+            let mut it = part.split(':');
+            let name = it.next().unwrap_or("");
+            let axis = it.next().unwrap_or("x");
+            let deg = it.next().and_then(|d| d.parse::<f32>().ok()).unwrap_or(0.0);
+            let Some(i) = rig.index(name) else { continue };
+            let a = match axis {
+                "y" => Vec3::Y,
+                "z" => Vec3::Z,
+                _ => Vec3::X,
+            };
+            if let Ok(mut t) = xf.get_mut(skel.joints[i]) {
+                t.rotation = rig.joints[i].local.rotation * Quat::from_axis_angle(a, deg.to_radians());
+            }
+        }
     }
 }
