@@ -168,6 +168,19 @@ pub fn decode(mode: u32, s: &FsbSample) -> Result<Vec<i16>, String> {
 }
 
 /// An AudioClip object's value (its `.resource` read from `bundle`) decoded.
+/// The FMOD Vorbis setup codebooks, extracted once from the user's own UnityPlayer.dll into a local (gitignored)
+/// `vorbis_setups.bin` and pointed at by `RR_VORBIS_DIR`. Loaded once; `None` (→ Vorbis clips stay silent) when the env
+/// var is unset or the file is missing, exactly the pre-existing behaviour for music/VO.
+fn vorbis_setups() -> Option<&'static unity_assets::VorbisSetups> {
+    static SETUPS: std::sync::OnceLock<Option<unity_assets::VorbisSetups>> = std::sync::OnceLock::new();
+    SETUPS
+        .get_or_init(|| {
+            let dir = std::env::var("RR_VORBIS_DIR").ok()?;
+            unity_assets::VorbisSetups::load(std::path::Path::new(&dir)).ok()
+        })
+        .as_ref()
+}
+
 pub fn clip_from_value(v: &Value, bundle: &unity_assets::Bundle) -> Result<Clip, String> {
     let name = v.get("m_Name").and_then(|x| x.as_str()).unwrap_or_default().to_string();
     let res = v.get("m_Resource").ok_or("no m_Resource")?;
@@ -178,6 +191,14 @@ pub fn clip_from_value(v: &Value, bundle: &unity_assets::Bundle) -> Result<Clip,
     let bytes = bundle.read_node_range(node, offset, size).map_err(|e| e.to_string())?;
     let (mode, samples) = parse_fsb5(&bytes)?;
     let s = samples.first().ok_or("fsb5: no samples")?;
+    // PCM/IMA are decoded in-crate; Vorbis (music/VO) goes through unity_assets' full FSB5 decoder with the FMOD setup
+    // codebooks (its headers are stripped and looked up by id), so rooms play real music, not just SFX.
+    if mode == 15 {
+        let channels = v.get("m_Channels").and_then(|x| x.as_i64()).unwrap_or(s.channels as i64) as u32;
+        let frequency = v.get("m_Frequency").and_then(|x| x.as_i64()).unwrap_or(s.rate as i64) as u32;
+        let data = unity_assets::audio::decode_fsb5(&bytes, channels, frequency, None, vorbis_setups()).map_err(|e| e.to_string())?;
+        return Ok(Clip { name, rate: data.sample_rate, channels: data.channels as u16, samples: data.samples, codec: codec_name(mode) });
+    }
     let pcm = decode(mode, s)?;
     Ok(Clip { name, rate: s.rate, channels: s.channels, samples: pcm, codec: codec_name(mode) })
 }
