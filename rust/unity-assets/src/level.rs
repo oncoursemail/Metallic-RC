@@ -284,15 +284,30 @@ pub fn lightmap_settings(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<L
     }
     let light_probes = pptr(&mut r)?;
     let lightmaps = vec_of(&mut r, 36, |r| Ok(LightmapData { color: pptr(r)?, directional: pptr(r)?, shadow_mask: pptr(r)? }))?;
+    // Unity 6 (6000.x) inserts a 4-byte field between m_Lightmaps and m_LightmapsMode. INFERRED from the
+    // decrypted 2026 base scenes (6000.0.27f1): it reads 0 in every sampled scene. Layout verified by the
+    // cipher session's byte dumps of the decrypted corpus (session sweet-galileo).
+    let u6 = is_u6(sf);
+    if u6 {
+        r.i32()?;
+    }
     let mode = r.i32()?;
     let [bounce_scale, indirect_output_scale, albedo_boost] = floats::<3>(&mut r)?;
     let environment_lighting_mode = r.u32()?;
     let baked_lightmaps = r.bool()?;
     let realtime_lightmaps = r.bool()?;
     r.align(4);
-    r.bool()?; // m_UseShadowmask
-    if r.remaining() > 0 {
-        r.align(4);
+    if u6 {
+        // Unity 6 tail is three i32 (0x40-0x4b): m_UseShadowmask and two unidentified fields (candidates
+        // m_ShadowMaskMode and a LightingDataAsset tail), replacing the 2019/2021 single-bool + align.
+        r.i32()?;
+        r.i32()?;
+        r.i32()?;
+    } else {
+        r.bool()?; // m_UseShadowmask
+        if r.remaining() > 0 {
+            r.align(4);
+        }
     }
     done(&r, "LightmapSettings")?;
     Ok(LightmapSettings {

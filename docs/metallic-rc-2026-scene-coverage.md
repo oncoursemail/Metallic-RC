@@ -49,8 +49,13 @@ load layout + prefab geometry but miss the base-scene-embedded meshes/textures.
 - **`* ` compressed decorative meshes** — e.g. `CandleFlameMesh` in the Quest rooms. `level::mesh` does not yet
   decode Unity mesh compression (`m_MeshCompression != 0`), so a handful of small props are skipped (one mesh per
   affected room). Cosmetic; the room is otherwise complete.
-- **Baked lightmaps** — `LightmapSettings` has a Unity 6 layout change (+12 bytes) not yet parsed, so rooms light from
-  their realtime/mixed lights + ambient rather than baked lightmaps. Rooms look correct, just without baked GI.
+- **Baked lightmaps — none exist to load.** The built-in 2026 scenes ship *no* baked lightmaps: every MeshRenderer's
+  `m_LightmapIndex` is `0xFFFF` (checked across ~40k renderers in 8 scenes incl. reccenter, dorm, all Paintball maps,
+  Drive-In, Merry Midway, Rec Rally) and `LightmapSettings.m_Lightmaps` is empty in every scene. These Addressables
+  rooms light entirely from realtime/mixed lights + light probes + reflection probes, so there is no baked GI to match;
+  the realtime look *is* 1:1. `LightmapSettings` (157) now parses the Unity 6 76-byte layout (+12 vs the 2019/2021
+  64-byte struct: an i32 after `m_Lightmaps`, and a 3×i32 tail), which also un-gates light-probe loading in the client
+  (previously the parse error dropped `m_LightProbes` too). Layout corroborated by the cipher session's corpus dumps.
 - **Cubemaps (reflection probes / skybox)** — the Unity 6 Cubemap (class 89) layout is not verified; reflection/skybox
   cubemaps may not load. Does not affect geometry or materials.
 
