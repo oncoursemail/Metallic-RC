@@ -1,5 +1,10 @@
 # Metallic-RC
 
+> **Where the code lives:** since 2026-11-04 the main copy of this repository, with its issues and pull requests, is on the owner's self-hosted Metallic Forge. The GitHub copy is a read-only mirror, updated automatically from the forge; please do not open issues or pull requests here.
+
+> **Project status: Foundation planning — not yet a playable game.**  
+> Independent social multiplayer, VR, and creator platform. The repository starts with a technical roadmap and evidence-based progress tracker; completed features must be proven by merged changes, tests, and working builds.
+
 Metallic-RC starts from the owner's installed 2026 Rec Room client. The rejected Meadow prototype, its active world design, native build scripts and release links have been removed.
 
 **Current compiled deliverable:** an original C# desktop launcher, read-only client inventory and verification, and a local CV3 creator website/service. **A rebuilt Rec Room executable and a compatible Metallic multiplayer/voice backend are not yet implemented.**
