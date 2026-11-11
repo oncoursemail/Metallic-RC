@@ -97,35 +97,33 @@ fn main() {
     let clip = AnimationClip::from_value(&v).expect("from_value");
     println!("  name={} sample_rate={} stop_time={} bindings={} curves={}", clip.name, clip.sample_rate, clip.stop_time, clip.bindings.len(), clip.curve_count());
 
-    // build an m_TOS (hash -> bone path) from the player-body avatar (the one whose paths carry Jnt.*)
-    let tos = avatar_tree.as_ref().and_then(|at| {
-        let mut best: HashMap<u32, String> = HashMap::new();
+    // build a UNION m_TOS (hash -> bone path) across ALL avatars, so effector/IK-handle paths in any rig resolve
+    let tos = avatar_tree.as_ref().map(|at| {
+        let mut union: HashMap<u32, String> = HashMap::new();
         for ao in &avatar_objs {
             let Ok(av) = value::read(at, &res.ref_types, &mut Reader::new(res.object_bytes(ao), res.big_endian)) else { continue };
-            let map: HashMap<u32, String> = av.get("m_TOS").map(|t| t.pairs().iter()
-                .filter_map(|(k, val)| Some((k.as_u64()? as u32, val.as_str()?.to_string()))).collect()).unwrap_or_default();
-            let jnts = map.values().filter(|p| p.contains("Jnt.")).count();
-            println!("  avatar {:?}: m_TOS {} entries, {} with Jnt.", res.object_name(ao).unwrap_or_default(), map.len(), jnts);
-            if jnts > best.values().filter(|p| p.contains("Jnt.")).count() {
-                best = map;
+            if let Some(t) = av.get("m_TOS") {
+                for (k, val) in t.pairs() {
+                    if let (Some(k), Some(v)) = (k.as_u64(), val.as_str()) {
+                        union.entry(k as u32).or_insert_with(|| v.to_string());
+                    }
+                }
             }
         }
-        (!best.is_empty()).then_some(best)
+        println!("  union m_TOS across {} avatars: {} entries", avatar_objs.len(), union.len());
+        union
     });
 
-    // resolve bindings -> bone path, count Jnt coverage, sample at t=0
-    let mut jnt_bones = 0;
-    println!("\n=== bindings (first 20) ===");
+    // resolve bindings -> full bone path, print all, sample at t=0
+    let mut resolved = 0;
+    println!("\n=== bindings ===");
     for (i, bnd) in clip.bindings.iter().enumerate() {
         let path = tos.as_ref().and_then(|m| m.get(&bnd.path)).cloned();
-        if path.as_deref().map(|p| p.contains("Jnt.")).unwrap_or(false) {
-            jnt_bones += 1;
+        if path.is_some() {
+            resolved += 1;
         }
-        if i < 20 {
-            let vals = clip.sample_binding(bnd, 0.0);
-            let leaf = path.as_deref().map(|p| p.rsplit('/').next().unwrap_or(p).to_string());
-            println!("  #{i} path={:#010x} {:?} -> {:?}  sample@0={:?}", bnd.path, bnd.attribute, leaf.or(path), vals.iter().map(|x| (x * 100.0).round() / 100.0).collect::<Vec<_>>());
-        }
+        let vals = clip.sample_binding(bnd, 0.0);
+        println!("  #{i} path={:#010x} {:?} -> {}  @0={:?}", bnd.path, bnd.attribute, path.unwrap_or_else(|| "??".into()), vals.iter().map(|x| (x * 100.0).round() / 100.0).collect::<Vec<_>>());
     }
-    println!("\nbone-path resolution: {}/{} bindings map to a Jnt.* bone", jnt_bones, clip.bindings.len());
+    println!("\nbinding resolution: {}/{} bindings map to a bone path", resolved, clip.bindings.len());
 }

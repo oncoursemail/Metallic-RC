@@ -36,6 +36,9 @@ const SHOTS: &[Shot] = &[
     Shot { name: "06_fall", vel: Vec3::new(0.5, -3.5, 0.0), grounded: Some(false), emote: None, dwell: 0.4, burst: 2 },
     Shot { name: "07_emote_sit", vel: Vec3::ZERO, grounded: Some(true), emote: Some("sit"), dwell: 0.8, burst: 1 },
     Shot { name: "08_emote_prone", vel: Vec3::ZERO, grounded: Some(true), emote: Some("prone"), dwell: 0.8, burst: 1 },
+    Shot { name: "09_emote_hips", vel: Vec3::ZERO, grounded: Some(true), emote: Some("hips"), dwell: 0.8, burst: 1 },
+    Shot { name: "10_emote_flex", vel: Vec3::ZERO, grounded: Some(true), emote: Some("flex"), dwell: 0.8, burst: 1 },
+    Shot { name: "11_emote_cute", vel: Vec3::ZERO, grounded: Some(true), emote: Some("cute"), dwell: 0.8, burst: 1 },
 ];
 
 fn looks() -> Vec<Look> {

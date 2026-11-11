@@ -35,29 +35,110 @@ pub const STATE_CLIPS: &[(&str, &str)] = &[
     ("crouch_idle", "Avatar_Skeleton|Crouch_Idle"),
     ("crouch_walk", "Avatar_Skeleton|Crouch_Walk_Forward"),
     ("fly", "Avatar_Skeleton|Fly_Idle"),
-    // emotes/poses, triggered via Drive.emote. Only forward-kinematic clips work here: the Fidget_*_static "fidget"
-    // emotes (flex, hands-on-hips, wave, dance) are authored as IK effector targets (Position bindings on hand/foot
-    // handles, no joint rotations), so they'd need an IK solver to play — a follow-up. Idle_Sit/Idle_Prone are FK.
+    // emotes/poses, triggered via Drive.emote. Idle_Sit/Idle_Prone are forward-kinematic; the Fidget_* fidgets are
+    // authored as VR hand-target poses (Vr.Hand.{L,R} positions) and play via the 2-bone arm IK in `pose`/`solve_arm`.
     ("sit", "Avatar_Skeleton|Idle_Sit"),
     ("prone", "Avatar_Skeleton|Idle_Prone"),
+    ("hips", "Avatar_Skeleton|Fidget_HandsOnHips01_static"),
+    ("flex", "Avatar_Skeleton|Fidget_Flex01_static"),
+    ("crossed", "Avatar_Skeleton|Fidget_CrossedArms01_static"),
+    ("cute", "Avatar_Skeleton|Fidget_Cute01"),
 ];
 
-/// One authored clip, with its rotation bindings pre-resolved to our joint indices.
+/// A clip's VR-IK hand targets: Rec Room's "fidget" emotes (flex, hands-on-hips, wave, …) are authored not as joint
+/// rotations but as `Vr.Hand.L/R` effector POSITIONS (where the hands should be), with the arms solved by IK. We store
+/// those two position bindings and solve a 2-bone arm IK each frame to reach them.
+struct IkArms {
+    /// the Vr.Hand.{L,R} position bindings (hand targets in the avatar-root space)
+    hand: [Binding; 2],
+}
+
+/// One authored clip, pre-resolved to our rig: either forward-kinematic joint rotations (locomotion, Idle_Sit, …) or,
+/// for the VR-authored fidget emotes, hand IK targets.
 pub struct Clip {
     pub stop_time: f32,
     clip: AnimationClip,
     /// (joint index in the rig, quaternion rotation binding) for every bone the clip animates that is in our rig
     bones: Vec<(usize, Binding)>,
+    /// hand IK targets, for the VR-authored emotes (then `bones` is usually empty)
+    ik: Option<IkArms>,
+    /// the root (Jnt.Spine.Root) position binding, so a pose's hip height can ground the body (e.g. sit/prone)
+    root: Option<Binding>,
 }
 
 impl Clip {
-    /// The authored local rotations at time `t` (seconds), already converted into Bevy space, as (joint index, rotation).
-    pub fn pose(&self, t: f32) -> impl Iterator<Item = (usize, Quat)> + '_ {
-        self.bones.iter().filter_map(move |&(j, b)| {
-            let v = self.clip.sample_binding(&b, t);
-            (v.len() == 4).then(|| (j, conj_rot(Quat::from_xyzw(v[0], v[1], v[2], v[3]))))
+    /// The authored local joint rotations at time `t` (seconds), in Bevy space, as (joint index, rotation): the clip's
+    /// own rotations for an FK clip, or the 2-bone arm-IK solution for a VR hand-target (emote) clip.
+    pub fn pose(&self, t: f32, rig: &RigDef) -> Vec<(usize, Quat)> {
+        if let Some(ik) = &self.ik {
+            let mut out = Vec::new();
+            for (i, side) in ["L", "R"].into_iter().enumerate() {
+                let v = self.clip.sample_binding(&ik.hand[i], t);
+                if v.len() >= 3 {
+                    // the hand target in the avatar root frame, converted Unity→Bevy (z-flip), then solve the arm to it
+                    out.extend(solve_arm(rig, side, Vec3::new(v[0], v[1], -v[2])));
+                }
+            }
+            out
+        } else {
+            self.bones.iter().filter_map(|&(j, b)| {
+                let v = self.clip.sample_binding(&b, t);
+                (v.len() == 4).then(|| (j, conj_rot(Quat::from_xyzw(v[0], v[1], v[2], v[3]))))
+            }).collect()
+        }
+    }
+
+    /// The world-space vertical offset of the body at time `t` from the clip's root (hip) height versus the bind pose —
+    /// so a pose that sits/lies down rests on the floor instead of floating. `stand` is the feet-up stand-up rotation.
+    pub fn root_y(&self, t: f32, rig: &RigDef, stand: Quat) -> Option<f32> {
+        let b = self.root?;
+        let v = self.clip.sample_binding(&b, t);
+        let ri = rig.index("Jnt.Spine.Root")?;
+        (v.len() >= 3).then(|| {
+            let clip_root = Vec3::new(v[0], v[1], -v[2]);
+            let bind_root = rig.bind_world[ri].to_scale_rotation_translation().2;
+            (stand * (clip_root - bind_root)).y
         })
     }
+}
+
+/// Analytic 2-bone IK for one arm: rotate Jnt.UpperArm.{side} and Jnt.LowerArm.{side} so the hand reaches `target`
+/// (in the skeleton's root space, Bevy coords), elbow biased by a fixed pole hint. Returns the two joints' new LOCAL
+/// rotations (empty if the arm joints aren't in the rig). Bone positions come from the bind pose.
+fn solve_arm(rig: &RigDef, side: &str, target: Vec3) -> Vec<(usize, Quat)> {
+    let (Some(up), Some(lo), Some(hand)) =
+        (rig.index(&format!("Jnt.UpperArm.{side}")), rig.index(&format!("Jnt.LowerArm.{side}")), rig.index(&format!("Jnt.Hand.{side}")))
+    else {
+        return Vec::new();
+    };
+    let pos = |j: usize| rig.bind_world[j].to_scale_rotation_translation().2;
+    let rot = |j: usize| rig.bind_world[j].to_scale_rotation_translation().1;
+    let (sh, el, hd) = (pos(up), pos(lo), pos(hand));
+    let (l1, l2) = (sh.distance(el), el.distance(hd));
+    let to_t = target - sh;
+    let dist = to_t.length();
+    if dist < 1e-4 || l1 < 1e-4 || l2 < 1e-4 {
+        return Vec::new();
+    }
+    let d = dist.clamp((l1 - l2).abs() + 1e-3, l1 + l2 - 1e-3);
+    let dir = to_t / dist;
+    // shoulder elevation off the shoulder→target line so the two-bone triangle closes (law of cosines)
+    let a_sh = (((l1 * l1 + d * d - l2 * l2) / (2.0 * l1 * d)).clamp(-1.0, 1.0)).acos();
+    // pole hint: bend the elbow toward "back + down" in skeleton space (forward is −y, down is +z)
+    let pole = Vec3::new(0.0, 1.0, 0.6).normalize();
+    let mut n = dir.cross(pole);
+    n = if n.length() < 1e-4 { dir.cross(Vec3::X).normalize() } else { n.normalize() };
+    let upper_dir = Quat::from_axis_angle(n, a_sh) * dir;
+    // world-space rotations that aim the upper arm at the solved direction, then the forearm at the hand
+    let r_up = Quat::from_rotation_arc((el - sh).normalize(), upper_dir);
+    let elbow = sh + upper_dir * l1;
+    let hand_dir = (target - elbow).normalize();
+    let r_lo = Quat::from_rotation_arc(r_up * (hd - el).normalize(), hand_dir) * r_up;
+    // convert the world rotations to LOCAL (parent of the upper arm is near bind; the forearm's parent is the upper arm)
+    let pw = rig.joints[up].parent.map_or(Quat::IDENTITY, rot);
+    let new_up = r_up * rot(up);
+    let new_lo = r_lo * rot(lo);
+    vec![(up, pw.inverse() * new_up), (lo, new_up.inverse() * new_lo)]
 }
 
 /// Every loaded state clip, shared by all avatars. Absent when the corpus can't be read (→ procedural fallback).
@@ -84,24 +165,21 @@ fn tree_for(b: &Bundle, class_id: i32) -> Option<TypeTree> {
     b.serialized_files().ok()?.into_iter().flat_map(|(_, sf)| sf.types).find(|t| t.class_id == class_id && t.tree.is_some()).and_then(|t| t.tree)
 }
 
-/// The player-body Avatar's bone table (curve path-hash → bone transform path), as the richest `m_TOS` among the file's
-/// Avatars (the real rig has ~111 `Jnt.*` entries; props have a handful of non-Jnt bones).
-fn player_tos(res: &SerializedFile, avatar_tree: &TypeTree) -> HashMap<u32, String> {
-    let mut best: HashMap<u32, String> = HashMap::new();
-    let mut best_jnt = 0;
+/// The union bone table (curve path-hash → bone transform path) across every Avatar in the file: the player rig
+/// contributes the `Jnt.*` joints, the VR control rig the `Vr.*` effector handles the fidget emotes target.
+fn union_tos(res: &SerializedFile, avatar_tree: &TypeTree) -> HashMap<u32, String> {
+    let mut union: HashMap<u32, String> = HashMap::new();
     for o in res.objects.iter().filter(|o| o.class_id == AVATAR_CLASS) {
         let Ok(av) = value::read(avatar_tree, &res.ref_types, &mut Reader::new(res.object_bytes(o), res.big_endian)) else { continue };
-        let map: HashMap<u32, String> = av.get("m_TOS").map(|t| t.pairs().iter().filter_map(|(k, v)| Some((k.as_u64()? as u32, v.as_str()?.to_string()))).collect()).unwrap_or_default();
-        let jnt = map.values().filter(|p| p.contains("Jnt.")).count();
-        if jnt > best_jnt {
-            best_jnt = jnt;
-            best = map;
-            if best_jnt >= 100 {
-                break; // the player rig; no need to scan the rest
+        if let Some(t) = av.get("m_TOS") {
+            for (k, v) in t.pairs() {
+                if let (Some(k), Some(v)) = (k.as_u64(), v.as_str()) {
+                    union.entry(k as u32).or_insert_with(|| v.to_string());
+                }
             }
         }
     }
-    best
+    union
 }
 
 /// Loads the real locomotion clips and resolves them to `rig`. `None` (→ procedural) when the corpus is missing or
@@ -137,16 +215,21 @@ pub fn load(dir: &Path, rig: &RigDef) -> Option<Clips> {
     let clip_tree = tree_for(&Bundle::open(bundles.join(CLIP_TREE_BUNDLE)).ok()?, 74)?;
     let avatar_tree = Bundle::open(bundles.join(AVATAR_TREE_BUNDLE)).ok().and_then(|b| tree_for(&b, 90))?;
 
-    // bone table → map each curve path-hash to our joint index (by the "Jnt.*" leaf of its bone path)
-    let tos = player_tos(&res, &avatar_tree);
+    // the union bone table across all avatars (path-hash → bone path): the player rig has the Jnt.* joints; the VR
+    // control rig (used by the fidget emotes) has the Vr.* effector handles.
+    let tos = union_tos(&res, &avatar_tree);
+    // path-hash → our joint index (by the "Jnt.*" leaf), and → VR handle leaf name (Vr.Hand.L, …) for the IK targets
     let hash_to_joint: HashMap<u32, usize> =
         tos.iter().filter_map(|(&h, path)| rig.index(path.rsplit('/').next().unwrap_or(path)).map(|j| (h, j))).collect();
+    let vr_name: HashMap<u32, &str> =
+        tos.iter().filter_map(|(&h, path)| path.rsplit('/').next().filter(|l| l.starts_with("Vr.")).map(|l| (h, l))).collect();
     if hash_to_joint.is_empty() {
         info!("avatar: authored-clip bone table didn't resolve to the rig; using the procedural poser");
         return None;
     }
 
-    // index clip objects by name, then decode each state clip and resolve its rotation bindings to joints
+    // index clip objects by name, then decode each state clip and resolve its bindings — to joint rotations (FK) and,
+    // for the VR fidget emotes, to the Vr.Hand.{L,R} position targets (IK).
     let by_name: HashMap<String, &unity_assets::ObjectInfo> =
         res.objects.iter().filter(|o| o.class_id == 74).filter_map(|o| res.object_name(o).map(|n| (n, o))).collect();
     let mut by_state = HashMap::new();
@@ -158,8 +241,18 @@ pub fn load(dir: &Path, rig: &RigDef) -> Option<Clips> {
             .filter(|b| b.attribute == Attribute::Rotation)
             .filter_map(|b| hash_to_joint.get(&b.path).map(|&j| (j, *b)))
             .collect();
-        if !bones.is_empty() {
-            by_state.insert(state, Clip { stop_time: clip.stop_time.max(0.01), clip, bones });
+        let hand_target = |want: &str| {
+            clip.bindings.iter().find(|b| b.attribute == Attribute::Position && vr_name.get(&b.path) == Some(&want)).copied()
+        };
+        let ik = match (hand_target("Vr.Hand.L"), hand_target("Vr.Hand.R")) {
+            (Some(l), Some(r)) => Some(IkArms { hand: [l, r] }),
+            _ => None,
+        };
+        let root = clip.bindings.iter()
+            .find(|b| b.attribute == Attribute::Position && hash_to_joint.get(&b.path).and_then(|&j| rig.joints.get(j)).map(|jt| jt.name.as_str()) == Some("Jnt.Spine.Root"))
+            .copied();
+        if !bones.is_empty() || ik.is_some() {
+            by_state.insert(state, Clip { stop_time: clip.stop_time.max(0.01), clip, bones, ik, root });
         }
     }
     if by_state.is_empty() {

@@ -525,6 +525,7 @@ pub fn animate_skeleton(
         };
         // Authored clips are full-body locomotion (legs + arm swing). The Bean has no legs/arms — only floating hands —
         // so a walk clip would drop its hands like invisible arm-ends; keep the Bean on its procedural float pose.
+        let mut root_y = pose.bob - pose.drop; // the body's vertical offset; an emote pose grounds it from its clip
         let clip_driven = !skel.bean && anim_clips.as_deref().map_or(false, |clips| {
             // the clip-time for a state (walk/run follow the stride phase so cadence tracks speed; the rest free-run)
             let clip_time = |st: &str, c: &clips::Clip| match st {
@@ -532,6 +533,12 @@ pub fn animate_skeleton(
                 _ => time.elapsed_secs().rem_euclid(c.stop_time),
             };
             let Some(cur) = clips.get(state) else { return false };
+            // ground an emote pose on the floor (sit/prone) from the clip's hip height; leave locomotion on its bob
+            if drive.emote.is_some() {
+                if let Some(y) = cur.root_y(clip_time(state, cur), rig, stand()) {
+                    root_y = y;
+                }
+            }
 
             // start a crossfade when the state changes: blend out of the old state, frozen at its current clip-time
             if state != skel.clip_state {
@@ -547,9 +554,9 @@ pub fn animate_skeleton(
 
             // the new state's authored local rotations by joint, then (while blending) ease from the old state's
             // rotations into them — a joint a clip doesn't touch rests at its bind rotation.
-            let to: HashMap<usize, Quat> = cur.pose(clip_time(state, cur)).collect();
+            let to: HashMap<usize, Quat> = cur.pose(clip_time(state, cur), rig).into_iter().collect();
             let from: HashMap<usize, Quat> = skel.blend_from
-                .and_then(|(st, t)| clips.get(st).map(|c| c.pose(t).collect()))
+                .and_then(|(st, t)| clips.get(st).map(|c| c.pose(t, rig).into_iter().collect()))
                 .unwrap_or_default();
             for &j in to.keys().chain(from.keys()) {
                 let bind = rig.joints[j].local.rotation;
@@ -645,10 +652,10 @@ pub fn animate_skeleton(
             }
         }
 
-        // the whole body bobs with the stride and lowers when crouching, via the standing skeleton node
+        // the whole body bobs with the stride, lowers when crouching, or grounds an emote pose, via the standing node
         if let Ok(mut t) = xf.get_mut(skel.root_node) {
             let mut tr = Transform::from_rotation(stand());
-            tr.translation.y = pose.bob - pose.drop;
+            tr.translation.y = root_y;
             *t = tr;
         }
     }
