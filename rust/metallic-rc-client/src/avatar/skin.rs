@@ -197,25 +197,29 @@ pub fn load(dir: &Path) -> Option<Loaded> {
         return None;
     }
 
-    // the nose: same skeleton instance; append it, remapping its bone indices to our joint order
-    if let Some(nose_bones) = skinned_renderer_with_root(sf, NOSE_MESH_PATHID, root) {
-        if let Some(no) = sf.object(NOSE_MESH_PATHID).and_then(|o| sf.read_value(o).ok()) {
-            if let Ok(nose_m) = UMesh::from_value(&no, &b) {
-                let (npos, nnrm, nuv, nidx) = read_geometry(&nose_m);
-                if let Some((nw, _, nraw)) = skin_channels(&nose_m, nose_bones.len()) {
-                    let base = pos.len() as u32;
-                    let remap = |orig: i64| -> u16 {
-                        nose_bones.get(orig as usize).and_then(|id| path_to_index.get(id)).map(|&i| i as u16).unwrap_or(0)
-                    };
-                    for v in 0..nose_m.vertex_count {
-                        let ik: [u16; 4] = std::array::from_fn(|k| remap(nraw[v * 4 + k]));
-                        indices.push(ik);
+    // the nose is omitted by default: Rec Room's face is a flat screen (eyes + mouth decals), and the low-poly nose
+    // mesh reads as an uncanny human protrusion on it. Set AVATAR_NOSE=1 to include the real nose mesh.
+    if std::env::var("AVATAR_NOSE").is_ok() {
+        // the nose: same skeleton instance; append it, remapping its bone indices to our joint order
+        if let Some(nose_bones) = skinned_renderer_with_root(sf, NOSE_MESH_PATHID, root) {
+            if let Some(no) = sf.object(NOSE_MESH_PATHID).and_then(|o| sf.read_value(o).ok()) {
+                if let Ok(nose_m) = UMesh::from_value(&no, &b) {
+                    let (npos, nnrm, nuv, nidx) = read_geometry(&nose_m);
+                    if let Some((nw, _, nraw)) = skin_channels(&nose_m, nose_bones.len()) {
+                        let base = pos.len() as u32;
+                        let remap = |orig: i64| -> u16 {
+                            nose_bones.get(orig as usize).and_then(|id| path_to_index.get(id)).map(|&i| i as u16).unwrap_or(0)
+                        };
+                        for v in 0..nose_m.vertex_count {
+                            let ik: [u16; 4] = std::array::from_fn(|k| remap(nraw[v * 4 + k]));
+                            indices.push(ik);
+                        }
+                        weights.extend(nw);
+                        pos.extend(npos);
+                        nrm.extend(nnrm);
+                        uv.extend(nuv);
+                        idx.extend(nidx.iter().map(|i| i + base));
                     }
-                    weights.extend(nw);
-                    pos.extend(npos);
-                    nrm.extend(nnrm);
-                    uv.extend(nuv);
-                    idx.extend(nidx.iter().map(|i| i + base));
                 }
             }
         }

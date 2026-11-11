@@ -71,10 +71,10 @@ pub struct Visual {
 }
 
 /// Where the face sits in the avatar's upright local space (feet at 0, facing -z): each eye, and the mouth.
-const EYE_POS: [Vec3; 2] = [Vec3::new(-0.043, 1.536, -0.14), Vec3::new(0.043, 1.536, -0.14)];
-const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.5, -0.158);
-const EYE_W: f32 = 0.08;
-const MOUTH_W: f32 = 0.09;
+const EYE_POS: [Vec3; 2] = [Vec3::new(-0.045, 1.528, -0.14), Vec3::new(0.045, 1.528, -0.14)];
+const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.478, -0.158);
+const EYE_W: f32 = 0.13;
+const MOUTH_W: f32 = 0.12;
 
 /// A mesh object read out of the bundle as Bevy-space geometry (Unity is left-handed: z negated, winding flipped, uv v
 /// flipped — same convention as `room.rs`).
@@ -135,13 +135,16 @@ fn load_bodies(dir: &Path) -> Option<[Mesh; 3]> {
     let files = b.serialized_files().ok()?;
     let sf = files.iter().find_map(|(_, sf)| sf.object(BODY_MESH_PATHID).map(|_| sf))?;
     let mut raw = read_umesh(&b, sf, BODY_MESH_PATHID)?;
-    // append the nose into the same buffers (its indices offset past the body's vertices)
-    if let Some(nose) = read_umesh(&b, sf, NOSE_MESH_PATHID) {
-        let base = raw.pos.len() as u32;
-        raw.pos.extend_from_slice(&nose.pos);
-        raw.nrm.extend_from_slice(&nose.nrm);
-        raw.uv.extend_from_slice(&nose.uv);
-        raw.idx.extend(nose.idx.iter().map(|i| i + base));
+    // the nose is omitted by default (Rec Room's face is a flat screen; the low-poly nose reads as uncanny). Set
+    // AVATAR_NOSE=1 to include it. (Kept in step with `skin::load`.)
+    if std::env::var("AVATAR_NOSE").is_ok() {
+        if let Some(nose) = read_umesh(&b, sf, NOSE_MESH_PATHID) {
+            let base = raw.pos.len() as u32;
+            raw.pos.extend_from_slice(&nose.pos);
+            raw.nrm.extend_from_slice(&nose.nrm);
+            raw.uv.extend_from_slice(&nose.uv);
+            raw.idx.extend(nose.idx.iter().map(|i| i + base));
+        }
     }
     // split the triangles into the three zones by their centre
     let mut zones: [Vec<u32>; 3] = [Vec::new(), Vec::new(), Vec::new()];
