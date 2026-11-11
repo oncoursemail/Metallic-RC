@@ -76,9 +76,11 @@ fn main() {
     for o in &avatar_objs {
         println!("  {} {:?}", o.path_id, res.object_name(o).unwrap_or_default());
     }
-    println!("\n=== clips (class 74), first 40 of {} ===", clip_objs.len());
-    for o in clip_objs.iter().take(40) {
-        println!("  {} {:?}", o.path_id, res.object_name(o).unwrap_or_default());
+    println!("\n=== Avatar_Skeleton clips (of {} total) ===", clip_objs.len());
+    let mut names: Vec<String> = clip_objs.iter().filter_map(|o| res.object_name(o)).filter(|n| n.starts_with("Avatar_Skeleton|")).collect();
+    names.sort();
+    for n in &names {
+        println!("  {n}");
     }
 
     // decode one clip (filtered by name, else the first) and resolve its bone bindings via an avatar m_TOS
