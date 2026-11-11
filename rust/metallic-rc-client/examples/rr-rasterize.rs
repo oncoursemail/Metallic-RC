@@ -127,14 +127,25 @@ fn render(r: &RoomData, eye: Vec3, target: Vec3, w: u32, h: u32) -> Vec<u8> {
                     if z <= 1.0 / depth[di] {
                         continue;
                     }
-                    depth[di] = 1.0 / z;
                     // perspective-correct uv
                     let uv = [
                         (w0 * a.2[0] * pa.2 + w1 * b.2[0] * pb.2 + w2 * c.2[0] * pc.2) / z,
                         (w0 * a.2[1] * pa.2 + w1 * b.2[1] * pb.2 + w2 * c.2[1] * pc.2) / z,
                     ];
-                    let rgb = shade_pixel(mat, uv);
-                    let ci = di * 3;
+                    let rgba = shade_pixel(mat, uv);
+                    // cut out transparent texels (alpha test): sprites and cutout shaders have soft/empty areas the
+                    // GPU blends away; this opaque rasterizer skips them instead so they don't show as black/noise
+                    use metallic_rc_client::room::Blend;
+                    let cut = match mat.blend {
+                        Blend::Mask(c) => c,
+                        Blend::Blend | Blend::Add => 0.35,
+                        Blend::Opaque => 0.0,
+                    };
+                    if rgba[3] < cut {
+                        continue;
+                    }
+                    let (rgb, ci) = ([rgba[0], rgba[1], rgba[2]], di * 3);
+                    depth[di] = 1.0 / z;
                     color[ci] = ((rgb[0] * shade) * 255.0).clamp(0.0, 255.0) as u8;
                     color[ci + 1] = ((rgb[1] * shade) * 255.0).clamp(0.0, 255.0) as u8;
                     color[ci + 2] = ((rgb[2] * shade) * 255.0).clamp(0.0, 255.0) as u8;
@@ -145,10 +156,11 @@ fn render(r: &RoomData, eye: Vec3, target: Vec3, w: u32, h: u32) -> Vec<u8> {
     color
 }
 
-/// Approximate the material's surface colour (sRGB 0..1) at a uv: the base texture (scaled/offset like the shader),
-/// tinted by the material colour. Good enough to tell a real look from a grey stand-in.
-fn shade_pixel(mat: &metallic_rc_client::room::RoomMaterial, uv: [f32; 2]) -> [f32; 3] {
-    let tint = [mat.color[0], mat.color[1], mat.color[2]];
+/// Approximate the material's surface colour (sRGB 0..1) and coverage (alpha) at a uv: the base texture
+/// (scaled/offset like the shader), tinted by the material colour. Good enough to tell a real look from a grey
+/// stand-in, and the alpha lets the caller cut out a transparent texel.
+fn shade_pixel(mat: &metallic_rc_client::room::RoomMaterial, uv: [f32; 2]) -> [f32; 4] {
+    let tint = [mat.color[0], mat.color[1], mat.color[2], mat.color[3]];
     let Some((tw, th, px)) = &mat.texture else { return tint };
     let (tw, th) = (*tw as i32, *th as i32);
     let su = uv[0] * mat.uv_scale[0] + mat.uv_offset[0];
@@ -159,14 +171,15 @@ fn shade_pixel(mat: &metallic_rc_client::room::RoomMaterial, uv: [f32; 2]) -> [f
     };
     let (x, y) = (wrap(su, tw), wrap(sv, th));
     let i = ((y * tw + x) * 4) as usize;
-    if i + 2 >= px.len() {
+    if i + 3 >= px.len() {
         return tint;
     }
     let base = [px[i] as f32 / 255.0, px[i + 1] as f32 / 255.0, px[i + 2] as f32 / 255.0];
+    let a = px[i + 3] as f32 / 255.0 * mat.color[3];
     // masked AG shaders keep the texture's own colour; others multiply by the tint
     if mat.masked {
-        base
+        [base[0], base[1], base[2], a]
     } else {
-        [base[0] * tint[0], base[1] * tint[1], base[2] * tint[2]]
+        [base[0] * tint[0], base[1] * tint[1], base[2] * tint[2], a]
     }
 }

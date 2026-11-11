@@ -570,6 +570,7 @@ struct OldBuilder<'a> {
     textures: HashMap<(String, i64), Option<Pixels>>,
     materials: HashMap<(String, i64, [u8; 3]), Option<usize>>,
     meshes: HashMap<(String, i64), Option<Rc<Decoded>>>,
+    sprites: HashMap<(String, i64), Option<SpriteArt>>,
 }
 
 impl OldBuilder<'_> {
@@ -778,7 +779,7 @@ fn load_with(files: &mut Files, lib: &mut Library, kit: &mut ShapeKit, dir: &Pat
     r.props.push(false);
     let root = r.roots.len() - 1;
     let sf = files.get(&scene.file).ok_or("scene file")?;
-    let mut b = OldBuilder { files, out: &mut r, root, textures: HashMap::new(), materials: HashMap::new(), meshes: HashMap::new() };
+    let mut b = OldBuilder { files, out: &mut r, root, textures: HashMap::new(), materials: HashMap::new(), meshes: HashMap::new(), sprites: HashMap::new() };
     for p in &placed {
         if let Piece::Mesh(i) = p.piece {
             b.add(&scene, i);
@@ -1031,27 +1032,28 @@ fn scene_particles(sf: &SerializedFile, scene: &Scene) -> Vec<ParticleEmitter> {
     out
 }
 
-/// Unity's Canvas class (its `m_RenderMode`: 0 overlay, 1 camera, 2 world space).
+/// Unity's Canvas and Sprite classes.
 const CANVAS: i32 = 223;
+const SPRITE: i32 = 213;
 
-/// Built-in type trees injected to read the stripped scene's UI objects: a Canvas's render mode and a
-/// RectTransform's rect. The decrypted scenes carry no type trees, so these are taken (once, cached) from any
-/// install bundle that still has them — the same route as the ParticleSystem tree.
+/// Built-in type trees injected to read the stripped scene's UI objects: a Canvas's render mode, a RectTransform's
+/// rect, and a Sprite's atlas rect/texture. The decrypted scenes carry no type trees, so these are taken (once,
+/// cached) from any install bundle that still has them — the same route as the ParticleSystem tree.
 struct UiTrees {
     canvas: Option<TypeTree>,
     rect: Option<TypeTree>,
+    sprite: Option<TypeTree>,
 }
 
 static UI_TREES: OnceLock<UiTrees> = OnceLock::new();
 
 fn ui_trees() -> &'static UiTrees {
     UI_TREES.get_or_init(|| {
-        let mut canvas = None;
-        let mut rect = None;
+        let (mut canvas, mut rect, mut sprite) = (None, None, None);
         if let Some(game) = room::GAME_DIRS.iter().map(PathBuf::from).find(|p| p.exists()) {
             if let Ok(rd) = std::fs::read_dir(room::bundle_dir(&game)) {
                 for (i, entry) in rd.flatten().enumerate() {
-                    if i >= 800 || (canvas.is_some() && rect.is_some()) {
+                    if i >= 800 || (canvas.is_some() && rect.is_some() && sprite.is_some()) {
                         break; // bound the one-time scan
                     }
                     let p = entry.path();
@@ -1060,19 +1062,25 @@ fn ui_trees() -> &'static UiTrees {
                     }
                     let Ok(b) = unity_assets::Bundle::open(&p) else { continue };
                     let Ok(sfs) = b.serialized_files() else { continue };
+                    let tree_for = |cid: i32, sf: &SerializedFile| sf.types.iter().find(|t| t.class_id == cid && t.tree.is_some()).and_then(|t| t.tree.clone());
                     for (_, sf) in sfs {
-                        if canvas.is_none() {
-                            canvas = sf.types.iter().find(|t| t.class_id == CANVAS && t.tree.is_some()).and_then(|t| t.tree.clone());
-                        }
-                        if rect.is_none() {
-                            rect = sf.types.iter().find(|t| t.class_id == classes::RECT_TRANSFORM && t.tree.is_some()).and_then(|t| t.tree.clone());
-                        }
+                        canvas = canvas.or_else(|| tree_for(CANVAS, &sf));
+                        rect = rect.or_else(|| tree_for(classes::RECT_TRANSFORM, &sf));
+                        sprite = sprite.or_else(|| tree_for(SPRITE, &sf));
                     }
                 }
             }
         }
-        UiTrees { canvas, rect }
+        UiTrees { canvas, rect, sprite }
     })
+}
+
+/// A decoded UI sprite: its atlas texture (shrunk to `MAX_TEXTURE`) and the sprite's sub-rect as UVs over that
+/// texture, already flipped for our top-down pixels (`[u0, v_bottom, u1, v_top]`).
+#[derive(Clone)]
+struct SpriteArt {
+    tex: Pixels,
+    uv: [f32; 4],
 }
 
 /// The class name of a MonoBehaviour's script (`UnityEngine.UI.Image` -> "Image"), resolving the `m_Script`
@@ -1085,10 +1093,12 @@ fn mb_script_class(files: &mut Files, scene_file: &str, sf: &SerializedFile, o: 
     level::mono_script_name(&x, so).ok().map(|(c, _)| c)
 }
 
-/// A `UnityEngine.UI.Image`'s `m_Color`, read from the stripped MonoBehaviour by the stable UGUI layout: after the
-/// MonoBehaviour header (m_GameObject, m_Enabled, m_Script, m_Name) come `Graphic.m_Material` then `m_Color`, both
-/// before any variable field — so this is robust without the script's type tree. Returns None if it reads wrong.
-fn image_color(sf: &SerializedFile, o: &ObjectInfo) -> Option<[f32; 4]> {
+/// A `UnityEngine.UI.Image`'s `m_Color` and the byte offset just past it, read from the stripped MonoBehaviour by the
+/// stable UGUI layout: after the MonoBehaviour header (m_GameObject, m_Enabled, m_Script, m_Name) come
+/// `Graphic.m_Material` then `m_Color`, both before any variable field — so this is robust without the script's type
+/// tree. The offset lets the caller scan on for `Image.m_Sprite` (which sits past a variable UnityEvent). None if it
+/// reads wrong.
+fn image_fields(sf: &SerializedFile, o: &ObjectInfo) -> Option<([f32; 4], usize)> {
     let mut r = Reader::new(sf.object_bytes(o), sf.big_endian);
     (r.i32().ok()?, r.i64().ok()?); // m_GameObject (PPtr: int + SInt64)
     r.u8().ok()?; // m_Enabled
@@ -1100,7 +1110,7 @@ fn image_color(sf: &SerializedFile, o: &ObjectInfo) -> Option<[f32; 4]> {
     r.aligned_string().ok()?; // m_Name
     (r.i32().ok()?, r.i64().ok()?); // Graphic.m_Material (PPtr)
     let c = [r.f32().ok()?, r.f32().ok()?, r.f32().ok()?, r.f32().ok()?]; // m_Color
-    c.iter().all(|&x| (-0.01..=4.0).contains(&x)).then_some(c)
+    c.iter().all(|&x| (-0.01..=4.0).contains(&x)).then_some((c, r.pos()))
 }
 
 impl OldBuilder<'_> {
@@ -1127,10 +1137,31 @@ impl OldBuilder<'_> {
         if world_canvas.is_empty() {
             return 0;
         }
+        // nodes that clip their children (RectMask2D / Mask): the children are positioned in canvas space and only a
+        // window of them shows in game. We can't clip, so their content lands at odd places (e.g. a scroll list
+        // stretching through the floor) — leave whole masked subtrees out.
+        let mut masks: Vec<usize> = Vec::new();
+        for i in 0..scene.nodes.len() {
+            if !world_canvas.iter().any(|&c| scene.under(i, c)) {
+                continue;
+            }
+            let masked = scene.nodes[i].components.iter().filter(|c| c.0 == classes::MONO_BEHAVIOUR).any(|&(_, id)| {
+                sf.object(id).is_some_and(|o| matches!(mb_script_class(self.files, &scene.file, &sf, o).as_deref(), Some("RectMask2D" | "Mask")))
+            });
+            if masked {
+                masks.push(i);
+            }
+        }
+        // the room floor (lowest spawn): unclipped scroll/list content lands well below it (underground), so drop
+        // panels that fall far under the floor
+        let floor = self.out.spawns.iter().map(|m| m.w_axis.y).fold(f32::INFINITY, f32::min);
         let mut added = 0;
         for i in 0..scene.nodes.len() {
             if !scene.nodes[i].active || !world_canvas.iter().any(|&c| scene.under(i, c)) {
                 continue;
+            }
+            if masks.iter().any(|&m| scene.under(i, m)) {
+                continue; // inside a UI mask: its content is clipped in game, can't place it here
             }
             // the node's Image MonoBehaviour, if any
             let img = scene.nodes[i].components.iter().filter(|c| c.0 == classes::MONO_BEHAVIOUR).find_map(|&(_, id)| {
@@ -1138,9 +1169,28 @@ impl OldBuilder<'_> {
                 (mb_script_class(self.files, &scene.file, &sf, o).as_deref() == Some("Image")).then_some(o)
             });
             let Some(img) = img else { continue };
-            let Some(color) = image_color(&sf, img) else { continue };
-            // opaque white = a sprite-art icon (no colour of its own); skip until the sprite is drawn
-            if color.iter().all(|&x| x > 0.96) {
+            let Some((color, after)) = image_fields(&sf, img) else { continue };
+            // Image.m_Sprite sits past a variable UnityEvent (m_OnCullStateChanged); find it as the first PPtr after
+            // m_Color that resolves to a Sprite(213) — self-verifying, since no other PPtr in that run is a Sprite.
+            let bytes = sf.object_bytes(img);
+            let mut sprite = None;
+            for off in (0..72).step_by(4) {
+                let mut rr = Reader::new(bytes, sf.big_endian);
+                rr.set_pos(after + off);
+                let (Some(fid), Some(pid)) = (rr.i32().ok(), rr.i64().ok()) else { break };
+                if pid == 0 || fid < 0 {
+                    continue;
+                }
+                let p = PPtr { file_id: fid, path_id: pid };
+                let is_sprite = self.files.resolve(&scene.file, p).and_then(|(rf, rid)| Some(self.files.get(&rf)?.object(rid)?.class_id)) == Some(SPRITE);
+                if is_sprite {
+                    sprite = Some(p);
+                    break;
+                }
+            }
+            let art = sprite.zip(trees.sprite.as_ref()).and_then(|(p, t)| self.sprite_art(&scene.file, p, t));
+            // without art, an opaque-white image is a sprite-art icon whose look we can't draw — leave it out
+            if art.is_none() && color.iter().all(|&x| x > 0.96) {
                 continue;
             }
             // the rect: size and pivot from the RectTransform (anchored, non-stretched panels only, where sizeDelta
@@ -1166,17 +1216,27 @@ impl OldBuilder<'_> {
                 [p.x, p.y, p.z]
             };
             let positions = vec![corner(0.0, 0.0), corner(1.0, 0.0), corner(1.0, 1.0), corner(0.0, 1.0)];
+            if floor.is_finite() && positions.iter().map(|p| p[1]).sum::<f32>() * 0.25 < floor - 0.6 {
+                continue; // sits underground: clipped list/scroll content we can't place
+            }
             let nz = world.transform_vector3(Vec3::Z).normalize_or_zero();
             let normals = vec![[nz.x, nz.y, nz.z]; 4];
             // drawn from both sides (UI has no thickness; the canvas may face either way)
             let indices = vec![0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2];
-            let blend = if color[3] < 0.999 { Blend::Blend } else { Blend::Opaque };
+            let uv = art.as_ref().map(|a| a.uv);
+            let cuv = |cx: f32, cy: f32| match uv {
+                Some([u0, v0, u1, v1]) => [u0 + (u1 - u0) * cx, v0 + (v1 - v0) * cy],
+                None => [0.0, 0.0],
+            };
+            let uvs = vec![cuv(0.0, 0.0), cuv(1.0, 0.0), cuv(1.0, 1.0), cuv(0.0, 1.0)];
+            // UI is alpha-blended (sprites have soft edges / rounded corners); a plain opaque colour fill stays opaque
+            let blend = if art.is_some() || color[3] < 0.999 { Blend::Blend } else { Blend::Opaque };
             self.out.materials.push(RoomMaterial {
                 name: format!("UIPanel {}", scene.nodes[i].name),
                 shader: "UI/Default".into(),
-                color,
+                color, // the Image's m_Color: a tint over the sprite (white = the art as-is)
                 masked: false,
-                texture: None,
+                texture: art.map(|a| a.tex),
                 spec_map: None,
                 spec_color: [1.0; 3],
                 smoothness: 0.0,
@@ -1197,7 +1257,7 @@ impl OldBuilder<'_> {
                 world: Mat4::IDENTITY, // positions are already in world space
                 positions,
                 normals,
-                uvs: vec![[0.0, 0.0]; 4],
+                uvs,
                 colors: vec![],
                 indices,
                 material,
@@ -1205,6 +1265,42 @@ impl OldBuilder<'_> {
             added += 1;
         }
         added
+    }
+
+    /// A UI sprite's atlas texture and sub-rect UVs, decoded once per sprite. The sprite is read through the injected
+    /// Sprite(213) tree; its `m_RD.textureRect` (atlas pixels, bottom-left origin) becomes UVs over the texture,
+    /// flipped for our top-down pixels. Atlas rotation (`settingsRaw`) is not handled (rare for UI art).
+    fn sprite_art(&mut self, scene_file: &str, p: PPtr, stree: &TypeTree) -> Option<SpriteArt> {
+        let (f, id) = self.files.resolve(scene_file, p)?;
+        let key = (f.clone(), id);
+        if let Some(a) = self.sprites.get(&key) {
+            return a.clone();
+        }
+        let art = self.decode_sprite(&f, id, stree);
+        self.sprites.insert(key, art.clone());
+        art
+    }
+
+    fn decode_sprite(&mut self, f: &str, id: i64, stree: &TypeTree) -> Option<SpriteArt> {
+        let sf = self.files.get(f)?;
+        let o = sf.object(id)?;
+        let mut r = Reader::new(sf.object_bytes(o), sf.big_endian);
+        let v = unity_assets::value::read(stree, &sf.ref_types, &mut r).ok()?;
+        let g = |path: &str| v.path(path).and_then(|x| x.as_f32());
+        let (tx, ty, tw, th) = (g("m_RD/textureRect/x")?, g("m_RD/textureRect/y")?, g("m_RD/textureRect/width")?, g("m_RD/textureRect/height")?);
+        if tw.abs() < 0.5 || th.abs() < 0.5 {
+            return None;
+        }
+        let tp = v.path("m_RD/texture")?.as_pptr()?;
+        let (tf, tid) = self.files.resolve(f, tp)?;
+        let tsf = self.files.get(&tf)?;
+        let res = self.files.resources();
+        let tex = level::texture(&tsf, tsf.object(tid)?, &res).ok()?;
+        let (ow, oh) = (tex.width.max(1) as f32, tex.height.max(1) as f32);
+        let rgba = tex.decode_rgba8().ok()?;
+        let pixels = shrink((tex.width as u32, tex.height as u32, rgba), MAX_TEXTURE);
+        let uv = [tx / ow, 1.0 - ty / oh, (tx + tw) / ow, 1.0 - (ty + th) / oh];
+        Some(SpriteArt { tex: pixels, uv })
     }
 }
 
@@ -1241,7 +1337,7 @@ fn load_scene_with(files: &mut Files, room: &str) -> Result<RoomData, String> {
     r.spawns = scene_spawns(files, &scene.file, &sf, &scene);
     r.particles = scene_particles(&sf, &scene);
     drop(sf);
-    let mut b = OldBuilder { files, out: &mut r, root, textures: HashMap::new(), materials: HashMap::new(), meshes: HashMap::new() };
+    let mut b = OldBuilder { files, out: &mut r, root, textures: HashMap::new(), materials: HashMap::new(), meshes: HashMap::new(), sprites: HashMap::new() };
     for (i, _mesh) in &drawn {
         // the room's systems (UI, tutorials, boards) are not part of its look
         if scene.nodes[*i].path.starts_with("Systems/") {
