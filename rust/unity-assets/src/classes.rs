@@ -5,6 +5,7 @@ pub const TRANSFORM: i32 = 4;
 pub const MATERIAL: i32 = 21;
 pub const MESH_RENDERER: i32 = 23;
 pub const TEXTURE_2D: i32 = 28;
+pub const ANIMATION_CLIP: i32 = 74;
 pub const CUBEMAP: i32 = 89;
 pub const MESH_FILTER: i32 = 33;
 pub const MESH: i32 = 43;
