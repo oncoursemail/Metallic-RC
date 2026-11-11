@@ -155,10 +155,33 @@ Owner commissioned the full devirt. Steady, checkpointed progress (all analysis 
   from a key/config table at RVA ~`0x61bc9c0`. All wrapped in anti-cheat spinlocks + constant-fold
   obfuscation.
 
-### Still to do (the long tail)
-1. Reverse the keystream core — `0x704cd0` (per-block worker) and `0x647af0` (setup) — to recover
-   `g(op, offset)`, and extract the global master key (consumed there / in the `~0x61bc9c0` table).
-   filename→op is already captured empirically as a fallback table.
+## CRACKED — the cipher is a byte-subtract + XOR against a static 2 MB keystream table
+
+Disassembling the per-op handlers reached through the `+0x6abb80` switch (op `0x126` handler at
+`+0x6af25c`) shows the full decrypt, which is simple:
+
+```
+plaintext[i] = ((ciphertext[i] - sub[op]) & 0xFF) XOR KS[(offset + i + base[op]) & 0x1FFFFF]   for i >= 8
+```
+
+- `KS` is a **single static 2 MB keystream table** in Referee's runtime memory at RVA `0x5bae100`
+  (identical for all ops; `& 0x1FFFFF` = mod 2^21 wraps within it). It is NOT a PRG — it is a fixed
+  2 MB pad, generated/decompressed at load (beyond the on-disk Referee image), extracted once.
+- `sub[op]` is a per-op additive byte correction (some ops subtract, some add), and `base[op]` is a
+  per-op offset into the pad. Both lifted for all 336 ops (`vm_cipher_ops.json`).
+- `op` = the per-file asset-manifest index (filename→op), captured at runtime.
+- `offset` = the chunk's file position (position-based). Bytes `0..7` (the marker) use a separate
+  `+0x6b24e0` path (plaintext header; 0 for SerializedFiles).
+
+**VALIDATED: 117/117 tested files decrypt byte-for-byte against the corpus (bytes[8:])**, purely
+from the formula + extracted tables — NO oracle. (The 1 apparent miss was a contaminated op in the
+unfiltered filename→op capture, not a cipher error.)
+
+### Finish
+1. Regenerate the clean filename→op table (thread-filtered) and validate all 337 files end-to-end.
+2. Reverse `+0x6b24e0` for the first 8 bytes (marker region).
+3. Implement `decrypt(ciphertext, op)` in Rust loading the local KS pad + per-op table; keep the
+   corpus as fallback. (KS pad + tables are game-derived → LOCAL/gitignored, never committed.)
 2. **Trace-based cross-check**: instrument the load/read path + `0x647af0` at runtime and follow the
    data flow of one decrypt to confirm the keystream generator + the filename key derivation.
 3. Validate offline byte-for-byte vs the corpus; implement real `decrypt()` in Rust.
