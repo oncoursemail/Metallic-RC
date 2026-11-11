@@ -102,7 +102,32 @@ force inline. It is **not** required for usability: the runtime-oracle **corpus 
 (`rebuild_corpus.py`). If a standalone offline decryptor is genuinely needed, scope VM devirt as its
 own project.
 
-## Remaining / optional
-1. (Optional, research-grade) Full Referee VM devirtualization for a standalone offline cipher.
-2. Per-environment load data — DONE (`scene-manifest`, `EXTRACTION_COVERAGE.md`).
-3. Coverage report — DONE.
+## UPDATE 3 — VM devirtualization (commissioned by the owner): progress
+
+Owner commissioned the full devirt. Steady, checkpointed progress (all analysis local in
+`rr-capture/decomp-full/work/native/`):
+
+- **Handler jump table recovered** at `Referee+0x6b1de8`: 443 opcode entries → 338 distinct handler
+  RVAs (106 opcodes route to a default no-op at `+0x6b1dde`); handlers are uniform ~73-byte case
+  blocks of the switch at `+0x6abb80`.
+- **Store primitive fully lifted** (`vm_store_opcodes.json`, 336/443 opcodes): each opcode is a
+  scattered byte-store into a **2 MB (2^21) VM memory space**:
+  `VM_mem[(base[op] + index) mod 2^21] = (byte + transform[op]) mod 256`, with a distinct per-opcode
+  base (range `0x56b`..`0x1fed39`) and an additive per-opcode transform (161 `sub`, 175 `add`
+  constants). This is a MOV-obfuscation: the opcode encodes both a scrambled memory region and a
+  byte-level correction, so the VM's working variables live scattered across the 2 MB space.
+
+### Still to do (the long tail)
+1. Lift the matching **load primitive** (read byte + inverse transform) and the **arithmetic/logic
+   opcodes** (the actual cipher ops between VM variables).
+2. **Trace-based reconstruction**: instrument store+load at runtime, normalise each (op,index,byte)
+   via the lifted tables into (addr,value) over the 2 MB space, and reconstruct the data flow of one
+   decrypt → the keystream generator, the per-file (filename) key derivation, and the embedded
+   master key.
+3. Validate offline byte-for-byte vs the corpus; implement real `decrypt()` in Rust.
+
+This remains a multi-week effort; the corpus is the shipped solution meanwhile.
+
+## Done
+- Per-environment load data (`scene-manifest`, `EXTRACTION_COVERAGE.md`); coverage report; 100%
+  asset extraction (0 reader failures); corpus 337/337 with `decrypt.rs` single entry point.
