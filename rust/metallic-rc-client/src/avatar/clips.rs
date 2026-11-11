@@ -35,6 +35,11 @@ pub const STATE_CLIPS: &[(&str, &str)] = &[
     ("crouch_idle", "Avatar_Skeleton|Crouch_Idle"),
     ("crouch_walk", "Avatar_Skeleton|Crouch_Walk_Forward"),
     ("fly", "Avatar_Skeleton|Fly_Idle"),
+    // emotes/poses, triggered via Drive.emote. Only forward-kinematic clips work here: the Fidget_*_static "fidget"
+    // emotes (flex, hands-on-hips, wave, dance) are authored as IK effector targets (Position bindings on hand/foot
+    // handles, no joint rotations), so they'd need an IK solver to play — a follow-up. Idle_Sit/Idle_Prone are FK.
+    ("sit", "Avatar_Skeleton|Idle_Sit"),
+    ("prone", "Avatar_Skeleton|Idle_Prone"),
 ];
 
 /// One authored clip, with its rotation bindings pre-resolved to our joint indices.

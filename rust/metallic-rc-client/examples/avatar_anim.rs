@@ -18,6 +18,7 @@ struct Shot {
     name: &'static str,
     vel: Vec3,
     grounded: Option<bool>,
+    emote: Option<&'static str>,
     dwell: f32,
     burst: u8,
 }
@@ -27,11 +28,14 @@ const LOOKM: Vec3 = Vec3::new(0.0, 0.9, 0.0);
 const BURST_GAP: f32 = 0.2;
 
 const SHOTS: &[Shot] = &[
-    Shot { name: "01_idle", vel: Vec3::ZERO, grounded: Some(true), dwell: 1.0, burst: 1 },
-    Shot { name: "02_walk", vel: Vec3::new(3.0, 0.0, 0.0), grounded: Some(true), dwell: 0.5, burst: 3 },
-    Shot { name: "04_run", vel: Vec3::new(4.6, 0.0, 0.0), grounded: Some(true), dwell: 0.4, burst: 3 },
-    Shot { name: "05_jump", vel: Vec3::new(0.5, 4.0, 0.0), grounded: Some(false), dwell: 0.4, burst: 2 },
-    Shot { name: "06_fall", vel: Vec3::new(0.5, -3.5, 0.0), grounded: Some(false), dwell: 0.4, burst: 2 },
+    Shot { name: "01_idle", vel: Vec3::ZERO, grounded: Some(true), emote: None, dwell: 1.0, burst: 1 },
+    // a quick walk burst right after idle also catches the idle->walk crossfade in the first frame
+    Shot { name: "02_walk", vel: Vec3::new(3.0, 0.0, 0.0), grounded: Some(true), emote: None, dwell: 0.08, burst: 3 },
+    Shot { name: "04_run", vel: Vec3::new(4.6, 0.0, 0.0), grounded: Some(true), emote: None, dwell: 0.5, burst: 3 },
+    Shot { name: "05_jump", vel: Vec3::new(0.5, 4.0, 0.0), grounded: Some(false), emote: None, dwell: 0.4, burst: 2 },
+    Shot { name: "06_fall", vel: Vec3::new(0.5, -3.5, 0.0), grounded: Some(false), emote: None, dwell: 0.4, burst: 2 },
+    Shot { name: "07_emote_sit", vel: Vec3::ZERO, grounded: Some(true), emote: Some("sit"), dwell: 0.8, burst: 1 },
+    Shot { name: "08_emote_prone", vel: Vec3::ZERO, grounded: Some(true), emote: Some("prone"), dwell: 0.8, burst: 1 },
 ];
 
 fn looks() -> Vec<Look> {
@@ -105,6 +109,7 @@ fn run(
         drive.velocity = shot.vel;
         drive.grounded = shot.grounded;
         drive.flying = false;
+        drive.emote = shot.emote;
     }
     let wait = if *i == 0 { 3.0 } else if *taken == 0 { shot.dwell } else { BURST_GAP };
     if *since > wait {
