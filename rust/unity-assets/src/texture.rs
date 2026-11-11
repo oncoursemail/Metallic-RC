@@ -55,7 +55,9 @@ pub fn mip0_size(format: i32, w: usize, h: usize) -> Option<usize> {
 /// Decodes mip 0 of `data` to RGBA8, rows top to bottom (Unity stores them bottom-up).
 pub fn decode_rgba8(format: i32, w: usize, h: usize, data: &[u8]) -> Result<Vec<u8>> {
     if w == 0 || h == 0 {
-        return format_err("zero-sized texture");
+        // A 0-sized texture (streaming placeholder / empty slot) is a valid object with no pixels;
+        // it decodes to an empty image rather than being an error.
+        return Ok(Vec::new());
     }
     let src = match mip0_size(format, w, h) {
         Some(n) if data.len() < n => return format_err(format!("{} needs {n} bytes, have {}", format_name(format), data.len())),
