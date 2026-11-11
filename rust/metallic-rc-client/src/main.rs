@@ -73,8 +73,9 @@ fn args() -> Args {
             "--world" => a.world = Some(it.next().unwrap_or_else(|| die("--world needs an address"))),
             "--game-dir" => a.game_dir = Some(it.next().unwrap_or_else(|| die("--game-dir needs a folder")).into()),
             "--ref-install" => metallic_rc_client::levels::set_ref_install(Some(&it.next().unwrap_or_else(|| die("--ref-install needs a folder or none")))),
+            "--scenes-dir" => metallic_rc_client::levels::set_scenes_dir(Some(&it.next().unwrap_or_else(|| die("--scenes-dir needs a folder or none")))),
             "-h" | "--help" => {
-                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--headless]");
+                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--world ADDRESS|SCENE] [--ref-install DIR|none] [--scenes-dir DIR|none] [--headless]");
                 std::process::exit(0)
             }
             _ => die(&format!("unknown argument {k}")),

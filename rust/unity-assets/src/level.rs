@@ -13,6 +13,12 @@ pub fn version_of(unity_version: &str) -> (u32, u32) {
     (it.next().unwrap_or(0), it.next().unwrap_or(0))
 }
 
+/// Unity 6 (6000.x) and later: several player-build layouts gained fields (verified against the type trees of the
+/// 2026 Addressables bundles and the decrypted 2026 base files, both 6000.0.27f1).
+fn is_u6(sf: &SerializedFile) -> bool {
+    version_of(&sf.unity_version).0 >= 6000
+}
+
 fn pptr(r: &mut Reader) -> Result<PPtr> {
     Ok(PPtr { file_id: r.i32()?, path_id: r.i64()? })
 }
@@ -69,10 +75,12 @@ fn behaviour(r: &mut Reader) -> Result<(PPtr, bool)> {
     Ok((go, enabled))
 }
 
-/// The readers below know the 2019.3 .. 2021.3 player layouts (checked on 2019.4.26f1).
+/// The readers below know the 2019.3 .. 2021.3 player layouts (checked on 2019.4.26f1) and the Unity 6
+/// (6000.x) player layout (checked on 6000.0.27f1, the decrypted 2026 Rec Room base files). Every reader
+/// also verifies it consumed exactly the object's bytes, so a layout mismatch is an error, not garbage.
 fn check_version(sf: &SerializedFile, what: &str) -> Result<()> {
     let v = version_of(&sf.unity_version);
-    if !((2019, 3)..(2022, 0)).contains(&v) {
+    if !(((2019, 3)..(2022, 0)).contains(&v) || ((6000, 0)..(6001, 0)).contains(&v)) {
         return crate::unsupported(format!("{what} layout for Unity {}", sf.unity_version));
     }
     Ok(())
@@ -119,7 +127,9 @@ pub fn light(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<Light> {
     let mut r = reader(sf, o, classes::LIGHT, "Light")?;
     let (game_object, enabled) = behaviour(&mut r)?;
     let kind = r.i32()?;
-    r.i32()?; // m_Shape
+    if !is_u6(sf) {
+        r.i32()?; // m_Shape (removed in Unity 6)
+    }
     let color = color(&mut r)?;
     let [intensity, range, spot_angle, inner_spot_angle, cookie_size] = floats::<5>(&mut r)?;
     let shadows = r.i32()?;
@@ -146,11 +156,22 @@ pub fn light(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<Light> {
     let use_color_temperature = r.bool()?;
     r.align(4);
     skip(&mut r, 16)?; // m_BoundingSphereOverride
-    r.bool()?; // m_UseBoundingSphereOverride
-    r.align(4);
-    if version_of(&sf.unity_version) >= (2020, 1) && r.remaining() == 4 {
-        r.bool()?; // m_UseViewFrustumForShadowCasterCull (INFERRED version)
+    if is_u6(sf) {
+        r.bool()?; // m_UseBoundingSphereOverride
+        r.bool()?; // m_UseViewFrustumForShadowCasterCull
+        r.bool()?; // m_ForceVisible
         r.align(4);
+        r.i32()?; // m_LightUnit
+        r.f32()?; // m_LuxAtDistance
+        r.bool()?; // m_EnableSpotReflector
+        r.align(4);
+    } else {
+        r.bool()?; // m_UseBoundingSphereOverride
+        r.align(4);
+        if version_of(&sf.unity_version) >= (2020, 1) && r.remaining() == 4 {
+            r.bool()?; // m_UseViewFrustumForShadowCasterCull (INFERRED version)
+            r.align(4);
+        }
     }
     done(&r, "Light")?;
     Ok(Light {
@@ -369,9 +390,20 @@ pub fn box_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<BoxCol
     let mut r = reader(sf, o, classes::BOX_COLLIDER, "BoxCollider")?;
     let game_object = pptr(&mut r)?;
     pptr(&mut r)?; // m_Material
-    let trigger = r.bool()?;
-    let enabled = r.bool()?;
-    r.align(4);
+    let (trigger, enabled) = if is_u6(sf) {
+        skip(&mut r, 12)?; // m_IncludeLayers, m_ExcludeLayers (BitField), m_LayerOverridePriority
+        let trigger = r.bool()?;
+        r.bool()?; // m_ProvidesContacts
+        r.align(4);
+        let enabled = r.bool()?;
+        r.align(4);
+        (trigger, enabled)
+    } else {
+        let trigger = r.bool()?;
+        let enabled = r.bool()?;
+        r.align(4);
+        (trigger, enabled)
+    };
     let size = floats::<3>(&mut r)?;
     let center = floats::<3>(&mut r)?;
     done(&r, "BoxCollider")?;
@@ -383,13 +415,33 @@ pub struct DirResources(pub std::path::PathBuf);
 
 impl crate::objects::Resources for DirResources {
     fn resource(&self, path: &str, offset: u64, size: u64) -> Result<Vec<u8>> {
+        MultiResources(vec![self.0.clone()]).resource(path, offset, size)
+    }
+}
+
+/// Out-of-line data looked up across several folders, first hit wins. The decrypted 2026 base files live in one
+/// folder while their `.resS` streams live in the game install's `RecRoom_Data`, so both are searched.
+pub struct MultiResources(pub Vec<std::path::PathBuf>);
+
+impl crate::objects::Resources for MultiResources {
+    fn resource(&self, path: &str, offset: u64, size: u64) -> Result<Vec<u8>> {
         use std::io::{Read, Seek, SeekFrom};
         let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
-        let mut f = std::fs::File::open(self.0.join(name))?;
-        f.seek(SeekFrom::Start(offset))?;
-        let mut v = vec![0; size as usize];
-        f.read_exact(&mut v)?;
-        Ok(v)
+        let mut last = None;
+        for dir in &self.0 {
+            match std::fs::File::open(dir.join(name)) {
+                Ok(mut f) => {
+                    f.seek(SeekFrom::Start(offset))?;
+                    let mut v = vec![0; size as usize];
+                    match f.read_exact(&mut v) {
+                        Ok(()) => return Ok(v),
+                        Err(e) => last = Some(e),
+                    }
+                }
+                Err(e) => last = Some(e),
+            }
+        }
+        Err(last.map_or_else(|| crate::Error::Format(format!("resource {name} not found")), crate::Error::Io))
     }
 }
 
@@ -467,7 +519,8 @@ pub fn mesh(sf: &SerializedFile, o: &crate::ObjectInfo, res: &dyn crate::objects
         packed(&mut r, float)?;
     }
     r.u32()?; // m_UVInfo
-    skip(&mut r, 24 + 4)?; // m_LocalAABB, m_MeshUsageFlags
+    // m_LocalAABB (24), m_MeshUsageFlags (4), and in Unity 6 an added m_CookingOptions (4)
+    skip(&mut r, 24 + 4 + if is_u6(sf) { 4 } else { 0 })?;
     byte_vec(&mut r)?; // m_BakedConvexCollisionMesh
     byte_vec(&mut r)?; // m_BakedTriangleCollisionMesh
     skip(&mut r, 8)?; // m_MeshMetrics
@@ -486,27 +539,56 @@ pub fn texture(sf: &SerializedFile, o: &crate::ObjectInfo, res: &dyn crate::obje
     let mut r = reader(sf, o, class, "Texture2D")?;
     let v = version_of(&sf.unity_version);
     let name = r.aligned_string()?;
-    r.i32()?; // m_ForcedFallbackFormat
-    r.bool()?; // m_DownscaleFallback (+ m_IsAlphaChannelOptional since 2020.2)
-    r.align(4);
-    let width = r.i32()? as usize;
-    let height = r.i32()? as usize;
-    r.i32()?; // m_CompleteImageSize
-    let format = r.i32()?;
-    let mip_count = r.i32()?;
-    skip(&mut r, 3)?; // readable, ignore master texture limit, streaming mipmaps
-    r.align(4);
-    r.i32()?; // m_StreamingMipmapsPriority
-    let image_count = r.i32()?;
-    skip(&mut r, 4 + 24 + 8)?; // dimension, texture settings, lightmap format, colour space
-    if v >= (2020, 2) {
+    let (width, height, format, mip_count, image_count, inline, streamed) = if is_u6(sf) {
+        // Unity 6 Texture2D player layout (from the type tree): no m_ForcedFallbackFormat/m_DownscaleFallback;
+        // adds m_MipsStripped, m_MipmapLimitGroupName, m_IsPreProcessed, m_IgnoreMipmapLimit.
+        r.bool()?; // m_IsAlphaChannelOptional
+        r.align(4);
+        let width = r.i32()? as usize;
+        let height = r.i32()? as usize;
+        r.i32()?; // m_CompleteImageSize
+        r.i32()?; // m_MipsStripped
+        let format = r.i32()?;
+        let mip_count = r.i32()?;
+        skip(&mut r, 3)?; // m_IsReadable, m_IsPreProcessed, m_IgnoreMipmapLimit
+        r.align(4);
+        r.aligned_string()?; // m_MipmapLimitGroupName
+        r.bool()?; // m_StreamingMipmaps
+        r.align(4);
+        r.i32()?; // m_StreamingMipmapsPriority
+        let image_count = r.i32()?;
+        skip(&mut r, 4 + 24 + 8)?; // m_TextureDimension, m_TextureSettings, lightmap format, colour space
         byte_vec(&mut r)?; // m_PlatformBlob
-    }
-    let inline = byte_vec(&mut r)?;
-    let streamed = stream_info(&mut r, v)?;
-    if class == classes::CUBEMAP {
-        vec_of(&mut r, 12, pptr)?; // m_SourceTextures
-    }
+        let inline = byte_vec(&mut r)?;
+        let streamed = stream_info(&mut r, v)?;
+        if class == classes::CUBEMAP {
+            vec_of(&mut r, 12, pptr)?; // m_SourceTextures
+        }
+        (width, height, format, mip_count, image_count, inline, streamed)
+    } else {
+        r.i32()?; // m_ForcedFallbackFormat
+        r.bool()?; // m_DownscaleFallback (+ m_IsAlphaChannelOptional since 2020.2)
+        r.align(4);
+        let width = r.i32()? as usize;
+        let height = r.i32()? as usize;
+        r.i32()?; // m_CompleteImageSize
+        let format = r.i32()?;
+        let mip_count = r.i32()?;
+        skip(&mut r, 3)?; // readable, ignore master texture limit, streaming mipmaps
+        r.align(4);
+        r.i32()?; // m_StreamingMipmapsPriority
+        let image_count = r.i32()?;
+        skip(&mut r, 4 + 24 + 8)?; // dimension, texture settings, lightmap format, colour space
+        if v >= (2020, 2) {
+            byte_vec(&mut r)?; // m_PlatformBlob
+        }
+        let inline = byte_vec(&mut r)?;
+        let streamed = stream_info(&mut r, v)?;
+        if class == classes::CUBEMAP {
+            vec_of(&mut r, 12, pptr)?; // m_SourceTextures
+        }
+        (width, height, format, mip_count, image_count, inline, streamed)
+    };
     done(&r, "Texture2D")?;
     let data = match streamed {
         Some((offset, size, path)) => res.resource(&path, offset, size)?,
@@ -534,8 +616,9 @@ pub fn material(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<crate::Mat
     r.i32()?; // m_CustomRenderQueue
     vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.aligned_string()?)))?; // stringTagMap
     vec_of(&mut r, 4, |r| r.aligned_string())?; // disabledShaderPasses
-    if v >= (2020, 1) {
-        vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.aligned_string()?)))?; // m_BuildTextureStacks
+    if ((2020, 1)..(2022, 0)).contains(&v) {
+        // m_BuildTextureStacks (2020.1 .. 2021.x only; Unity 6 player materials do not serialize it)
+        vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.aligned_string()?)))?;
     }
     let textures = vec_of(&mut r, 32, |r| {
         let name = r.aligned_string()?;
@@ -546,6 +629,14 @@ pub fn material(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<crate::Mat
     let ints = if v >= (2021, 1) { vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.i32()? as i64)))? } else { Vec::new() };
     let floats = vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.f32()?)))?;
     let colors = vec_of(&mut r, 20, |r| Ok((r.aligned_string()?, color(r)?)))?;
+    if is_u6(sf) {
+        // Unity 6 serializes m_BuildTextureStacks at the end, after m_SavedProperties (groupName, itemName strings).
+        vec_of(&mut r, 8, |r| {
+            r.aligned_string()?;
+            r.aligned_string()?;
+            Ok(())
+        })?;
+    }
     done(&r, "Material")?;
     Ok(crate::Material { name, shader, keywords, textures, floats, ints, colors })
 }

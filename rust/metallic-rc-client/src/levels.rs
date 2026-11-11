@@ -106,15 +106,23 @@ fn hidden_prefab(name: &str) -> bool {
 
 // ---- the reference install's files ----
 
-/// The plain files of the reference install, opened as they are needed (resolving PPtrs between them).
+/// The plain files of a plain-file install (the 2019 reference install, or the decrypted 2026 corpus), opened as
+/// they are needed (resolving PPtrs between them). `res_dirs` are where the out-of-line `.resS`/`.resource` streams
+/// are looked for (the install folder; for the 2026 corpus also the game install, whose `.resS` are plaintext).
 struct Files {
     dir: PathBuf,
+    res_dirs: Vec<PathBuf>,
     open: HashMap<String, Option<Rc<SerializedFile>>>,
 }
 
 impl Files {
     fn new(dir: &Path) -> Self {
-        Files { dir: dir.to_path_buf(), open: HashMap::new() }
+        Files { dir: dir.to_path_buf(), res_dirs: vec![dir.to_path_buf()], open: HashMap::new() }
+    }
+
+    /// Reads scenes from `dir` but looks for their stream data across `res_dirs` (first hit wins).
+    fn with_res(dir: &Path, res_dirs: Vec<PathBuf>) -> Self {
+        Files { dir: dir.to_path_buf(), res_dirs, open: HashMap::new() }
     }
 
     fn get(&mut self, name: &str) -> Option<Rc<SerializedFile>> {
@@ -145,8 +153,8 @@ impl Files {
         Some((name, p.path_id))
     }
 
-    fn resources(&self) -> level::DirResources {
-        level::DirResources(self.dir.clone())
+    fn resources(&self) -> level::MultiResources {
+        level::MultiResources(self.res_dirs.clone())
     }
 }
 
@@ -254,6 +262,32 @@ fn node_mesh(files: &mut Files, scene: &Scene, sf: &SerializedFile, i: usize) ->
     Some((name, filter, renderer))
 }
 
+/// Every drawn mesh of a scene, by node index and mesh name: active renderers (or statically-batched originals
+/// whose combined mesh draws them), skipping lower LODs, mobile variants, circuit helpers and shadow-only proxies.
+fn drawn_meshes(files: &mut Files, scene: &Scene) -> Vec<(usize, String)> {
+    let Some(sf) = files.get(&scene.file) else { return Vec::new() };
+    let mut drawn: Vec<(usize, String)> = Vec::new();
+    // Rec Room's own static batcher: originals keep their mesh with the renderer off, and a `StaticStaticBatch_<material>`
+    // object draws the combined mesh; such originals count as drawn (INFERRED from the object names).
+    let batched: HashSet<String> = scene.nodes.iter().filter_map(|n| n.name.strip_prefix("StaticStaticBatch_").map(String::from)).collect();
+    let desktop_parents: HashSet<Option<usize>> = scene.nodes.iter().filter(|n| n.name.contains("Desktop")).map(|n| n.parent).collect();
+    for (i, n) in scene.nodes.iter().enumerate() {
+        if !n.active || n.name.starts_with("StaticStaticBatch_") || lower_lod(&n.name) || mobile_variant(scene, &desktop_parents, i) || n.path.contains("/Circuit ") {
+            continue;
+        }
+        let Some((mesh, _, r)) = node_mesh(files, scene, &sf, i) else { continue };
+        if r.cast_shadows == 3 {
+            continue;
+        }
+        let first_mat = r.materials.first().and_then(|&p| files.resolve(&scene.file, p))
+            .and_then(|(f, id)| { let x = files.get(&f)?; x.object(id).and_then(|o| x.object_name(o)) });
+        if r.enabled || first_mat.is_some_and(|m| batched.contains(&m)) {
+            drawn.push((i, mesh));
+        }
+    }
+    drawn
+}
+
 /// A lower level of detail (`*LOD1`, `*_LOD_2`): LOD0 is drawn instead.
 fn lower_lod(name: &str) -> bool {
     let Some(i) = name.rfind("LOD") else { return false };
@@ -354,28 +388,9 @@ fn prefab_meshes(lib: &mut Library, dir: &Path, bundle: &str, prefix: &str) -> R
 fn plan(files: &mut Files, lib: &mut Library, dir: &Path, room: &str) -> Result<(Scene, Vec<Placed>), String> {
     let (file, name) = scene_file(files, room).ok_or_else(|| format!("no scene {room:?} in the reference install"))?;
     let scene = read_scene(files, &file, &name)?;
-    let sf = files.get(&file).ok_or("scene file")?;
     let info = ROOMS.iter().find(|r| r.scene.eq_ignore_ascii_case(&name));
     // every drawn mesh of the scene, by node
-    let mut drawn: Vec<(usize, String)> = Vec::new();
-    // Rec Room's own static batcher: originals keep their mesh with the renderer off, and a `StaticStaticBatch_<material>`
-    // object draws the combined mesh; such originals count as drawn (INFERRED from the object names)
-    let batched: HashSet<String> = scene.nodes.iter().filter_map(|n| n.name.strip_prefix("StaticStaticBatch_").map(String::from)).collect();
-    let desktop_parents: HashSet<Option<usize>> = scene.nodes.iter().filter(|n| n.name.contains("Desktop")).map(|n| n.parent).collect();
-    for (i, n) in scene.nodes.iter().enumerate() {
-        if !n.active || n.name.starts_with("StaticStaticBatch_") || lower_lod(&n.name) || mobile_variant(&scene, &desktop_parents, i) || n.path.contains("/Circuit ") {
-            continue;
-        }
-        let Some((mesh, _, r)) = node_mesh(files, &scene, &sf, i) else { continue };
-        if r.cast_shadows == 3 {
-            continue;
-        }
-        let first_mat = r.materials.first().and_then(|&p| files.resolve(&file, p))
-            .and_then(|(f, id)| { let x = files.get(&f)?; x.object(id).and_then(|o| x.object_name(o)) });
-        if r.enabled || first_mat.is_some_and(|m| batched.contains(&m)) {
-            drawn.push((i, mesh));
-        }
-    }
+    let drawn = drawn_meshes(files, &scene);
     let mut out = Vec::new();
     let mut covered: Vec<usize> = Vec::new(); // anchor subtrees
     let mut covered_meshes: HashSet<String> = HashSet::new();
@@ -776,6 +791,120 @@ fn load_with(files: &mut Files, lib: &mut Library, kit: &mut ShapeKit, dir: &Pat
     let lights = scene_lights(&scene, &sf, root);
     if !lights.is_empty() {
         r.lights = lights;
+    }
+    Ok(r)
+}
+
+// ---- the decrypted 2026 scenes ----
+
+/// The default place of the decrypted 2026 base files (the 114 `levelN` scenes, `sharedassetsN`, `resources.assets`,
+/// `globalgamemanagers`), produced by the preservation capture. Their `.resS` streams are read from the game install.
+pub const DEFAULT_SCENES_DIR: &str = r"C:\Users\alexi\rr-capture\decomp-full\assets\decrypted";
+
+static SCENES_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+/// Sets the decrypted-scene corpus from `--scenes-dir` (a folder, or `none` to turn it off). Call once, before the
+/// first room loads; later calls are ignored.
+pub fn set_scenes_dir(arg: Option<&str>) {
+    let dir = match arg {
+        Some(a) if a.eq_ignore_ascii_case("none") => None,
+        Some(a) => Some(PathBuf::from(a)),
+        None => default_scenes_dir(),
+    };
+    let _ = SCENES_DIR.set(dir);
+}
+
+fn default_scenes_dir() -> Option<PathBuf> {
+    Some(PathBuf::from(DEFAULT_SCENES_DIR)).filter(|d| d.join("globalgamemanagers").exists())
+}
+
+/// The decrypted 2026 scene corpus, if there is one.
+pub fn scenes_dir() -> Option<&'static Path> {
+    SCENES_DIR.get_or_init(default_scenes_dir).as_deref()
+}
+
+/// A tag for the world cache key: rooms built from the decrypted corpus differ from those without it.
+pub fn scenes_cache_tag() -> String {
+    format!("scenes1:{:?}", scenes_dir())
+}
+
+/// One built-in scene of the 2026 build: our short name (the scene file name, e.g. `reccenter`), its `levelN` file,
+/// and the full asset path.
+pub struct SceneEntry {
+    pub name: String,
+    pub file: String,
+    pub path: String,
+}
+
+/// Every built-in scene in the decrypted corpus (from `globalgamemanagers`' build settings), in `levelN` order.
+pub fn scene_list() -> Vec<SceneEntry> {
+    let Some(dir) = scenes_dir() else { return Vec::new() };
+    let mut files = Files::new(dir);
+    let Some(ggm) = files.get("globalgamemanagers") else { return Vec::new() };
+    let Ok(scenes) = level::build_scenes(&ggm) else { return Vec::new() };
+    scenes
+        .iter()
+        .enumerate()
+        .map(|(i, p)| SceneEntry { name: level::scene_name(p).to_string(), file: format!("level{i}"), path: p.clone() })
+        .collect()
+}
+
+/// Loads a built-in 2026 scene (by our name, scene name or `levelN`) straight from the decrypted corpus: its own
+/// geometry, materials, solid colliders and realtime lights. `game_data` is the game install's `RecRoom_Data`,
+/// where the plaintext `.resS` streams live. `None` when there is no corpus or it has no such scene, so the caller
+/// falls back to another loader.
+pub fn load_scene(game_data: Option<&Path>, room: &str) -> Option<Result<RoomData, String>> {
+    let dir = scenes_dir()?;
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let mut files = Files::with_res(dir, res_dirs);
+    scene_file(&mut files, room)?;
+    Some(load_scene_with(&mut files, room))
+}
+
+fn load_scene_with(files: &mut Files, room: &str) -> Result<RoomData, String> {
+    let (file, name) = scene_file(files, room).ok_or_else(|| format!("no scene {room:?} in the decrypted corpus"))?;
+    let scene = read_scene(files, &file, &name)?;
+    let drawn = drawn_meshes(files, &scene);
+    let mut r = RoomData::default();
+    r.roots.push(format!("2026:{name}"));
+    r.places.push(Mat4::IDENTITY);
+    r.props.push(false);
+    let root = r.roots.len() - 1;
+    // solid box colliders and realtime lights of active objects (read before the mesh builder borrows `files`)
+    let sf = files.get(&scene.file).ok_or("scene file")?;
+    for (i, n) in scene.nodes.iter().enumerate() {
+        if !n.active {
+            continue;
+        }
+        for &(class, id) in &n.components {
+            if class != classes::BOX_COLLIDER {
+                continue;
+            }
+            if let Some(o) = sf.object(id) {
+                if let Ok(c) = level::box_collider(&sf, o) {
+                    if c.enabled && !c.trigger {
+                        r.colliders.push(Obb::from_box_collider(scene.nodes[i].world, c.center, c.size));
+                        r.collider_roots.push(root);
+                    }
+                }
+            }
+        }
+    }
+    let lights = scene_lights(&scene, &sf, root);
+    if !lights.is_empty() {
+        r.lights = lights;
+    }
+    drop(sf);
+    let mut b = OldBuilder { files, out: &mut r, root, textures: HashMap::new(), materials: HashMap::new(), meshes: HashMap::new() };
+    for (i, _mesh) in &drawn {
+        // the room's systems (UI, tutorials, boards) are not part of its look
+        if scene.nodes[*i].path.starts_with("Systems/") {
+            continue;
+        }
+        b.add(&scene, *i);
     }
     Ok(r)
 }

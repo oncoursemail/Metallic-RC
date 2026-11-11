@@ -197,6 +197,16 @@ fn shape_kit() -> ShapeKit {
 
 fn load_with(lib: &mut Library, kit: &mut ShapeKit, addresses: &mut Option<Addresses>, dir: &Path, world: Option<&str>) -> Result<RoomData, String> {
     let world = world.unwrap_or("dorm");
+    let is_group = GROUPS.iter().any(|g| g.name.eq_ignore_ascii_case(world));
+    // Every built-in 2026 map except the Dorm loads straight from the decrypted scene corpus (own geometry,
+    // materials, colliders and realtime lights). The Dorm keeps its bridged look (2019 layout + 2026 prefabs); the
+    // group names (stuntrunner, sandbox) keep their prefab-group layouts. `dir` is `.../RecRoom_Data/StreamingAssets/
+    // aa/StandaloneWindows64`, so its 3rd ancestor is `RecRoom_Data`, where the plaintext `.resS` streams live.
+    if !is_group && !world.eq_ignore_ascii_case("dorm") {
+        if let Some(r) = crate::levels::load_scene(dir.ancestors().nth(3), world) {
+            return r;
+        }
+    }
     // the old scene's layout and lights, when the reference install has this room (--ref-install)
     if let Some(r) = crate::levels::load(lib, kit, dir, world) {
         return r;
@@ -291,7 +301,7 @@ impl Loader {
             // the disk cache first (METALLIC_RC_NO_CACHE skips it, for timing the cold path); the bundles are
             // indexed after it, as props need them
             let cached = std::env::var_os("METALLIC_RC_NO_CACHE").is_none()
-                .then(|| cache::file_for(&dir, name, &format!("{:?}{}", shapes::old_build_dirs().iter().find(|d| d.exists()), crate::levels::cache_tag()))).flatten();
+                .then(|| cache::file_for(&dir, name, &format!("{:?}{}{}", shapes::old_build_dirs().iter().find(|d| d.exists()), crate::levels::cache_tag(), crate::levels::scenes_cache_tag()))).flatten();
             let hit = cached.as_deref().and_then(cache::read);
             let from_cache = hit.is_some();
             if let Some(r) = hit {
