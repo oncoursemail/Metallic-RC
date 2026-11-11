@@ -46,15 +46,17 @@ load layout + prefab geometry but miss the base-scene-embedded meshes/textures.
 
 ## Known gaps (minor, non-fatal)
 
-- **Room-ambiance particle VFX — decode + bridge proven, renderer deferred.** The decorative room VFX (e.g.
-  `[VFX_LockerDust]`, `[DodgeballFireTrail]`, `PotionParticle`) are ParticleSystems. The base scenes are no-type-tree,
-  so their inline PS cannot be decoded there; the `unity_assets::ParticleSystem` decoder (cherry-picked) works on the
-  type-tree'd Addressables prefab bundles, where the same names resolve. The scene→bundle name-match bridge is proven
-  end-to-end (`rr-vfx-decode` opens a bundle, finds each PS, resolves its GameObject name, decodes a full spec —
-  e.g. `VFX_Sparks` max 15 / speed 7.5 / 5 colour stops, `VFX_Smoke` looping / max 500). What's left is a Bevy
-  particle *rendering* subsystem (the engine has none today) to instantiate the decoded spec at the scene transform —
-  deferred as low-priority cosmetic polish. The inline `VFX_Emote_*` systems are player emote effects (avatar work),
-  not room ambiance.
+- **Room-ambiance particle VFX — decode done (scene is the single source), renderer deferred.** The decorative room
+  VFX (`[VFX_LockerDust]`, `[DodgeballFireTrail]`, `PotionParticle`, and the looping steam/mist "Particle System"
+  emitters) are ParticleSystems baked inline in the no-type-tree base scenes. They decode cleanly by *injecting* a
+  bundle-sourced PS(198) type tree (the cipher session's route, like AnimationClip): read the PS(198) tree once from
+  any bundle, then `value::read(&ps_tree, &scene.ref_types, &mut Reader::new(scene.object_bytes(o)))` →
+  `ParticleSystem::from_value`. Verified: `rr-vfx-decode scene` decodes all 136 inline PS in reccenter (136 ok, 0
+  failed) — 37 room-ambiance with real specs (`[VFX_LockerDust]` looping/max 5000/dust, `[DodgeballFireTrail]`
+  looping/max 1000/velocity), 99 `VFX_Emote_*` which are player emote effects (avatar lane, filtered out by name).
+  So placement AND spec both come from the scene — no name-match or catalog needed. The one remaining piece is a Bevy
+  particle *rendering* subsystem (the engine has none today) with a per-room particle budget — deferred as
+  low-priority cosmetic polish, a trivial pickup now that the data decodes.
 - **`* ` compressed decorative meshes** — e.g. `CandleFlameMesh` in the Quest rooms. `level::mesh` does not yet
   decode Unity mesh compression (`m_MeshCompression != 0`), so a handful of small props are skipped (one mesh per
   affected room). Cosmetic; the room is otherwise complete.
