@@ -129,7 +129,7 @@ pub struct Visual {
 /// canvas, so at a smaller spacing the two mirrored quads overlapped into one bar (the "sunglasses" look). Wider and a
 /// touch smaller makes two distinct Rec Room eyes with a clear gap.
 const EYE_POS: [Vec3; 2] = [Vec3::new(-0.062, 1.521, -0.14), Vec3::new(0.062, 1.521, -0.14)];
-const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.486, -0.158);
+const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.470, -0.158);
 // the quads are the sprite's full square canvas (256² eye, 512² mouth): sized so the inked feature reads at the right
 // size without the two eyes overlapping (eye 0.145 → a ~0.11 inked eye; mouth 0.27 → a ~0.10 line).
 const EYE_W: f32 = 0.145;
@@ -141,6 +141,16 @@ const FULL_HEAD_Y: f32 = 1.421;
 /// A float from an env var, for dialling the face in without a rebuild (e.g. `METALLIC_EYE_X`); falls back to `d`.
 fn envf(key: &str, d: f32) -> f32 {
     std::env::var(key).ok().and_then(|s| s.parse().ok()).unwrap_or(d)
+}
+
+/// The resting expression (when not talking or blinking). Rec Room avatars sit with a gentle smile, so that is the
+/// default rather than the stern neutral line; override with METALLIC_REST_EYE / METALLIC_REST_MOUTH (e.g.
+/// `METALLIC_REST_MOUTH=Mouth_Blank` for a neutral mouth).
+fn rest_eye() -> String {
+    std::env::var("METALLIC_REST_EYE").unwrap_or_else(|_| "Eye_Default".into())
+}
+fn rest_mouth() -> String {
+    std::env::var("METALLIC_REST_MOUTH").unwrap_or_else(|_| "Mouth_Smile".into())
 }
 
 /// The face layout, overridable per-field by env while tuning (METALLIC_EYE_X/Y/Z/W, METALLIC_MOUTH_Y/Z/W).
@@ -445,8 +455,8 @@ pub fn attach_real(
         let head_dy = Vec3::Y
             * roomie.rig.as_ref().map_or(0.0, |r| (Mat4::from_quat(stand()) * r.bind_world[r.head]).to_scale_rotation_translation().2.y - FULL_HEAD_Y);
         // start at the resting expression; `animate_face` swaps these materials to blink and talk.
-        let eye_mat = roomie.eyes.get("Eye_Default").cloned().unwrap_or_default();
-        let mouth_mat = roomie.mouths.get("Mouth_Blank").cloned().unwrap_or_default();
+        let eye_mat = roomie.eyes.get(&rest_eye()).cloned().unwrap_or_default();
+        let mouth_mat = roomie.mouths.get(&rest_mouth()).cloned().unwrap_or_default();
         let layout = face_layout();
         let mut eyes = [Entity::PLACEHOLDER; 2];
         for (i, p) in layout.eye.into_iter().enumerate() {
@@ -701,6 +711,7 @@ pub fn animate_face(
 ) {
     let Some(roomie) = roomie else { return };
     let t = time.elapsed_secs();
+    let (rest_eye, rest_mouth) = (rest_eye(), rest_mouth());
     const VISEMES: [&str; 3] = ["Mouth_Talking_Open", "Mouth_Talking_Tall", "Mouth_Talking_Wide"];
     // swap a decal entity to the expression material `m`, only when it actually changes
     let mut put = |ent: Entity, m: Option<&Handle<StandardMaterial>>| {
@@ -714,7 +725,7 @@ pub fn animate_face(
         // blink: a quick close for ~0.12 s every few seconds, offset per avatar so they don't blink in lockstep
         let period = 3.2 + (face.seed % 7) as f32 * 0.45;
         let blinking = (t + (face.seed as f32 * 0.613).rem_euclid(period)).rem_euclid(period) < 0.12;
-        let eye = roomie.eyes.get(if blinking { "Eye_Blink" } else { "Eye_Default" });
+        let eye = roomie.eyes.get(if blinking { "Eye_Blink" } else { rest_eye.as_str() });
         for &e in &face.eyes {
             put(e, eye);
         }
@@ -722,7 +733,7 @@ pub fn animate_face(
         let mouth = if drive.talking {
             VISEMES[((t * 10.0 + face.seed as f32 * 1.7) as i64).rem_euclid(VISEMES.len() as i64) as usize]
         } else {
-            "Mouth_Blank"
+            rest_mouth.as_str()
         };
         put(face.mouth, roomie.mouths.get(mouth));
     }
