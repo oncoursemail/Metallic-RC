@@ -7,6 +7,7 @@
 
 mod reader;
 pub mod animclip;
+pub mod audio;
 pub mod bundle;
 pub mod catalog;
 pub mod decrypt;
@@ -21,6 +22,7 @@ pub mod value;
 mod tests;
 
 pub use animclip::{AnimationClip, Attribute, Binding};
+pub use audio::{AudioClip, AudioData};
 pub use bundle::{Bundle, BundleHeader, Node};
 pub use objects::*;
 pub use reader::Reader;
