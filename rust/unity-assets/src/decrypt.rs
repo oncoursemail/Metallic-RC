@@ -181,6 +181,23 @@ impl Cipher {
         let op = self.op_for(filename)?;
         Some(self.decrypt(ciphertext, op, 0))
     }
+
+    /// Reads a base file straight from an install's `RecRoom_Data` (`data_dir`) and returns its
+    /// plaintext, decrypting on the fly with the loaded keystream pad — no pre-decrypted corpus
+    /// needed. A file without the encryption [`MARKER`] is returned unchanged. This is how the client
+    /// reads the user's OWN encrypted install (animations/audio/particles in `resources.assets`, the
+    /// scenes, etc.) with no shipped game data beyond the locally-built pad.
+    pub fn decrypt_install_file(&self, data_dir: &Path, name: &str) -> io::Result<Vec<u8>> {
+        let bytes = std::fs::read(data_dir.join(name))?;
+        if !is_encrypted(&bytes) {
+            return Ok(bytes);
+        }
+        match self.decrypt_file(&bytes, name) {
+            Some(Ok(plain)) => Ok(plain),
+            Some(Err(e)) => Err(io::Error::new(io::ErrorKind::InvalidData, format!("decrypt {name}: {e}"))),
+            None => Err(io::Error::new(io::ErrorKind::InvalidInput, format!("no cipher op for {name}"))),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -228,5 +245,33 @@ mod tests {
             tested += 1;
         }
         assert!(tested > 0, "no files available to test");
+    }
+
+    /// Proves the install-decrypt path: [`Cipher::decrypt_install_file`] reproduces the decrypted
+    /// corpus BYTE-FOR-BYTE straight from the raw (encrypted) install, with only the locally-built
+    /// keystream pad. Gated on `RR_CIPHER_DIR` (pad + tables), `RR_DATA_DIR` (the install's encrypted
+    /// `RecRoom_Data`) and `RR_CORPUS_DIR` (the decrypted reference); skipped when unset.
+    #[test]
+    fn decrypt_install_matches_corpus() {
+        let (Ok(cipher_dir), Ok(enc_dir), Ok(corpus_dir)) = (
+            std::env::var("RR_CIPHER_DIR"),
+            std::env::var("RR_DATA_DIR"),
+            std::env::var("RR_CORPUS_DIR"),
+        ) else {
+            eprintln!("decrypt_install_matches_corpus: skipped (set RR_CIPHER_DIR/RR_DATA_DIR/RR_CORPUS_DIR)");
+            return;
+        };
+        let cipher = Cipher::load(Path::new(&cipher_dir)).expect("load cipher tables");
+        let mut tested = 0;
+        // resources.assets holds the real animations/audio/particles; the others are scenes/managers
+        for name in ["resources.assets", "globalgamemanagers", "level0", "level7", "sharedassets7.assets"] {
+            let Ok(want) = std::fs::read(Path::new(&corpus_dir).join(name)) else { continue };
+            let got = cipher.decrypt_install_file(Path::new(&enc_dir), name).expect("decrypt install file");
+            assert_eq!(got.len(), want.len(), "{name}: length");
+            assert_eq!(got, want, "{name}: not byte-for-byte identical to the corpus");
+            tested += 1;
+        }
+        assert!(tested > 0, "no files available to test");
+        eprintln!("decrypt_install_matches_corpus: {tested} files decrypted from the raw install, byte-for-byte");
     }
 }
