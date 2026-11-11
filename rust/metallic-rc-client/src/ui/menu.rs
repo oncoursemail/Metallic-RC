@@ -22,6 +22,8 @@ use super::theme::Theme;
 use crate::room::Library;
 use crate::settings::{Settings, RESOLUTIONS};
 
+/// The avatar-item card prefab that fills the Customize grids.
+const ITEM_CARD: &str = "Assets/RRUI/Prefabs/WatchMenu/Components/Cards/(AvatarCustomizationItemCard).prefab";
 pub const ESCAPE: &str = "(EscapeMenu_standalone)";
 pub const SWITCH_ACCOUNT: &str = "(SwitchAccount)";
 pub const LOGIN: &str = "(Login)";
@@ -132,6 +134,8 @@ pub enum Action {
     Login,
     /// leave this room and join the named one (a room card)
     GoToRoom(String),
+    /// wear a wardrobe item from a Customize grid: the game's OutfitType number and the item's style name
+    WearItem(i32, String),
 }
 
 /// What a page shows besides its prefab.
@@ -150,6 +154,8 @@ pub struct Ctx<'a> {
     pub choosing: Option<&'a str>,
     /// the server's rooms, for room lists
     pub rooms: &'a [RoomInfo],
+    /// the loaded (AvatarCustomizationItemCard) template, to fill the avatar-item grids
+    pub item_card: Option<&'a Element>,
 }
 
 /// A page made ready to lay out.
@@ -698,6 +704,10 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             icons.push((id, file.to_string()));
         }
     }
+    // fill the Customize item grids with real wardrobe items
+    if let Some(card) = ctx.item_card {
+        item_cards(&mut page, card, &mut w.actions);
+    }
     theme.apply_with(&mut page, &active);
     Built { page, actions: w.actions, scrolls, icons }
 }
@@ -859,6 +869,8 @@ impl Painter {
             let mut room_list: Option<(std::time::Instant, Vec<RoomInfo>)> = None;
             // decoded customize-category icons, kept so each PNG is read once
             let mut icon_cache: HashMap<String, Option<std::sync::Arc<paint::Sprite>>> = HashMap::new();
+            // the avatar-item card template, loaded once, to fill the Customize grids
+            let item_card = prefab::load(looks.library(), &pages, &bundle_dir, ITEM_CARD).ok();
             while let Ok(mut r) = asked.recv() {
                 // only the newest request matters
                 while let Ok(newer) = asked.try_recv() {
@@ -878,7 +890,7 @@ impl Painter {
                     }
                     let none = Donors::default();
                     let ctx = Ctx { page: &path, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused,
-                        scroll: &r.scroll, choosing: r.choosing.as_deref(), rooms: room_list.as_ref().map(|(_, l)| l.as_slice()).unwrap_or_default() };
+                        scroll: &r.scroll, choosing: r.choosing.as_deref(), rooms: room_list.as_ref().map(|(_, l)| l.as_slice()).unwrap_or_default(), item_card: item_card.as_ref() };
                     let b = build(&t, &ctx, &theme, donors.as_ref().unwrap_or(&none));
                     // place the real customize-category icons (the prefab leaves their sprite null)
                     looks.clear_overrides();
@@ -929,6 +941,68 @@ fn account_cards(page: &mut Element, list: i64, ctx: &Ctx, actions: &mut HashMap
         r.anchored_position = [120.0 + i as f32 * (size[0] + 40.0), 0.0];
         content.children.push(card);
     }
+}
+
+/// Fills each avatar-item grid (an `AvatarCustomizationItemListModel`, keyed by `outfitType`) with a card per real
+/// wardrobe item for that slot, laid out in a grid — the way `room_cards` fills the rooms list, but from the external
+/// `(AvatarCustomizationItemCard)` template.
+fn item_cards(page: &mut Element, template: &Element, actions: &mut HashMap<i64, Action>) {
+    use crate::avatar::real::{scan_slot, BodyType, Slot};
+    let slot_for = |ot: i32| -> Option<Slot> {
+        Some(match ot {
+            2 => Slot::Hair,
+            101 => Slot::Top,
+            300 => Slot::Bottom,
+            301 => Slot::Shoes,
+            0 => Slot::Hat,
+            20 => Slot::Beard,
+            10 => Slot::Glasses,
+            _ => return None,
+        })
+    };
+    // each item list: its outfitType and the transform id of the element the cards spawn under
+    let mut lists: Vec<(i32, i64)> = vec![];
+    for (_, e) in page.walk() {
+        let Some(model) = e.components.iter().find(|c| c.class == "RRUI.Data.AvatarCustomizationItemListModel") else { continue };
+        let Some(ot) = model.value.get("outfitType").and_then(Value::as_i64) else { continue };
+        let target = e.walk().iter().find_map(|(_, k)| {
+            k.component("RRUI.Data.InfiniteListDataProvider").and_then(|p| pptr(&p.value, "prefabSpawnTarget"))
+        });
+        if let Some(t) = target {
+            lists.push((ot as i32, t));
+        }
+    }
+    let (cw, ch) = (template.rect.size_delta[0].max(210.0), template.rect.size_delta[1].max(280.0));
+    let cols = 5usize;
+    for (n, (ot, target)) in lists.into_iter().enumerate() {
+        let Some(slot) = slot_for(ot) else { continue };
+        let items = scan_slot(BodyType::Full, slot);
+        let Some(content) = find_mut(page, &|e| e.transform == target) else { continue };
+        for (i, name) in items.iter().enumerate() {
+            let salt = MADE | (((n as i64) * 128 + 0x40 + i as i64) << 40);
+            let mut c = card(template, salt, &prettify(name), "", Action::WearItem(ot, name.clone()), actions);
+            let (col, row) = (i % cols, i / cols);
+            let r = &mut c.rect;
+            (r.anchor_min, r.anchor_max, r.pivot) = ([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]);
+            r.size_delta = [cw, ch];
+            r.anchored_position = [32.0 + col as f32 * (cw + 22.5), -50.0 - row as f32 * (ch + 22.5)];
+            content.children.push(c);
+        }
+    }
+}
+
+/// "CurlyHelmetHair"/"Blazer_Shirt" -> "Curly Helmet" / "Blazer": split camel case, drop a trailing slot word.
+fn prettify(s: &str) -> String {
+    let s = s.strip_suffix("_Shirt").or_else(|| s.strip_suffix("_Leg")).or_else(|| s.strip_suffix("_Shoe")).or_else(|| s.strip_suffix("_Hat")).unwrap_or(s);
+    let s = s.strip_suffix("Hair").unwrap_or(s);
+    let mut out = String::new();
+    for (i, ch) in s.char_indices() {
+        if i > 0 && ch.is_uppercase() && !out.ends_with(' ') {
+            out.push(' ');
+        }
+        out.push(ch);
+    }
+    out.trim().to_string()
 }
 
 /// A card (CardModelController impls) made from a list's item template: primary and secondary text, its primary

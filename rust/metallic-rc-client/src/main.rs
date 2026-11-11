@@ -542,7 +542,8 @@ fn use_menu(
         Some(Action::Login) => switch_to = Some(menu.typed.trim().to_string()).filter(|n| !n.is_empty()),
         Some(Action::Account(name)) => switch_to = Some(name),
         Some(Action::GoToRoom(room)) => (account.goto, rejoin) = (Some(room), true),
-        Some(Action::Slider(_)) | None => {}
+        // WearItem is wired to the avatar in a follow-up; the Customize grids already show the real items.
+        Some(Action::Slider(_)) | Some(Action::WearItem(..)) | None => {}
     }
     // a new account goes to its dorm; a room from the rooms browser is joined by logging in again and going there
     let new_account = switch_to.as_ref().is_some_and(|n| *n != account.name);

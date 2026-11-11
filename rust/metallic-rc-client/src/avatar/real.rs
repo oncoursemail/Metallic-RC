@@ -180,6 +180,65 @@ pub fn scan_hair_styles() -> Vec<String> {
     v
 }
 
+/// A wardrobe slot the customiser can change: its mesh-name suffix and the game's OutfitType.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Slot {
+    Hair,
+    Top,
+    Bottom,
+    Shoes,
+    Hat,
+    Beard,
+    Glasses,
+}
+
+impl Slot {
+    /// The mesh-name suffix before `_LOD0.obj` (e.g. `Hair` in `FB_Afro_Hair_LOD0.obj`).
+    pub fn suffix(self) -> &'static str {
+        match self {
+            Slot::Hair => "Hair",
+            Slot::Top => "Shirt",
+            Slot::Bottom => "Leg",
+            Slot::Shoes => "Shoe",
+            Slot::Hat => "Hat",
+            Slot::Beard => "Beard",
+            Slot::Glasses => "Glasses",
+        }
+    }
+
+    /// The game's `OutfitType` number for this slot (so the UI tabs map to it).
+    pub fn outfit_type(self) -> i32 {
+        match self {
+            Slot::Hair => 2,
+            Slot::Top => 101,
+            Slot::Bottom => 300,
+            Slot::Shoes => 301,
+            Slot::Hat => 0,
+            Slot::Beard => 20,
+            Slot::Glasses => 10,
+        }
+    }
+}
+
+/// Item styles the wardrobe offers for a slot (the `FB_<Style>_<Suffix>_LOD0.obj` meshes for the Full body, bare for the
+/// Bean), sorted and de-duplicated — the real item catalogue the Customize grids list.
+pub fn scan_slot(body: BodyType, slot: Slot) -> Vec<String> {
+    let full = body == BodyType::Full;
+    let prefix = if full { "FB_" } else { "" };
+    let suffix = format!("_{}_LOD0.obj", slot.suffix());
+    let mut v: Vec<String> = std::fs::read_dir(wardrobe_dir())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter(|n| full || !n.starts_with("FB_")) // the Bean's meshes are the bare names
+        .filter_map(|n| n.strip_prefix(prefix).and_then(|s| s.strip_suffix(&suffix)).map(str::to_string))
+        .collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
 /// Applies the current [`Dressing`] to the real avatar(s) whenever it changes: skin colour, hair colour, the
 /// jersey/leggings colours (by editing the tracked materials), and the hair style (by swapping the hair mesh).
 pub fn redress(
