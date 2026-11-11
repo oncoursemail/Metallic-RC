@@ -148,10 +148,17 @@ Owner commissioned the full devirt. Steady, checkpointed progress (all analysis 
   the CTR position, and a **global master key** lives inside `0x647af0`. This is an AES-CTR-shaped
   design (nonce = file index) even though the primitive is bespoke/virtualized.
 
+- **Decrypt call tree mapped** (handler `+0x223f6c0`): (a) input-load loop → `+0x6abb80`
+  (ciphertext → VM scratch, position-based); (b) `0x647af0(0, op, offset, size)` = keystream setup;
+  (c) `count = 0x6eeaf0(op)`, `stride = 0x6f9c00(op)`; (d) **j-loop j=0..count → `0x704cd0(op, j, 1)`
+  = per-block keystream worker** (the cipher core); (e) post-processing that XORs 64-bit entries
+  from a key/config table at RVA ~`0x61bc9c0`. All wrapped in anti-cheat spinlocks + constant-fold
+  obfuscation.
+
 ### Still to do (the long tail)
-1. Reverse `0x647af0` (keystream generator, consumes the global master key) and the `+0x223fd09`
-   loop body (the XOR) to recover `g(op, offset)`; extract the per-op count/stride tables and the
-   master key. (filename→op is already captured empirically as a fallback table.)
+1. Reverse the keystream core — `0x704cd0` (per-block worker) and `0x647af0` (setup) — to recover
+   `g(op, offset)`, and extract the global master key (consumed there / in the `~0x61bc9c0` table).
+   filename→op is already captured empirically as a fallback table.
 2. **Trace-based cross-check**: instrument the load/read path + `0x647af0` at runtime and follow the
    data flow of one decrypt to confirm the keystream generator + the filename key derivation.
 3. Validate offline byte-for-byte vs the corpus; implement real `decrypt()` in Rust.
