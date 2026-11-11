@@ -16,7 +16,7 @@ use std::{
 };
 
 use bevy::math::{Mat4, Quat, Vec3};
-use unity_assets::{classes, level, Material, PPtr, Reader, SerializedFile, TypeTree};
+use unity_assets::{classes, level, Material, ObjectInfo, PPtr, Reader, SerializedFile, TypeTree};
 
 use crate::{
     collide::{Collider, MeshShape, Obb},
@@ -1031,6 +1031,183 @@ fn scene_particles(sf: &SerializedFile, scene: &Scene) -> Vec<ParticleEmitter> {
     out
 }
 
+/// Unity's Canvas class (its `m_RenderMode`: 0 overlay, 1 camera, 2 world space).
+const CANVAS: i32 = 223;
+
+/// Built-in type trees injected to read the stripped scene's UI objects: a Canvas's render mode and a
+/// RectTransform's rect. The decrypted scenes carry no type trees, so these are taken (once, cached) from any
+/// install bundle that still has them — the same route as the ParticleSystem tree.
+struct UiTrees {
+    canvas: Option<TypeTree>,
+    rect: Option<TypeTree>,
+}
+
+static UI_TREES: OnceLock<UiTrees> = OnceLock::new();
+
+fn ui_trees() -> &'static UiTrees {
+    UI_TREES.get_or_init(|| {
+        let mut canvas = None;
+        let mut rect = None;
+        if let Some(game) = room::GAME_DIRS.iter().map(PathBuf::from).find(|p| p.exists()) {
+            if let Ok(rd) = std::fs::read_dir(room::bundle_dir(&game)) {
+                for (i, entry) in rd.flatten().enumerate() {
+                    if i >= 800 || (canvas.is_some() && rect.is_some()) {
+                        break; // bound the one-time scan
+                    }
+                    let p = entry.path();
+                    if p.extension().and_then(|e| e.to_str()) != Some("bundle") {
+                        continue;
+                    }
+                    let Ok(b) = unity_assets::Bundle::open(&p) else { continue };
+                    let Ok(sfs) = b.serialized_files() else { continue };
+                    for (_, sf) in sfs {
+                        if canvas.is_none() {
+                            canvas = sf.types.iter().find(|t| t.class_id == CANVAS && t.tree.is_some()).and_then(|t| t.tree.clone());
+                        }
+                        if rect.is_none() {
+                            rect = sf.types.iter().find(|t| t.class_id == classes::RECT_TRANSFORM && t.tree.is_some()).and_then(|t| t.tree.clone());
+                        }
+                    }
+                }
+            }
+        }
+        UiTrees { canvas, rect }
+    })
+}
+
+/// The class name of a MonoBehaviour's script (`UnityEngine.UI.Image` -> "Image"), resolving the `m_Script`
+/// reference across files (the UI scripts live in a shared assets file).
+fn mb_script_class(files: &mut Files, scene_file: &str, sf: &SerializedFile, o: &ObjectInfo) -> Option<String> {
+    let p = level::mono_script_ref(sf, o).ok()?;
+    let (f, id) = files.resolve(scene_file, p)?;
+    let x = files.get(&f)?;
+    let so = x.object(id)?;
+    level::mono_script_name(&x, so).ok().map(|(c, _)| c)
+}
+
+/// A `UnityEngine.UI.Image`'s `m_Color`, read from the stripped MonoBehaviour by the stable UGUI layout: after the
+/// MonoBehaviour header (m_GameObject, m_Enabled, m_Script, m_Name) come `Graphic.m_Material` then `m_Color`, both
+/// before any variable field — so this is robust without the script's type tree. Returns None if it reads wrong.
+fn image_color(sf: &SerializedFile, o: &ObjectInfo) -> Option<[f32; 4]> {
+    let mut r = Reader::new(sf.object_bytes(o), sf.big_endian);
+    (r.i32().ok()?, r.i64().ok()?); // m_GameObject (PPtr: int + SInt64)
+    r.u8().ok()?; // m_Enabled
+    r.align(4);
+    let (_, script_id) = (r.i32().ok()?, r.i64().ok()?); // m_Script
+    if script_id == 0 {
+        return None;
+    }
+    r.aligned_string().ok()?; // m_Name
+    (r.i32().ok()?, r.i64().ok()?); // Graphic.m_Material (PPtr)
+    let c = [r.f32().ok()?, r.f32().ok()?, r.f32().ok()?, r.f32().ok()?]; // m_Color
+    c.iter().all(|&x| (-0.01..=4.0).contains(&x)).then_some(c)
+}
+
+impl OldBuilder<'_> {
+    /// World-space UI panels — `UnityEngine.UI.Image`s on a world-space Canvas — as flat, unlit, coloured quads,
+    /// reusing the part/material pipeline so the renderer draws them with no new code. The Image's sprite art and
+    /// any TextMeshPro text are not drawn yet (reading `m_Sprite`/the TMP fields needs those scripts' serialization
+    /// layouts, past a variable UnityEvent); opaque-white images carry no colour of their own (their look is all in
+    /// the sprite), so they are left out and only real coloured/translucent panels show. Returns how many were added.
+    fn add_ui_panels(&mut self, scene: &Scene) -> usize {
+        let trees = ui_trees();
+        let (Some(ctree), Some(rtree)) = (&trees.canvas, &trees.rect) else { return 0 };
+        let Some(sf) = self.files.get(&scene.file) else { return 0 };
+        // which canvases are world space (m_RenderMode == 2)
+        let mut world_canvas: Vec<usize> = Vec::new();
+        for (i, n) in scene.nodes.iter().enumerate() {
+            let Some(&(_, cid)) = n.components.iter().find(|c| c.0 == CANVAS) else { continue };
+            let Some(o) = sf.object(cid) else { continue };
+            let mut r = Reader::new(sf.object_bytes(o), sf.big_endian);
+            let mode = unity_assets::value::read(ctree, &sf.ref_types, &mut r).ok().and_then(|v| v.get("m_RenderMode").and_then(|x| x.as_i64()));
+            if mode == Some(2) {
+                world_canvas.push(i);
+            }
+        }
+        if world_canvas.is_empty() {
+            return 0;
+        }
+        let mut added = 0;
+        for i in 0..scene.nodes.len() {
+            if !scene.nodes[i].active || !world_canvas.iter().any(|&c| scene.under(i, c)) {
+                continue;
+            }
+            // the node's Image MonoBehaviour, if any
+            let img = scene.nodes[i].components.iter().filter(|c| c.0 == classes::MONO_BEHAVIOUR).find_map(|&(_, id)| {
+                let o = sf.object(id)?;
+                (mb_script_class(self.files, &scene.file, &sf, o).as_deref() == Some("Image")).then_some(o)
+            });
+            let Some(img) = img else { continue };
+            let Some(color) = image_color(&sf, img) else { continue };
+            // opaque white = a sprite-art icon (no colour of its own); skip until the sprite is drawn
+            if color.iter().all(|&x| x > 0.96) {
+                continue;
+            }
+            // the rect: size and pivot from the RectTransform (anchored, non-stretched panels only, where sizeDelta
+            // is the real size; stretched children would need full anchor resolution)
+            let Some(&(_, rid)) = scene.nodes[i].components.iter().find(|c| c.0 == classes::RECT_TRANSFORM) else { continue };
+            let Some(ro) = sf.object(rid) else { continue };
+            let mut rr = Reader::new(sf.object_bytes(ro), sf.big_endian);
+            let Ok(rv) = unity_assets::value::read(rtree, &sf.ref_types, &mut rr) else { continue };
+            let f = |p: &str| rv.path(p).and_then(|x| x.as_f32());
+            let (Some(w), Some(h), Some(px), Some(py)) = (f("m_SizeDelta/x"), f("m_SizeDelta/y"), f("m_Pivot/x"), f("m_Pivot/y")) else { continue };
+            let (amnx, amny, amxx, amxy) = (f("m_AnchorMin/x"), f("m_AnchorMin/y"), f("m_AnchorMax/x"), f("m_AnchorMax/y"));
+            if let (Some(a), Some(b), Some(c), Some(d)) = (amnx, amny, amxx, amxy) {
+                if (a - c).abs() > 1e-3 || (b - d).abs() > 1e-3 {
+                    continue; // stretched to its parent: sizeDelta is an offset, not the size
+                }
+            }
+            if w.abs() < 1e-3 || h.abs() < 1e-3 {
+                continue;
+            }
+            let world = scene.nodes[i].world;
+            let corner = |cx: f32, cy: f32| {
+                let p = world.transform_point3(Vec3::new((cx - px) * w, (cy - py) * h, 0.0));
+                [p.x, p.y, p.z]
+            };
+            let positions = vec![corner(0.0, 0.0), corner(1.0, 0.0), corner(1.0, 1.0), corner(0.0, 1.0)];
+            let nz = world.transform_vector3(Vec3::Z).normalize_or_zero();
+            let normals = vec![[nz.x, nz.y, nz.z]; 4];
+            // drawn from both sides (UI has no thickness; the canvas may face either way)
+            let indices = vec![0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2];
+            let blend = if color[3] < 0.999 { Blend::Blend } else { Blend::Opaque };
+            self.out.materials.push(RoomMaterial {
+                name: format!("UIPanel {}", scene.nodes[i].name),
+                shader: "UI/Default".into(),
+                color,
+                masked: false,
+                texture: None,
+                spec_map: None,
+                spec_color: [1.0; 3],
+                smoothness: 0.0,
+                normal_map: None,
+                emissive: [0.0; 3],
+                emissive_map: None,
+                emissive_power: 0.0,
+                blend,
+                unlit: true,
+                uv_scale: [1.0, 1.0],
+                uv_offset: [0.0, 0.0],
+            });
+            let material = self.out.materials.len() - 1;
+            self.out.parts.push(Part {
+                name: scene.nodes[i].name.clone(),
+                root: self.root,
+                mesh: "UIPanel".into(),
+                world: Mat4::IDENTITY, // positions are already in world space
+                positions,
+                normals,
+                uvs: vec![[0.0, 0.0]; 4],
+                colors: vec![],
+                indices,
+                material,
+            });
+            added += 1;
+        }
+        added
+    }
+}
+
 pub fn load_scene(game_data: Option<&Path>, room: &str) -> Option<Result<RoomData, String>> {
     let dir = scenes_dir()?;
     let mut res_dirs = vec![dir.to_path_buf()];
@@ -1072,6 +1249,8 @@ fn load_scene_with(files: &mut Files, room: &str) -> Result<RoomData, String> {
         }
         b.add(&scene, *i);
     }
+    // world-space in-world UI panels (Image on a world-space Canvas), as flat coloured quads
+    b.add_ui_panels(&scene);
     Ok(r)
 }
 
