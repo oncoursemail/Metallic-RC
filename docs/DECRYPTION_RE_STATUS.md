@@ -177,11 +177,21 @@ plaintext[i] = ((ciphertext[i] - sub[op]) & 0xFF) XOR KS[(offset + i + base[op])
 from the formula + extracted tables — NO oracle. (The 1 apparent miss was a contaminated op in the
 unfiltered filename→op capture, not a cipher error.)
 
-### Finish
-1. Regenerate the clean filename→op table (thread-filtered) and validate all 337 files end-to-end.
-2. Reverse `+0x6b24e0` for the first 8 bytes (marker region).
-3. Implement `decrypt(ciphertext, op)` in Rust loading the local KS pad + per-op table; keep the
-   corpus as fallback. (KS pad + tables are game-derived → LOCAL/gitignored, never committed.)
+### DONE — reversed, implemented in Rust, validated
+- **Clean filename→op captured for all 337 files** (thread-filtered; 337 distinct ops, no
+  collisions). **All 334 testable files decrypt byte-for-byte vs the corpus** (bytes[8:]), from the
+  formula + extracted tables, **no oracle**.
+- The marker region (`i<8`) is handled by `+0x6b24e0` (a per-op value: 0 for SerializedFiles, the
+  real header for raw `.resS`/`.resource`); captured as an 8-byte-per-op `header8`.
+- **Implemented in pure Rust: `unity_assets::decrypt::Cipher`** (`load` / `op_for` / `decrypt` /
+  `decrypt_file`) — loads the 2 MB pad + per-op tables + filename→op from a local data dir and
+  decrypts with no running game. Gated end-to-end test `decrypt_matches_corpus` **passes**
+  (level0/level6/globalgamemanagers/level103/sharedassets0 reproduce the corpus exactly).
+- Extracted cipher data (LOCAL, gitignored, game-derived): `assets/cipher/` =
+  `ks.bin` (2 MB pad), `ops.bin` (443×14: base/sub/kind/header8), `file_ops.tsv` (filename→op).
+
+**The on-the-fly pure-Rust decryption the owner asked for is complete.** The corpus remains as a
+convenience/fallback path (`read_base_file`/`plaintext_dir`).
 2. **Trace-based cross-check**: instrument the load/read path + `0x647af0` at runtime and follow the
    data flow of one decrypt to confirm the keystream generator + the filename key derivation.
 3. Validate offline byte-for-byte vs the corpus; implement real `decrypt()` in Rust.
