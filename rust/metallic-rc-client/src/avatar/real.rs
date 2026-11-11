@@ -451,7 +451,7 @@ fn skel_swing(rig: &skin::RigDef, i: usize, r: Quat) -> Quat {
 pub fn animate_skeleton(
     time: Res<Time>,
     roomie: Option<Res<Roomie>>,
-    mut rigs: Query<(&mut Rig, &Drive, &Skeleton, &Transform)>,
+    mut rigs: Query<(&mut Rig, &Drive, &mut Skeleton, &Transform)>,
     mut xf: Query<&mut Transform, Without<Rig>>,
 ) {
     const STAND_EYE: f32 = 1.55;
@@ -464,7 +464,7 @@ pub fn animate_skeleton(
     let ry = |a: f32| Quat::from_axis_angle(y_axis, a);
     let rz = |a: f32| Quat::from_axis_angle(z_axis, a);
 
-    for (mut r, drive, skel, root) in &mut rigs {
+    for (mut r, drive, mut skel, root) in &mut rigs {
         let crouch = drive.head_height.map_or(0.0, |h| ((STAND_EYE - h) / (STAND_EYE - CROUCH_EYE)).clamp(0.0, 1.0));
         r.anim.step(dt, anim::Input { velocity: drive.velocity, grounded: drive.grounded, flying: drive.flying, talking: drive.talking, voice: 0.0, crouch });
         let pose = r.anim.pose();
@@ -524,6 +524,35 @@ pub fn animate_skeleton(
         });
         set("Jnt.Neck", rz(yaw * 0.4) * rx(pitch * 0.4 + lean * SPINE_LEAN));
         set("Jnt.Head", rz(yaw * 0.6) * rx(pitch * 0.6));
+
+        // finger grips (both body types have hands): ease the curls so grips don't snap, then flex each finger's three
+        // bones about their local X into the palm — Open rests, Point extends the index over a curled fist, Hold fists.
+        for i in 0..2 {
+            let s = if i == 0 { "L" } else { "R" };
+            let want = drive.grip[i].curls();
+            for (k, c) in skel.curls[i].iter_mut().enumerate() {
+                *c += (want[k] - *c) * (1.0 - (-18.0 * dt).exp());
+            }
+            let [outer, index, thumb] = skel.curls[i];
+            let mut flex = |name: &str, a: f32| {
+                if let Some(j) = rig.index(name) {
+                    if let Ok(mut t) = xf.get_mut(skel.joints[j]) {
+                        t.rotation = rig.joints[j].local.rotation * rx(a);
+                    }
+                }
+            };
+            for finger in ["Middle", "Ring", "Pinky"] {
+                for seg in 1..=3 {
+                    flex(&format!("Jnt.Hand.{finger}{seg}.{s}"), outer);
+                }
+            }
+            for seg in 1..=3 {
+                flex(&format!("Jnt.Hand.Index{seg}.{s}"), index);
+            }
+            for seg in 1..=3 {
+                flex(&format!("Jnt.Hand.Thumb{seg}.{s}"), thumb);
+            }
+        }
 
         // the whole body bobs with the stride and lowers when crouching, via the standing skeleton node
         if let Ok(mut t) = xf.get_mut(skel.root_node) {
