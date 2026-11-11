@@ -1023,7 +1023,26 @@ pub fn lighting(room: &str) -> Result<Lighting, String> {
     let files = &mut Files::new(data);
     let (file, name) = scene_file(files, room).ok_or_else(|| format!("no scene {room:?} in the reference install"))?;
     let scene = read_scene(files, &file, &name)?;
-    let sf = files.get(&file).ok_or("scene file")?;
+    lighting_from(files, &file, &name, &scene)
+}
+
+/// The lighting of a 2026 scene from the decrypted corpus: its real RenderSettings, baked reflection probes,
+/// skybox cubemap, ambient and realtime lights. `game_data` (the install's `RecRoom_Data`) supplies the out-of-line
+/// cubemap/texture streams (`.resource`/`.resS`) that are plaintext in the install.
+pub fn scene_lighting(game_data: Option<&Path>, room: &str) -> Result<Lighting, String> {
+    let dir = scenes_dir().ok_or("no scenes dir")?;
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let files = &mut Files::with_res(dir, res_dirs);
+    let (file, name) = scene_file(files, room).ok_or_else(|| format!("no scene {room:?} in the decrypted corpus"))?;
+    let scene = read_scene(files, &file, &name)?;
+    lighting_from(files, &file, &name, &scene)
+}
+
+fn lighting_from(files: &mut Files, file: &str, name: &str, scene: &Scene) -> Result<Lighting, String> {
+    let sf = files.get(file).ok_or("scene file")?;
     let rs = sf.objects.iter().find(|o| o.class_id == classes::RENDER_SETTINGS).ok_or("no RenderSettings")?;
     let settings = level::render_settings(&sf, rs).map_err(|e| e.to_string())?;
     let lightmap_settings = sf.objects.iter().find(|o| o.class_id == classes::LIGHTMAP_SETTINGS).and_then(|o| level::lightmap_settings(&sf, o).ok());
@@ -1035,8 +1054,8 @@ pub fn lighting(room: &str) -> Result<Lighting, String> {
         let t = m.textures.iter().find(|t| t.name == "_Tex" || t.name == "_Cube")?;
         cubemap(files, f, t.texture)
     });
-    let reflection = cubemap(files, &file, settings.custom_reflection);
-    let lights = scene_lights(&scene, &sf, 0);
+    let reflection = cubemap(files, file, settings.custom_reflection);
+    let lights = scene_lights(scene, &sf, 0);
     // the sun: the RenderSettings' sun light, by its GameObject's world matrix
     let sun_go = sf.object(settings.sun.path_id).and_then(|o| level::light(&sf, o).ok()).map(|l| l.game_object.path_id);
     let sun_world = sun_go.and_then(|g| scene.nodes.iter().find(|n| n.game_object == g)).map(|n| n.world);
@@ -1055,21 +1074,21 @@ pub fn lighting(room: &str) -> Result<Lighting, String> {
             let tex = if p.custom_texture.path_id != 0 { p.custom_texture } else { p.baked_texture };
             probes.push(Probe {
                 world: n.world, size: p.box_size, offset: p.box_offset, intensity: p.intensity, box_projection: p.box_projection,
-                importance: p.importance, cubemap: cubemap(files, &file, tex),
+                importance: p.importance, cubemap: cubemap(files, file, tex),
             });
         }
     }
     let mut light_probes = Vec::new();
     let mut lightmaps = Vec::new();
     if let Some(lm) = &lightmap_settings {
-        if let Some((f, id)) = files.resolve(&file, lm.light_probes) {
+        if let Some((f, id)) = files.resolve(file, lm.light_probes) {
             if let Some(lp) = files.get(&f).and_then(|x| level::light_probes(&x, x.object(id)?).ok()) {
                 light_probes = lp.positions.iter().zip(&lp.coefficients).map(|(p, c)| (Vec3::new(p[0], p[1], -p[2]), *c)).collect();
             }
         }
         let res = files.resources();
         for d in &lm.lightmaps {
-            let px = files.resolve(&file, d.color).and_then(|(f, id)| {
+            let px = files.resolve(file, d.color).and_then(|(f, id)| {
                 let x = files.get(&f)?;
                 let t = level::texture(&x, x.object(id)?, &res).ok()?;
                 Some((t.width as u32, t.height as u32, t.decode_rgba8().ok()?))
@@ -1079,7 +1098,7 @@ pub fn lighting(room: &str) -> Result<Lighting, String> {
     }
     let sh = settings.ambient_probe;
     Ok(Lighting {
-        scene: name,
+        scene: name.to_owned(),
         ambient_mode: settings.ambient_mode,
         ambient_sky: lin(settings.ambient_sky),
         ambient_equator: lin(settings.ambient_equator),

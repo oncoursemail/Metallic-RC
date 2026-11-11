@@ -56,8 +56,14 @@ load layout + prefab geometry but miss the base-scene-embedded meshes/textures.
   the realtime look *is* 1:1. `LightmapSettings` (157) now parses the Unity 6 76-byte layout (+12 vs the 2019/2021
   64-byte struct: an i32 after `m_Lightmaps`, and a 3×i32 tail), which also un-gates light-probe loading in the client
   (previously the parse error dropped `m_LightProbes` too). Layout corroborated by the cipher session's corpus dumps.
-- **Cubemaps (reflection probes / skybox)** — the Unity 6 Cubemap (class 89) layout is not verified; reflection/skybox
-  cubemaps may not load. Does not affect geometry or materials.
+- **Reflection + skybox cubemaps — now load.** The 2026 rooms' baked environment is BC6H (HDR) Cubemaps (class 89):
+  per room a `ReflectionProbe_Env_Baked` (128³, the default reflection via `RenderSettings.custom_reflection`) and a
+  `ReflectionProbe_Skybox_Baked` (1024³, the visible sky via the `Skybox/Cubemap` material). The scenes place no
+  `ReflectionProbe` *components*; the baked reflection comes through RenderSettings. These decode now (BC6H via
+  `bcdec_rs`; `texture2ddecoder`'s BC6 path panicked on real blocks). The client builds a 2026 room's lighting from
+  the decrypted corpus (`levels::scene_lighting`) — ambient probe, `Env_Baked` reflection and the `Skybox_Baked` sky
+  are bound as the camera's environment map and skybox, mirroring the geometry routing (Dorm/groups still use the 2019
+  reference install). Pixel streams are read plaintext from the install's `.resource`.
 
 ## Not offered as rooms (internal scenes)
 

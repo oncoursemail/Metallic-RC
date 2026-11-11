@@ -323,11 +323,17 @@ impl Loader {
                 }
                 *room.lock().unwrap() = Some(r);
             }
-            // the room's ambient probe, reflection cubemap and fog, when its level file has them
-            if crate::levels::ref_install().is_some() {
-                if let Ok(l) = crate::levels::lighting(name) {
-                    *render::ROOM_ENV.lock().unwrap() = Some(render::RoomEnv::new(&l));
-                }
+            // the room's ambient probe, reflection cubemap and fog. 2026 corpus scenes get their own baked
+            // lighting (the Env_Baked / Skybox_Baked BC6H reflection cubemaps); the Dorm and group worlds use
+            // the 2019 reference install, mirroring the geometry routing in load_with.
+            let is_group = GROUPS.iter().any(|g| g.name.eq_ignore_ascii_case(name));
+            let env = if !is_group && !name.eq_ignore_ascii_case("dorm") {
+                crate::levels::scene_lighting(dir.ancestors().nth(3), name).ok()
+            } else {
+                crate::levels::ref_install().is_some().then(|| crate::levels::lighting(name).ok()).flatten()
+            };
+            if let Some(l) = env {
+                *render::ROOM_ENV.lock().unwrap() = Some(render::RoomEnv::new(&l));
             }
             for req in requests {
                 match req {
@@ -545,9 +551,11 @@ fn spawn_arrived(
     let sky = images.add(render::sky_cubemap(&render::SimpleGradient::default()));
     let inside = images.add(render::sky_cubemap(&render::SimpleGradient::interior()));
     for cam in &cameras {
-        // the room's own environment (render::apply_room_env) replaces the stand-in ambient when it came first
+        // the room's own environment (render::apply_room_env) replaces the stand-in ambient and, for a
+        // `Skybox/Cubemap` scene, the gradient sky with the baked sky; use them already if they are ready.
         let ambient = env.0.as_ref().map_or(inside.clone(), |m| m.0.clone());
-        render::sky_on_camera(&mut commands, cam, sky.clone(), ambient);
+        let cam_sky = env.0.as_ref().and_then(|m| m.2.clone()).unwrap_or_else(|| sky.clone());
+        render::sky_on_camera(&mut commands, cam, cam_sky, ambient);
         commands.entity(cam).insert(audio::listener());
     }
 }
