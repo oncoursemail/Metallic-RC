@@ -55,9 +55,9 @@ load layout + prefab geometry but miss the base-scene-embedded meshes/textures.
   rooms light entirely from realtime/mixed lights + the ambient probe + reflection probes, so there is no baked GI to
   match; the realtime look *is* 1:1. `LightmapSettings` (157) now parses the Unity 6 76-byte layout (+12 vs the
   2019/2021 64-byte struct: an i32 after `m_Lightmaps`, and a 3×i32 tail), which also un-gates light-probe loading in
-  the client (previously the parse error dropped `m_LightProbes` too). Note the `m_LightProbes` object itself is a
-  non-null but *empty* stub in these scenes (0 positions / coefficient sets, verified in reccenter + all Paintball
-  maps), so there is no probe-grid SH to load — the ambient probe carries the ambient term. Layout corroborated by the
+  the client (previously the parse error dropped `m_LightProbes` too). Note the `m_LightProbes` object itself is an
+  *empty* stub: all 94 LightProbes in the decrypted corpus carry zero baked SH (0 positions / coefficient sets each),
+  so there is no probe-grid GI anywhere to load — the ambient probe carries the ambient term. Layout corroborated by the
   cipher session's corpus dumps (the `m_LightProbes` path_ids match the 0x18/0x1c pair in the `LightmapSettings` bytes).
 - **Reflection + skybox cubemaps — now load.** The 2026 rooms' baked environment is BC6H (HDR) Cubemaps (class 89):
   per room a `ReflectionProbe_Env_Baked` (128³, the default reflection via `RenderSettings.custom_reflection`) and a
