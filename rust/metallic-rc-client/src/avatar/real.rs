@@ -130,6 +130,99 @@ pub struct Face {
 #[derive(Component)]
 pub struct RealBuilt;
 
+/// The live-updatable parts of a real avatar, so the Customize screen can recolour and re-equip without a full rebuild.
+#[derive(Component)]
+pub struct RealWorn {
+    pub skeleton_node: Entity,
+    pub body: BodyType,
+    pub skin_mat: Handle<StandardMaterial>,
+    pub hair: Option<Entity>,
+    pub hair_mat: Handle<StandardMaterial>,
+    pub hair_style: String,
+    pub jersey_mat: Option<Handle<StandardMaterial>>,
+    pub legs_mat: Option<Handle<StandardMaterial>>,
+}
+
+/// The local player's avatar customisation, edited by the Customize screen; [`redress`] applies it live.
+#[derive(Resource, Clone)]
+pub struct Dressing {
+    pub skin: [u8; 3],
+    pub hair_style: String,
+    pub hair_color: [u8; 3],
+    pub shirt: [u8; 3],
+    pub pants: [u8; 3],
+    /// the hair styles the wardrobe has, for the Customize screen to list
+    pub hair_styles: Vec<String>,
+}
+
+impl Default for Dressing {
+    fn default() -> Self {
+        let hair_styles = scan_hair_styles();
+        let hair_style = std::env::var("METALLIC_HAIR").ok().filter(|s| hair_styles.contains(s)).unwrap_or_else(|| "CurlyHelmetHair".into());
+        Dressing { skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x8f, 0x4a, 0x27], shirt: [0xf3, 0xf1, 0xea], pants: [0x3a, 0x3f, 0x4b], hair_styles }
+    }
+}
+
+/// Hair styles the wardrobe offers (the `FB_<Style>_Hair_LOD0.obj` files), sorted and de-duplicated.
+pub fn scan_hair_styles() -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(wardrobe_dir())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter_map(|n| n.strip_prefix("FB_").and_then(|s| s.strip_suffix("_Hair_LOD0.obj")).map(str::to_string))
+        .collect();
+    v.sort();
+    v.dedup();
+    if v.is_empty() {
+        v.push("CurlyHelmetHair".into());
+    }
+    v
+}
+
+/// Applies the current [`Dressing`] to the real avatar(s) whenever it changes: skin colour, hair colour, the
+/// jersey/leggings colours (by editing the tracked materials), and the hair style (by swapping the hair mesh).
+pub fn redress(
+    mut commands: Commands,
+    dressing: Option<Res<Dressing>>,
+    roomie: Option<Res<Roomie>>,
+    mut worn: Query<&mut RealWorn>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let (Some(dressing), Some(_)) = (dressing, roomie) else { return };
+    if !dressing.is_changed() {
+        return;
+    }
+    let set = |materials: &mut Assets<StandardMaterial>, h: &Handle<StandardMaterial>, c: [u8; 3]| {
+        if let Some(mut m) = materials.get_mut(h) {
+            m.base_color = Color::srgb_u8(c[0], c[1], c[2]);
+        }
+    };
+    for mut w in &mut worn {
+        set(&mut materials, &w.skin_mat, dressing.skin);
+        set(&mut materials, &w.hair_mat, dressing.hair_color);
+        if let Some(j) = w.jersey_mat.clone() {
+            set(&mut materials, &j, dressing.shirt);
+        }
+        if let Some(l) = w.legs_mat.clone() {
+            set(&mut materials, &l, dressing.pants);
+        }
+        // swap the hair mesh only when the style actually changed (loading an .obj each time would be wasteful)
+        if w.hair_style != dressing.hair_style {
+            if let Some(mesh) = load_wardrobe(w.body, &format!("{}_Hair", dressing.hair_style)) {
+                if let Some(old) = w.hair.take() {
+                    commands.entity(old).despawn();
+                }
+                let h = meshes.add(mesh);
+                let e = commands.spawn((Mesh3d(h), MeshMaterial3d(w.hair_mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(w.skeleton_node))).id();
+                w.hair = Some(e);
+                w.hair_style = dressing.hair_style.clone();
+            }
+        }
+    }
+}
+
 /// The node that all of one avatar's real parts hang from, so a gentle idle (breathe + sway) can move them together
 /// until real per-joint skinning lands. `phase` offsets each avatar so they don't breathe in lockstep.
 #[derive(Component)]
@@ -610,6 +703,7 @@ pub fn attach_real(
                 // the standing skeleton: a node with the stand-up, the joints under it, the meshes skinned to them
                 let skeleton_node = commands.spawn((Transform::from_rotation(stand()), Visibility::default(), ChildOf(visual))).id();
                 let joints = skin::spawn_skeleton(&mut commands, rigdef, skeleton_node);
+                let skin_mat = mats[0].clone();
                 for (mesh, mat) in regions.into_iter().zip(mats) {
                     // skinned geometry is placed by the joints, not by this entity's transform, so its default AABB is
                     // in the wrong place and frustum culling would wrongly hide it up close; skip culling for it.
@@ -622,11 +716,12 @@ pub fn attach_real(
                         ChildOf(visual),
                     ));
                 }
-                // the real hair mesh rides the standing skeleton node (same flip + stand-up as the body), so it sits on
-                // the head exactly as authored
-                if let Some(hair) = &roomie.hair {
-                    commands.spawn((Mesh3d(hair.clone()), MeshMaterial3d(roomie.hair_mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
-                }
+                // the real hair mesh rides the standing skeleton node (same flip + stand-up as the body). Its material is
+                // per-avatar so it can be recoloured live in the customiser.
+                let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.78, ..default() });
+                let hair_ent = roomie.hair.as_ref().map(|hair| {
+                    commands.spawn((Mesh3d(hair.clone()), MeshMaterial3d(hair_mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node))).id()
+                });
                 // the real jersey (torso), leggings (legs) and shoes, each with its real texture tinted by the look
                 let worn = |materials: &mut Assets<StandardMaterial>, tint: [u8; 3], tex: &Option<Handle<Image>>, rough: f32| {
                     materials.add(StandardMaterial {
@@ -636,18 +731,22 @@ pub fn attach_real(
                         ..default()
                     })
                 };
-                if let Some(j) = &roomie.jersey {
+                let jersey_mat = roomie.jersey.as_ref().map(|j| {
                     let m = worn(&mut materials, look.shirt, &roomie.jersey_tex, 0.85);
-                    commands.spawn((Mesh3d(j.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
-                }
-                if let Some(l) = &roomie.legs {
+                    commands.spawn((Mesh3d(j.clone()), MeshMaterial3d(m.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
+                    m
+                });
+                let legs_mat = roomie.legs.as_ref().map(|l| {
                     let m = worn(&mut materials, look.pants, &roomie.legs_tex, 0.8);
-                    commands.spawn((Mesh3d(l.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
-                }
+                    commands.spawn((Mesh3d(l.clone()), MeshMaterial3d(m.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
+                    m
+                });
                 if let Some(s) = &roomie.shoes {
                     let m = worn(&mut materials, [0xff, 0xff, 0xff], &roomie.shoes_tex, 0.7);
                     commands.spawn((Mesh3d(s.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
                 }
+                let hair_style = std::env::var("METALLIC_HAIR").unwrap_or_else(|_| "CurlyHelmetHair".into());
+                commands.entity(root).insert(RealWorn { skeleton_node, body: roomie.body, skin_mat, hair: hair_ent, hair_mat, hair_style, jersey_mat, legs_mat });
                 // a group under the head joint whose transform cancels the head's bind pose, so decals placed in the
                 // standing avatar frame (EYE_POS / MOUTH_POS) land on the face and then follow the head joint.
                 let head = rigdef.head;
