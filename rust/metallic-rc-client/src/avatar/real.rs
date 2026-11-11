@@ -125,15 +125,43 @@ pub struct Visual {
 }
 
 /// Where the face sits in the avatar's upright local space (feet at 0, facing -z): each eye, and the mouth.
-const EYE_POS: [Vec3; 2] = [Vec3::new(-0.04, 1.521, -0.14), Vec3::new(0.04, 1.521, -0.14)];
+/// The eyes are set ~0.124 m apart (±0.062): the Eye_Default sprite's ink (pupil + upper-lid swoosh) spans most of its
+/// canvas, so at a smaller spacing the two mirrored quads overlapped into one bar (the "sunglasses" look). Wider and a
+/// touch smaller makes two distinct Rec Room eyes with a clear gap.
+const EYE_POS: [Vec3; 2] = [Vec3::new(-0.062, 1.521, -0.14), Vec3::new(0.062, 1.521, -0.14)];
 const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.486, -0.158);
 // the quads are the sprite's full square canvas (256² eye, 512² mouth): sized so the inked feature reads at the right
-// size (the eye spans ~0.68 of its canvas → 0.19 canvas makes a ~0.13 eye; the mouth ~0.39 → 0.31 canvas makes ~0.12).
-const EYE_W: f32 = 0.19;
-const MOUTH_W: f32 = 0.31;
+// size without the two eyes overlapping (eye 0.145 → a ~0.11 inked eye; mouth 0.27 → a ~0.10 line).
+const EYE_W: f32 = 0.145;
+const MOUTH_W: f32 = 0.27;
 /// The Full body's head joint height in the standing frame (feet at 0); EYE_POS/MOUTH_POS are placed relative to it, so
 /// another body type's face shifts by its own head height minus this.
 const FULL_HEAD_Y: f32 = 1.421;
+
+/// A float from an env var, for dialling the face in without a rebuild (e.g. `METALLIC_EYE_X`); falls back to `d`.
+fn envf(key: &str, d: f32) -> f32 {
+    std::env::var(key).ok().and_then(|s| s.parse().ok()).unwrap_or(d)
+}
+
+/// The face layout, overridable per-field by env while tuning (METALLIC_EYE_X/Y/Z/W, METALLIC_MOUTH_Y/Z/W).
+struct FaceLayout {
+    eye: [Vec3; 2],
+    eye_w: f32,
+    mouth: Vec3,
+    mouth_w: f32,
+}
+
+fn face_layout() -> FaceLayout {
+    let ex = envf("METALLIC_EYE_X", EYE_POS[1].x);
+    let ey = envf("METALLIC_EYE_Y", EYE_POS[0].y);
+    let ez = envf("METALLIC_EYE_Z", EYE_POS[0].z);
+    FaceLayout {
+        eye: [Vec3::new(-ex, ey, ez), Vec3::new(ex, ey, ez)],
+        eye_w: envf("METALLIC_EYE_W", EYE_W),
+        mouth: Vec3::new(MOUTH_POS.x, envf("METALLIC_MOUTH_Y", MOUTH_POS.y), envf("METALLIC_MOUTH_Z", MOUTH_POS.z)),
+        mouth_w: envf("METALLIC_MOUTH_W", MOUTH_W),
+    }
+}
 
 /// A mesh object read out of the bundle as Bevy-space geometry (Unity is left-handed: z negated, winding flipped, uv v
 /// flipped — same convention as `room.rs`).
@@ -328,8 +356,8 @@ pub fn load_roomie(
         skin: meshes.add(skin),
         shirt: meshes.add(shirt),
         pants: meshes.add(pants),
-        eye_quad: meshes.add(Rectangle::new(EYE_W, EYE_W)),
-        mouth_quad: meshes.add(Rectangle::new(MOUTH_W, MOUTH_W)),
+        eye_quad: meshes.add(Rectangle::new(face_layout().eye_w, face_layout().eye_w)),
+        mouth_quad: meshes.add(Rectangle::new(face_layout().mouth_w, face_layout().mouth_w)),
         eyes,
         mouths,
         rig,
@@ -419,14 +447,15 @@ pub fn attach_real(
         // start at the resting expression; `animate_face` swaps these materials to blink and talk.
         let eye_mat = roomie.eyes.get("Eye_Default").cloned().unwrap_or_default();
         let mouth_mat = roomie.mouths.get("Mouth_Blank").cloned().unwrap_or_default();
+        let layout = face_layout();
         let mut eyes = [Entity::PLACEHOLDER; 2];
-        for (i, p) in EYE_POS.into_iter().enumerate() {
+        for (i, p) in layout.eye.into_iter().enumerate() {
             let scale = Vec3::new(if i == 0 { 1.0 } else { -1.0 }, 1.0, 1.0);
             eyes[i] = commands.spawn((Mesh3d(roomie.eye_quad.clone()), MeshMaterial3d(eye_mat.clone()),
                 Transform { translation: p + head_dy, rotation: face, scale }, ChildOf(decal_parent))).id();
         }
         let mouth = commands.spawn((Mesh3d(roomie.mouth_quad.clone()), MeshMaterial3d(mouth_mat),
-            Transform { translation: MOUTH_POS + head_dy, rotation: face, ..default() }, ChildOf(decal_parent))).id();
+            Transform { translation: layout.mouth + head_dy, rotation: face, ..default() }, ChildOf(decal_parent))).id();
         commands.entity(root).insert(Face { eyes, mouth, seed: rig.seed });
     }
 }
