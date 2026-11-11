@@ -16,6 +16,7 @@ pub mod look;
 pub mod mesh;
 pub mod panel;
 pub mod real;
+pub mod skin;
 pub mod toon;
 
 use bevy::{
@@ -67,6 +68,7 @@ impl Plugin for AvatarPlugin {
             .add_systems(Startup, (make_kit, real::load_roomie))
             .add_systems(Update, (real::attach_real, real::idle))
             .add_systems(PostUpdate, (dress, animate).chain().before(TransformSystems::Propagate))
+            .add_systems(PostUpdate, real::animate_skeleton.before(TransformSystems::Propagate))
             .add_systems(PostUpdate, place_tags.after(TransformSystems::Propagate).before(UiSystems::Prepare));
     }
 }
