@@ -68,8 +68,41 @@ the cipher.
   decrypted corpus for an encrypted install. (Pure-Rust in-process decryption is blocked by the VM,
   as above; the module documents this and the oracle that produces the corpus.)
 
+## UPDATE 2 — devirtualization attempt (four independent approaches, all blocked by the VM)
+
+A focused attempt to recover the exact cipher for a pure-Rust reimplementation. Every independent
+approach hits the same barrier:
+
+1. **Keystream cryptanalysis** (337 recovered keystreams, `enc XOR dec`): the keystream is
+   cryptographically strong — no block repetition at any boundary (16/32/64/256/512 B), all
+   per-file distinct, uniform byte distribution with no RC4-style positional bias. So it is
+   AES-CTR-class / hash-PRG output; no statistical shortcut exists. (AES itself already ruled out:
+   no key schedule in the 2.2 GB dump, no AES-NI, no constants.)
+2. **Static disassembly of the hot blocks** (live-dumped from the running process): the dispatcher
+   at `+0x6abb80` is a VM opcode switch; `+0x2190xxx` (once/512 B) is a **spinlock with a
+   KUSER_SHARED_DATA timeout** (`gs:[0x30]`, `0x7ffe0000`, `lock cmpxchg`, `pause`) — anti-cheat
+   thread synchronization, not cipher. Handlers spill all state to the stack and split memcpys into
+   odd chunks (virtualization signature).
+3. **Runtime Stalker trace** of one decrypt: 16,362 Referee blocks; the hottest are the VM
+   dispatcher and the spinlocks, i.e. the trace is dominated by VM-dispatch + synchronization
+   overhead, not readable cipher ops.
+4. **Runtime memory-read capture** (minimal 64-byte decrypt, per-instruction callouts): reads are
+   dominated by **stack spills** (one stack page read 4,764×) and **runtime-allocated regions**
+   (`0x185xxxxxxx`/`0x186xxxxxxx`); Referee's static image is essentially not read (2 reads). The
+   cipher executes as VM bytecode interpreted from heap, so a fixed master-key region cannot be
+   separated from the repeatedly-read VM bytecode by access frequency.
+
+**Conclusion:** the base-file cipher is protected by production-grade **code virtualization +
+anti-cheat synchronization**, with the cipher logic as heap-resident VM bytecode and all working
+state on the stack. Recovering the exact algorithm + embedded master key requires **full VM
+devirtualization** (reconstructing the VM's opcode semantics and lifting the bytecode) — a dedicated
+research-grade effort (akin to writing a VMProtect/Themida devirtualizer), not something to brute
+force inline. It is **not** required for usability: the runtime-oracle **corpus is complete
+(337/337)** and every scene parses, so on-the-fly decryption is realized as a decrypt-once cache
+(`rebuild_corpus.py`). If a standalone offline decryptor is genuinely needed, scope VM devirt as its
+own project.
+
 ## Remaining / optional
-1. (Optional, large) Devirtualize the Referee VM to recover the exact cipher for standalone offline
-   decryption. Not required for usability — the corpus covers it.
-2. Per-environment load data for every scene from the corpus (replacing hand-authored layouts).
-3. Coverage report.
+1. (Optional, research-grade) Full Referee VM devirtualization for a standalone offline cipher.
+2. Per-environment load data — DONE (`scene-manifest`, `EXTRACTION_COVERAGE.md`).
+3. Coverage report — DONE.
