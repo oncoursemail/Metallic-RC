@@ -16,11 +16,11 @@ use std::{
 };
 
 use bevy::math::{Mat4, Quat, Vec3};
-use unity_assets::{classes, level, Material, PPtr, SerializedFile};
+use unity_assets::{classes, level, Material, PPtr, Reader, SerializedFile, TypeTree};
 
 use crate::{
     collide::{Collider, MeshShape, Obb},
-    room::{self, Blend, Library, Part, RoomData, RoomLight, RoomMaterial},
+    room::{self, Blend, Library, ParticleEmitter, Part, RoomData, RoomLight, RoomMaterial},
     shapes::{self, Pixels, ShapeKit},
 };
 
@@ -957,6 +957,80 @@ fn scene_spawns(files: &mut Files, scene_file: &str, sf: &SerializedFile, scene:
     spawns
 }
 
+static PS_TREE: OnceLock<Option<TypeTree>> = OnceLock::new();
+
+/// The ParticleSystem(198) type tree, read once from any install bundle that carries one. The decrypted scene files
+/// have no type trees, so this is injected to decode their inline ParticleSystems in place. Scans install bundles
+/// until one has it (bounded, cached); returns None if no install or none found.
+fn ps_type_tree() -> Option<&'static TypeTree> {
+    PS_TREE
+        .get_or_init(|| {
+            let game = room::GAME_DIRS.iter().map(PathBuf::from).find(|p| p.exists())?;
+            let bdir = room::bundle_dir(&game);
+            for (i, entry) in std::fs::read_dir(&bdir).ok()?.flatten().enumerate() {
+                if i >= 800 {
+                    break; // bound the one-time scan
+                }
+                let p = entry.path();
+                if p.extension().and_then(|e| e.to_str()) != Some("bundle") {
+                    continue;
+                }
+                let Ok(b) = unity_assets::Bundle::open(&p) else { continue };
+                let Ok(sfs) = b.serialized_files() else { continue };
+                for (_, sf) in sfs {
+                    if let Some(t) = sf.types.into_iter().find(|t| t.class_id == classes::PARTICLE_SYSTEM && t.tree.is_some()).and_then(|t| t.tree) {
+                        return Some(t);
+                    }
+                }
+            }
+            None
+        })
+        .as_ref()
+}
+
+/// A scene ParticleSystem reduced to the render essentials (representative constants; no curves).
+fn to_emitter(world: Mat4, ps: &unity_assets::ParticleSystem) -> ParticleEmitter {
+    let col = |c: &unity_assets::ParticleColor| [c.r, c.g, c.b, c.a];
+    ParticleEmitter {
+        world,
+        max_particles: ps.max_particles.clamp(0, 100_000) as u32,
+        looping: ps.looping,
+        rate: ps.rate_over_time.constant().max(0.0),
+        bursts: ps.bursts.iter().map(|b| (b.time, b.count.constant())).collect(),
+        lifetime: ps.start_lifetime.constant().max(0.01),
+        speed: ps.start_speed.constant(),
+        size: ps.start_size.constant().max(0.001),
+        gravity: ps.gravity_modifier.constant(),
+        shape: if ps.shape_enabled { ps.shape_type } else { -1 },
+        shape_angle: ps.shape_angle,
+        shape_radius: ps.shape_radius,
+        start_color: col(&ps.start_color.min_color),
+        color_over_life: ps.color_over_lifetime.as_ref().map(|g| g.stops.iter().map(|(t, c)| (*t, col(c))).collect()).unwrap_or_default(),
+        size_over_life: ps.size_over_lifetime.as_ref().map(|c| c.max_curve.iter().map(|k| (k.time, k.value)).collect()).unwrap_or_default(),
+    }
+}
+
+/// The room's auto-playing ambient particle emitters, decoded from the scene's inline ParticleSystems via the
+/// injected PS type tree. Player `VFX_Emote_*` effects and non-auto / non-emitting systems are left out.
+fn scene_particles(sf: &SerializedFile, scene: &Scene) -> Vec<ParticleEmitter> {
+    let Some(tree) = ps_type_tree() else { return Vec::new() };
+    let mut out = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        if n.name.starts_with("VFX_Emote") {
+            continue;
+        }
+        let Some(&(_, id)) = n.components.iter().find(|c| c.0 == classes::PARTICLE_SYSTEM) else { continue };
+        let Some(o) = sf.object(id) else { continue };
+        let mut r = Reader::new(sf.object_bytes(o), sf.big_endian);
+        let Ok(v) = unity_assets::value::read(tree, &sf.ref_types, &mut r) else { continue };
+        let ps = unity_assets::ParticleSystem::from_value(&v);
+        if ps.play_on_awake && ps.emission_enabled {
+            out.push(to_emitter(n.world, &ps));
+        }
+    }
+    out
+}
+
 pub fn load_scene(game_data: Option<&Path>, room: &str) -> Option<Result<RoomData, String>> {
     let dir = scenes_dir()?;
     let mut res_dirs = vec![dir.to_path_buf()];
@@ -988,6 +1062,7 @@ fn load_scene_with(files: &mut Files, room: &str) -> Result<RoomData, String> {
         r.lights = lights;
     }
     r.spawns = scene_spawns(files, &scene.file, &sf, &scene);
+    r.particles = scene_particles(&sf, &scene);
     drop(sf);
     let mut b = OldBuilder { files, out: &mut r, root, textures: HashMap::new(), materials: HashMap::new(), meshes: HashMap::new() };
     for (i, _mesh) in &drawn {

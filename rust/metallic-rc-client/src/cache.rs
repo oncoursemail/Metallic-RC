@@ -16,11 +16,11 @@ use unity_assets::lz4_flex;
 use crate::{
     audio::Clip,
     collide::{Collider, MeshShape, Obb},
-    room::{Blend, Part, RoomData, RoomLight, RoomMaterial, RoomSound},
+    room::{Blend, ParticleEmitter, Part, RoomData, RoomLight, RoomMaterial, RoomSound},
     shapes::Pixels,
 };
 
-const MAGIC: &[u8; 8] = b"MRCROOM3";
+const MAGIC: &[u8; 8] = b"MRCROOM4";
 /// The cache folder's size cap.
 const LIMIT: u64 = 1 << 30;
 
@@ -312,6 +312,36 @@ fn encode(w: &mut W, r: &RoomData) {
     for s in &r.spawns {
         w.mat(s);
     }
+    w.usize(r.particles.len());
+    for p in &r.particles {
+        w.mat(&p.world);
+        w.u32(p.max_particles);
+        w.bool(p.looping);
+        for f in [p.rate, p.lifetime, p.speed, p.size, p.gravity, p.shape_angle, p.shape_radius] {
+            w.f32(f);
+        }
+        w.i64(p.shape as i64);
+        for x in p.start_color {
+            w.f32(x);
+        }
+        w.usize(p.bursts.len());
+        for &(t, c) in &p.bursts {
+            w.f32(t);
+            w.f32(c);
+        }
+        w.usize(p.color_over_life.len());
+        for &(t, c) in &p.color_over_life {
+            w.f32(t);
+            for x in c {
+                w.f32(x);
+            }
+        }
+        w.usize(p.size_over_life.len());
+        for &(t, s) in &p.size_over_life {
+            w.f32(t);
+            w.f32(s);
+        }
+    }
 }
 
 fn codec(name: &str) -> &'static str {
@@ -394,6 +424,18 @@ fn decode(r: &mut R) -> Option<RoomData> {
     })?;
     out.problems = r.list(|r| r.str())?;
     out.spawns = r.list(|r| r.mat())?;
+    out.particles = r.list(|r| {
+        let world = r.mat()?;
+        let max_particles = r.u32()?;
+        let looping = r.bool()?;
+        let (rate, lifetime, speed, size, gravity, shape_angle, shape_radius) = (r.f32()?, r.f32()?, r.f32()?, r.f32()?, r.f32()?, r.f32()?, r.f32()?);
+        let shape = r.i64()? as i32;
+        let start_color = r.arr::<4>()?;
+        let bursts = r.list(|r| Some((r.f32()?, r.f32()?)))?;
+        let color_over_life = r.list(|r| Some((r.f32()?, r.arr::<4>()?)))?;
+        let size_over_life = r.list(|r| Some((r.f32()?, r.f32()?)))?;
+        Some(ParticleEmitter { world, max_particles, looping, rate, bursts, lifetime, speed, size, gravity, shape, shape_angle, shape_radius, start_color, color_over_life, size_over_life })
+    })?;
     (r.at == r.b.len()).then_some(out)
 }
 

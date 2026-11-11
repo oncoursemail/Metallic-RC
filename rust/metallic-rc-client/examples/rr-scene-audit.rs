@@ -48,6 +48,13 @@ fn main() {
                             }
                         }
                         println!("      colliders: box {b}, sphere {s}, capsule {c}, mesh {m} ({mt} tris)");
+                        let total: u32 = r.particles.iter().map(|p| p.max_particles).sum();
+                        println!("      particle emitters: {} (budget {total} max particles)", r.particles.len());
+                        for e in r.particles.iter().take(5) {
+                            let t = e.world.to_scale_rotation_translation().2;
+                            println!("        emitter ({:.1},{:.1},{:.1}) max {} rate {:.0} life {:.2} speed {:.1} size {:.2} shape {} colstops {}",
+                                t.x, t.y, t.z, e.max_particles, e.rate, e.lifetime, e.speed, e.size, e.shape, e.color_over_life.len());
+                        }
                         let (lo, hi) = metallic_rc_client::world::bounds(&r);
                         println!("      bounds y {:.1}..{:.1}", lo.y, hi.y);
                         for (k, m) in r.spawns.iter().take(4).enumerate() {

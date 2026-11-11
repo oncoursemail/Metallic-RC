@@ -258,6 +258,9 @@ fn recenter(r: &mut RoomData) {
     for s in &mut r.spawns {
         *s = m * *s;
     }
+    for p in &mut r.particles {
+        p.world = m * p.world;
+    }
 }
 
 /// The world-space box around a room's meshes (min > max when it has none).
@@ -386,7 +389,7 @@ pub struct Prop {
 pub struct PropColliders(pub Vec<Collider>);
 
 /// Every entity a room load made (despawned with the room).
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct RoomPiece;
 
 /// The room's fixed colliders (props' are on their entities).
@@ -531,8 +534,9 @@ fn spawn_arrived(
     mut ambient: ResMut<GlobalAmbientLight>,
     env: Res<render::RoomEnvMaps>,
     mut player: Query<(&mut crate::player::Player, &mut Transform)>,
+    particle_assets: Res<crate::particles::ParticleAssets>,
 ) {
-    let Some(r) = arrived.0.take() else { return };
+    let Some(mut r) = arrived.0.take() else { return };
     for e in &old {
         commands.entity(e).despawn();
     }
@@ -544,6 +548,9 @@ fn spawn_arrived(
         s.clip.samples.len() as f32 / s.clip.channels.max(1) as f32 / s.clip.rate.max(1) as f32, if s.looped { ", loop" } else { "" })).collect();
     println!("world: {} pieces, {} props {props:?}, {} lights, {} colliders, {} sounds {sounds:?}", r.roots.len(), props.len(), r.lights.len(), r.colliders.len(), sounds.len());
     let spawn = r.spawns.first().copied();
+    let emitters = std::mem::take(&mut r.particles);
+    crate::particles::spawn_emitters(&mut commands, &mut meshes, &particle_assets, &emitters, RoomPiece);
+    println!("world: {} particle emitters", emitters.len());
     let (_, solids) = build(&mut commands, r, &name, None, &mut meshes, &mut materials, &mut images, &mut clips);
     fixed.0 = solids;
     // place the player at the room's first spawn point (SceneSpawnPoint / GamePlayerSpawnPoint), so you start where
