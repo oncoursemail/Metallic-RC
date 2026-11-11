@@ -4100,6 +4100,7 @@ dependencies = [
  "cpal",
  "intel_tex_2",
  "metallic-rc-server",
+ "png",
  "rr-net",
  "serde_json",
  "tokio",

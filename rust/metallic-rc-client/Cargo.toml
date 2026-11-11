@@ -36,3 +36,5 @@ xr = []
 metallic-rc-server = { path = "../metallic-rc-server" }
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
+# examples/rr-rasterize.rs: a tiny offscreen renderer that writes a room to a PNG for verification (no GPU/window)
+png = "0.18"
