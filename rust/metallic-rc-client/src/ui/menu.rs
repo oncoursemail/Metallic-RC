@@ -1044,7 +1044,8 @@ fn color_swatches(page: &mut Element, actions: &mut HashMap<i64, Action>) {
                 set_color(&mut c, id, *col);
             }
             if let Some(b) = btn {
-                actions.insert(b, Action::WearItem(1000 + ct, format!("{i}")));
+                // colour actions carry the real colour as hex; outfitType 1000 = skin, 1001/1002 = hair
+                actions.insert(b, Action::WearItem(1000 + ct, format!("#{:02x}{:02x}{:02x}", col[0], col[1], col[2])));
             }
             let (col_i, row_i) = (i % per_row, i / per_row);
             let r = &mut c.rect;
