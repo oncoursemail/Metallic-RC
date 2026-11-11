@@ -22,7 +22,7 @@ use bevy::{
 
 use crate::{
     avatar::{anim::Grip, LookPanel},
-    collide::Obb,
+    collide::{Collider, Obb},
     netobj::{NetObject, NetObjects, RoomLink},
     player::{camera, Player, PlayerSystems, Solids, Tuning, View},
 };
@@ -71,7 +71,7 @@ pub enum HandEvent {
 
 /// The props as boxes, for the player to bump into (the held one left out).
 #[derive(Resource, Default)]
-pub struct PropSolids(pub Vec<Obb>);
+pub struct PropSolids(pub Vec<Collider>);
 
 #[derive(Resource, Default)]
 struct Holding {
@@ -124,8 +124,8 @@ fn camera_at(eye: &Transform, view: &Transform) -> Transform {
 }
 
 /// The first wall along a ray, as a distance.
-fn wall_hit(solids: &[Obb], from: Vec3, dir: Vec3) -> f32 {
-    solids.iter().filter_map(|b| body::ray_box(b, from, dir)).fold(f32::INFINITY, f32::min)
+fn wall_hit(solids: &[Collider], from: Vec3, dir: Vec3) -> f32 {
+    solids.iter().filter_map(|b| match b { Collider::Box(o) => body::ray_box(o, from, dir), _ => None }).fold(f32::INFINITY, f32::min)
 }
 
 fn ray_prop(g: &Grabbable, at: &Transform, from: Vec3, dir: Vec3) -> Option<f32> {
@@ -318,13 +318,14 @@ fn simulate(
         };
         (e, shape.obb(t.translation, t.rotation), held)
     }).collect();
-    prop_solids.0 = boxes.iter().filter(|b| !b.2 && !fresh.contains(&b.0)).map(|b| b.1.clone()).collect();
+    prop_solids.0 = boxes.iter().filter(|b| !b.2 && !fresh.contains(&b.0)).map(|b| Collider::Box(b.1.clone())).collect();
     for (e, g, mut t, physics, held, remote) in &mut props {
         let Some(mut ph) = physics.filter(|_| !held && !remote) else { continue };
         if ph.0.asleep() {
             continue;
         }
-        let mut world = solids.0.clone();
+        // props bounce off the room's box colliders plus the other props (prop physics is box-only)
+        let mut world: Vec<Obb> = solids.0.iter().filter_map(|c| if let Collider::Box(o) = c { Some(o.clone()) } else { None }).collect();
         world.extend(boxes.iter().filter(|b| b.0 != e && !b.2).map(|b| b.1.clone()));
         ph.0.step(&g.shape, g.mass, g.bounce, &world, dt);
         // fell out of the room: put it to rest where it is

@@ -46,13 +46,42 @@ load layout + prefab geometry but miss the base-scene-embedded meshes/textures.
 
 ## Known gaps (minor, non-fatal)
 
+- **Room-ambiance particle VFX — decode done (scene is the single source), renderer deferred.** The decorative room
+  VFX (`[VFX_LockerDust]`, `[DodgeballFireTrail]`, `PotionParticle`, and the looping steam/mist "Particle System"
+  emitters) are ParticleSystems baked inline in the no-type-tree base scenes. They decode cleanly by *injecting* a
+  bundle-sourced PS(198) type tree (the cipher session's route, like AnimationClip): read the PS(198) tree once from
+  any bundle, then `value::read(&ps_tree, &scene.ref_types, &mut Reader::new(scene.object_bytes(o)))` →
+  `ParticleSystem::from_value`. Verified: `rr-vfx-decode scene` decodes all 136 inline PS in reccenter (136 ok, 0
+  failed) — 37 room-ambiance with real specs (`[VFX_LockerDust]` looping/max 5000/dust, `[DodgeballFireTrail]`
+  looping/max 1000/velocity), 99 `VFX_Emote_*` which are player emote effects (avatar lane, filtered out by name).
+  So placement AND spec both come from the scene — no name-match or catalog needed. The one remaining piece is a Bevy
+  particle *rendering* subsystem (the engine has none today) with a per-room particle budget — deferred as
+  low-priority cosmetic polish, a trivial pickup now that the data decodes.
 - **`* ` compressed decorative meshes** — e.g. `CandleFlameMesh` in the Quest rooms. `level::mesh` does not yet
   decode Unity mesh compression (`m_MeshCompression != 0`), so a handful of small props are skipped (one mesh per
   affected room). Cosmetic; the room is otherwise complete.
-- **Baked lightmaps** — `LightmapSettings` has a Unity 6 layout change (+12 bytes) not yet parsed, so rooms light from
-  their realtime/mixed lights + ambient rather than baked lightmaps. Rooms look correct, just without baked GI.
-- **Cubemaps (reflection probes / skybox)** — the Unity 6 Cubemap (class 89) layout is not verified; reflection/skybox
-  cubemaps may not load. Does not affect geometry or materials.
+- **Baked lightmaps — none exist to load.** The built-in 2026 scenes ship *no* baked lightmaps: every MeshRenderer's
+  `m_LightmapIndex` is `0xFFFF` (checked across ~40k renderers in 8 scenes incl. reccenter, dorm, all Paintball maps,
+  Drive-In, Merry Midway, Rec Rally) and `LightmapSettings.m_Lightmaps` is empty in every scene. These Addressables
+  rooms light entirely from realtime/mixed lights + the ambient probe + reflection probes, so there is no baked GI to
+  match; the realtime look *is* 1:1. `LightmapSettings` (157) now parses the Unity 6 76-byte layout (+12 vs the
+  2019/2021 64-byte struct: an i32 after `m_Lightmaps`, and a 3×i32 tail), which also un-gates light-probe loading in
+  the client (previously the parse error dropped `m_LightProbes` too). Note the `m_LightProbes` object itself is an
+  *empty* stub: all 94 LightProbes in the decrypted corpus carry zero baked SH (0 positions / coefficient sets each),
+  so there is no probe-grid GI anywhere to load — the ambient probe carries the ambient term. Layout corroborated by the
+  cipher session's corpus dumps (the `m_LightProbes` path_ids match the 0x18/0x1c pair in the `LightmapSettings` bytes).
+- **Reflection + skybox cubemaps — now load.** The 2026 rooms' baked environment is BC6H (HDR) Cubemaps (class 89):
+  per room a `ReflectionProbe_Env_Baked` (128³, the default reflection via `RenderSettings.custom_reflection`) and a
+  `ReflectionProbe_Skybox_Baked` (1024³, the visible sky via the `Skybox/Cubemap` material). The scenes place no
+  `ReflectionProbe` *components*; the baked reflection comes through RenderSettings. These decode now (BC6H via
+  `bcdec_rs`; `texture2ddecoder`'s BC6 path panicked on real blocks). The client builds a 2026 room's lighting from
+  the decrypted corpus (`levels::scene_lighting`) — ambient probe, `Env_Baked` reflection and the `Skybox_Baked` sky
+  are bound as the camera's environment map and skybox, mirroring the geometry routing (Dorm/groups still use the 2019
+  reference install). Pixel streams are read plaintext from the install's `sharedassetsN.assets.resS`.
+  Known limit: the CPU decode tonemaps BC6H to sRGB (clamps HDR), fine for the reflection env (which is rebaked into an
+  SH + detail cube anyway) but it caps the skybox's bright highlights (e.g. the sun disc). A future quality pass can
+  upload the skybox BC6H straight to the GPU as `Bc6hRgbUfloat` (6 faces + mips sliced from the `.resS`) to keep full
+  HDR; verify that one in the live client.
 
 ## Not offered as rooms (internal scenes)
 

@@ -19,7 +19,7 @@ use bevy::{
 
 use crate::{
     avatar::{self, Drive, Kit, LocalLook, LookPanel, Rig},
-    collide::{self, Obb},
+    collide::{self, Collider},
     interact::{self, LocalHands, PropSolids},
     settings::Settings,
 };
@@ -225,7 +225,7 @@ fn look_and_walk(
 /// Moves the player's capsule from `feet` by `asked`: against the room's boxes, then out of the props sideways or up
 /// onto them, never down (a prop falling on the player would press it through the floor) and not into the room's
 /// walls. Returns where the feet end and whether they stand on something.
-pub fn walk(room: &[Obb], props: &[Obb], feet: Vec3, asked: Vec3) -> (Vec3, bool) {
+pub fn walk(room: &[Collider], props: &[Collider], feet: Vec3, asked: Vec3) -> (Vec3, bool) {
     let (mut next, mut grounded) = collide::move_capsule(room, feet, asked);
     if !props.is_empty() {
         let (out, on_prop) = collide::move_capsule(props, next, Vec3::ZERO);
@@ -344,9 +344,10 @@ fn local_avatar(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collide::Obb;
 
-    fn cube(center: Vec3, half: Vec3) -> Obb {
-        Obb { center, axes: [Vec3::X, Vec3::Y, Vec3::Z], half }
+    fn cube(center: Vec3, half: Vec3) -> Collider {
+        Collider::Box(Obb { center, axes: [Vec3::X, Vec3::Y, Vec3::Z], half })
     }
 
     #[test]

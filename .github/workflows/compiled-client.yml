@@ -51,7 +51,9 @@ env:
 jobs:
   desktop:
     name: ${{ matrix.runtime }} acceptance and native publish
-    runs-on: ${{ matrix.os }}
+    # GitHub's ubuntu-latest moved to 26.04, which Playwright 1.56.x can't install Chromium on;
+    # pin GitHub's Linux leg to 24.04 while the forge keeps its own self-hosted ubuntu-latest runner.
+    runs-on: ${{ (github.server_url == 'https://github.com' && matrix.os == 'ubuntu-latest') && 'ubuntu-24.04' || matrix.os }}
     timeout-minutes: 25
     strategy:
       fail-fast: false

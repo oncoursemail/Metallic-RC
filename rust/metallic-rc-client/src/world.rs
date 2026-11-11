@@ -12,7 +12,7 @@ use std::{
 use bevy::{asset::RenderAssetUsages, audio::AddAudioSource, mesh::{Indices, PrimitiveTopology}, prelude::*};
 use unity_assets::{catalog::{bundle_file, Catalog}, classes, AssetBundleInfo, GameObject, PPtr};
 
-use crate::{audio, cache, collide::{Obb, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
+use crate::{audio, cache, collide::{Collider, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
 
 
 /// Where an address leads: the bundle file and the bundle's own name for the asset (its `m_Container` key).
@@ -253,7 +253,10 @@ fn recenter(r: &mut RoomData) {
         *w = m * *w;
     }
     for c in &mut r.colliders {
-        c.center += shift;
+        *c = c.transformed(m);
+    }
+    for s in &mut r.spawns {
+        *s = m * *s;
     }
 }
 
@@ -323,11 +326,17 @@ impl Loader {
                 }
                 *room.lock().unwrap() = Some(r);
             }
-            // the room's ambient probe, reflection cubemap and fog, when its level file has them
-            if crate::levels::ref_install().is_some() {
-                if let Ok(l) = crate::levels::lighting(name) {
-                    *render::ROOM_ENV.lock().unwrap() = Some(render::RoomEnv::new(&l));
-                }
+            // the room's ambient probe, reflection cubemap and fog. 2026 corpus scenes get their own baked
+            // lighting (the Env_Baked / Skybox_Baked BC6H reflection cubemaps); the Dorm and group worlds use
+            // the 2019 reference install, mirroring the geometry routing in load_with.
+            let is_group = GROUPS.iter().any(|g| g.name.eq_ignore_ascii_case(name));
+            let env = if !is_group && !name.eq_ignore_ascii_case("dorm") {
+                crate::levels::scene_lighting(dir.ancestors().nth(3), name).ok()
+            } else {
+                crate::levels::ref_install().is_some().then(|| crate::levels::lighting(name).ok()).flatten()
+            };
+            if let Some(l) = env {
+                *render::ROOM_ENV.lock().unwrap() = Some(render::RoomEnv::new(&l));
             }
             for req in requests {
                 match req {
@@ -374,7 +383,7 @@ pub struct Prop {
 
 /// A prop's colliders, in the prop's own space; `Solids` gets them where the prop is now.
 #[derive(Component, Clone, Default)]
-pub struct PropColliders(pub Vec<Obb>);
+pub struct PropColliders(pub Vec<Collider>);
 
 /// Every entity a room load made (despawned with the room).
 #[derive(Component)]
@@ -382,7 +391,7 @@ pub struct RoomPiece;
 
 /// The room's fixed colliders (props' are on their entities).
 #[derive(Resource, Default)]
-struct FixedSolids(Vec<Obb>);
+struct FixedSolids(Vec<Collider>);
 
 /// FNV-1a: a stable id from a room name, a root's index and its name.
 pub fn stable_id(parts: &[&str]) -> u64 {
@@ -424,7 +433,7 @@ impl Plugin for WorldPlugin {
 /// Builds the meshes, materials and lights of `r` as children of one entity per root prefab. Returns the root
 /// entities; `roots[i]` is `None` for a root the caller already has an entity for (`existing`).
 fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option<Entity>,
-         meshes: &mut Assets<Mesh>, materials: &mut Assets<render::AgMaterial>, images: &mut Assets<Image>, clips: &mut Assets<audio::Pcm>) -> (Vec<Entity>, Vec<Obb>) {
+         meshes: &mut Assets<Mesh>, materials: &mut Assets<render::AgMaterial>, images: &mut Assets<Image>, clips: &mut Assets<audio::Pcm>) -> (Vec<Entity>, Vec<Collider>) {
     let mut textures = render::Textures::default();
     let mats: Vec<Handle<render::AgMaterial>> = r.materials.iter().map(|m| materials.add(render::material(m, images, &mut textures))).collect();
     let needs_tangents: Vec<bool> = r.materials.iter().map(|m| m.normal_map.is_some()).collect();
@@ -494,7 +503,7 @@ fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option
     }
     // props carry their own colliders; the rest are fixed
     let mut fixed = Vec::new();
-    let mut by_root: HashMap<usize, Vec<Obb>> = HashMap::new();
+    let mut by_root: HashMap<usize, Vec<Collider>> = HashMap::new();
     for (c, &root) in r.colliders.iter().zip(&r.collider_roots) {
         if r.props[root] || existing.is_some() {
             by_root.entry(root).or_default().push(c.transformed(inverse[root]));
@@ -521,6 +530,7 @@ fn spawn_arrived(
     mut clips: ResMut<Assets<audio::Pcm>>,
     mut ambient: ResMut<GlobalAmbientLight>,
     env: Res<render::RoomEnvMaps>,
+    mut player: Query<(&mut crate::player::Player, &mut Transform)>,
 ) {
     let Some(r) = arrived.0.take() else { return };
     for e in &old {
@@ -533,8 +543,20 @@ fn spawn_arrived(
     let sounds: Vec<String> = r.sounds.iter().map(|s| format!("{} ({}, {:.1} s{})", s.clip.name, s.clip.codec,
         s.clip.samples.len() as f32 / s.clip.channels.max(1) as f32 / s.clip.rate.max(1) as f32, if s.looped { ", loop" } else { "" })).collect();
     println!("world: {} pieces, {} props {props:?}, {} lights, {} colliders, {} sounds {sounds:?}", r.roots.len(), props.len(), r.lights.len(), r.colliders.len(), sounds.len());
+    let spawn = r.spawns.first().copied();
     let (_, solids) = build(&mut commands, r, &name, None, &mut meshes, &mut materials, &mut images, &mut clips);
     fixed.0 = solids;
+    // place the player at the room's first spawn point (SceneSpawnPoint / GamePlayerSpawnPoint), so you start where
+    // the real game puts you instead of at the origin. The spawn transform is the floor pose; eyes sit `EYE` above it.
+    if let (Some(m), Ok((mut p, mut t))) = (spawn, player.single_mut()) {
+        let (_, rot, trans) = m.to_scale_rotation_translation();
+        let fwd = rot * Vec3::NEG_Z;
+        let yaw = f32::atan2(-fwd.x, -fwd.z);
+        t.translation = trans + Vec3::Y * crate::player::EYE;
+        t.rotation = Quat::from_euler(EulerRot::YXZ, yaw, 0.0, 0.0);
+        p.respawn(yaw);
+        println!("world: placed player at spawn ({:.1}, {:.1}, {:.1}) yaw {:.0}", trans.x, trans.y, trans.z, yaw.to_degrees());
+    }
     if !has_lights && lo.x <= hi.x {
         for e in render::spawn_default_lights(&mut commands, lo, hi) {
             commands.entity(e).insert(RoomPiece);
@@ -545,9 +567,11 @@ fn spawn_arrived(
     let sky = images.add(render::sky_cubemap(&render::SimpleGradient::default()));
     let inside = images.add(render::sky_cubemap(&render::SimpleGradient::interior()));
     for cam in &cameras {
-        // the room's own environment (render::apply_room_env) replaces the stand-in ambient when it came first
+        // the room's own environment (render::apply_room_env) replaces the stand-in ambient and, for a
+        // `Skybox/Cubemap` scene, the gradient sky with the baked sky; use them already if they are ready.
         let ambient = env.0.as_ref().map_or(inside.clone(), |m| m.0.clone());
-        render::sky_on_camera(&mut commands, cam, sky.clone(), ambient);
+        let cam_sky = env.0.as_ref().and_then(|m| m.2.clone()).unwrap_or_else(|| sky.clone());
+        render::sky_on_camera(&mut commands, cam, cam_sky, ambient);
         commands.entity(cam).insert(audio::listener());
     }
 }

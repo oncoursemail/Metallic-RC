@@ -15,12 +15,12 @@ use unity_assets::lz4_flex;
 
 use crate::{
     audio::Clip,
-    collide::Obb,
+    collide::{Collider, MeshShape, Obb},
     room::{Blend, Part, RoomData, RoomLight, RoomMaterial, RoomSound},
     shapes::Pixels,
 };
 
-const MAGIC: &[u8; 8] = b"MRCROOM2";
+const MAGIC: &[u8; 8] = b"MRCROOM3";
 /// The cache folder's size cap.
 const LIMIT: u64 = 1 << 30;
 
@@ -228,11 +228,36 @@ fn encode(w: &mut W, r: &RoomData) {
     }
     w.usize(r.colliders.len());
     for (c, &root) in r.colliders.iter().zip(&r.collider_roots) {
-        w.vec3(c.center);
-        for a in c.axes {
-            w.vec3(a);
+        match c {
+            Collider::Box(o) => {
+                w.usize(0);
+                w.vec3(o.center);
+                for a in o.axes {
+                    w.vec3(a);
+                }
+                w.vec3(o.half);
+            }
+            Collider::Sphere { center, radius } => {
+                w.usize(1);
+                w.vec3(*center);
+                w.f32(*radius);
+            }
+            Collider::Capsule { a, b, r: rad } => {
+                w.usize(2);
+                w.vec3(*a);
+                w.vec3(*b);
+                w.f32(*rad);
+            }
+            Collider::Mesh(m) => {
+                w.usize(3);
+                w.usize(m.tris.len());
+                for t in &m.tris {
+                    for v in t {
+                        w.vec3(*v);
+                    }
+                }
+            }
         }
-        w.vec3(c.half);
         w.usize(root);
     }
     w.usize(r.lights.len());
@@ -283,6 +308,10 @@ fn encode(w: &mut W, r: &RoomData) {
     for p in &r.problems {
         w.str(p);
     }
+    w.usize(r.spawns.len());
+    for s in &r.spawns {
+        w.mat(s);
+    }
 }
 
 fn codec(name: &str) -> &'static str {
@@ -326,7 +355,22 @@ fn decode(r: &mut R) -> Option<RoomData> {
         out.places.push(place);
         out.props.push(prop);
     }
-    for (c, root) in r.list(|r| Some((Obb { center: r.vec3()?, axes: [r.vec3()?, r.vec3()?, r.vec3()?], half: r.vec3()? }, r.usize()?)))? {
+    for (c, root) in r.list(|r| {
+        let col = match r.usize()? {
+            0 => Collider::Box(Obb { center: r.vec3()?, axes: [r.vec3()?, r.vec3()?, r.vec3()?], half: r.vec3()? }),
+            1 => Collider::Sphere { center: r.vec3()?, radius: r.f32()? },
+            2 => Collider::Capsule { a: r.vec3()?, b: r.vec3()?, r: r.f32()? },
+            _ => {
+                let n = r.usize()?;
+                let mut tris = Vec::with_capacity(n);
+                for _ in 0..n {
+                    tris.push([r.vec3()?, r.vec3()?, r.vec3()?]);
+                }
+                Collider::Mesh(MeshShape::new(tris))
+            }
+        };
+        Some((col, r.usize()?))
+    })? {
         out.colliders.push(c);
         out.collider_roots.push(root);
     }
@@ -349,6 +393,7 @@ fn decode(r: &mut R) -> Option<RoomData> {
         Some(RoomSound { root, world, clip, volume, pitch, looped, spatial, min_distance, max_distance, rolloff, rolloff_curve: curve.into_iter().map(|[t, v]| (t, v)).collect() })
     })?;
     out.problems = r.list(|r| r.str())?;
+    out.spawns = r.list(|r| r.mat())?;
     (r.at == r.b.len()).then_some(out)
 }
 
@@ -373,8 +418,13 @@ mod tests {
         r.roots.push("root".into());
         r.places.push(Mat4::IDENTITY);
         r.props.push(true);
-        r.colliders.push(Obb { center: Vec3::ONE, axes: [Vec3::X, Vec3::Y, Vec3::Z], half: Vec3::splat(0.5) });
-        r.collider_roots.push(0);
+        r.colliders.push(Collider::Box(Obb { center: Vec3::ONE, axes: [Vec3::X, Vec3::Y, Vec3::Z], half: Vec3::splat(0.5) }));
+        r.colliders.push(Collider::Sphere { center: Vec3::Y, radius: 0.7 });
+        r.colliders.push(Collider::Capsule { a: Vec3::ZERO, b: Vec3::Y, r: 0.3 });
+        r.colliders.push(Collider::Mesh(MeshShape::new(vec![[Vec3::ZERO, Vec3::X, Vec3::Y]])));
+        for _ in 0..4 {
+            r.collider_roots.push(0);
+        }
         r.lights.push(RoomLight { root: 0, world: Mat4::IDENTITY, kind: 2, color: [1.0; 3], intensity: 2.0, range: 5.0, spot_angle: 30.0, inner_spot_angle: 20.0, shadows: true, hemisphere: Some((90.0, 180.0)) });
         for _ in 0..2 {
             r.sounds.push(RoomSound { root: 0, world: Mat4::IDENTITY, clip: clip.clone(), volume: 0.5, pitch: 1.0, looped: true, spatial: 1.0, min_distance: 1.0, max_distance: 9.0, rolloff: 2, rolloff_curve: vec![(0.0, 1.0), (1.0, 0.0)] });
@@ -391,7 +441,11 @@ mod tests {
         assert_eq!(back.parts[0].positions, r.parts[0].positions);
         assert_eq!(back.parts[0].world, r.parts[0].world);
         assert_eq!((back.roots.clone(), back.props.clone(), back.collider_roots.clone()), (r.roots.clone(), r.props.clone(), r.collider_roots.clone()));
-        assert_eq!(back.colliders[0].half, Vec3::splat(0.5));
+        assert_eq!(back.colliders.len(), 4);
+        assert!(matches!(back.colliders[0], Collider::Box(ref o) if o.half == Vec3::splat(0.5)));
+        assert!(matches!(back.colliders[1], Collider::Sphere { radius, .. } if (radius - 0.7).abs() < 1e-6));
+        assert!(matches!(back.colliders[2], Collider::Capsule { r, .. } if (r - 0.3).abs() < 1e-6));
+        assert!(matches!(back.colliders[3], Collider::Mesh(ref m) if m.tris.len() == 1));
         assert_eq!(back.lights[0].hemisphere, Some((90.0, 180.0)));
         assert_eq!(back.sounds.len(), 2);
         assert!(Arc::ptr_eq(&back.sounds[0].clip, &back.sounds[1].clip));

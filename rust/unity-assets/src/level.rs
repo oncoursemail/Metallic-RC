@@ -75,6 +75,26 @@ fn behaviour(r: &mut Reader) -> Result<(PPtr, bool)> {
     Ok((go, enabled))
 }
 
+/// A MonoBehaviour's `m_Script` PPtr (points at the MonoScript, in this file or an external), so a caller can
+/// resolve what gameplay script sits on a scene object (spawn points, NetObjects, triggers, teleporters).
+pub fn mono_script_ref(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<PPtr> {
+    let mut r = reader(sf, o, classes::MONO_BEHAVIOUR, "MonoBehaviour")?;
+    behaviour(&mut r)?;
+    pptr(&mut r)
+}
+
+/// A MonoScript's `(class_name, namespace)`. Layout: m_Name, m_ExecutionOrder (i32), m_PropertiesHash (16 bytes),
+/// m_ClassName, m_Namespace, m_AssemblyName — stable across the 2019..6000 player builds.
+pub fn mono_script_name(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<(String, String)> {
+    let mut r = reader(sf, o, classes::MONO_SCRIPT, "MonoScript")?;
+    r.aligned_string()?; // m_Name
+    r.i32()?; // m_ExecutionOrder
+    r.bytes(16)?; // m_PropertiesHash (Hash128)
+    let class_name = r.aligned_string()?;
+    let namespace = r.aligned_string()?;
+    Ok((class_name, namespace))
+}
+
 /// The readers below know the 2019.3 .. 2021.3 player layouts (checked on 2019.4.26f1) and the Unity 6
 /// (6000.x) player layout (checked on 6000.0.27f1, the decrypted 2026 Rec Room base files). Every reader
 /// also verifies it consumed exactly the object's bytes, so a layout mismatch is an error, not garbage.
@@ -284,15 +304,30 @@ pub fn lightmap_settings(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<L
     }
     let light_probes = pptr(&mut r)?;
     let lightmaps = vec_of(&mut r, 36, |r| Ok(LightmapData { color: pptr(r)?, directional: pptr(r)?, shadow_mask: pptr(r)? }))?;
+    // Unity 6 (6000.x) inserts a 4-byte field between m_Lightmaps and m_LightmapsMode. INFERRED from the
+    // decrypted 2026 base scenes (6000.0.27f1): it reads 0 in every sampled scene. Layout verified by the
+    // cipher session's byte dumps of the decrypted corpus (session sweet-galileo).
+    let u6 = is_u6(sf);
+    if u6 {
+        r.i32()?;
+    }
     let mode = r.i32()?;
     let [bounce_scale, indirect_output_scale, albedo_boost] = floats::<3>(&mut r)?;
     let environment_lighting_mode = r.u32()?;
     let baked_lightmaps = r.bool()?;
     let realtime_lightmaps = r.bool()?;
     r.align(4);
-    r.bool()?; // m_UseShadowmask
-    if r.remaining() > 0 {
-        r.align(4);
+    if u6 {
+        // Unity 6 tail is three i32 (0x40-0x4b): m_UseShadowmask and two unidentified fields (candidates
+        // m_ShadowMaskMode and a LightingDataAsset tail), replacing the 2019/2021 single-bool + align.
+        r.i32()?;
+        r.i32()?;
+        r.i32()?;
+    } else {
+        r.bool()?; // m_UseShadowmask
+        if r.remaining() > 0 {
+            r.align(4);
+        }
     }
     done(&r, "LightmapSettings")?;
     Ok(LightmapSettings {
@@ -376,6 +411,43 @@ pub fn reflection_probe(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<Re
     })
 }
 
+/// LODGroup (205): the renderers at each level of detail, level 0 (highest detail) first.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LodGroup {
+    pub game_object: PPtr,
+    /// renderer PPtrs per LOD level; `lods[0]` is LOD0 (drawn), `lods[1..]` are the lower levels
+    pub lods: Vec<Vec<PPtr>>,
+    pub enabled: bool,
+}
+
+/// LODGroup (205) without type tree. Layout verified on the decrypted 2026 scenes (6000.0.27f1): m_GameObject,
+/// m_LocalReferencePoint (Vec3), m_Size, m_FadeMode (int), m_AnimateCrossFading (bool+align), m_LODs
+/// (each: screenRelativeTransitionHeight f32, fadeTransitionWidth f32, renderers vector of PPtr), m_Enabled.
+pub fn lod_group(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<LodGroup> {
+    let mut r = reader(sf, o, classes::LOD_GROUP, "LODGroup")?;
+    let game_object = pptr(&mut r)?;
+    floats::<3>(&mut r)?; // m_LocalReferencePoint
+    r.f32()?; // m_Size
+    r.i32()?; // m_FadeMode
+    r.bool()?; // m_AnimateCrossFading
+    r.align(4);
+    let count = r.i32()? as usize;
+    let mut lods = Vec::with_capacity(count.min(16));
+    for _ in 0..count {
+        r.f32()?; // screenRelativeTransitionHeight
+        r.f32()?; // fadeTransitionWidth
+        let rn = r.i32()? as usize;
+        let mut rs = Vec::with_capacity(rn.min(64));
+        for _ in 0..rn {
+            rs.push(pptr(&mut r)?);
+        }
+        lods.push(rs);
+    }
+    let enabled = r.i32()? != 0; // m_Enabled
+    done(&r, "LODGroup")?;
+    Ok(LodGroup { game_object, lods, enabled })
+}
+
 /// BoxCollider (65).
 #[derive(Debug, Clone, PartialEq)]
 pub struct BoxCollider {
@@ -386,28 +458,97 @@ pub struct BoxCollider {
     pub center: [f32; 3],
 }
 
-pub fn box_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<BoxCollider> {
-    let mut r = reader(sf, o, classes::BOX_COLLIDER, "BoxCollider")?;
-    let game_object = pptr(&mut r)?;
-    pptr(&mut r)?; // m_Material
-    let (trigger, enabled) = if is_u6(sf) {
-        skip(&mut r, 12)?; // m_IncludeLayers, m_ExcludeLayers (BitField), m_LayerOverridePriority
+/// The shared Collider prefix (`m_GameObject`, `m_Material`, the Unity 6 layer block, `m_IsTrigger`,
+/// `m_ProvidesContacts`, `m_Enabled`), leaving the reader at the shape-specific fields.
+fn collider_base(r: &mut Reader, sf: &SerializedFile) -> Result<(PPtr, bool, bool)> {
+    let game_object = pptr(r)?;
+    pptr(r)?; // m_Material
+    if is_u6(sf) {
+        skip(r, 12)?; // m_IncludeLayers, m_ExcludeLayers (BitField), m_LayerOverridePriority
         let trigger = r.bool()?;
         r.bool()?; // m_ProvidesContacts
         r.align(4);
         let enabled = r.bool()?;
         r.align(4);
-        (trigger, enabled)
+        Ok((game_object, trigger, enabled))
     } else {
         let trigger = r.bool()?;
         let enabled = r.bool()?;
         r.align(4);
-        (trigger, enabled)
-    };
+        Ok((game_object, trigger, enabled))
+    }
+}
+
+pub fn box_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<BoxCollider> {
+    let mut r = reader(sf, o, classes::BOX_COLLIDER, "BoxCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
     let size = floats::<3>(&mut r)?;
     let center = floats::<3>(&mut r)?;
     done(&r, "BoxCollider")?;
     Ok(BoxCollider { game_object, trigger, enabled, size, center })
+}
+
+/// SphereCollider (135).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SphereCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub radius: f32,
+    pub center: [f32; 3],
+}
+
+pub fn sphere_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<SphereCollider> {
+    let mut r = reader(sf, o, classes::SPHERE_COLLIDER, "SphereCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let radius = r.f32()?;
+    let center = floats::<3>(&mut r)?;
+    done(&r, "SphereCollider")?;
+    Ok(SphereCollider { game_object, trigger, enabled, radius, center })
+}
+
+/// CapsuleCollider (136). `direction`: 0 = X, 1 = Y, 2 = Z (the axis the height runs along).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CapsuleCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub radius: f32,
+    pub height: f32,
+    pub direction: i32,
+    pub center: [f32; 3],
+}
+
+pub fn capsule_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<CapsuleCollider> {
+    let mut r = reader(sf, o, classes::CAPSULE_COLLIDER, "CapsuleCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let radius = r.f32()?;
+    let height = r.f32()?;
+    let direction = r.i32()?;
+    let center = floats::<3>(&mut r)?;
+    done(&r, "CapsuleCollider")?;
+    Ok(CapsuleCollider { game_object, trigger, enabled, radius, height, direction, center })
+}
+
+/// MeshCollider (64): a collision surface from an arbitrary mesh (`mesh` points at the Mesh to use).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub convex: bool,
+    pub mesh: PPtr,
+}
+
+pub fn mesh_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<MeshCollider> {
+    let mut r = reader(sf, o, classes::MESH_COLLIDER, "MeshCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let convex = r.bool()?;
+    r.align(4);
+    r.i32()?; // m_CookingOptions
+    let mesh = pptr(&mut r)?;
+    done(&r, "MeshCollider")?;
+    Ok(MeshCollider { game_object, trigger, enabled, convex, mesh })
 }
 
 /// Out-of-line data (`.resS` / `.resource`) of plain files in a player's data folder.

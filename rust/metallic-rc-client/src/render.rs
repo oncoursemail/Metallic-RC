@@ -326,22 +326,30 @@ pub struct RoomEnv {
     /// the custom reflection cubemap's faces (+X -X +Y -Y +Z -Z, sRGB) and its intensity
     pub reflection: Option<Vec<Pixels>>,
     pub reflection_intensity: f32,
+    /// the visible skybox cubemap's faces (+X -X +Y -Y +Z -Z, sRGB), when the scene uses `Skybox/Cubemap`
+    /// (the baked `Skybox_Baked` map of the 2026 rooms); the renderer puts it on the camera instead of the gradient
+    pub sky: Option<Vec<Pixels>>,
     pub fog: Option<crate::levels::Fog>,
 }
 
 impl RoomEnv {
     pub fn new(l: &crate::levels::Lighting) -> Self {
         let square = |c: &&crate::levels::Cubemap| c.faces.len() == 6 && c.faces.iter().all(|f| f.0 == c.size && f.1 == c.size);
-        RoomEnv { sh: l.ambient_sh, reflection: l.reflection.as_ref().filter(square).map(|c| c.faces.clone()), reflection_intensity: l.reflection_intensity, fog: l.fog.clone() }
+        let sky = l.skybox_cubemap.as_ref()
+            .filter(|_| l.skybox_shader.contains("Cubemap"))
+            .filter(square)
+            .map(|c| c.faces.clone());
+        RoomEnv { sh: l.ambient_sh, reflection: l.reflection.as_ref().filter(square).map(|c| c.faces.clone()), reflection_intensity: l.reflection_intensity, sky, fog: l.fog.clone() }
     }
 }
 
 /// Set by the loader thread when the room's level file has lighting; `apply_room_env` takes it.
 pub static ROOM_ENV: std::sync::Mutex<Option<RoomEnv>> = std::sync::Mutex::new(None);
 
-/// The room's environment cube and fog once applied (cameras added later get them too).
+/// The room's environment cube, fog and (for `Skybox/Cubemap` scenes) its baked sky cube, once applied
+/// (cameras added later get them too).
 #[derive(Resource, Default)]
-pub struct RoomEnvMaps(pub Option<(Handle<Image>, Option<DistanceFog>)>);
+pub struct RoomEnvMaps(pub Option<(Handle<Image>, Option<DistanceFog>, Option<Handle<Image>>)>);
 
 /// The radiance whose cosine-weighted average (Bevy's diffuse ambient) is what Unity's `ShadeSH9` gives for the
 /// probe (the shader-constant form: `sh0 + sh3 x + sh1 y + sh2 z + sh4 xy + sh5 yz + sh6 (3z^2 - 1) + sh7 xz +
@@ -459,6 +467,35 @@ pub fn room_env_cubemap(env: &RoomEnv) -> Image {
     img
 }
 
+/// The room's visible skybox cube (the baked `Skybox_Baked` map), resampled to a Bevy cube map through the same
+/// `cube_dir`/`cube_texel` convention as the reflection env, so its face order and orientation match the rest of the
+/// pipeline. sRGB faces become linear `Rgba16Float`.
+pub fn sky_cube_from_faces(faces: &[Pixels]) -> Image {
+    let lin = |b: u8| {
+        let c = b as f32 / 255.0;
+        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    };
+    let src = faces[0].0 as usize;
+    let n = src;
+    let mut data = Vec::with_capacity(n * n * 6 * 8);
+    for f in 0..6 {
+        for y in 0..n {
+            for x in 0..n {
+                let (u, v) = ((x as f32 + 0.5) / n as f32 * 2.0 - 1.0, (y as f32 + 0.5) / n as f32 * 2.0 - 1.0);
+                let (sf, sx, sy) = cube_texel(src, cube_dir(f, u, v).normalize());
+                let p = &faces[sf].2[(sy * src + sx) * 4..];
+                for ch in [lin(p[0]), lin(p[1]), lin(p[2]), 1.0] {
+                    data.extend_from_slice(&f16_bits(ch).to_le_bytes());
+                }
+            }
+        }
+    }
+    let n = n as u32;
+    let mut img = Image::new(Extent3d { width: n, height: n, depth_or_array_layers: 6 }, TextureDimension::D2, data, TextureFormat::Rgba16Float, RenderAssetUsages::RENDER_WORLD);
+    img.texture_view_descriptor = Some(TextureViewDescriptor { dimension: Some(TextureViewDimension::Cube), ..default() });
+    img
+}
+
 /// Unity fog as Bevy distance fog (mode 1 linear, 2 exponential, 3 exponential squared).
 fn room_fog(f: &crate::levels::Fog) -> DistanceFog {
     let falloff = match f.mode {
@@ -482,11 +519,12 @@ fn apply_room_env(mut commands: Commands, mut maps: ResMut<RoomEnvMaps>, mut ima
     let fresh = ROOM_ENV.lock().unwrap().take();
     if let Some(env) = &fresh {
         let t = std::time::Instant::now();
-        maps.0 = Some((images.add(room_env_cubemap(env)), env.fog.as_ref().map(room_fog)));
-        info!("room environment: ambient probe, reflection cubemap {} (x{:.2}), fog {}, made in {:.2} s", env.reflection.is_some(),
-              env.reflection_intensity, env.fog.is_some(), t.elapsed().as_secs_f32());
+        let sky = env.sky.as_ref().map(|faces| images.add(sky_cube_from_faces(faces)));
+        maps.0 = Some((images.add(room_env_cubemap(env)), env.fog.as_ref().map(room_fog), sky));
+        info!("room environment: ambient probe, reflection cubemap {} (x{:.2}), baked sky {}, fog {}, made in {:.2} s",
+              env.reflection.is_some(), env.reflection_intensity, env.sky.is_some(), env.fog.is_some(), t.elapsed().as_secs_f32());
     }
-    let Some((map, fog)) = &maps.0 else { return };
+    let Some((map, fog, sky)) = &maps.0 else { return };
     let targets: Vec<Entity> = if fresh.is_some() { cameras.iter().collect() } else { added.iter().collect() };
     for cam in targets {
         let mut e = commands.entity(cam);
@@ -494,6 +532,9 @@ fn apply_room_env(mut commands: Commands, mut maps: ResMut<RoomEnvMaps>, mut ima
             GeneratedEnvironmentMapLight { environment_map: map.clone(), intensity: UNEXPOSE, affects_lightmapped_mesh_diffuse: false, ..default() },
             Exposure { ev100: EV100 - 0.21 - LEVEL_EV },
         ));
+        if let Some(sky) = sky {
+            e.insert(Skybox { image: Some(sky.clone()), brightness: UNEXPOSE, ..default() });
+        }
         if let Some(fog) = fog {
             e.insert(fog.clone());
         }

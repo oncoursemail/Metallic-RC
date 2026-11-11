@@ -99,16 +99,24 @@ pub fn decode_rgba8(format: i32, w: usize, h: usize, data: &[u8]) -> Result<Vec<
         ),
         10 | 12 | 24 | 25 | 26 | 27 | 28 | 29 => {
             let mut img = vec![0u32; w * h];
-            let res = match format {
-                10 => t2d::decode_bc1(src, w, h, &mut img),
-                12 => t2d::decode_bc3(src, w, h, &mut img),
-                24 => t2d::decode_bc6_unsigned(src, w, h, &mut img),
-                25 => t2d::decode_bc7(src, w, h, &mut img),
-                26 => t2d::decode_bc4(src, w, h, &mut img),
-                27 => t2d::decode_bc5(src, w, h, &mut img),
-                _ => t2d::decode_unity_crunch(src, w, h, &mut img),
-            };
-            res.map_err(|e| crate::Error::Format(format!("{}: {e}", format_name(format))))?;
+            if format == 24 {
+                // BC6H (HDR, used by baked reflection-probe/skybox cubemaps). texture2ddecoder's BC6 path
+                // panics on some real blocks, so decode with bcdec_rs and tonemap to sRGB BGRA.
+                decode_bc6h(src, w, h, &mut img);
+            } else {
+                // texture2ddecoder can panic on malformed blocks; contain it so a bad texture is skipped,
+                // never a crash (these decode real files, but reflection/HDR corpora exercise edge cases).
+                let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match format {
+                    10 => t2d::decode_bc1(src, w, h, &mut img),
+                    12 => t2d::decode_bc3(src, w, h, &mut img),
+                    25 => t2d::decode_bc7(src, w, h, &mut img),
+                    26 => t2d::decode_bc4(src, w, h, &mut img),
+                    27 => t2d::decode_bc5(src, w, h, &mut img),
+                    _ => t2d::decode_unity_crunch(src, w, h, &mut img),
+                }))
+                .map_err(|_| crate::Error::Format(format!("{}: decoder panicked", format_name(format))))?;
+                res.map_err(|e| crate::Error::Format(format!("{}: {e}", format_name(format))))?;
+            }
             for (o, p) in out.chunks_exact_mut(4).zip(img) {
                 let [b, g, r, a] = p.to_le_bytes();
                 o.copy_from_slice(&[r, g, b, a]);
@@ -122,4 +130,32 @@ pub fn decode_rgba8(format: i32, w: usize, h: usize, data: &[u8]) -> Result<Vec<
         a[y * row..(y + 1) * row].swap_with_slice(&mut b[..row]);
     }
     Ok(out)
+}
+
+/// BC6H (TextureFormat 24: unsigned-float HDR) mip 0 -> `img` as packed little-endian BGRA (`[b,g,r,a]`),
+/// matching texture2ddecoder's output convention. HDR RGB is tonemapped to sRGB and clamped to [0,1].
+fn decode_bc6h(src: &[u8], w: usize, h: usize, img: &mut [u32]) {
+    if w % 4 != 0 || h % 4 != 0 {
+        return; // BCn is 4x4-block; cubemap faces are powers of two, so this never trips in practice
+    }
+    let mut rgb = vec![0f32; w * h * 3];
+    let blocks_w = w / 4;
+    let pitch = w * 3;
+    for by in (0..h).step_by(4) {
+        for bx in (0..w).step_by(4) {
+            let bi = (by / 4) * blocks_w + bx / 4;
+            let Some(block) = src.get(bi * 16..bi * 16 + 16) else { continue };
+            bcdec_rs::bc6h_float(block, &mut rgb[(by * w + bx) * 3..], pitch, false);
+        }
+    }
+    for (p, c) in img.iter_mut().zip(rgb.chunks_exact(3)) {
+        *p = u32::from_le_bytes([lin_to_srgb(c[2]), lin_to_srgb(c[1]), lin_to_srgb(c[0]), 255]);
+    }
+}
+
+/// Linear -> 8-bit sRGB, clamped to [0,1] (HDR highlights saturate to white).
+fn lin_to_srgb(x: f32) -> u8 {
+    let x = x.clamp(0.0, 1.0);
+    let s = if x <= 0.0031308 { 12.92 * x } else { 1.055 * x.powf(1.0 / 2.4) - 0.055 };
+    (s * 255.0 + 0.5) as u8
 }
