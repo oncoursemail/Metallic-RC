@@ -264,6 +264,9 @@ pub struct Drive {
     /// the eyes above the feet (lower when crouching), when known
     pub head_height: Option<f32>,
     pub grip: [anim::Grip; 2],
+    /// an emote to play, by its clip key (see `clips::STATE_CLIPS`, e.g. "flex", "hips", "sit"); overrides locomotion
+    /// while set, and crossfades in and out. Only the Full body has the real clips (the Bean keeps its float pose).
+    pub emote: Option<&'static str>,
 }
 
 struct Parts {

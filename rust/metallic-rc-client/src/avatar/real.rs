@@ -97,6 +97,11 @@ pub struct Skeleton {
     pub curls: [[f32; 3]; 2],
     /// the Bean body floats (no legs; hands drift at the sides) and is posed differently from the Full body
     pub bean: bool,
+    /// the authored-clip state currently playing, the state being blended out of (with its frozen clip-time), and the
+    /// crossfade progress 0..1 — so transitions between clips ease instead of snapping
+    pub clip_state: &'static str,
+    pub blend_from: Option<(&'static str, f32)>,
+    pub blend: f32,
 }
 
 /// The face decals of one avatar plus a per-avatar phase seed, so `animate_face` can swap their expression materials to
@@ -394,7 +399,7 @@ pub fn attach_real(
                 let head = rigdef.head;
                 let cancel = (Mat4::from_quat(stand()) * rigdef.bind_world[head]).inverse();
                 let group = commands.spawn((Transform::from_matrix(cancel), Visibility::default(), ChildOf(joints[head]))).id();
-                commands.entity(root).insert(Skeleton { joints, root_node: skeleton_node, curls: [anim::Grip::Open.curls(); 2], bean: roomie.body == BodyType::Bean });
+                commands.entity(root).insert(Skeleton { joints, root_node: skeleton_node, curls: [anim::Grip::Open.curls(); 2], bean: roomie.body == BodyType::Bean, clip_state: "idle", blend_from: None, blend: 1.0 });
                 group
             }
             _ => {
@@ -455,6 +460,7 @@ const BEAN_ARM_DOWN: f32 = 0.05; // the Bean's floating hands rest at the sides 
 const BEAN_ARM_FWD: f32 = 0.18; // a slight fore tuck, so the hands float just ahead of the belly
 const BEAN_ARM_IN: f32 = 0.28; // pulled in toward the body's midline
 const BEAN_HAND_SWING: f32 = 0.22; // gentle fore/aft hand drift while the Bean moves
+const CLIP_BLEND: f32 = 0.15; // seconds to crossfade between authored clip states (the game blends ~0.1-0.2 s)
 
 /// The skeleton-space swing `r` (about the axes above), conjugated into joint `i`'s local frame and composed onto its
 /// bind local rotation: `local' = (Wₚ⁻¹·r·Wₚ)·L`. `Wₚ` is the parent's bind-pose world rotation, so the bone swings by
@@ -503,7 +509,9 @@ pub fn animate_skeleton(
 
         // if a real authored clip covers this state, play it on the joints in place (the head-look and grips below are
         // layered on top); otherwise the hand-tuned procedural pose drives the body.
-        let state = if drive.flying {
+        let state = if let Some(emote) = drive.emote {
+            emote // an emote overrides locomotion while held; the crossfade eases in and back out
+        } else if drive.flying {
             "fly"
         } else {
             match r.anim.state {
@@ -517,19 +525,42 @@ pub fn animate_skeleton(
         };
         // Authored clips are full-body locomotion (legs + arm swing). The Bean has no legs/arms — only floating hands —
         // so a walk clip would drop its hands like invisible arm-ends; keep the Bean on its procedural float pose.
-        let clip_driven = !skel.bean && anim_clips.as_deref().and_then(|c| c.get(state)).map(|clip| {
-            // walk/run follow the stride phase so the cadence matches the speed; the rest free-run on the clock
-            let ct = match state {
-                "walk" | "run" | "crouch_walk" => (phase / std::f32::consts::TAU).rem_euclid(1.0) * clip.stop_time,
-                _ => time.elapsed_secs().rem_euclid(clip.stop_time),
+        let clip_driven = !skel.bean && anim_clips.as_deref().map_or(false, |clips| {
+            // the clip-time for a state (walk/run follow the stride phase so cadence tracks speed; the rest free-run)
+            let clip_time = |st: &str, c: &clips::Clip| match st {
+                "walk" | "run" | "crouch_walk" => (phase / std::f32::consts::TAU).rem_euclid(1.0) * c.stop_time,
+                _ => time.elapsed_secs().rem_euclid(c.stop_time),
             };
-            for (j, q) in clip.pose(ct) {
+            let Some(cur) = clips.get(state) else { return false };
+
+            // start a crossfade when the state changes: blend out of the old state, frozen at its current clip-time
+            if state != skel.clip_state {
+                let from_t = clips.get(skel.clip_state).map(|c| clip_time(skel.clip_state, c)).unwrap_or(0.0);
+                skel.blend_from = Some((skel.clip_state, from_t));
+                skel.clip_state = state;
+                skel.blend = 0.0;
+            }
+            skel.blend = (skel.blend + dt / CLIP_BLEND).min(1.0);
+            if skel.blend >= 1.0 {
+                skel.blend_from = None;
+            }
+
+            // the new state's authored local rotations by joint, then (while blending) ease from the old state's
+            // rotations into them — a joint a clip doesn't touch rests at its bind rotation.
+            let to: HashMap<usize, Quat> = cur.pose(clip_time(state, cur)).collect();
+            let from: HashMap<usize, Quat> = skel.blend_from
+                .and_then(|(st, t)| clips.get(st).map(|c| c.pose(t).collect()))
+                .unwrap_or_default();
+            for &j in to.keys().chain(from.keys()) {
+                let bind = rig.joints[j].local.rotation;
+                let a = from.get(&j).copied().unwrap_or(bind);
+                let b = to.get(&j).copied().unwrap_or(bind);
                 if let Ok(mut t) = xf.get_mut(skel.joints[j]) {
-                    t.rotation = q;
+                    t.rotation = if skel.blend_from.is_some() { a.slerp(b, skel.blend) } else { b };
                 }
             }
             true
-        }).unwrap_or(false);
+        });
 
         let mut set = |name: &str, rot: Quat| {
             if let Some(i) = rig.index(name) {
