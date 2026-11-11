@@ -28,7 +28,7 @@ fn main() {
         let mb = |b: usize| b as f64 / 1048576.0;
         let verts: usize = r.parts.iter().map(|p| p.positions.len() * 32 + p.indices.len() * 4).sum();
         let tex = |t: &Option<shapes::Pixels>| t.as_ref().map_or(0, |t| t.2.len());
-        let pixels: usize = r.materials.iter().map(|m| tex(&m.texture) + tex(&m.roughness_map) + tex(&m.normal_map) + tex(&m.emissive_map)).sum();
+        let pixels: usize = r.materials.iter().map(|m| tex(&m.texture) + tex(&m.spec_map) + tex(&m.normal_map) + tex(&m.emissive_map)).sum();
         println!("{room}: {} parts ({:.0} MB of vertices), {} materials ({:.0} MB of pixels), {} lights, built in {:.1} s",
             r.parts.len(), mb(verts), r.materials.len(), mb(pixels), r.lights.len(), t.elapsed().as_secs_f32());
         for p in &r.problems {

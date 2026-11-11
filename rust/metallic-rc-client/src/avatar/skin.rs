@@ -16,8 +16,7 @@ use unity_assets::{classes, Bundle, GameObject, Mesh as UMesh, SerializedFile, T
 
 use crate::room;
 
-const AVATAR_BUNDLE: &str = "edf7f2d64a5698a6cec7ec8a1f821ab8.bundle";
-const BODY_MESH_PATHID: i64 = 8332635914843264857; // BodyMesh_LOD0
+// The body + body-mesh id now come from the caller (`load` is parameterised per body type); only the nose id is fixed.
 const NOSE_MESH_PATHID: i64 = 62350462907586393; // Nose_01Base_LOD0
 
 /// One joint of the rig: its name, its local transform (Bevy space) and its parent among the joints (None = a root,
