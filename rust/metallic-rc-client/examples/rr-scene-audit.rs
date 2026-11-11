@@ -36,6 +36,14 @@ fn main() {
                     ok += 1;
                     println!("OK    {:<7} {:<30} parts {:>5} verts {:>8} lights {:>4} colliders {:>5} spawns {:>3} ({:.1}s)",
                              s.file, s.name, parts, verts, r.lights.len(), r.colliders.len(), r.spawns.len(), t.elapsed().as_secs_f32());
+                    if !only.is_empty() {
+                        let (lo, hi) = metallic_rc_client::world::bounds(&r);
+                        println!("      bounds y {:.1}..{:.1}", lo.y, hi.y);
+                        for (k, m) in r.spawns.iter().take(4).enumerate() {
+                            let p = m.to_scale_rotation_translation().2;
+                            println!("      spawn[{k}] ({:.1}, {:.1}, {:.1})", p.x, p.y, p.z);
+                        }
+                    }
                 }
             }
             Some(Err(e)) => {

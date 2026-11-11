@@ -255,6 +255,9 @@ fn recenter(r: &mut RoomData) {
     for c in &mut r.colliders {
         c.center += shift;
     }
+    for s in &mut r.spawns {
+        *s = m * *s;
+    }
 }
 
 /// The world-space box around a room's meshes (min > max when it has none).
@@ -527,6 +530,7 @@ fn spawn_arrived(
     mut clips: ResMut<Assets<audio::Pcm>>,
     mut ambient: ResMut<GlobalAmbientLight>,
     env: Res<render::RoomEnvMaps>,
+    mut player: Query<(&mut crate::player::Player, &mut Transform)>,
 ) {
     let Some(r) = arrived.0.take() else { return };
     for e in &old {
@@ -539,8 +543,20 @@ fn spawn_arrived(
     let sounds: Vec<String> = r.sounds.iter().map(|s| format!("{} ({}, {:.1} s{})", s.clip.name, s.clip.codec,
         s.clip.samples.len() as f32 / s.clip.channels.max(1) as f32 / s.clip.rate.max(1) as f32, if s.looped { ", loop" } else { "" })).collect();
     println!("world: {} pieces, {} props {props:?}, {} lights, {} colliders, {} sounds {sounds:?}", r.roots.len(), props.len(), r.lights.len(), r.colliders.len(), sounds.len());
+    let spawn = r.spawns.first().copied();
     let (_, solids) = build(&mut commands, r, &name, None, &mut meshes, &mut materials, &mut images, &mut clips);
     fixed.0 = solids;
+    // place the player at the room's first spawn point (SceneSpawnPoint / GamePlayerSpawnPoint), so you start where
+    // the real game puts you instead of at the origin. The spawn transform is the floor pose; eyes sit `EYE` above it.
+    if let (Some(m), Ok((mut p, mut t))) = (spawn, player.single_mut()) {
+        let (_, rot, trans) = m.to_scale_rotation_translation();
+        let fwd = rot * Vec3::NEG_Z;
+        let yaw = f32::atan2(-fwd.x, -fwd.z);
+        t.translation = trans + Vec3::Y * crate::player::EYE;
+        t.rotation = Quat::from_euler(EulerRot::YXZ, yaw, 0.0, 0.0);
+        p.respawn(yaw);
+        println!("world: placed player at spawn ({:.1}, {:.1}, {:.1}) yaw {:.0}", trans.x, trans.y, trans.z, yaw.to_degrees());
+    }
     if !has_lights && lo.x <= hi.x {
         for e in render::spawn_default_lights(&mut commands, lo, hi) {
             commands.entity(e).insert(RoomPiece);
