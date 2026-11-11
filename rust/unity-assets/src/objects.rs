@@ -214,7 +214,7 @@ pub struct Mesh {
 impl Mesh {
     pub fn from_value(v: &Value, res: &dyn Resources) -> Result<Self> {
         if v.get("m_MeshCompression").and_then(Value::as_i64).unwrap_or(0) != 0 {
-            return unsupported("compressed mesh (m_MeshCompression != 0)");
+            return Self::from_compressed(v);
         }
         let vd = field(v, "m_VertexData")?;
         let channels = field(vd, "m_Channels")?
@@ -263,6 +263,98 @@ impl Mesh {
             return format_err(format!("vertex data {} bytes, layout needs {need}", mesh.vertex_data.len()));
         }
         Ok(mesh)
+    }
+
+    /// Builds a Mesh from `m_CompressedMesh` (packed-vertex meshes, `m_MeshCompression != 0`):
+    /// unpacks the PackedBitVectors and synthesises a single interleaved float stream (position,
+    /// normal, uv0) plus a 16/32-bit index buffer, so the normal accessors work unchanged.
+    fn from_compressed(v: &Value) -> Result<Self> {
+        let cm = field(v, "m_CompressedMesh")?;
+        let positions = pbv_floats(cm.get("m_Vertices"))?;
+        let vertex_count = positions.len() / 3;
+        if vertex_count == 0 || positions.len() % 3 != 0 {
+            return format_err(format!("compressed mesh: {} position floats", positions.len()));
+        }
+        // normals: 2 packed floats per vertex + a sign bit to rebuild z
+        let nraw = pbv_floats(cm.get("m_Normals"))?;
+        let nsign = pbv_ints(cm.get("m_NormalSigns"))?;
+        let have_normals = nraw.len() >= vertex_count * 2;
+        // uv0: 2 floats per vertex (first set only)
+        let uvraw = pbv_floats(cm.get("m_UV"))?;
+        let have_uv = uvraw.len() >= vertex_count * 2;
+
+        let mut dim = 3usize; // position
+        let n_off = dim * 4;
+        if have_normals { dim += 3; }
+        let u_off = dim * 4;
+        if have_uv { dim += 2; }
+        let stride = dim * 4;
+
+        let mut vertex_data = vec![0u8; vertex_count * stride];
+        for i in 0..vertex_count {
+            let base = i * stride;
+            for k in 0..3 {
+                vertex_data[base + k * 4..base + k * 4 + 4].copy_from_slice(&positions[i * 3 + k].to_le_bytes());
+            }
+            if have_normals {
+                let (x, y) = (nraw[i * 2], nraw[i * 2 + 1]);
+                let mut z = (1.0 - x * x - y * y).max(0.0).sqrt();
+                if nsign.get(i).copied().unwrap_or(1) == 0 { z = -z; }
+                for (k, c) in [x, y, z].into_iter().enumerate() {
+                    vertex_data[base + n_off + k * 4..base + n_off + k * 4 + 4].copy_from_slice(&c.to_le_bytes());
+                }
+            }
+            if have_uv {
+                for k in 0..2 {
+                    vertex_data[base + u_off + k * 4..base + u_off + k * 4 + 4].copy_from_slice(&uvraw[i * 2 + k].to_le_bytes());
+                }
+            }
+        }
+        let ch = |present: bool, d: u8, off: u8| VertexChannel {
+            stream: 0, offset: off, format: 0, dimension: if present { d } else { 0 },
+        };
+        // indexed by channel semantic: 0 position, 1 normal, 2 tangent, 3 color, 4 uv0
+        let channels = vec![
+            ch(true, 3, 0),
+            ch(have_normals, 3, n_off as u8),
+            ch(false, 4, 0),
+            ch(false, 4, 0),
+            ch(have_uv, 2, u_off as u8),
+        ];
+
+        let tris = pbv_ints(cm.get("m_Triangles"))?;
+        let wide = vertex_count > 0xffff;
+        let index_format = if wide { 1 } else { 0 };
+        let mut index_buffer = Vec::with_capacity(tris.len() * if wide { 4 } else { 2 });
+        for &t in &tris {
+            if wide { index_buffer.extend_from_slice(&t.to_le_bytes()); }
+            else { index_buffer.extend_from_slice(&(t as u16).to_le_bytes()); }
+        }
+        // submeshes partition m_Triangles in order; recompute first_byte for the synthesised buffer
+        let isize = if wide { 4 } else { 2 };
+        let mut submeshes = Vec::new();
+        let mut off = 0u32;
+        for s in field(v, "m_SubMeshes")?.as_array().unwrap_or_default() {
+            let index_count = int(s, "indexCount")? as u32;
+            submeshes.push(SubMesh {
+                first_byte: off * isize,
+                index_count,
+                topology: int(s, "topology")? as i32,
+                base_vertex: 0,
+                first_vertex: int(s, "firstVertex").unwrap_or(0) as u32,
+                vertex_count: int(s, "vertexCount").unwrap_or(vertex_count as i64) as u32,
+            });
+            off += index_count;
+        }
+        Ok(Mesh {
+            name: string(v, "m_Name"),
+            vertex_count,
+            channels,
+            vertex_data,
+            index_format,
+            index_buffer,
+            submeshes,
+        })
     }
 
     /// `(offset, stride)` of each vertex stream; streams follow each other, 16-byte aligned.
@@ -358,6 +450,45 @@ impl Mesh {
         let idx = all.get(start..start + s.index_count as usize)?;
         Some(idx.iter().map(|&x| x + s.base_vertex).collect())
     }
+}
+
+/// Unpacks a `PackedBitVector` into `m_NumItems` unsigned ints (each `m_BitSize` bits, LSB first).
+fn pbv_ints(pbv: Option<&Value>) -> Result<Vec<u32>> {
+    let Some(p) = pbv else { return Ok(Vec::new()) };
+    let count = p.get("m_NumItems").and_then(Value::as_i64).unwrap_or(0) as usize;
+    let bits = p.get("m_BitSize").and_then(Value::as_i64).unwrap_or(0) as usize;
+    if count == 0 || bits == 0 || bits > 32 {
+        return Ok(Vec::new());
+    }
+    let data = p.get("m_Data").and_then(Value::as_bytes).unwrap_or_default();
+    if data.len() * 8 < count * bits {
+        return format_err(format!("PackedBitVector needs {} bits, have {}", count * bits, data.len() * 8));
+    }
+    let mut out = Vec::with_capacity(count);
+    for i in 0..count {
+        let mut v = 0u32;
+        for b in 0..bits {
+            let bp = i * bits + b;
+            let bit = (data[bp / 8] >> (bp % 8)) & 1;
+            v |= (bit as u32) << b;
+        }
+        out.push(v);
+    }
+    Ok(out)
+}
+
+/// Unpacks a float `PackedBitVector`: `m_Start + packed / (2^bitSize - 1) * m_Range`.
+fn pbv_floats(pbv: Option<&Value>) -> Result<Vec<f32>> {
+    let Some(p) = pbv else { return Ok(Vec::new()) };
+    let bits = p.get("m_BitSize").and_then(Value::as_i64).unwrap_or(0) as u32;
+    let ints = pbv_ints(pbv)?;
+    if ints.is_empty() {
+        return Ok(Vec::new());
+    }
+    let start = p.get("m_Start").and_then(Value::as_f32).unwrap_or(0.0);
+    let range = p.get("m_Range").and_then(Value::as_f32).unwrap_or(0.0);
+    let max = ((1u64 << bits) - 1) as f32;
+    Ok(ints.iter().map(|&x| start + (x as f32 / max) * range).collect())
 }
 
 /// IEEE half to f32.
