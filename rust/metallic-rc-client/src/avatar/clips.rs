@@ -107,13 +107,29 @@ fn player_tos(res: &SerializedFile, avatar_tree: &TypeTree) -> HashMap<u32, Stri
 /// Loads the real locomotion clips and resolves them to `rig`. `None` (→ procedural) when the corpus is missing or
 /// encrypted, or the type trees / bone table can't be read.
 pub fn load(dir: &Path, rig: &RigDef) -> Option<Clips> {
-    let corpus = std::env::var("METALLIC_ANIM_CORPUS").map(std::path::PathBuf::from).unwrap_or_else(|_| dir.join(r"RecRoom_Data\resources.assets"));
-    // the install's own resources.assets is RR-encrypted and won't parse — that's the normal fallback path, not an error
-    let bytes = std::fs::read(&corpus).ok()?;
+    // Source the clips' resources.assets, in order of preference:
+    //  1. METALLIC_ANIM_CORPUS — an explicit, already-decrypted resources.assets.
+    //  2. RR_CIPHER_DIR — the local keystream pad (ks.bin, gitignored): decrypt the install's OWN encrypted
+    //     resources.assets on the fly, so the real clips load from the user's install with no pre-decrypted corpus.
+    //  3. the install's raw resources.assets — RR-encrypted in a normal install, so this won't parse and we fall back.
+    let data = dir.join("RecRoom_Data");
+    let bytes = if let Ok(corpus) = std::env::var("METALLIC_ANIM_CORPUS") {
+        std::fs::read(&corpus).ok()?
+    } else if let Ok(cipher_dir) = std::env::var("RR_CIPHER_DIR") {
+        match unity_assets::decrypt::Cipher::load(std::path::Path::new(&cipher_dir)) {
+            Ok(c) => c.decrypt_install_file(&data, "resources.assets").ok()?,
+            Err(e) => {
+                info!("avatar: RR_CIPHER_DIR set but the cipher didn't load ({e}); using the procedural poser");
+                return None;
+            }
+        }
+    } else {
+        std::fs::read(data.join("resources.assets")).ok()?
+    };
     let res = match SerializedFile::parse(bytes) {
         Ok(r) => r,
         Err(e) => {
-            info!("avatar: no authored clips ({corpus:?} not a readable resources.assets: {e}); using the procedural poser");
+            info!("avatar: no authored clips (resources.assets not readable/decrypted: {e}); using the procedural poser");
             return None;
         }
     };
