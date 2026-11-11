@@ -117,6 +117,14 @@ Owner commissioned the full devirt. Steady, checkpointed progress (all analysis 
   constants). This is a MOV-obfuscation: the opcode encodes both a scrambled memory region and a
   byte-level correction, so the VM's working variables live scattered across the 2 MB space.
 
+- **Runtime trace of the store primitive** (hook `+0x6abb80`, one 64-byte decrypt, normalised via
+  the lifted table): it is the VM **input-load primitive** — called once per input byte, it copies
+  the **ciphertext verbatim** into VM scratch at offset `0x185b15+index` (a 2 MB block) with the
+  per-op additive mask (op `0x194` = `+0x5e`). Verified: the stored bytes equal the on-disk
+  ciphertext byte-for-byte. The keystream generation, the XOR and the plaintext output do **not**
+  pass through this primitive, so the cipher is applied when the scratch is read back out — i.e. the
+  keystream/XOR lives in the **load/read-out path**, which is the next target.
+
 ### Still to do (the long tail)
 1. Lift the matching **load primitive** (read byte + inverse transform) and the **arithmetic/logic
    opcodes** (the actual cipher ops between VM variables).
