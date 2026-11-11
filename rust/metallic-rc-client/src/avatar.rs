@@ -10,6 +10,7 @@
 //! the voice's loudness (`voice::Loudness`) moves the mouth and pulses the screen; the eyes glide across the screen
 //! toward whoever talks nearby or the camera, else glance about. Remote avatars get a `NameTag` over their head.
 pub mod anim;
+pub mod clips;
 pub mod face;
 pub mod gear;
 pub mod look;

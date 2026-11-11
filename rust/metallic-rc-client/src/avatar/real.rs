@@ -19,7 +19,7 @@ use bevy::{
 };
 use unity_assets::{classes, Bundle, Mesh as UMesh, SerializedFile, Texture2D};
 
-use super::{anim, skin, Drive, Rig};
+use super::{anim, clips, skin, Drive, Rig};
 use crate::room;
 
 /// The avatar skin bundle inside the install, and the body + nose mesh objects in it.
@@ -313,6 +313,12 @@ pub fn load_roomie(
         return;
     }
     info!("avatar: face sprites loaded ({} eye, {} mouth expressions)", eyes.len(), mouths.len());
+    // the real authored locomotion clips, when a (decrypted) corpus is reachable; else the procedural poser drives the rig
+    if let Some(rigdef) = &rig {
+        if let Some(loaded) = clips::load(dir, rigdef) {
+            commands.insert_resource(loaded);
+        }
+    }
     commands.insert_resource(Roomie {
         skin: meshes.add(skin),
         shirt: meshes.add(shirt),
@@ -467,6 +473,7 @@ fn skel_swing(rig: &skin::RigDef, i: usize, r: Quat) -> Quat {
 pub fn animate_skeleton(
     time: Res<Time>,
     roomie: Option<Res<Roomie>>,
+    anim_clips: Option<Res<clips::Clips>>,
     mut rigs: Query<(&mut Rig, &Drive, &mut Skeleton, &Transform)>,
     mut xf: Query<&mut Transform, Without<Rig>>,
 ) {
@@ -493,6 +500,35 @@ pub fn animate_skeleton(
                 *t = j.local;
             }
         }
+
+        // if a real authored clip covers this state, play it on the joints in place (the head-look and grips below are
+        // layered on top); otherwise the hand-tuned procedural pose drives the body.
+        let state = if drive.flying {
+            "fly"
+        } else {
+            match r.anim.state {
+                anim::Move::Idle => if crouch > 0.5 { "crouch_idle" } else { "idle" },
+                anim::Move::Walk => if crouch > 0.5 { "crouch_walk" } else { "walk" },
+                anim::Move::Run => "run",
+                anim::Move::Jump => "jump",
+                anim::Move::Fall => "fall",
+                _ => "idle",
+            }
+        };
+        let clip_driven = anim_clips.as_deref().and_then(|c| c.get(state)).map(|clip| {
+            // walk/run follow the stride phase so the cadence matches the speed; the rest free-run on the clock
+            let ct = match state {
+                "walk" | "run" | "crouch_walk" => (phase / std::f32::consts::TAU).rem_euclid(1.0) * clip.stop_time,
+                _ => time.elapsed_secs().rem_euclid(clip.stop_time),
+            };
+            for (j, q) in clip.pose(ct) {
+                if let Ok(mut t) = xf.get_mut(skel.joints[j]) {
+                    t.rotation = q;
+                }
+            }
+            true
+        }).unwrap_or(false);
+
         let mut set = |name: &str, rot: Quat| {
             if let Some(i) = rig.index(name) {
                 if let Ok(mut t) = xf.get_mut(skel.joints[i]) {
@@ -501,35 +537,37 @@ pub fn animate_skeleton(
             }
         };
 
-        // --- torso lean (forward when moving/crouched): tilt the spine toward −y ---
+        // --- torso lean (forward when moving/crouched): tilt the spine toward −y --- (procedural fallback only)
         let lean = pose.lean;
-        set("Jnt.Spine.Mid", rx(-lean * SPINE_LEAN));
-        set("Jnt.Spine.Chest", rx(-lean * SPINE_LEAN * 0.6));
+        if !clip_driven {
+            set("Jnt.Spine.Mid", rx(-lean * SPINE_LEAN));
+            set("Jnt.Spine.Chest", rx(-lean * SPINE_LEAN * 0.6));
 
-        if skel.bean {
-            // The Bean floats: its hands rest at the sides of the lower torso (a slight abduction, since there is no arm
-            // mesh — only the hands float), tucked a little forward and inward, and drift a little while moving.
-            let drift = swing * BEAN_HAND_SWING;
-            // down = abduction (about body-up), fwd = fore (about left-right), in = pull toward the midline (about up)
-            set("Jnt.UpperArm.L", rz(BEAN_ARM_IN) * rx(BEAN_ARM_FWD + drift) * ry(BEAN_ARM_DOWN));
-            set("Jnt.UpperArm.R", rz(-BEAN_ARM_IN) * rx(BEAN_ARM_FWD - drift) * ry(-BEAN_ARM_DOWN));
-        } else {
-            // --- arms: down to the sides (about body-up), swinging fore/aft opposite the legs ---
-            let arm_l = swing * ARM_SWING; // left arm forward as the left leg goes back
-            let arm_r = -swing * ARM_SWING;
-            set("Jnt.UpperArm.L", rx(arm_l) * ry(ARM_DOWN));
-            set("Jnt.UpperArm.R", rx(arm_r) * ry(-ARM_DOWN));
-            set("Jnt.LowerArm.L", rx(ELBOW_REST + 0.25 * crouch));
-            set("Jnt.LowerArm.R", rx(ELBOW_REST + 0.25 * crouch));
+            if skel.bean {
+                // The Bean floats: its hands rest at the sides of the lower torso (a slight abduction, since there is no
+                // arm mesh — only the hands float), tucked a little forward and inward, and drift a little while moving.
+                let drift = swing * BEAN_HAND_SWING;
+                // down = abduction (about body-up), fwd = fore (about left-right), in = pull toward the midline (about up)
+                set("Jnt.UpperArm.L", rz(BEAN_ARM_IN) * rx(BEAN_ARM_FWD + drift) * ry(BEAN_ARM_DOWN));
+                set("Jnt.UpperArm.R", rz(-BEAN_ARM_IN) * rx(BEAN_ARM_FWD - drift) * ry(-BEAN_ARM_DOWN));
+            } else {
+                // --- arms: down to the sides (about body-up), swinging fore/aft opposite the legs ---
+                let arm_l = swing * ARM_SWING; // left arm forward as the left leg goes back
+                let arm_r = -swing * ARM_SWING;
+                set("Jnt.UpperArm.L", rx(arm_l) * ry(ARM_DOWN));
+                set("Jnt.UpperArm.R", rx(arm_r) * ry(-ARM_DOWN));
+                set("Jnt.LowerArm.L", rx(ELBOW_REST + 0.25 * crouch));
+                set("Jnt.LowerArm.R", rx(ELBOW_REST + 0.25 * crouch));
 
-            // --- legs: swing the thighs fore/aft; bend the knee on the recovery; add a crouch squat ---
-            let leg = [pose.legs[0], pose.legs[1]];
-            for (k, side) in ["L", "R"].iter().enumerate() {
-                let thigh = leg[k] - 0.5 * crouch * CROUCH_KNEE; // crouch flexes the hips forward
-                let knee = KNEE_BEND * (-leg[k]).max(0.0) + CROUCH_KNEE * crouch;
-                set(&format!("Jnt.UpperLeg.{side}"), rx(thigh));
-                set(&format!("Jnt.LowerLeg.{side}"), rx(knee));
-                set(&format!("Jnt.Foot.{side}"), rx(-0.4 * knee + 0.5 * leg[k].max(0.0)));
+                // --- legs: swing the thighs fore/aft; bend the knee on the recovery; add a crouch squat ---
+                let leg = [pose.legs[0], pose.legs[1]];
+                for (k, side) in ["L", "R"].iter().enumerate() {
+                    let thigh = leg[k] - 0.5 * crouch * CROUCH_KNEE; // crouch flexes the hips forward
+                    let knee = KNEE_BEND * (-leg[k]).max(0.0) + CROUCH_KNEE * crouch;
+                    set(&format!("Jnt.UpperLeg.{side}"), rx(thigh));
+                    set(&format!("Jnt.LowerLeg.{side}"), rx(knee));
+                    set(&format!("Jnt.Foot.{side}"), rx(-0.4 * knee + 0.5 * leg[k].max(0.0)));
+                }
             }
         }
 
@@ -538,8 +576,12 @@ pub fn animate_skeleton(
             let (y, x, _) = (root.rotation.inverse() * h).to_euler(EulerRot::YXZ);
             (y.clamp(-1.1, 1.1), x.clamp(-0.7, 0.7))
         });
-        set("Jnt.Neck", rz(yaw * 0.4) * rx(pitch * 0.4 + lean * SPINE_LEAN));
-        set("Jnt.Head", rz(yaw * 0.6) * rx(pitch * 0.6));
+        // override the head to the synced look; but when a clip is driving and there's no look target, let its authored
+        // head motion play instead of flattening it.
+        if drive.head.is_some() || !clip_driven {
+            set("Jnt.Neck", rz(yaw * 0.4) * rx(pitch * 0.4 + lean * SPINE_LEAN));
+            set("Jnt.Head", rz(yaw * 0.6) * rx(pitch * 0.6));
+        }
 
         // finger grips (both body types have hands): ease the curls so grips don't snap, then flex each finger's three
         // bones about their local X into the palm — Open rests, Point extends the index over a curled fist, Hold fists.
