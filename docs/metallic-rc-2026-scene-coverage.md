@@ -52,10 +52,13 @@ load layout + prefab geometry but miss the base-scene-embedded meshes/textures.
 - **Baked lightmaps — none exist to load.** The built-in 2026 scenes ship *no* baked lightmaps: every MeshRenderer's
   `m_LightmapIndex` is `0xFFFF` (checked across ~40k renderers in 8 scenes incl. reccenter, dorm, all Paintball maps,
   Drive-In, Merry Midway, Rec Rally) and `LightmapSettings.m_Lightmaps` is empty in every scene. These Addressables
-  rooms light entirely from realtime/mixed lights + light probes + reflection probes, so there is no baked GI to match;
-  the realtime look *is* 1:1. `LightmapSettings` (157) now parses the Unity 6 76-byte layout (+12 vs the 2019/2021
-  64-byte struct: an i32 after `m_Lightmaps`, and a 3×i32 tail), which also un-gates light-probe loading in the client
-  (previously the parse error dropped `m_LightProbes` too). Layout corroborated by the cipher session's corpus dumps.
+  rooms light entirely from realtime/mixed lights + the ambient probe + reflection probes, so there is no baked GI to
+  match; the realtime look *is* 1:1. `LightmapSettings` (157) now parses the Unity 6 76-byte layout (+12 vs the
+  2019/2021 64-byte struct: an i32 after `m_Lightmaps`, and a 3×i32 tail), which also un-gates light-probe loading in
+  the client (previously the parse error dropped `m_LightProbes` too). Note the `m_LightProbes` object itself is a
+  non-null but *empty* stub in these scenes (0 positions / coefficient sets, verified in reccenter + all Paintball
+  maps), so there is no probe-grid SH to load — the ambient probe carries the ambient term. Layout corroborated by the
+  cipher session's corpus dumps (the `m_LightProbes` path_ids match the 0x18/0x1c pair in the `LightmapSettings` bytes).
 - **Reflection + skybox cubemaps — now load.** The 2026 rooms' baked environment is BC6H (HDR) Cubemaps (class 89):
   per room a `ReflectionProbe_Env_Baked` (128³, the default reflection via `RenderSettings.custom_reflection`) and a
   `ReflectionProbe_Skybox_Baked` (1024³, the visible sky via the `Skybox/Cubemap` material). The scenes place no
@@ -63,7 +66,11 @@ load layout + prefab geometry but miss the base-scene-embedded meshes/textures.
   `bcdec_rs`; `texture2ddecoder`'s BC6 path panicked on real blocks). The client builds a 2026 room's lighting from
   the decrypted corpus (`levels::scene_lighting`) — ambient probe, `Env_Baked` reflection and the `Skybox_Baked` sky
   are bound as the camera's environment map and skybox, mirroring the geometry routing (Dorm/groups still use the 2019
-  reference install). Pixel streams are read plaintext from the install's `.resource`.
+  reference install). Pixel streams are read plaintext from the install's `sharedassetsN.assets.resS`.
+  Known limit: the CPU decode tonemaps BC6H to sRGB (clamps HDR), fine for the reflection env (which is rebaked into an
+  SH + detail cube anyway) but it caps the skybox's bright highlights (e.g. the sun disc). A future quality pass can
+  upload the skybox BC6H straight to the GPU as `Bc6hRgbUfloat` (6 faces + mips sliced from the `.resS`) to keep full
+  HDR; verify that one in the live client.
 
 ## Not offered as rooms (internal scenes)
 
