@@ -46,6 +46,15 @@ load layout + prefab geometry but miss the base-scene-embedded meshes/textures.
 
 ## Known gaps (minor, non-fatal)
 
+- **Room-ambiance particle VFX — decode + bridge proven, renderer deferred.** The decorative room VFX (e.g.
+  `[VFX_LockerDust]`, `[DodgeballFireTrail]`, `PotionParticle`) are ParticleSystems. The base scenes are no-type-tree,
+  so their inline PS cannot be decoded there; the `unity_assets::ParticleSystem` decoder (cherry-picked) works on the
+  type-tree'd Addressables prefab bundles, where the same names resolve. The scene→bundle name-match bridge is proven
+  end-to-end (`rr-vfx-decode` opens a bundle, finds each PS, resolves its GameObject name, decodes a full spec —
+  e.g. `VFX_Sparks` max 15 / speed 7.5 / 5 colour stops, `VFX_Smoke` looping / max 500). What's left is a Bevy
+  particle *rendering* subsystem (the engine has none today) to instantiate the decoded spec at the scene transform —
+  deferred as low-priority cosmetic polish. The inline `VFX_Emote_*` systems are player emote effects (avatar work),
+  not room ambiance.
 - **`* ` compressed decorative meshes** — e.g. `CandleFlameMesh` in the Quest rooms. `level::mesh` does not yet
   decode Unity mesh compression (`m_MeshCompression != 0`), so a handful of small props are skipped (one mesh per
   affected room). Cosmetic; the room is otherwise complete.
