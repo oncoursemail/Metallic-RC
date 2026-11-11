@@ -138,6 +138,9 @@ fn room_of(i: &Value) -> Option<Room> {
         instance_id: i["roomInstanceId"].as_i64().unwrap_or(0),
         photon_room: i["photonRoomId"].as_str().unwrap_or("").to_string(),
         private: i["isPrivate"].as_bool().unwrap_or(false),
+        scene: i["UnitySceneId"].as_str().filter(|s| !s.is_empty())
+            .or_else(|| i["subRooms"].as_array().and_then(|a| a.first()).and_then(|s| s["UnitySceneId"].as_str()))
+            .unwrap_or("").to_string(),
     })
 }
 

@@ -102,6 +102,9 @@ async fn login_then_me_then_dorm() {
     assert_eq!(g["errorCode"], 0);
     assert_eq!(g["roomInstance"]["roomId"], 1);
     assert_eq!(g["roomInstance"]["isPrivate"], true);
+    // goto tells the client which map to load (so joining a room loads its scene in multiplayer)
+    assert_eq!(g["roomInstance"]["UnitySceneId"], "dorm");
+    assert_eq!(g["roomInstance"]["subRooms"][0]["UnitySceneId"], "dorm");
 }
 
 #[tokio::test]
@@ -111,13 +114,18 @@ async fn the_room_list_has_every_room_and_pages() {
     assert_eq!(st, 200);
     let v = json(&body);
     let names: Vec<&str> = v["Results"].as_array().unwrap().iter().map(|r| r["Name"].as_str().unwrap()).collect();
-    assert_eq!(names, ["DormRoom", "RecCenter"]);
-    assert_eq!(v["TotalResults"], 2);
+    // every built-in 2026 room is listed (the browser can reach them all), the Dorm first, then the Rec Center
+    assert_eq!(names.len(), 19);
+    assert_eq!(&names[..2], &["DormRoom", "RecCenter"]);
+    assert_eq!(names.last(), Some(&"OrientationPracticeGym"));
+    assert_eq!(v["TotalResults"], 19);
     assert_eq!(v["Results"][1]["RoomId"], 2);
+    // each room carries the scene the client loads (UnitySceneId in its SubRooms)
+    assert_eq!(v["Results"][1]["SubRooms"][0]["UnitySceneId"], "reccenter");
     assert!(v["Results"][0]["Description"].is_string());
     let (_, page) = http(addr, "GET", "/rooms/rooms/hot?skip=1&take=5", None, None).await;
     let page = json(&page);
-    assert_eq!((page["Results"].as_array().unwrap().len(), page["Results"][0]["Name"].as_str(), page["TotalResults"].as_i64()), (1, Some("RecCenter"), Some(2)));
+    assert_eq!((page["Results"].as_array().unwrap().len(), page["Results"][0]["Name"].as_str(), page["TotalResults"].as_i64()), (5, Some("RecCenter"), Some(19)));
 }
 
 #[tokio::test]

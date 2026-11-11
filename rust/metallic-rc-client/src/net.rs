@@ -43,6 +43,8 @@ pub struct Room {
     pub instance_id: i64,
     pub photon_room: String,
     pub private: bool,
+    /// the client world (decrypted 2026 scene name, or `dorm`) to load for this room — matchmaking's `UnitySceneId`
+    pub scene: String,
 }
 
 /// A room open on the room server right now.
@@ -109,12 +111,17 @@ impl Session {
             return Err(Error(format!("matchmaking refused {room}: {g}")));
         }
         let i = &g["roomInstance"];
+        // the scene to load: matchmaking's UnitySceneId (top-level, or the first SubRoom)
+        let scene = i["UnitySceneId"].as_str().filter(|s| !s.is_empty())
+            .or_else(|| i["subRooms"].as_array().and_then(|a| a.first()).and_then(|s| s["UnitySceneId"].as_str()))
+            .unwrap_or("").to_string();
         self.room = Room {
             name: i["name"].as_str().unwrap_or("").trim_start_matches('^').to_string(),
             room_id: i["roomId"].as_i64().unwrap_or(0),
             instance_id: i["roomInstanceId"].as_i64().unwrap_or(0),
             photon_room: i["photonRoomId"].as_str().unwrap_or("").to_string(),
             private: i["isPrivate"].as_bool().unwrap_or(false),
+            scene,
         };
         Ok(&self.room)
     }

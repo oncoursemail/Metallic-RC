@@ -162,7 +162,13 @@ struct Account {
     /// the room to go to after logging in (the rooms browser), else the one the login gives (the dorm)
     goto: Option<String>,
     gen: Arc<AtomicUsize>,
+    /// the joined room's scene (`UnitySceneId`), written by the login thread; `apply_world` loads it when it changes
+    world: Arc<Mutex<Option<String>>>,
 }
+
+/// The joined room's scene slot, shared with the login thread; `apply_world` drains it to the loader.
+#[derive(Resource)]
+struct PendingWorld(Arc<Mutex<Option<String>>>);
 
 #[derive(Resource)]
 struct Start([f32; 5]);
@@ -197,8 +203,9 @@ fn main() {
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))), Arc::default());
     let net = Net::default();
     let [x, y, z, yaw, _] = a.camera;
+    let pending_world = Arc::new(Mutex::new(None));
     let account = Account { goto: None, server: a.server.clone(), realtime: a.realtime.clone(), room: a.room.clone(), spawn: [x, (y - player::EYE).max(0.0), z],
-        yaw: yaw.to_radians(), name: a.name.clone(), gen: Arc::default() };
+        yaw: yaw.to_radians(), name: a.name.clone(), gen: Arc::default(), world: pending_world.clone() };
     log_in(&account, &status, &net);
     let mut prefs = Prefs { s: Settings::path().map(|p| Settings::load(&p)).unwrap_or_default(), changed: true };
     prefs.s.remember(&a.name);
@@ -219,6 +226,7 @@ fn main() {
         .insert_resource(Volumes::from(&prefs.s))
         .insert_resource(prefs)
         .insert_resource(account)
+        .insert_resource(PendingWorld(pending_world))
         .init_resource::<view::Uploaded>()
         .insert_resource(Start(a.camera))
         .add_plugins(avatar::AvatarPlugin)
@@ -231,7 +239,7 @@ fn main() {
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
         .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), show_status, spawn_room,
-            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room))
+            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room, apply_world))
         .run();
 }
 
@@ -364,6 +372,7 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
     let gen = account.gen.clone();
     let (server, address, room, spawn, yaw, name) = (account.server.clone(), account.realtime.clone(), account.room.clone(), account.spawn, account.yaw, account.name.clone());
     let goto = account.goto.clone();
+    let world_slot = account.world.clone();
     let (shared, net_slot) = (status.0.clone(), net.0.clone());
     *shared.lock().unwrap() = format!("Connecting to {server} as {name} ...");
     std::thread::spawn(move || {
@@ -384,6 +393,8 @@ fn log_in(account: &Account, status: &Status, net: &Net) {
         if let Some(Err(e)) = &went {
             shared.lock().unwrap().push_str(&format!("  |  {e}"));
         }
+        // tell the game which map this room wants (matchmaking's UnitySceneId); `apply_world` loads it when it changes
+        *world_slot.lock().unwrap() = (!s.room.scene.is_empty()).then(|| s.room.scene.clone());
         let address = address.unwrap_or_else(|| realtime::default_address(&server));
         let room = if went.is_some() { s.room.photon_room } else { room.unwrap_or(s.room.photon_room) };
         match realtime::start(&address, &room, &s.access_token, &s.account.display_name, spawn, yaw) {
@@ -676,4 +687,16 @@ fn spawn_room(mut commands: Commands, loading: Res<Loading>, status: Res<Status>
     }
     status.1.lock().unwrap().push_str(&format!("  |  {} room pieces from the game files", r.roots.len()));
     arrived.0 = Some(r);
+}
+
+/// Loads the joined room's map when it changes: the login thread writes the room's scene (`UnitySceneId`) to
+/// `PendingWorld`, and this asks the loader to switch the world (which respawns the room via `spawn_room`).
+fn apply_world(loader: Res<world::Loader>, pending: Res<PendingWorld>, mut last: Local<Option<String>>) {
+    let want = pending.0.lock().unwrap().clone();
+    if let Some(scene) = want.filter(|s| !s.is_empty()) {
+        if last.as_deref() != Some(scene.as_str()) {
+            loader.go_to(scene.clone());
+            *last = Some(scene);
+        }
+    }
 }

@@ -281,6 +281,8 @@ pub fn bounds(r: &RoomData) -> (Vec3, Vec3) {
 /// What the loader thread is asked to load.
 enum Request {
     Prop { entity: Entity, address: String },
+    /// switch the room to another world (a joined multiplayer room's scene); the loaded room goes into the same slot
+    World { name: String },
 }
 
 /// The loader thread: it owns the bundle library (bundles are read whole, so one copy), loads the room first and
@@ -353,10 +355,42 @@ impl Loader {
                             return;
                         }
                     }
+                    // the player joined a different multiplayer room: load its scene into the same slot `spawn_room`
+                    // polls, so the room respawns, and swap the baked lighting to match.
+                    Request::World { name } => {
+                        let t = std::time::Instant::now();
+                        let cached = std::env::var_os("METALLIC_RC_NO_CACHE").is_none()
+                            .then(|| cache::file_for(&dir, &name, &format!("{:?}{}{}", shapes::old_build_dirs().iter().find(|d| d.exists()), crate::levels::cache_tag(), crate::levels::scenes_cache_tag()))).flatten();
+                        let r = match cached.as_deref().and_then(cache::read) {
+                            Some(r) => Ok(r),
+                            None => {
+                                let r = load_with(&mut lib, &mut kit, &mut addresses, &dir, Some(&name));
+                                if let (Ok(r), Some(path)) = (&r, &cached) {
+                                    cache::write(path, r);
+                                }
+                                r
+                            }
+                        };
+                        println!("world {name}: switched in {:.2} s", t.elapsed().as_secs_f32());
+                        *room.lock().unwrap() = Some(r);
+                        let is_group = GROUPS.iter().any(|g| g.name.eq_ignore_ascii_case(&name));
+                        let env = if !is_group && !name.eq_ignore_ascii_case("dorm") {
+                            crate::levels::scene_lighting(dir.ancestors().nth(3), &name).ok()
+                        } else {
+                            crate::levels::ref_install().is_some().then(|| crate::levels::lighting(&name).ok()).flatten()
+                        };
+                        *render::ROOM_ENV.lock().unwrap() = env.map(|l| render::RoomEnv::new(&l));
+                    }
                 }
             }
         });
         Loader { send: Mutex::new(send), props: Mutex::new(props) }
+    }
+
+    /// Switches the room to `world` (a joined multiplayer room's scene). The new room arrives in the same slot
+    /// `spawn_room` polls, so the current room is replaced.
+    pub fn go_to(&self, world: String) {
+        let _ = self.send.lock().unwrap().send(Request::World { name: world });
     }
 }
 

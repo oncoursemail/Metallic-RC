@@ -196,6 +196,10 @@ async fn goto_room(State(app): State<Shared>, h: HeaderMap, Path(name): Path<Str
         "photonRegionId": "us", "photonRoomId": photon_room, "name": format!("^{}", r.name),
         "maxCapacity": r.max_players, "isFull": false, "isPrivate": r.private,
         "isInProgress": false, "roomInstanceType": 0,
+        // the decrypted 2026 scene the client loads for this room (world::load accepts this name); also in the
+        // room-list's SubRooms, repeated here so `goto` alone tells the client which map to load.
+        "UnitySceneId": r.scene,
+        "subRooms": [{ "SubRoomId": r.id, "UnitySceneId": r.scene }],
     });
     println!("  {} -> {}", a.username, r.name);
     let instance = crate::party::placed(&app, &a, r.id, instance);
