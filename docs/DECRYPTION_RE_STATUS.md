@@ -138,9 +138,20 @@ Owner commissioned the full devirt. Steady, checkpointed progress (all analysis 
   - The keystream generation + XOR core is inside `0x647af0` and the `j` loop body — the remaining
     depth (and where the embedded master key is consumed).
 
+- **Per-file key identified = `op`, a per-file index into the revival's asset manifest.** Runtime
+  trace of `0x647af0`'s args across files: the only per-file-varying input is `op` (edx); `offset`
+  and the read size are the other args. `op` is assigned in sorted manifest order (level0=`0x126`,
+  level1=`0x127`, level68=`0x186`, level69=`0x187`, level77=`0x194`, level78=`0x195`, …; the two
+  plaintext JSONs get the special pass-through ops `0xc9e`/`0xc9f`). Captured for all 337 files
+  (thread-filtered; an unfiltered first pass was contaminated by concurrent game reads). So the
+  construction is **keystream = g(op, offset)** — op (file index) is the per-file nonce, offset is
+  the CTR position, and a **global master key** lives inside `0x647af0`. This is an AES-CTR-shaped
+  design (nonce = file index) even though the primitive is bespoke/virtualized.
+
 ### Still to do (the long tail)
-1. Reverse `0x647af0` (keystream setup/gen) and the `+0x223fd09` loop body (the XOR), extract the
-   per-op count/stride tables, and locate the master key it consumes.
+1. Reverse `0x647af0` (keystream generator, consumes the global master key) and the `+0x223fd09`
+   loop body (the XOR) to recover `g(op, offset)`; extract the per-op count/stride tables and the
+   master key. (filename→op is already captured empirically as a fallback table.)
 2. **Trace-based cross-check**: instrument the load/read path + `0x647af0` at runtime and follow the
    data flow of one decrypt to confirm the keystream generator + the filename key derivation.
 3. Validate offline byte-for-byte vs the corpus; implement real `decrypt()` in Rust.
