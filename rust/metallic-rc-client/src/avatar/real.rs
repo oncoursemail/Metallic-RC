@@ -85,9 +85,13 @@ pub struct Roomie {
     /// the real Rec Room hair mesh (from the exported wardrobe) and its material; absent if the wardrobe isn't present
     pub hair: Option<Handle<Mesh>>,
     pub hair_mat: Handle<StandardMaterial>,
-    /// the real jersey (torso) and basic-pants (legs) clothing meshes; coloured per-look when attached
+    /// the real jersey (torso), leggings (legs) and shoes clothing meshes + their real textures; tinted per-look
     pub jersey: Option<Handle<Mesh>>,
     pub legs: Option<Handle<Mesh>>,
+    pub shoes: Option<Handle<Mesh>>,
+    pub jersey_tex: Option<Handle<Image>>,
+    pub legs_tex: Option<Handle<Image>>,
+    pub shoes_tex: Option<Handle<Image>>,
     /// the real joint rig and its inverse bind poses, when the body is skinned (else the body is the static bind pose)
     pub rig: Option<Arc<skin::RigDef>>,
     pub inverse_bindposes: Option<Handle<SkinnedMeshInverseBindposes>>,
@@ -379,6 +383,24 @@ fn load_hair(body: BodyType) -> Option<Mesh> {
     load_wardrobe(body, &format!("{style}_Hair"))
 }
 
+/// Decodes an exported wardrobe PNG (real Rec Room clothing/shoe texture) into a Bevy sRGB image.
+fn load_texture(path: &Path) -> Option<Image> {
+    let img = image::open(path).ok()?.to_rgba8();
+    let (w, h) = img.dimensions();
+    Some(Image::new(
+        Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        img.into_raw(),
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    ))
+}
+
+/// A wardrobe texture by file name, trying each name until one loads.
+fn wardrobe_tex(names: &[&str]) -> Option<Image> {
+    names.iter().find_map(|n| load_texture(&wardrobe_dir().join(n)))
+}
+
 /// Loads every face sprite (`Texture2D`) in a bundle into a map `name -> decal material` (Eye_Default, Eye_Blink, ...;
 /// Mouth_Blank, Mouth_Talking_Open, ...). All share one quad (`animate_face` swaps only the material). Skips unreadable.
 fn load_face_set(dir: &Path, bundle: &str, images: &mut Assets<Image>, materials: &mut Assets<StandardMaterial>) -> HashMap<String, Handle<StandardMaterial>> {
@@ -510,8 +532,12 @@ pub fn load_roomie(
     }
     let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.78, ..default() });
     let jersey = load_wardrobe(body, "ShirtJersey").map(|m| meshes.add(m));
-    let legs = load_wardrobe(body, "BasicPants_Leg").map(|m| meshes.add(m));
-    info!("avatar: wardrobe — hair {}, jersey {}, legs {}", hair.is_some(), jersey.is_some(), legs.is_some());
+    let legs = load_wardrobe(body, "BasicLeggings_Leg").map(|m| meshes.add(m));
+    let shoes = load_wardrobe(body, "Sneakers_Shoe").map(|m| meshes.add(m));
+    let jersey_tex = wardrobe_tex(&["Jersey_Shirt_tex.png"]).map(|i| images.add(i));
+    let legs_tex = wardrobe_tex(&["Basic_Leggings_Tex.png"]).map(|i| images.add(i));
+    let shoes_tex = wardrobe_tex(&["FB_Sneaker_Shoe_Tex.png", "FB_Sneakers_Shoe_Tex.png", "FB_Flat_Shoe_Tex.png"]).map(|i| images.add(i));
+    info!("avatar: wardrobe — hair {}, jersey {}, legs {}, shoes {}", hair.is_some(), jersey.is_some(), legs.is_some(), shoes.is_some());
     commands.insert_resource(Roomie {
         skin: meshes.add(skin),
         shirt: meshes.add(shirt),
@@ -526,6 +552,10 @@ pub fn load_roomie(
         hair_mat,
         jersey,
         legs,
+        shoes,
+        jersey_tex,
+        legs_tex,
+        shoes_tex,
         rig,
         inverse_bindposes,
         body,
@@ -597,14 +627,26 @@ pub fn attach_real(
                 if let Some(hair) = &roomie.hair {
                     commands.spawn((Mesh3d(hair.clone()), MeshMaterial3d(roomie.hair_mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
                 }
-                // the real jersey (torso) and pants (legs) clothing meshes, in the look's shirt/pants colours
+                // the real jersey (torso), leggings (legs) and shoes, each with its real texture tinted by the look
+                let worn = |materials: &mut Assets<StandardMaterial>, tint: [u8; 3], tex: &Option<Handle<Image>>, rough: f32| {
+                    materials.add(StandardMaterial {
+                        base_color: Color::srgb_u8(tint[0], tint[1], tint[2]),
+                        base_color_texture: tex.clone(),
+                        perceptual_roughness: rough,
+                        ..default()
+                    })
+                };
                 if let Some(j) = &roomie.jersey {
-                    let m = solid(&mut materials, look.shirt, 0.8);
+                    let m = worn(&mut materials, look.shirt, &roomie.jersey_tex, 0.85);
                     commands.spawn((Mesh3d(j.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
                 }
                 if let Some(l) = &roomie.legs {
-                    let m = solid(&mut materials, look.pants, 0.75);
+                    let m = worn(&mut materials, look.pants, &roomie.legs_tex, 0.8);
                     commands.spawn((Mesh3d(l.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
+                }
+                if let Some(s) = &roomie.shoes {
+                    let m = worn(&mut materials, [0xff, 0xff, 0xff], &roomie.shoes_tex, 0.7);
+                    commands.spawn((Mesh3d(s.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
                 }
                 // a group under the head joint whose transform cancels the head's bind pose, so decals placed in the
                 // standing avatar frame (EYE_POS / MOUTH_POS) land on the face and then follow the head joint.

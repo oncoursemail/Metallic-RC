@@ -496,6 +496,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
+name = "bcdec_rs"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d521509f38a9ab0fce76656a0416161ee5d42c1eab6672b958391e2ac7a0e31"
+
+[[package]]
 name = "bevy"
 version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4098,6 +4104,7 @@ dependencies = [
  "axum",
  "bevy",
  "cpal",
+ "image",
  "intel_tex_2",
  "metallic-rc-server",
  "png",
@@ -6357,6 +6364,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 name = "unity-assets"
 version = "0.1.0"
 dependencies = [
+ "bcdec_rs",
  "lewton",
  "lz4_flex",
  "lzma-rs",
