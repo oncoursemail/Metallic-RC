@@ -9,6 +9,7 @@ publish = false
 lz4_flex = { version = "0.14", default-features = false, features = ["std", "safe-decode"] }
 lzma-rs = "0.3"
 texture2ddecoder = "0.1.2"
+lewton = "0.10"
 
 [dev-dependencies]
 png = "0.18"

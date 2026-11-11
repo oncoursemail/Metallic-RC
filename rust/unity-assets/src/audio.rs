@@ -14,6 +14,35 @@
 
 use crate::value::Value;
 use crate::{Error, Result};
+use std::collections::HashMap;
+use std::path::Path;
+
+/// FMOD Vorbis setup headers, keyed by `setup_id` (the FSB5 VORBISDATA key = CRC32 of the setup
+/// packet). FMOD strips the Vorbis setup header from each clip and looks it up by id from its
+/// built-in codebooks (in `UnityPlayer.dll`). These are extracted once into a LOCAL (gitignored)
+/// `vorbis_setups.bin` (`[u32 count][ {u32 id, u32 len, bytes} ... ]`); load it to decode Vorbis clips.
+#[derive(Debug, Clone, Default)]
+pub struct VorbisSetups(pub HashMap<u32, Vec<u8>>);
+
+impl VorbisSetups {
+    /// Loads `dir/vorbis_setups.bin`.
+    pub fn load(dir: &Path) -> Result<VorbisSetups> {
+        let b = std::fs::read(dir.join("vorbis_setups.bin"))?;
+        let mut m = HashMap::new();
+        let mut p = 4; // skip count
+        while p + 8 <= b.len() {
+            let id = u32::from_le_bytes([b[p], b[p + 1], b[p + 2], b[p + 3]]);
+            let len = u32::from_le_bytes([b[p + 4], b[p + 5], b[p + 6], b[p + 7]]) as usize;
+            p += 8;
+            if p + len > b.len() {
+                break;
+            }
+            m.insert(id, b[p..p + len].to_vec());
+            p += len;
+        }
+        Ok(VorbisSetups(m))
+    }
+}
 
 /// AudioClip metadata + where its FSB5 blob lives.
 #[derive(Debug, Clone, Default)]
@@ -94,14 +123,15 @@ impl AudioClip {
     }
 
     /// Decodes this clip to interleaved PCM. `resource` is the whole `.resource` file the clip streams
-    /// from (its FSB5 blob is sliced out by `offset`/`size`). Errors for Vorbis (not yet implemented).
-    pub fn decode(&self, resource: &[u8]) -> Result<AudioData> {
+    /// from (its FSB5 blob is sliced out by `offset`/`size`). PCM16 and IMA ADPCM need no `vorbis`;
+    /// Vorbis clips need the [`VorbisSetups`] table (else an error naming the missing `setup_id`).
+    pub fn decode(&self, resource: &[u8], vorbis: Option<&VorbisSetups>) -> Result<AudioData> {
         let (o, n) = (self.offset as usize, self.size as usize);
         if o + n > resource.len() {
             return Err(Error::Format(format!("{}: resource too small ({} < {o}+{n})", self.name, resource.len())));
         }
         let fsb = &resource[o..o + n];
-        decode_fsb5(fsb, self.channels, self.frequency, self.trim_samples())
+        decode_fsb5(fsb, self.channels, self.frequency, self.trim_samples(), vorbis)
     }
 
     fn trim_samples(&self) -> Option<usize> {
@@ -165,7 +195,8 @@ fn decode_fsb_ima(data: &[u8], channels: usize) -> Vec<Vec<i16>> {
 }
 
 /// Parses an FSB5 blob (single Unity subsound) and decodes its data region to interleaved PCM.
-pub fn decode_fsb5(fsb: &[u8], channels: u32, frequency: u32, trim_per_channel: Option<usize>) -> Result<AudioData> {
+/// Vorbis clips need `vorbis` (the setup table); PCM16/IMA/FADPCM ignore it.
+pub fn decode_fsb5(fsb: &[u8], channels: u32, frequency: u32, trim_per_channel: Option<usize>, vorbis: Option<&VorbisSetups>) -> Result<AudioData> {
     if fsb.len() < 0x3c || &fsb[..4] != b"FSB5" {
         return Err(Error::Format("not an FSB5 blob".into()));
     }
@@ -174,7 +205,7 @@ pub fn decode_fsb5(fsb: &[u8], channels: u32, frequency: u32, trim_per_channel: 
     let name_table_size = u32le(fsb, 0x10) as usize;
     let data_size = u32le(fsb, 0x14) as usize;
     let mode = u32le(fsb, 0x18);
-    let header_size = if version == 0 { 0x28 } else { 0x3c };
+    let header_size = if version == 0 { 0x40 } else { 0x3c };
     let data_start = header_size + sample_headers_size + name_table_size;
     if data_start + data_size > fsb.len() {
         return Err(Error::Format("FSB5 data region past end".into()));
@@ -204,7 +235,8 @@ pub fn decode_fsb5(fsb: &[u8], channels: u32, frequency: u32, trim_per_channel: 
                 })
                 .collect()
         }
-        15 => return Err(Error::Unsupported("FSB5 Vorbis (FMOD-stripped headers) not implemented".into())),
+        // Vorbis (FMOD mode 15): stripped headers; setup looked up by id from the VorbisSetups table
+        15 => decode_vorbis(fsb, header_size, data, ch, frequency, vorbis)?,
         other => return Err(Error::Unsupported(format!("FSB5 codec mode {other}"))),
     };
 
@@ -244,6 +276,96 @@ fn decode_fadpcm_block(frame: &[u8], out: &mut Vec<i16>) {
             }
         }
     }
+}
+
+fn u64le(b: &[u8], p: usize) -> u64 {
+    u64::from_le_bytes(b[p..p + 8].try_into().unwrap())
+}
+
+/// The `setup_id` from an FSB5 Vorbis sample header's VORBISDATA (type 0x0B) extra chunk.
+fn fsb_vorbis_setup_id(fsb: &[u8], base: usize) -> Option<u32> {
+    if base + 8 > fsb.len() || u64le(fsb, base) & 1 == 0 {
+        return None;
+    }
+    let mut p = base + 8;
+    let mut id = None;
+    loop {
+        if p + 4 > fsb.len() {
+            break;
+        }
+        let c = u32le(fsb, p);
+        p += 4;
+        let more = c & 1;
+        let size = ((c >> 1) & 0xFFFFFF) as usize;
+        let typ = (c >> 25) & 0x7F;
+        if typ == 0x0B && size >= 4 && p + 4 <= fsb.len() {
+            id = Some(u32le(fsb, p));
+        }
+        p += size;
+        if more == 0 {
+            break;
+        }
+    }
+    id
+}
+
+/// A reconstructed Vorbis identification packet (FMOD strips it): FMOD FSB uses fixed blocksizes
+/// 256 (short) / 2048 (long).
+fn build_ident(channels: u8, sample_rate: u32) -> Vec<u8> {
+    let mut v = vec![0x01];
+    v.extend_from_slice(b"vorbis");
+    v.extend_from_slice(&0u32.to_le_bytes()); // vorbis_version
+    v.push(channels);
+    v.extend_from_slice(&sample_rate.to_le_bytes());
+    v.extend_from_slice(&0i32.to_le_bytes()); // bitrate_maximum
+    v.extend_from_slice(&0i32.to_le_bytes()); // bitrate_nominal
+    v.extend_from_slice(&0i32.to_le_bytes()); // bitrate_minimum
+    v.push((8) | (11 << 4)); // blocksize_0=2^8=256, blocksize_1=2^11=2048
+    v.push(0x01); // framing
+    v
+}
+
+/// A minimal reconstructed Vorbis comment packet.
+fn build_comment() -> Vec<u8> {
+    let mut v = vec![0x03];
+    v.extend_from_slice(b"vorbis");
+    v.extend_from_slice(&0u32.to_le_bytes()); // vendor length
+    v.extend_from_slice(&0u32.to_le_bytes()); // user comment count
+    v.push(0x01); // framing
+    v
+}
+
+/// Decodes an FMOD FSB5 Vorbis stream: rebuild the id/comment headers, pull the setup header from
+/// the [`VorbisSetups`] table by `setup_id`, then decode the u16-framed packets with `lewton`.
+fn decode_vorbis(fsb: &[u8], base: usize, data: &[u8], channels: usize, frequency: u32, vorbis: Option<&VorbisSetups>) -> Result<Vec<Vec<i16>>> {
+    let setup_id = fsb_vorbis_setup_id(fsb, base).ok_or_else(|| Error::Format("Vorbis clip has no setup_id".into()))?;
+    let setups = vorbis.ok_or_else(|| Error::Unsupported(format!("Vorbis setup {setup_id:#010x}: no VorbisSetups table")))?;
+    let setup_bytes = setups.0.get(&setup_id).ok_or_else(|| Error::Unsupported(format!("Vorbis setup {setup_id:#010x} not in table")))?;
+
+    let ident = lewton::header::read_header_ident(&build_ident(channels as u8, frequency)).map_err(|e| Error::Format(format!("vorbis ident: {e:?}")))?;
+    let _comment = lewton::header::read_header_comment(&build_comment()).map_err(|e| Error::Format(format!("vorbis comment: {e:?}")))?;
+    let setup = lewton::header::read_header_setup(setup_bytes, ident.audio_channels, (ident.blocksize_0, ident.blocksize_1)).map_err(|e| Error::Format(format!("vorbis setup {setup_id:#010x}: {e:?}")))?;
+
+    let mut pwr = lewton::audio::PreviousWindowRight::new();
+    let mut out: Vec<Vec<i16>> = vec![Vec::new(); channels];
+    let mut p = 0;
+    while p + 2 <= data.len() {
+        let sz = u16::from_le_bytes([data[p], data[p + 1]]) as usize;
+        p += 2;
+        if sz == 0 || sz == 0xFFFF || p + sz > data.len() {
+            break;
+        }
+        let packet = &data[p..p + sz];
+        p += sz;
+        if let Ok(chans) = lewton::audio::read_audio_packet(&ident, &setup, packet, &mut pwr) {
+            for (c, s) in chans.into_iter().enumerate() {
+                if c < channels {
+                    out[c].extend_from_slice(&s);
+                }
+            }
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -288,7 +410,7 @@ mod tests {
             let resbytes = cache.entry(clip.resource_name().to_string())
                 .or_insert_with(|| std::fs::read(Path::new(&resdir).join(clip.resource_name())).unwrap_or_default());
             if resbytes.is_empty() { continue; }
-            let Ok(audio) = clip.decode(resbytes) else { continue };
+            let Ok(audio) = clip.decode(resbytes, None) else { continue };
             assert!(!audio.samples.is_empty(), "{}: empty", clip.name);
             assert!(audio.samples.iter().any(|&s| s != 0), "{}: all silence", clip.name);
             // length within 10% of declared
@@ -301,5 +423,52 @@ mod tests {
         }
         assert!(pcm > 0 && adpcm > 0, "need both PCM and ADPCM clips (got pcm={pcm} adpcm={adpcm})");
         eprintln!("decode_corpus_audio: PCM {pcm} + IMA-ADPCM {adpcm} clips decoded + validated");
+    }
+
+    /// Decode real Vorbis clips using the locally-extracted setup table. Gated on `RR_BUNDLE_DIR`,
+    /// `RR_CORPUS_DIR`, `RR_RESOURCE_DIR` and `RR_VORBIS_DIR` (holds `vorbis_setups.bin`); skipped when
+    /// unset. Checks decoded length matches declared m_Length (exact pipeline correctness).
+    #[test]
+    fn decode_corpus_vorbis() {
+        let (Ok(bdir), Ok(corpus), Ok(resdir), Ok(vdir)) = (
+            std::env::var("RR_BUNDLE_DIR"),
+            std::env::var("RR_CORPUS_DIR"),
+            std::env::var("RR_RESOURCE_DIR"),
+            std::env::var("RR_VORBIS_DIR"),
+        ) else {
+            eprintln!("decode_corpus_vorbis: skipped (set RR_BUNDLE_DIR/RR_CORPUS_DIR/RR_RESOURCE_DIR/RR_VORBIS_DIR)");
+            return;
+        };
+        let Ok(setups) = VorbisSetups::load(Path::new(&vdir)) else {
+            eprintln!("decode_corpus_vorbis: no vorbis_setups.bin; skipped");
+            return;
+        };
+        let mut files: Vec<_> = std::fs::read_dir(&bdir).unwrap().filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().map(|e| e == "bundle").unwrap_or(false)).collect();
+        files.sort();
+        let tree = files.iter().find_map(|f| {
+            let b = Bundle::open(f).ok()?;
+            b.serialized_files().ok()?.into_iter().flat_map(|(_, sf)| sf.types)
+                .find(|t| t.class_id == 83 && t.tree.is_some()).and_then(|t| t.tree)
+        }).expect("AudioClip tree");
+        let res = SerializedFile::parse(std::fs::read(Path::new(&corpus).join("resources.assets")).unwrap()).unwrap();
+        let resbytes = std::fs::read(Path::new(&resdir).join("resources.resource")).unwrap_or_default();
+        let mut ok = 0;
+        for o in res.objects.iter().filter(|o| o.class_id == 83) {
+            let mut r = Reader::new(res.object_bytes(o), res.big_endian);
+            let Ok(v) = crate::value::read(&tree, &res.ref_types, &mut r) else { continue };
+            let clip = AudioClip::from_value(&v).unwrap();
+            if clip.compression != 1 { continue; }
+            let Ok(audio) = clip.decode(&resbytes, Some(&setups)) else { continue }; // skips ids not in table
+            assert!(audio.samples.iter().any(|&s| s != 0), "{}: silence", clip.name);
+            if clip.length_seconds > 0.0 {
+                let secs = audio.samples.len() as f32 / (audio.channels.max(1) * audio.sample_rate) as f32;
+                assert!((secs - clip.length_seconds).abs() < clip.length_seconds * 0.1 + 0.05, "{}: {secs} vs {}", clip.name, clip.length_seconds);
+            }
+            ok += 1;
+            if ok >= 20 { break; }
+        }
+        assert!(ok > 0, "no Vorbis clips decoded (setup table empty?)");
+        eprintln!("decode_corpus_vorbis: {ok} Vorbis clips decoded + length-validated");
     }
 }
