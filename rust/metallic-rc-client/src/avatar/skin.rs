@@ -135,12 +135,13 @@ fn skin_channels(m: &UMesh, joints: usize) -> Option<(Vec<[f32; 4]>, Vec<[u16; 4
 }
 
 /// Which clothing zone a body triangle centre belongs to (height `h = -z`, left-right span `x`): head/forearms/hands
-/// are skin (0), legs/feet are pants (2), the rest is shirt (1). (Kept in step with `real::zone`.)
-fn zone(p: [f32; 3]) -> usize {
+/// are skin (0), legs/feet are pants (2), the rest is shirt (1). (Kept in step with `real::zone`.) The legless Bean body
+/// has no legs, so it gets NO pants zone — its whole torso is shirt (otherwise the torso bottom miscolours as pants).
+fn zone(p: [f32; 3], bean: bool) -> usize {
     let (x, h) = (p[0].abs(), -p[2]);
     if h > 1.40 || x > 0.33 {
         0
-    } else if h < 0.86 && x < 0.3 {
+    } else if !bean && h < 0.86 && x < 0.3 {
         2
     } else {
         1
@@ -173,7 +174,7 @@ fn read_geometry(m: &UMesh) -> (Vec<[f32; 3]>, Vec<[f32; 3]>, Vec<[f32; 2]>, Vec
 
 /// Loads a body type from its own bundle + body-mesh path id (Rec Room ships a Full body and a legless Bean body) as
 /// three skinned region meshes plus the rig. `None` when the bundle or its skin data is missing.
-pub fn load(dir: &Path, bundle: &str, body_id: i64) -> Option<Loaded> {
+pub fn load(dir: &Path, bundle: &str, body_id: i64, bean: bool) -> Option<Loaded> {
     let path = room::bundle_dir(dir).join(bundle);
     let b = Bundle::open(&path).ok()?;
     let files = b.serialized_files().ok()?;
@@ -229,7 +230,7 @@ pub fn load(dir: &Path, bundle: &str, body_id: i64) -> Option<Loaded> {
     for tri in idx.chunks_exact(3) {
         let c = [0, 1, 2].map(|k| pos[tri[k] as usize]);
         let mid = [0, 1, 2].map(|a| (c[0][a] + c[1][a] + c[2][a]) / 3.0);
-        zones[zone(mid)].extend_from_slice(tri);
+        zones[zone(mid, bean)].extend_from_slice(tri);
     }
     let make = |region: Vec<u32>| {
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());

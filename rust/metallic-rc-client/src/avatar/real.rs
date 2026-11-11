@@ -293,7 +293,7 @@ pub fn load_roomie(
     };
     let body = BodyType::from_env();
     // the skinned body (per-joint rig) is preferred; if its skin data can't be read, fall back to the static bind pose
-    let (bodies, rig, inverse_bindposes) = match skin::load(dir, body.bundle(), body.body_id()) {
+    let (bodies, rig, inverse_bindposes) = match skin::load(dir, body.bundle(), body.body_id(), body == BodyType::Bean) {
         Some(l) => {
             info!("avatar: real Rec Room {body:?} body loaded skinned ({} joints)", l.rig.joints.len());
             (l.meshes, Some(Arc::new(l.rig)), Some(binds.add(SkinnedMeshInverseBindposes::from(l.inverse_bindposes))))
