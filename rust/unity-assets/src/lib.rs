@@ -8,6 +8,7 @@
 mod reader;
 pub mod bundle;
 pub mod catalog;
+pub mod decrypt;
 pub mod classes;
 pub mod level;
 pub mod objects;
