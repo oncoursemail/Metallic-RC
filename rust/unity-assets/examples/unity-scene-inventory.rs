@@ -28,9 +28,35 @@ fn main() {
         let k = classes::class_name(o.class_id).map(String::from).unwrap_or_else(|| format!("class {}", o.class_id));
         *classes.entry(k).or_default() += 1;
     }
-    println!("== {} : {} objects, unity {} ==", path.file_name().unwrap().to_string_lossy(), sf.objects.len(), sf.unity_version);
+    println!("== {} : {} objects, unity {}, type_tree_enabled {} ==", path.file_name().unwrap().to_string_lossy(), sf.objects.len(), sf.unity_version, sf.type_tree_enabled);
+    if let Some(o) = sf.objects.iter().find(|o| o.class_id == classes::PARTICLE_SYSTEM) {
+        match sf.read_value(o) {
+            Ok(v) => {
+                let ps = unity_assets::ParticleSystem::from_value(&v);
+                println!("  first ParticleSystem decodes: length {} looping {} max {} rate {} shape {}", ps.length, ps.looping, ps.max_particles, ps.rate_over_time.constant(), ps.shape_type);
+            }
+            Err(e) => println!("  ParticleSystem read_value FAILED: {e}"),
+        }
+    }
     for (k, n) in &classes {
         println!("  {n:>6}  {k}");
+    }
+
+    // names of GameObjects that carry a ParticleSystem (to see if they match prefab VFX names)
+    let mut ps_names: BTreeMap<String, usize> = BTreeMap::new();
+    for o in sf.objects.iter().filter(|o| o.class_id == classes::GAME_OBJECT) {
+        if let Ok(go) = sf.game_object(o) {
+            if go.components.iter().any(|c| sf.object(c.path_id).is_some_and(|co| co.class_id == classes::PARTICLE_SYSTEM)) {
+                let name = sf.object_name(o).unwrap_or_default();
+                *ps_names.entry(name).or_default() += 1;
+            }
+        }
+    }
+    if !ps_names.is_empty() {
+        println!("\n== ParticleSystem GameObject names ({}) ==", ps_names.len());
+        for (n, c) in ps_names.iter().take(25) {
+            println!("  {c:>3}  {n:?}");
+        }
     }
 
     let mut files = Files { dir, open: HashMap::new() };
