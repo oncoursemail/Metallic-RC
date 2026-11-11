@@ -10,6 +10,7 @@ pub const MESH_FILTER: i32 = 33;
 pub const MESH: i32 = 43;
 pub const SHADER: i32 = 48;
 pub const MONO_BEHAVIOUR: i32 = 114;
+pub const MONO_SCRIPT: i32 = 115;
 pub const SKINNED_MESH_RENDERER: i32 = 137;
 pub const ASSET_BUNDLE: i32 = 142;
 pub const RECT_TRANSFORM: i32 = 224;

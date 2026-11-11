@@ -75,6 +75,26 @@ fn behaviour(r: &mut Reader) -> Result<(PPtr, bool)> {
     Ok((go, enabled))
 }
 
+/// A MonoBehaviour's `m_Script` PPtr (points at the MonoScript, in this file or an external), so a caller can
+/// resolve what gameplay script sits on a scene object (spawn points, NetObjects, triggers, teleporters).
+pub fn mono_script_ref(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<PPtr> {
+    let mut r = reader(sf, o, classes::MONO_BEHAVIOUR, "MonoBehaviour")?;
+    behaviour(&mut r)?;
+    pptr(&mut r)
+}
+
+/// A MonoScript's `(class_name, namespace)`. Layout: m_Name, m_ExecutionOrder (i32), m_PropertiesHash (16 bytes),
+/// m_ClassName, m_Namespace, m_AssemblyName — stable across the 2019..6000 player builds.
+pub fn mono_script_name(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<(String, String)> {
+    let mut r = reader(sf, o, classes::MONO_SCRIPT, "MonoScript")?;
+    r.aligned_string()?; // m_Name
+    r.i32()?; // m_ExecutionOrder
+    r.bytes(16)?; // m_PropertiesHash (Hash128)
+    let class_name = r.aligned_string()?;
+    let namespace = r.aligned_string()?;
+    Ok((class_name, namespace))
+}
+
 /// The readers below know the 2019.3 .. 2021.3 player layouts (checked on 2019.4.26f1) and the Unity 6
 /// (6000.x) player layout (checked on 6000.0.27f1, the decrypted 2026 Rec Room base files). Every reader
 /// also verifies it consumed exactly the object's bytes, so a layout mismatch is an error, not garbage.

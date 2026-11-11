@@ -253,6 +253,8 @@ pub struct RoomData {
     pub collider_roots: Vec<usize>,
     pub lights: Vec<RoomLight>,
     pub sounds: Vec<RoomSound>,
+    /// player spawn poses (world transforms of `SceneSpawnPoint` / `GamePlayerSpawnPoint` objects)
+    pub spawns: Vec<Mat4>,
     pub problems: Vec<String>,
 }
 

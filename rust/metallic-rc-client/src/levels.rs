@@ -853,6 +853,49 @@ pub fn scene_list() -> Vec<SceneEntry> {
 /// geometry, materials, solid colliders and realtime lights. `game_data` is the game install's `RecRoom_Data`,
 /// where the plaintext `.resS` streams live. `None` when there is no corpus or it has no such scene, so the caller
 /// falls back to another loader.
+/// World transforms of a scene's spawn points (`SceneSpawnPoint` / `GamePlayerSpawnPoint` MonoBehaviours), for
+/// placing the player. The script class behind each MonoBehaviour is resolved through its `m_Script` and cached.
+fn scene_spawns(files: &mut Files, scene_file: &str, sf: &SerializedFile, scene: &Scene) -> Vec<Mat4> {
+    let mut cache: HashMap<(i32, i64), bool> = HashMap::new();
+    let mut spawns = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        let mut is_spawn = false;
+        for &(class, id) in &n.components {
+            if class != classes::MONO_BEHAVIOUR {
+                continue;
+            }
+            let Some(o) = sf.object(id) else { continue };
+            let Ok(p) = level::mono_script_ref(sf, o) else { continue };
+            let key = (p.file_id, p.path_id);
+            let hit = if let Some(&h) = cache.get(&key) {
+                h
+            } else {
+                let name = if p.file_id == 0 {
+                    sf.object(p.path_id).and_then(|so| level::mono_script_name(sf, so).ok())
+                } else if let Some((f, pid)) = files.resolve(scene_file, p) {
+                    files.get(&f).and_then(|x| {
+                        let so = x.object(pid)?;
+                        level::mono_script_name(&x, so).ok()
+                    })
+                } else {
+                    None
+                };
+                let h = matches!(name.as_ref().map(|(c, _)| c.as_str()), Some("SceneSpawnPoint" | "GamePlayerSpawnPoint"));
+                cache.insert(key, h);
+                h
+            };
+            if hit {
+                is_spawn = true;
+                break;
+            }
+        }
+        if is_spawn {
+            spawns.push(n.world);
+        }
+    }
+    spawns
+}
+
 pub fn load_scene(game_data: Option<&Path>, room: &str) -> Option<Result<RoomData, String>> {
     let dir = scenes_dir()?;
     let mut res_dirs = vec![dir.to_path_buf()];
@@ -897,6 +940,7 @@ fn load_scene_with(files: &mut Files, room: &str) -> Result<RoomData, String> {
     if !lights.is_empty() {
         r.lights = lights;
     }
+    r.spawns = scene_spawns(files, &scene.file, &sf, &scene);
     drop(sf);
     let mut b = OldBuilder { files, out: &mut r, root, textures: HashMap::new(), materials: HashMap::new(), meshes: HashMap::new() };
     for (i, _mesh) in &drawn {
