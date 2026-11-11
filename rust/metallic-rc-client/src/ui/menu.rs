@@ -704,10 +704,11 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             icons.push((id, file.to_string()));
         }
     }
-    // fill the Customize item grids with real wardrobe items
+    // fill the Customize item grids with real wardrobe items, and the colour grids with the real swatches
     if let Some(card) = ctx.item_card {
         item_cards(&mut page, card, &mut w.actions);
     }
+    color_swatches(&mut page, &mut w.actions);
     theme.apply_with(&mut page, &active);
     Built { page, actions: w.actions, scrolls, icons }
 }
@@ -987,6 +988,85 @@ fn item_cards(page: &mut Element, template: &Element, actions: &mut HashMap<i64,
             r.size_delta = [cw, ch];
             r.anchored_position = [32.0 + col as f32 * (cw + 22.5), -50.0 - row as f32 * (ch + 22.5)];
             content.children.push(c);
+        }
+    }
+}
+
+/// The real Rec Room skin tones (ColorsResourcesConfig.skinColors, sRGB), in order.
+const SKIN_COLORS: [[u8; 3]; 20] = [
+    [0x33, 0x1b, 0x13], [0x34, 0x24, 0x1c], [0x35, 0x29, 0x24], [0x44, 0x24, 0x1a], [0x54, 0x2f, 0x23], [0x5d, 0x42, 0x36], [0x7d, 0x48, 0x2e],
+    [0x89, 0x5d, 0x43], [0xad, 0x5c, 0x38], [0xbd, 0x5f, 0x4c], [0xa6, 0x71, 0x53], [0xc1, 0x76, 0x57], [0xd4, 0x7b, 0x65], [0xb6, 0x8a, 0x66],
+    [0xc7, 0x90, 0x80], [0xcb, 0x90, 0x6c], [0xbd, 0x94, 0x7b], [0xd2, 0xa5, 0x83], [0xd0, 0xa4, 0x90], [0xed, 0xd3, 0xc7],
+];
+/// The real Rec Room natural hair colours (ColorsResourcesConfig.naturalHairColors, sRGB), in order.
+const HAIR_COLORS: [[u8; 3]; 17] = [
+    [0x1b, 0x0f, 0x06], [0x23, 0x1e, 0x1a], [0x38, 0x1a, 0x03], [0x46, 0x13, 0x05], [0x57, 0x18, 0x09], [0x51, 0x2e, 0x15], [0x57, 0x35, 0x09],
+    [0x80, 0x58, 0x23], [0x9f, 0x29, 0x0d], [0xa2, 0x41, 0x25], [0xba, 0x5e, 0x37], [0xbe, 0x70, 0x48], [0xc3, 0x86, 0x36], [0xd0, 0xb0, 0x86],
+    [0x7c, 0x78, 0x77], [0xa4, 0xae, 0xbc], [0xb4, 0xae, 0xa9],
+];
+
+/// Fills each colour grid (an `AvatarColorListModel`, keyed by `avatarColorType`) with the real Rec Room swatches,
+/// cloning the page's `[CardBackground] Color Swatch` template and setting each clone's Background Image colour.
+fn color_swatches(page: &mut Element, actions: &mut HashMap<i64, Action>) {
+    let palette = |ct: i32| -> Option<&'static [[u8; 3]]> {
+        match ct {
+            0 => Some(&SKIN_COLORS), // Skin
+            1 | 2 => Some(&HAIR_COLORS), // HairPrimary / HairHighlight
+            _ => None,
+        }
+    };
+    // each colour list: its avatarColorType, the spawn-target transform id, and a clone of its swatch template
+    let mut lists: Vec<(i32, i64, Element)> = vec![];
+    for (_, e) in page.walk() {
+        let Some(model) = e.components.iter().find(|c| c.class == "RRUI.Data.AvatarColorListModel") else { continue };
+        let Some(ct) = model.value.get("avatarColorType").and_then(Value::as_i64) else { continue };
+        let target = e.walk().iter().find_map(|(_, k)| {
+            k.component("RRUI.Data.InfiniteListDataProvider").and_then(|p| pptr(&p.value, "prefabSpawnTarget"))
+        });
+        let template = e.walk().iter().find(|(_, k)| k.name.starts_with("[CardBackground] Color Swatch")).map(|(_, k)| (*k).clone());
+        if let (Some(t), Some(tmpl)) = (target, template) {
+            lists.push((ct as i32, t, tmpl));
+        }
+    }
+    for (n, (ct, target, template)) in lists.into_iter().enumerate() {
+        let Some(colors) = palette(ct) else { continue };
+        let Some(content) = find_mut(page, &|e| e.transform == target) else { continue };
+        content.children.clear(); // drop the baked placeholder swatches
+        let (sw, sh, per_row) = (92.0f32, 92.0f32, 8usize);
+        for (i, col) in colors.iter().enumerate() {
+            let salt = MADE | (((0x400 + n * 64 + i) as i64) << 36);
+            let mut c = fresh(&template, salt);
+            c.active = true;
+            // set the swatch's Background colour, and its select action, from the cloned ids
+            let img = c.walk().iter().find_map(|(_, k)| k.impls().iter().find_map(|(cl, d)| cl.ends_with("/BackgroundColorImageImpl").then(|| pptr(d, "image")).flatten()));
+            let btn = c.walk().iter().find_map(|(_, k)| k.impls().iter().find_map(|(cl, d)| cl.ends_with("/PrimaryToggleButtonImpl").then(|| pptr(d, "button")).flatten()));
+            if let Some(id) = img {
+                set_color(&mut c, id, *col);
+            }
+            if let Some(b) = btn {
+                actions.insert(b, Action::WearItem(1000 + ct, format!("{i}")));
+            }
+            let (col_i, row_i) = (i % per_row, i / per_row);
+            let r = &mut c.rect;
+            (r.anchor_min, r.anchor_max, r.pivot) = ([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]);
+            r.size_delta = [sw, sh];
+            r.anchored_position = [24.0 + col_i as f32 * (sw + 16.0), -24.0 - row_i as f32 * (sh + 16.0)];
+            content.children.push(c);
+        }
+    }
+}
+
+/// Sets the `m_Color` of an Image component (by id) in `root` — like `set_text`, but for a colour.
+fn set_color(root: &mut Element, id: i64, c: [u8; 3]) {
+    let col = strukt(vec![
+        ("r", Value::Float(c[0] as f64 / 255.0)),
+        ("g", Value::Float(c[1] as f64 / 255.0)),
+        ("b", Value::Float(c[2] as f64 / 255.0)),
+        ("a", Value::Float(1.0)),
+    ]);
+    if let Some(e) = find_mut(root, &|e| has_component(e, id)) {
+        for comp in e.components.iter_mut().filter(|comp| comp.id == id) {
+            set(&mut comp.value, "m_Color", col.clone());
         }
     }
 }
