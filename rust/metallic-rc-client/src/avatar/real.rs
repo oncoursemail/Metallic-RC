@@ -515,7 +515,9 @@ pub fn animate_skeleton(
                 _ => "idle",
             }
         };
-        let clip_driven = anim_clips.as_deref().and_then(|c| c.get(state)).map(|clip| {
+        // Authored clips are full-body locomotion (legs + arm swing). The Bean has no legs/arms — only floating hands —
+        // so a walk clip would drop its hands like invisible arm-ends; keep the Bean on its procedural float pose.
+        let clip_driven = !skel.bean && anim_clips.as_deref().and_then(|c| c.get(state)).map(|clip| {
             // walk/run follow the stride phase so the cadence matches the speed; the rest free-run on the clock
             let ct = match state {
                 "walk" | "run" | "crouch_walk" => (phase / std::f32::consts::TAU).rem_euclid(1.0) * clip.stop_time,
