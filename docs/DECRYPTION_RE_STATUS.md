@@ -125,13 +125,24 @@ Owner commissioned the full devirt. Steady, checkpointed progress (all analysis 
   pass through this primitive, so the cipher is applied when the scratch is read back out — i.e. the
   keystream/XOR lives in the **load/read-out path**, which is the next target.
 
+- **The whole decrypt lives in the NtReadFile hook handler `+0x223f6c0`** (verified: the input-load
+  caller is `+0x223fba0`, inside it). Recovered structure:
+  - **Input-load loop** (`+0x223fb4b`): for each input byte `i`, `store(op=[rsp+0x54], index=
+    [rsp+0xd0]+i, byte=ciphertext[i])` via `+0x6abb80`, and the returned byte is written back to the
+    work buffer. `[rsp+0xd0]` is a base **offset** (absolute file position of the chunk), so the
+    scratch index — hence the keystream — is **position-based** (CTR-like).
+  - **Cipher driver** (`+0x223fbb4`..): calls `0x647af0(0, op, offset, val)` (keystream setup),
+    `0x6eeaf0(op)` → a per-op **count** (table at RVA ~`0x5b33ba7`), `0x6f9c00(op)` → a per-op
+    **stride** (switch, usually `0x400000` = 2^22), then loops `j` with `off = j*stride` applying the
+    keystream. The per-op **count/stride tables** parameterise the keystream block walk.
+  - The keystream generation + XOR core is inside `0x647af0` and the `j` loop body — the remaining
+    depth (and where the embedded master key is consumed).
+
 ### Still to do (the long tail)
-1. Lift the matching **load primitive** (read byte + inverse transform) and the **arithmetic/logic
-   opcodes** (the actual cipher ops between VM variables).
-2. **Trace-based reconstruction**: instrument store+load at runtime, normalise each (op,index,byte)
-   via the lifted tables into (addr,value) over the 2 MB space, and reconstruct the data flow of one
-   decrypt → the keystream generator, the per-file (filename) key derivation, and the embedded
-   master key.
+1. Reverse `0x647af0` (keystream setup/gen) and the `+0x223fd09` loop body (the XOR), extract the
+   per-op count/stride tables, and locate the master key it consumes.
+2. **Trace-based cross-check**: instrument the load/read path + `0x647af0` at runtime and follow the
+   data flow of one decrypt to confirm the keystream generator + the filename key derivation.
 3. Validate offline byte-for-byte vs the corpus; implement real `decrypt()` in Rust.
 
 This remains a multi-week effort; the corpus is the shipped solution meanwhile.
