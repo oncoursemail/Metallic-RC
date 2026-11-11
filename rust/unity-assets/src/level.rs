@@ -411,6 +411,43 @@ pub fn reflection_probe(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<Re
     })
 }
 
+/// LODGroup (205): the renderers at each level of detail, level 0 (highest detail) first.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LodGroup {
+    pub game_object: PPtr,
+    /// renderer PPtrs per LOD level; `lods[0]` is LOD0 (drawn), `lods[1..]` are the lower levels
+    pub lods: Vec<Vec<PPtr>>,
+    pub enabled: bool,
+}
+
+/// LODGroup (205) without type tree. Layout verified on the decrypted 2026 scenes (6000.0.27f1): m_GameObject,
+/// m_LocalReferencePoint (Vec3), m_Size, m_FadeMode (int), m_AnimateCrossFading (bool+align), m_LODs
+/// (each: screenRelativeTransitionHeight f32, fadeTransitionWidth f32, renderers vector of PPtr), m_Enabled.
+pub fn lod_group(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<LodGroup> {
+    let mut r = reader(sf, o, classes::LOD_GROUP, "LODGroup")?;
+    let game_object = pptr(&mut r)?;
+    floats::<3>(&mut r)?; // m_LocalReferencePoint
+    r.f32()?; // m_Size
+    r.i32()?; // m_FadeMode
+    r.bool()?; // m_AnimateCrossFading
+    r.align(4);
+    let count = r.i32()? as usize;
+    let mut lods = Vec::with_capacity(count.min(16));
+    for _ in 0..count {
+        r.f32()?; // screenRelativeTransitionHeight
+        r.f32()?; // fadeTransitionWidth
+        let rn = r.i32()? as usize;
+        let mut rs = Vec::with_capacity(rn.min(64));
+        for _ in 0..rn {
+            rs.push(pptr(&mut r)?);
+        }
+        lods.push(rs);
+    }
+    let enabled = r.i32()? != 0; // m_Enabled
+    done(&r, "LODGroup")?;
+    Ok(LodGroup { game_object, lods, enabled })
+}
+
 /// BoxCollider (65).
 #[derive(Debug, Clone, PartialEq)]
 pub struct BoxCollider {

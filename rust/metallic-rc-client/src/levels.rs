@@ -271,8 +271,21 @@ fn drawn_meshes(files: &mut Files, scene: &Scene) -> Vec<(usize, String)> {
     // object draws the combined mesh; such originals count as drawn (INFERRED from the object names).
     let batched: HashSet<String> = scene.nodes.iter().filter_map(|n| n.name.strip_prefix("StaticStaticBatch_").map(String::from)).collect();
     let desktop_parents: HashSet<Option<usize>> = scene.nodes.iter().filter(|n| n.name.contains("Desktop")).map(|n| n.parent).collect();
+    // Authoritative LOD selection: a LODGroup names the renderers at each level, so every renderer referenced at
+    // LOD1+ is a lower detail level and must not be drawn (LOD0 stays). This is exact where the `*LODn` name
+    // heuristic below is only a guess, and catches lower-LOD renderers that are not named with the LOD convention.
+    let lower_lods: HashSet<i64> = sf
+        .objects
+        .iter()
+        .filter(|o| o.class_id == classes::LOD_GROUP)
+        .filter_map(|o| level::lod_group(&sf, o).ok())
+        .flat_map(|g| g.lods.into_iter().skip(1).flatten().map(|p| p.path_id))
+        .collect();
     for (i, n) in scene.nodes.iter().enumerate() {
-        if !n.active || n.name.starts_with("StaticStaticBatch_") || lower_lod(&n.name) || mobile_variant(scene, &desktop_parents, i) || n.path.contains("/Circuit ") {
+        let renderer = n.components.iter().find(|c| c.0 == classes::MESH_RENDERER || c.0 == classes::SKINNED_MESH_RENDERER).map(|c| c.1);
+        if !n.active || n.name.starts_with("StaticStaticBatch_") || lower_lod(&n.name) || mobile_variant(scene, &desktop_parents, i)
+            || n.path.contains("/Circuit ") || renderer.is_some_and(|id| lower_lods.contains(&id))
+        {
             continue;
         }
         let Some((mesh, _, r)) = node_mesh(files, scene, &sf, i) else { continue };

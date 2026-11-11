@@ -18,6 +18,7 @@ pub const RENDER_SETTINGS: i32 = 104;
 pub const LIGHT: i32 = 108;
 pub const BUILD_SETTINGS: i32 = 141;
 pub const LIGHTMAP_SETTINGS: i32 = 157;
+pub const LOD_GROUP: i32 = 205;
 pub const REFLECTION_PROBE: i32 = 215;
 pub const LIGHT_PROBES: i32 = 258;
 pub const MESH_COLLIDER: i32 = 64;

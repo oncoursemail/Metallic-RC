@@ -55,6 +55,30 @@ fn main() {
             None => unresolved += 1,
         }
     }
+    // LODGroup parse check: every group should parse, and we tally LOD0 vs lower-LOD renderers.
+    let (mut lg_ok, mut lg_err, mut lod0, mut lower) = (0usize, 0usize, 0usize, 0usize);
+    for o in sf.objects.iter().filter(|o| o.class_id == classes::LOD_GROUP) {
+        match level::lod_group(&sf, o) {
+            Ok(g) => {
+                lg_ok += 1;
+                for (i, lv) in g.lods.iter().enumerate() {
+                    if i == 0 {
+                        lod0 += lv.len();
+                    } else {
+                        lower += lv.len();
+                    }
+                }
+            }
+            Err(e) => {
+                if lg_err == 0 {
+                    println!("  LODGroup parse error: {e}");
+                }
+                lg_err += 1;
+            }
+        }
+    }
+    println!("\n== LODGroups: {lg_ok} parsed, {lg_err} failed; {lod0} LOD0 renderers, {lower} lower-LOD renderers ==");
+
     println!("\n== MonoBehaviour scripts ({mb_total} total, {unresolved} unresolved) ==");
     let mut v: Vec<_> = scripts.iter().collect();
     v.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
