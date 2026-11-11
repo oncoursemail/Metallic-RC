@@ -158,6 +158,30 @@ pub struct Built {
     pub actions: HashMap<i64, Action>,
     /// ScrollRect component id, content and viewport RectTransform ids
     pub scrolls: Vec<(i64, i64, i64)>,
+    /// runtime-assigned graphics: (Image component id, icon PNG file name) — e.g. the customize category tab icons the
+    /// prefab leaves null. The painter loads each from the exported icon set and overrides the sprite.
+    pub icons: Vec<(i64, String)>,
+}
+
+/// The exported RRUI icon for a customize category tab (the `[IconToggleChip] <Category>` chips), or None.
+fn category_icon(category: &str) -> Option<&'static str> {
+    Some(match category.trim() {
+        "AvatarType" => "icon_AvatarCustomization_Body_Full.png",
+        "Face" => "icon_AvatarCustomization_Face.png",
+        "Hair" => "icon_AvatarCustomization_Hair.png",
+        "Clothing" => "icon_AvatarCustomization_Torso.png",
+        "Accessories" => "icon_AvatarCustomization_Accessories.png",
+        "Feet" => "icon_AvatarCustomization_Shoes.png",
+        "Custom" => "icon_AvatarCustomization_Custom.png",
+        _ => return None,
+    })
+}
+
+/// Where the exported RRUI icons live (override with METALLIC_WARDROBE_DIR).
+fn icon_dir() -> PathBuf {
+    std::env::var("METALLIC_WARDROBE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(r"C:\Users\alexi\rr-capture\decomp-full\assets\AssetStudioExport"))
 }
 
 /// Rows the client adds to a page, copied from rows of the game's pages: a slider row, a switch row, and a radio
@@ -657,8 +681,25 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             e.rect.anchored_position[1] += y;
         }
     }
+    // the customize category tabs: each `[IconToggleChip] <Category>` has an Image whose sprite the prefab leaves null
+    // (the game assigns it at runtime). Record its id + the real icon so the painter overrides it.
+    let mut icons: Vec<(i64, String)> = vec![];
+    for (_, e) in page.walk() {
+        let Some(cat) = e.name.strip_prefix("[IconToggleChip] ") else { continue };
+        let Some(file) = category_icon(cat) else { continue };
+        let id = e.walk().iter().find_map(|(_, k)| {
+            if k.name.starts_with("Image - Change Icon") {
+                k.component("UnityEngine.UI.Image").map(|c| c.id)
+            } else {
+                None
+            }
+        });
+        if let Some(id) = id {
+            icons.push((id, file.to_string()));
+        }
+    }
     theme.apply_with(&mut page, &active);
-    Built { page, actions: w.actions, scrolls }
+    Built { page, actions: w.actions, scrolls, icons }
 }
 
 fn strukt(fields: Vec<(&str, Value)>) -> Value {
@@ -816,6 +857,8 @@ impl Painter {
             };
             let mut donors = None;
             let mut room_list: Option<(std::time::Instant, Vec<RoomInfo>)> = None;
+            // decoded customize-category icons, kept so each PNG is read once
+            let mut icon_cache: HashMap<String, Option<std::sync::Arc<paint::Sprite>>> = HashMap::new();
             while let Ok(mut r) = asked.recv() {
                 // only the newest request matters
                 while let Ok(newer) = asked.try_recv() {
@@ -837,6 +880,17 @@ impl Painter {
                     let ctx = Ctx { page: &path, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused,
                         scroll: &r.scroll, choosing: r.choosing.as_deref(), rooms: room_list.as_ref().map(|(_, l)| l.as_slice()).unwrap_or_default() };
                     let b = build(&t, &ctx, &theme, donors.as_ref().unwrap_or(&none));
+                    // place the real customize-category icons (the prefab leaves their sprite null)
+                    looks.clear_overrides();
+                    for (id, file) in &b.icons {
+                        let sprite = icon_cache
+                            .entry(file.clone())
+                            .or_insert_with(|| paint::load_icon_sprite(&icon_dir().join(file), [0x33, 0x34, 0x3a]))
+                            .clone();
+                        if let Some(s) = sprite {
+                            looks.override_sprite(*id, s);
+                        }
+                    }
                     Painted { drawn: paint::page_with(&mut looks, &b.page, canvas(&r.page)), page: r.page, actions: b.actions, scrolls: b.scrolls }
                 });
                 if tell.send(painted).is_err() {

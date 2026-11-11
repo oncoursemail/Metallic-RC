@@ -92,6 +92,23 @@ pub struct Looks<'a> {
     sprites: HashMap<(String, i64), Option<Arc<Sprite>>>,
     textures: HashMap<(String, i64), Option<Arc<(usize, usize, Vec<u8>)>>>,
     fonts: HashMap<(String, i64), Option<Arc<Font>>>,
+    /// per-paint sprite overrides by Image component id: for content the game assigns at runtime (e.g. the customize
+    /// category icons, whose prefab sprite is null). Cleared after each page.
+    overrides: HashMap<i64, Arc<Sprite>>,
+}
+
+/// Loads an exported RRUI icon PNG (white-on-transparent) as a sprite, baking `tint` into the RGB so it shows on a
+/// light chip; keeps the icon's own alpha. Used to place the real customize-category icons the prefab leaves null.
+pub fn load_icon_sprite(path: &std::path::Path, tint: [u8; 3]) -> Option<Arc<Sprite>> {
+    let img = image::open(path).ok()?.to_rgba8();
+    let (w, h) = img.dimensions();
+    let mut rgba = img.into_raw();
+    for px in rgba.chunks_exact_mut(4) {
+        px[0] = tint[0];
+        px[1] = tint[1];
+        px[2] = tint[2];
+    }
+    Some(Arc::new(Sprite { name: "icon".into(), width: w, height: h, rgba, border: [0.0; 4], pixels_per_unit: 100.0 }))
 }
 
 fn color(v: Option<&Value>) -> Option<[f32; 4]> {
@@ -125,7 +142,16 @@ fn plain(text: &str) -> String {
 
 impl<'a> Looks<'a> {
     pub fn new(lib: &'a mut Library) -> Self {
-        Looks { lib, sprites: HashMap::new(), textures: HashMap::new(), fonts: HashMap::new() }
+        Looks { lib, sprites: HashMap::new(), textures: HashMap::new(), fonts: HashMap::new(), overrides: HashMap::new() }
+    }
+
+    /// Sets a sprite override for an Image component id (used before painting a page, cleared by `clear_overrides`).
+    pub fn override_sprite(&mut self, id: i64, sprite: Arc<Sprite>) {
+        self.overrides.insert(id, sprite);
+    }
+
+    pub fn clear_overrides(&mut self) {
+        self.overrides.clear();
     }
 
     /// The library it reads from, for loading more pages while keeping what it has read.
@@ -145,8 +171,12 @@ impl<'a> Looks<'a> {
         t
     }
 
-    /// The sprite an Image shows.
+    /// The sprite an Image shows. A per-paint override (set for runtime-assigned graphics like the customize icons)
+    /// wins over the component's own `m_Sprite`.
     pub fn sprite(&mut self, c: &Component) -> Option<Arc<Sprite>> {
+        if let Some(s) = self.overrides.get(&c.id) {
+            return Some(s.clone());
+        }
         let (file, p) = (c.file.as_ref()?, pptr(&c.value, "m_Sprite")?);
         self.sprite_at(file, p)
     }

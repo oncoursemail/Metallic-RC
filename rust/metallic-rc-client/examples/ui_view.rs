@@ -37,12 +37,13 @@ fn main() {
 /// With METALLIC_SHOT=<path> set, screenshot after it has laid out, then exit.
 fn shot(mut commands: Commands, time: Res<Time>, mut done: Local<bool>, mut exit: MessageWriter<AppExit>) {
     let Ok(path) = std::env::var("METALLIC_SHOT") else { return };
+    let at: f32 = std::env::var("METALLIC_SHOT_AT").ok().and_then(|s| s.parse().ok()).unwrap_or(6.0);
     let t = time.elapsed_secs();
-    if !*done && t > 2.5 {
+    if !*done && t > at {
         commands.spawn(Screenshot::primary_window()).observe(save_to_disk(std::path::PathBuf::from(path)));
         *done = true;
     }
-    if *done && t > 3.5 {
+    if *done && t > at + 1.5 {
         exit.write(AppExit::Success);
     }
 }
