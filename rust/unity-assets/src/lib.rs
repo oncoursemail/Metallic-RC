@@ -22,7 +22,7 @@ pub mod value;
 mod tests;
 
 pub use animclip::{AnimationClip, Attribute, Binding};
-pub use audio::{AudioClip, AudioData};
+pub use audio::{AudioClip, AudioData, VorbisSetups};
 pub use bundle::{Bundle, BundleHeader, Node};
 pub use objects::*;
 pub use reader::Reader;
