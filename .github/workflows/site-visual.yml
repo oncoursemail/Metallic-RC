@@ -25,7 +25,9 @@ permissions:
 jobs:
   site-render:
     name: Real Chromium site rendering + screenshot review artifact
-    runs-on: ubuntu-latest
+    # GitHub's ubuntu-latest moved to 26.04, which Playwright 1.56.x can't install Chromium on;
+    # pin GitHub to 24.04 while the forge keeps its own self-hosted ubuntu-latest runner.
+    runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-24.04' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
