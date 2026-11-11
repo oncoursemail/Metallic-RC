@@ -85,6 +85,9 @@ pub struct Roomie {
     /// the real Rec Room hair mesh (from the exported wardrobe) and its material; absent if the wardrobe isn't present
     pub hair: Option<Handle<Mesh>>,
     pub hair_mat: Handle<StandardMaterial>,
+    /// the real jersey (torso) and basic-pants (legs) clothing meshes; coloured per-look when attached
+    pub jersey: Option<Handle<Mesh>>,
+    pub legs: Option<Handle<Mesh>>,
     /// the real joint rig and its inverse bind poses, when the body is skinned (else the body is the static bind pose)
     pub rig: Option<Arc<skin::RigDef>>,
     pub inverse_bindposes: Option<Handle<SkinnedMeshInverseBindposes>>,
@@ -362,13 +365,18 @@ fn load_obj(path: &Path) -> Option<Mesh> {
     Some(mesh)
 }
 
-/// Loads the real hair mesh for `body` (the Full body's meshes are `FB_`-prefixed; the Bean's are bare), by style name.
-/// Default style: a short curly cut; override with METALLIC_HAIR (e.g. `Afro`, `WavyShort`, `Undercut`).
+/// Loads a wardrobe mesh `stem` (e.g. "ShirtJersey", "BasicPants_Leg", "CurlyHelmetHair_Hair") for `body`: the Full
+/// body's meshes are `FB_`-prefixed, the Bean's are bare. Tries the prefixed name, then the bare one.
+fn load_wardrobe(body: BodyType, stem: &str) -> Option<Mesh> {
+    let prefix = if body == BodyType::Full { "FB_" } else { "" };
+    load_obj(&wardrobe_dir().join(format!("{prefix}{stem}_LOD0.obj")))
+        .or_else(|| load_obj(&wardrobe_dir().join(format!("{stem}_LOD0.obj"))))
+}
+
+/// The hair mesh for `body`. Default style: a short curly cut; override with METALLIC_HAIR (`Afro`, `WavyShort`, ...).
 fn load_hair(body: BodyType) -> Option<Mesh> {
     let style = std::env::var("METALLIC_HAIR").unwrap_or_else(|_| "CurlyHelmetHair".into());
-    let prefix = if body == BodyType::Full { "FB_" } else { "" };
-    let path = wardrobe_dir().join(format!("{prefix}{style}_Hair_LOD0.obj"));
-    load_obj(&path).or_else(|| load_obj(&wardrobe_dir().join(format!("{style}_Hair_LOD0.obj"))))
+    load_wardrobe(body, &format!("{style}_Hair"))
 }
 
 /// Loads every face sprite (`Texture2D`) in a bundle into a map `name -> decal material` (Eye_Default, Eye_Blink, ...;
@@ -501,6 +509,9 @@ pub fn load_roomie(
         None => info!("avatar: no wardrobe hair found (set METALLIC_WARDROBE_DIR)"),
     }
     let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.78, ..default() });
+    let jersey = load_wardrobe(body, "ShirtJersey").map(|m| meshes.add(m));
+    let legs = load_wardrobe(body, "BasicPants_Leg").map(|m| meshes.add(m));
+    info!("avatar: wardrobe — hair {}, jersey {}, legs {}", hair.is_some(), jersey.is_some(), legs.is_some());
     commands.insert_resource(Roomie {
         skin: meshes.add(skin),
         shirt: meshes.add(shirt),
@@ -513,6 +524,8 @@ pub fn load_roomie(
         logo_quad: meshes.add(Rectangle::new(LOGO_W, LOGO_W)),
         hair,
         hair_mat,
+        jersey,
+        legs,
         rig,
         inverse_bindposes,
         body,
@@ -549,11 +562,15 @@ pub fn attach_real(
             .id();
 
         let look = &rig.look;
-        let mats = [
-            solid(&mut materials, look.skin, 0.55),
-            solid(&mut materials, look.shirt, 0.8),
-            solid(&mut materials, look.pants, 0.75),
-        ];
+        // when real clothing meshes are worn, the base body is all skin (the jersey + pants provide shirt/legs);
+        // otherwise the body's own regions carry the shirt/pants colours
+        let clothed = roomie.jersey.is_some() || roomie.legs.is_some();
+        let mats = if clothed {
+            let skin = solid(&mut materials, look.skin, 0.55);
+            [skin.clone(), skin.clone(), skin]
+        } else {
+            [solid(&mut materials, look.skin, 0.55), solid(&mut materials, look.shirt, 0.8), solid(&mut materials, look.pants, 0.75)]
+        };
         let regions = [roomie.skin.clone(), roomie.shirt.clone(), roomie.pants.clone()];
 
         // where the face decals hang: under the head joint when skinned (so they follow the head), else the visual node
@@ -580,19 +597,30 @@ pub fn attach_real(
                 if let Some(hair) = &roomie.hair {
                     commands.spawn((Mesh3d(hair.clone()), MeshMaterial3d(roomie.hair_mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
                 }
+                // the real jersey (torso) and pants (legs) clothing meshes, in the look's shirt/pants colours
+                if let Some(j) = &roomie.jersey {
+                    let m = solid(&mut materials, look.shirt, 0.8);
+                    commands.spawn((Mesh3d(j.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
+                }
+                if let Some(l) = &roomie.legs {
+                    let m = solid(&mut materials, look.pants, 0.75);
+                    commands.spawn((Mesh3d(l.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
+                }
                 // a group under the head joint whose transform cancels the head's bind pose, so decals placed in the
                 // standing avatar frame (EYE_POS / MOUTH_POS) land on the face and then follow the head joint.
                 let head = rigdef.head;
                 let cancel = (Mat4::from_quat(stand()) * rigdef.bind_world[head]).inverse();
                 let group = commands.spawn((Transform::from_matrix(cancel), Visibility::default(), ChildOf(joints[head]))).id();
-                // the chest "smiley box" logo: hung under a chest joint (its bind pose cancelled) so it rides the torso
-                let chest = CHEST_JOINTS.iter().find_map(|n| rigdef.index(n)).unwrap_or(head);
-                let chest_cancel = (Mat4::from_quat(stand()) * rigdef.bind_world[chest]).inverse();
-                let chest_group = commands.spawn((Transform::from_matrix(chest_cancel), Visibility::default(), ChildOf(joints[chest]))).id();
-                let logo_pos = Vec3::new(0.0, envf("METALLIC_LOGO_Y", LOGO_POS.y), envf("METALLIC_LOGO_Z", LOGO_POS.z));
-                commands.spawn((Mesh3d(roomie.logo_quad.clone()), MeshMaterial3d(roomie.logo.clone()),
-                    Transform { translation: logo_pos, rotation: face, ..default() }, ChildOf(chest_group)));
-                info!("avatar: chest logo on joint {:?}", rigdef.joints[chest].name);
+                // an optional drawn chest logo (METALLIC_LOGO=1), hung under a chest joint so it rides the torso. Off by
+                // default: the real jersey carries its own print.
+                if std::env::var("METALLIC_LOGO").is_ok() {
+                    let chest = CHEST_JOINTS.iter().find_map(|n| rigdef.index(n)).unwrap_or(head);
+                    let chest_cancel = (Mat4::from_quat(stand()) * rigdef.bind_world[chest]).inverse();
+                    let chest_group = commands.spawn((Transform::from_matrix(chest_cancel), Visibility::default(), ChildOf(joints[chest]))).id();
+                    let logo_pos = Vec3::new(0.0, envf("METALLIC_LOGO_Y", LOGO_POS.y), envf("METALLIC_LOGO_Z", LOGO_POS.z));
+                    commands.spawn((Mesh3d(roomie.logo_quad.clone()), MeshMaterial3d(roomie.logo.clone()),
+                        Transform { translation: logo_pos, rotation: face, ..default() }, ChildOf(chest_group)));
+                }
                 commands.entity(root).insert(Skeleton { joints, root_node: skeleton_node, curls: [anim::Grip::Open.curls(); 2], bean: roomie.body == BodyType::Bean, clip_state: "idle", blend_from: None, blend: 1.0 });
                 group
             }
