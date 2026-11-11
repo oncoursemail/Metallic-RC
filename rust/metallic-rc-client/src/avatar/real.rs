@@ -2,6 +2,7 @@
 //! present. The real body mesh (plus its nose) is split by region into skin / shirt / pants so each avatar wears its
 //! look's colours, and the real Rec Room eye and mouth sprites are placed on the face as decals. Per-joint skinning and
 //! real store outfits come next; until then the body is static in its bind pose but still moves with its root.
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -16,7 +17,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use unity_assets::{Bundle, Mesh as UMesh, SerializedFile, Texture2D};
+use unity_assets::{classes, Bundle, Mesh as UMesh, SerializedFile, Texture2D};
 
 use super::{anim, skin, Drive, Rig};
 use crate::room;
@@ -25,11 +26,11 @@ use crate::room;
 const AVATAR_BUNDLE: &str = "edf7f2d64a5698a6cec7ec8a1f821ab8.bundle";
 const BODY_MESH_PATHID: i64 = 8332635914843264857; // BodyMesh_LOD0
 const NOSE_MESH_PATHID: i64 = 62350462907586393; // Nose_01Base_LOD0
-/// The real Rec Room face sprite sheets: a default open eye and a neutral mouth (one bundle + object each).
+/// The real Rec Room face sprite bundles. Each holds the whole expression set as separate 256²/512² textures, named
+/// (Eye_Default, Eye_Blink, Eye_Happy, ...; Mouth_Blank, Mouth_Talking_Open/Tall/Wide, Mouth_Smile, ...); `load_face_set`
+/// reads them all by name and `animate_face` swaps them to blink and run talking visemes.
 const EYE_BUNDLE: &str = "84554899b3243253ba56b4d0262997b6.bundle";
-const EYE_PATHID: i64 = -6280590809355750825; // Eye_Default
 const MOUTH_BUNDLE: &str = "8fcb685a7a49de356df5b83ada6b0c86.bundle";
-const MOUTH_PATHID: i64 = -8488847646716117003; // Mouth_Blank (neutral)
 
 /// Rec Room ships two avatar body types. The Bean is the classic, iconic Rec Room look: a rounded legless torso with a
 /// head and floating hands. The Full body is the newer humanoid with arms and legs. Both share the same `Jnt.*` rig.
@@ -72,11 +73,12 @@ pub struct Roomie {
     pub skin: Handle<Mesh>,
     pub shirt: Handle<Mesh>,
     pub pants: Handle<Mesh>,
-    /// face sprite decals (an eye, mirrored for both sides, and a mouth), facing -z
+    /// the shared eye / mouth quads (square, the full sprite canvas), facing -z (the eye quad is mirrored for the right
+    /// side), and every expression by name as a decal material for `animate_face` to swap (blink, talking visemes, ...)
     pub eye_quad: Handle<Mesh>,
-    pub eye_mat: Handle<StandardMaterial>,
     pub mouth_quad: Handle<Mesh>,
-    pub mouth_mat: Handle<StandardMaterial>,
+    pub eyes: HashMap<String, Handle<StandardMaterial>>,
+    pub mouths: HashMap<String, Handle<StandardMaterial>>,
     /// the real joint rig and its inverse bind poses, when the body is skinned (else the body is the static bind pose)
     pub rig: Option<Arc<skin::RigDef>>,
     pub inverse_bindposes: Option<Handle<SkinnedMeshInverseBindposes>>,
@@ -97,6 +99,15 @@ pub struct Skeleton {
     pub bean: bool,
 }
 
+/// The face decals of one avatar plus a per-avatar phase seed, so `animate_face` can swap their expression materials to
+/// blink and run talking visemes without each avatar blinking in lockstep.
+#[derive(Component)]
+pub struct Face {
+    pub eyes: [Entity; 2],
+    pub mouth: Entity,
+    pub seed: u32,
+}
+
 /// Marks a `Rig` whose real body has been attached, so it is attached once.
 #[derive(Component)]
 pub struct RealBuilt;
@@ -109,10 +120,12 @@ pub struct Visual {
 }
 
 /// Where the face sits in the avatar's upright local space (feet at 0, facing -z): each eye, and the mouth.
-const EYE_POS: [Vec3; 2] = [Vec3::new(-0.045, 1.528, -0.14), Vec3::new(0.045, 1.528, -0.14)];
-const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.478, -0.158);
-const EYE_W: f32 = 0.13;
-const MOUTH_W: f32 = 0.12;
+const EYE_POS: [Vec3; 2] = [Vec3::new(-0.04, 1.521, -0.14), Vec3::new(0.04, 1.521, -0.14)];
+const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.486, -0.158);
+// the quads are the sprite's full square canvas (256² eye, 512² mouth): sized so the inked feature reads at the right
+// size (the eye spans ~0.68 of its canvas → 0.19 canvas makes a ~0.13 eye; the mouth ~0.39 → 0.31 canvas makes ~0.12).
+const EYE_W: f32 = 0.19;
+const MOUTH_W: f32 = 0.31;
 /// The Full body's head joint height in the standing frame (feet at 0); EYE_POS/MOUTH_POS are placed relative to it, so
 /// another body type's face shifts by its own head height minus this.
 const FULL_HEAD_Y: f32 = 1.421;
@@ -205,55 +218,51 @@ fn load_bodies(dir: &Path) -> Option<[Mesh; 3]> {
     Some([make(std::mem::take(&mut zones[0])), make(std::mem::take(&mut zones[1])), make(std::mem::take(&mut zones[2]))])
 }
 
-/// Reads a Rec Room face sprite and turns it into a black decal with alpha from the drawing's darkness, cropped to the
-/// shape. Robust to whether the source marks transparency in its alpha channel or paints the shape dark on white.
-fn load_face_sprite(dir: &Path, bundle: &str, pathid: i64) -> Option<(Image, f32)> {
-    let path = room::bundle_dir(dir).join(bundle);
-    let b = Bundle::open(&path).ok()?;
-    let files = b.serialized_files().ok()?;
-    let sf = files.iter().find_map(|(_, sf)| sf.object(pathid).map(|_| sf))?;
-    let o = sf.object(pathid)?;
-    let v = sf.read_value(o).ok()?;
-    let t = Texture2D::from_value(&v, &b).ok()?;
+/// Turns a Rec Room face sprite into a black decal over its full canvas: the ink's darkness (times its own alpha) is the
+/// decal's alpha, so the white page goes transparent and the drawn feature opaque. The canvas is kept uncropped — every
+/// expression in a set is authored the same size with the feature in place, so one shared quad holds them all and each
+/// keeps its true relative size and offset (a talking mouth opens downward, a blink is a low flat line) when swapped.
+fn face_decal(t: &Texture2D) -> Option<Image> {
     let px = t.decode_rgba8().ok()?;
     let (w, h) = (t.width as usize, t.height as usize);
     if px.len() < w * h * 4 {
         return None;
     }
-    let (mut x0, mut y0, mut x1, mut y1) = (w, h, 0usize, 0usize);
-    let mut alpha = vec![0u8; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            let i = (y * w + x) * 4;
-            let lum = (px[i] as u32 + px[i + 1] as u32 + px[i + 2] as u32) / 3;
-            let a = (255 - lum.min(255)) as u8;
-            alpha[y * w + x] = a;
-            if a > 24 {
-                x0 = x0.min(x);
-                y0 = y0.min(y);
-                x1 = x1.max(x);
-                y1 = y1.max(y);
-            }
-        }
+    let mut out = vec![0u8; w * h * 4];
+    for i in 0..w * h {
+        let lum = (px[i * 4] as u32 + px[i * 4 + 1] as u32 + px[i * 4 + 2] as u32) / 3;
+        out[i * 4 + 3] = ((255 - lum.min(255)) * px[i * 4 + 3] as u32 / 255) as u8;
     }
-    if x1 < x0 || y1 < y0 {
-        return None;
-    }
-    let (cw, ch) = (x1 - x0 + 1, y1 - y0 + 1);
-    let mut out = vec![0u8; cw * ch * 4];
-    for y in 0..ch {
-        for x in 0..cw {
-            out[(y * cw + x) * 4 + 3] = alpha[(y0 + y) * w + (x0 + x)];
-        }
-    }
-    let img = Image::new(
-        Extent3d { width: cw as u32, height: ch as u32, depth_or_array_layers: 1 },
+    Some(Image::new(
+        Extent3d { width: w as u32, height: h as u32, depth_or_array_layers: 1 },
         TextureDimension::D2,
         out,
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::default(),
-    );
-    Some((img, ch as f32 / cw as f32))
+    ))
+}
+
+/// Loads every face sprite (`Texture2D`) in a bundle into a map `name -> decal material` (Eye_Default, Eye_Blink, ...;
+/// Mouth_Blank, Mouth_Talking_Open, ...). All share one quad (`animate_face` swaps only the material). Skips unreadable.
+fn load_face_set(dir: &Path, bundle: &str, images: &mut Assets<Image>, materials: &mut Assets<StandardMaterial>) -> HashMap<String, Handle<StandardMaterial>> {
+    let mut set = HashMap::new();
+    let path = room::bundle_dir(dir).join(bundle);
+    let Ok(b) = Bundle::open(&path) else { return set };
+    let Ok(files) = b.serialized_files() else { return set };
+    for (_, sf) in &files {
+        for o in sf.objects.iter().filter(|o| o.class_id == classes::TEXTURE_2D) {
+            let Some(name) = sf.object_name(o) else { continue };
+            if set.contains_key(&name) {
+                continue;
+            }
+            let Ok(v) = sf.read_value(o) else { continue };
+            let Ok(t) = Texture2D::from_value(&v, &b) else { continue };
+            if let Some(img) = face_decal(&t) {
+                set.insert(name, decal(materials, images.add(img)));
+            }
+        }
+    }
+    set
 }
 
 fn decal(materials: &mut Assets<StandardMaterial>, tex: Handle<Image>) -> Handle<StandardMaterial> {
@@ -296,20 +305,22 @@ pub fn load_roomie(
         },
     };
     let [skin, shirt, pants] = bodies;
-    let (Some((eye_img, eye_a)), Some((mouth_img, mouth_a))) =
-        (load_face_sprite(dir, EYE_BUNDLE, EYE_PATHID), load_face_sprite(dir, MOUTH_BUNDLE, MOUTH_PATHID))
-    else {
-        info!("avatar: real body loaded, but the face sprites could not be read");
+    // the whole expression set for each (default/blink/happy/... eyes; blank/talking-visemes/... mouths)
+    let eyes = load_face_set(dir, EYE_BUNDLE, &mut images, &mut materials);
+    let mouths = load_face_set(dir, MOUTH_BUNDLE, &mut images, &mut materials);
+    if !eyes.contains_key("Eye_Default") || !mouths.contains_key("Mouth_Blank") {
+        info!("avatar: real body loaded, but the face sprites could not be read (eyes: {}, mouths: {})", eyes.len(), mouths.len());
         return;
-    };
+    }
+    info!("avatar: face sprites loaded ({} eye, {} mouth expressions)", eyes.len(), mouths.len());
     commands.insert_resource(Roomie {
         skin: meshes.add(skin),
         shirt: meshes.add(shirt),
         pants: meshes.add(pants),
-        eye_quad: meshes.add(Rectangle::new(EYE_W, EYE_W * eye_a)),
-        eye_mat: decal(&mut materials, images.add(eye_img)),
-        mouth_quad: meshes.add(Rectangle::new(MOUTH_W, MOUTH_W * mouth_a)),
-        mouth_mat: decal(&mut materials, images.add(mouth_img)),
+        eye_quad: meshes.add(Rectangle::new(EYE_W, EYE_W)),
+        mouth_quad: meshes.add(Rectangle::new(MOUTH_W, MOUTH_W)),
+        eyes,
+        mouths,
         rig,
         inverse_bindposes,
         body,
@@ -394,13 +405,18 @@ pub fn attach_real(
         // loaded body's head joint (keeps the Full body unchanged, places the Bean's face correctly).
         let head_dy = Vec3::Y
             * roomie.rig.as_ref().map_or(0.0, |r| (Mat4::from_quat(stand()) * r.bind_world[r.head]).to_scale_rotation_translation().2.y - FULL_HEAD_Y);
+        // start at the resting expression; `animate_face` swaps these materials to blink and talk.
+        let eye_mat = roomie.eyes.get("Eye_Default").cloned().unwrap_or_default();
+        let mouth_mat = roomie.mouths.get("Mouth_Blank").cloned().unwrap_or_default();
+        let mut eyes = [Entity::PLACEHOLDER; 2];
         for (i, p) in EYE_POS.into_iter().enumerate() {
             let scale = Vec3::new(if i == 0 { 1.0 } else { -1.0 }, 1.0, 1.0);
-            commands.spawn((Mesh3d(roomie.eye_quad.clone()), MeshMaterial3d(roomie.eye_mat.clone()),
-                Transform { translation: p + head_dy, rotation: face, scale }, ChildOf(decal_parent)));
+            eyes[i] = commands.spawn((Mesh3d(roomie.eye_quad.clone()), MeshMaterial3d(eye_mat.clone()),
+                Transform { translation: p + head_dy, rotation: face, scale }, ChildOf(decal_parent))).id();
         }
-        commands.spawn((Mesh3d(roomie.mouth_quad.clone()), MeshMaterial3d(roomie.mouth_mat.clone()),
-            Transform { translation: MOUTH_POS + head_dy, rotation: face, ..default() }, ChildOf(decal_parent)));
+        let mouth = commands.spawn((Mesh3d(roomie.mouth_quad.clone()), MeshMaterial3d(mouth_mat),
+            Transform { translation: MOUTH_POS + head_dy, rotation: face, ..default() }, ChildOf(decal_parent))).id();
+        commands.entity(root).insert(Face { eyes, mouth, seed: rig.seed });
     }
 }
 
@@ -560,5 +576,43 @@ pub fn animate_skeleton(
             tr.translation.y = pose.bob - pose.drop;
             *t = tr;
         }
+    }
+}
+
+/// Brings the real face to life: the eyes blink every few seconds (each avatar on its own clock) and the mouth runs the
+/// talking visemes while the avatar talks, resting neutral otherwise — swapping the decal materials from the loaded
+/// expression sets. Only the symmetric expressions are used, so the mirrored right eye stays correct.
+pub fn animate_face(
+    time: Res<Time>,
+    roomie: Option<Res<Roomie>>,
+    faces: Query<(&Face, &Drive)>,
+    mut mats: Query<&mut MeshMaterial3d<StandardMaterial>>,
+) {
+    let Some(roomie) = roomie else { return };
+    let t = time.elapsed_secs();
+    const VISEMES: [&str; 3] = ["Mouth_Talking_Open", "Mouth_Talking_Tall", "Mouth_Talking_Wide"];
+    // swap a decal entity to the expression material `m`, only when it actually changes
+    let mut put = |ent: Entity, m: Option<&Handle<StandardMaterial>>| {
+        if let (Some(m), Ok(mut mat)) = (m, mats.get_mut(ent)) {
+            if mat.0.id() != m.id() {
+                mat.0 = m.clone();
+            }
+        }
+    };
+    for (face, drive) in &faces {
+        // blink: a quick close for ~0.12 s every few seconds, offset per avatar so they don't blink in lockstep
+        let period = 3.2 + (face.seed % 7) as f32 * 0.45;
+        let blinking = (t + (face.seed as f32 * 0.613).rem_euclid(period)).rem_euclid(period) < 0.12;
+        let eye = roomie.eyes.get(if blinking { "Eye_Blink" } else { "Eye_Default" });
+        for &e in &face.eyes {
+            put(e, eye);
+        }
+        // mouth: cycle the talking shapes while talking (a speech-like flutter), else the neutral mouth
+        let mouth = if drive.talking {
+            VISEMES[((t * 10.0 + face.seed as f32 * 1.7) as i64).rem_euclid(VISEMES.len() as i64) as usize]
+        } else {
+            "Mouth_Blank"
+        };
+        put(face.mouth, roomie.mouths.get(mouth));
     }
 }

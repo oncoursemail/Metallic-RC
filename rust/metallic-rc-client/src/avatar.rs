@@ -66,7 +66,7 @@ impl Plugin for AvatarPlugin {
         bevy::asset::embedded_asset!(app, "avatar/toon.wesl");
         app.add_plugins(MaterialPlugin::<Toon>::default())
             .add_systems(Startup, (make_kit, real::load_roomie))
-            .add_systems(Update, (real::attach_real, real::idle))
+            .add_systems(Update, (real::attach_real, real::idle, real::animate_face))
             .add_systems(PostUpdate, (dress, animate).chain().before(TransformSystems::Propagate))
             .add_systems(PostUpdate, real::animate_skeleton.before(TransformSystems::Propagate))
             .add_systems(PostUpdate, place_tags.after(TransformSystems::Propagate).before(UiSystems::Prepare));
