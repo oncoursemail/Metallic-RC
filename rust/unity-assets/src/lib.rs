@@ -11,6 +11,7 @@ pub mod catalog;
 pub mod classes;
 pub mod level;
 pub mod objects;
+pub mod particles;
 pub mod serialized;
 pub mod stripped;
 pub mod texture;
@@ -19,6 +20,7 @@ pub mod value;
 mod tests;
 
 pub use bundle::{Bundle, BundleHeader, Node};
+pub use particles::{Burst, Color as ParticleColor, Keyframe, MinMaxCurve, MinMaxGradient, ParticleSystem};
 pub use objects::*;
 pub use reader::Reader;
 pub use serialized::{External, ObjectInfo, SerializedFile, SerializedType, TypeNode, TypeTree};
