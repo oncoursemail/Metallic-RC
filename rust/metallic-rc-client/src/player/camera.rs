@@ -4,7 +4,7 @@
 use bevy::math::{Quat, Vec3};
 
 use super::tuning::CameraPreset;
-use crate::collide::{self, Obb};
+use crate::collide::{self, Collider};
 
 /// The camera's world position for `preset`, the player standing at `feet` with normalized `height`, looking `view`.
 /// INFERRED: the pivot scales with the player's height (the eye ends at 1.55 m for 1.7 m).
@@ -16,7 +16,7 @@ pub fn place(preset: &CameraPreset, feet: Vec3, yaw: f32, view: Quat, height: f3
 
 /// The furthest point from `pivot` toward `want` where a ball of `radius` touches no box (the camera does not go
 /// into walls); `pivot` itself when even the first step is blocked.
-pub fn pull_in(solids: &[Obb], pivot: Vec3, want: Vec3, radius: f32) -> Vec3 {
+pub fn pull_in(solids: &[Collider], pivot: Vec3, want: Vec3, radius: f32) -> Vec3 {
     let steps = 40;
     let clear = (1..=steps).map(|i| i as f32 / steps as f32).take_while(|f| collide::sphere_clear(solids, pivot.lerp(want, *f), radius)).last();
     pivot.lerp(want, clear.unwrap_or(0.0))
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn the_camera_stops_in_front_of_a_wall() {
-        let wall = Obb { center: Vec3::new(0.0, 1.5, 1.0), axes: [Vec3::X, Vec3::Y, Vec3::Z], half: Vec3::new(5.0, 3.0, 0.05) };
+        let wall = Collider::Box(crate::collide::Obb { center: Vec3::new(0.0, 1.5, 1.0), axes: [Vec3::X, Vec3::Y, Vec3::Z], half: Vec3::new(5.0, 3.0, 0.05) });
         let at = pull_in(&[wall.clone()], Vec3::new(0.0, 1.6, 0.0), Vec3::new(0.0, 1.6, 1.8), 0.15);
         assert!(at.z <= 0.95 - 0.15 + 1e-3 && at.z > 0.7, "{at}");
         let free = pull_in(&[], Vec3::ZERO, Vec3::new(0.0, 0.0, 2.0), 0.15);

@@ -37,6 +37,17 @@ fn main() {
                     println!("OK    {:<7} {:<30} parts {:>5} verts {:>8} lights {:>4} colliders {:>5} spawns {:>3} ({:.1}s)",
                              s.file, s.name, parts, verts, r.lights.len(), r.colliders.len(), r.spawns.len(), t.elapsed().as_secs_f32());
                     if !only.is_empty() {
+                        use metallic_rc_client::collide::Collider;
+                        let (mut b, mut s, mut c, mut m, mut mt) = (0, 0, 0, 0, 0usize);
+                        for col in &r.colliders {
+                            match col {
+                                Collider::Box(_) => b += 1,
+                                Collider::Sphere { .. } => s += 1,
+                                Collider::Capsule { .. } => c += 1,
+                                Collider::Mesh(mesh) => { m += 1; mt += mesh.tris.len(); }
+                            }
+                        }
+                        println!("      colliders: box {b}, sphere {s}, capsule {c}, mesh {m} ({mt} tris)");
                         let (lo, hi) = metallic_rc_client::world::bounds(&r);
                         println!("      bounds y {:.1}..{:.1}", lo.y, hi.y);
                         for (k, m) in r.spawns.iter().take(4).enumerate() {

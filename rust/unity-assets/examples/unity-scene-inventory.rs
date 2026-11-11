@@ -79,6 +79,31 @@ fn main() {
     }
     println!("\n== LODGroups: {lg_ok} parsed, {lg_err} failed; {lod0} LOD0 renderers, {lower} lower-LOD renderers ==");
 
+    // Collider parse check (the shapes the player can stand/walk on).
+    let count = |class: i32, parse: &dyn Fn(&ObjectInfo) -> bool| -> (usize, usize) {
+        let (mut ok, mut err) = (0, 0);
+        for o in sf.objects.iter().filter(|o| o.class_id == class) {
+            if parse(o) {
+                ok += 1;
+            } else {
+                err += 1;
+            }
+        }
+        (ok, err)
+    };
+    println!("\n== Colliders (parsed/failed) ==");
+    for (label, class) in [("Box", classes::BOX_COLLIDER), ("Sphere", classes::SPHERE_COLLIDER), ("Capsule", classes::CAPSULE_COLLIDER), ("Mesh", classes::MESH_COLLIDER)] {
+        let (ok, err) = match class {
+            classes::BOX_COLLIDER => count(class, &|o| level::box_collider(&sf, o).is_ok()),
+            classes::SPHERE_COLLIDER => count(class, &|o| level::sphere_collider(&sf, o).is_ok()),
+            classes::CAPSULE_COLLIDER => count(class, &|o| level::capsule_collider(&sf, o).is_ok()),
+            _ => count(class, &|o| level::mesh_collider(&sf, o).is_ok()),
+        };
+        println!("  {label:<8} {ok} ok, {err} failed");
+    }
+
+    println!("\n== MonoBehaviour scripts ({mb_total} total, {unresolved} unresolved) ==");
+
     println!("\n== MonoBehaviour scripts ({mb_total} total, {unresolved} unresolved) ==");
     let mut v: Vec<_> = scripts.iter().collect();
     v.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));

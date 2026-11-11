@@ -19,7 +19,7 @@ use bevy::math::{Mat4, Quat, Vec3};
 use unity_assets::{classes, level, Material, PPtr, SerializedFile};
 
 use crate::{
-    collide::Obb,
+    collide::{Collider, MeshShape, Obb},
     room::{self, Blend, Library, Part, RoomData, RoomLight, RoomMaterial},
     shapes::{self, Pixels, ShapeKit},
 };
@@ -784,23 +784,10 @@ fn load_with(files: &mut Files, lib: &mut Library, kit: &mut ShapeKit, dir: &Pat
             b.add(&scene, i);
         }
     }
-    // solid box colliders of active objects
-    for (i, n) in scene.nodes.iter().enumerate() {
-        if !n.active {
-            continue;
-        }
-        for &(class, id) in &n.components {
-            if class != classes::BOX_COLLIDER {
-                continue;
-            }
-            if let Ok(c) = level::box_collider(&sf, sf.object(id).unwrap()) {
-                if c.enabled && !c.trigger {
-                    r.colliders.push(Obb::from_box_collider(scene.nodes[i].world, c.center, c.size));
-                    r.collider_roots.push(root);
-                }
-            }
-        }
-    }
+    // solid colliders (box, sphere, capsule, mesh; triggers left out) of active objects
+    let (cols, croots) = scene_colliders(files, &sf, &scene, root);
+    r.colliders = cols;
+    r.collider_roots = croots;
     let lights = scene_lights(&scene, &sf, root);
     if !lights.is_empty() {
         r.lights = lights;
@@ -866,6 +853,67 @@ pub fn scene_list() -> Vec<SceneEntry> {
 /// geometry, materials, solid colliders and realtime lights. `game_data` is the game install's `RecRoom_Data`,
 /// where the plaintext `.resS` streams live. `None` when there is no corpus or it has no such scene, so the caller
 /// falls back to another loader.
+/// The solid colliders (box, sphere, capsule, mesh; triggers and disabled ones left out) of a scene's active
+/// objects, in client (Bevy) space, with the root each belongs to.
+fn scene_colliders(files: &mut Files, sf: &SerializedFile, scene: &Scene, root: usize) -> (Vec<Collider>, Vec<usize>) {
+    let mut colliders = Vec::new();
+    let mut roots = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        let world = n.world;
+        let to_bevy = |p: [f32; 3]| world.transform_point3(Vec3::new(p[0], p[1], -p[2]));
+        let smax = world.to_scale_rotation_translation().0.abs().max_element();
+        for &(class, id) in &n.components {
+            let Some(o) = sf.object(id) else { continue };
+            let col = if class == classes::BOX_COLLIDER {
+                level::box_collider(sf, o).ok().filter(|c| c.enabled && !c.trigger).map(|c| Collider::Box(Obb::from_box_collider(world, c.center, c.size)))
+            } else if class == classes::SPHERE_COLLIDER {
+                level::sphere_collider(sf, o).ok().filter(|c| c.enabled && !c.trigger).map(|c| Collider::Sphere { center: to_bevy(c.center), radius: c.radius * smax })
+            } else if class == classes::CAPSULE_COLLIDER {
+                level::capsule_collider(sf, o).ok().filter(|c| c.enabled && !c.trigger).map(|c| {
+                    let dir = match c.direction { 0 => Vec3::X, 1 => Vec3::Y, _ => Vec3::Z };
+                    let half = (c.height * 0.5 - c.radius).max(0.0);
+                    let cen = Vec3::from(c.center);
+                    let (a, b) = (cen + dir * half, cen - dir * half);
+                    Collider::Capsule { a: to_bevy(a.into()), b: to_bevy(b.into()), r: c.radius * smax }
+                })
+            } else if class == classes::MESH_COLLIDER {
+                mesh_collider_shape(files, sf, &scene.file, world, o)
+            } else {
+                None
+            };
+            if let Some(c) = col {
+                colliders.push(c);
+                roots.push(root);
+            }
+        }
+    }
+    (colliders, roots)
+}
+
+/// Build a [`Collider::Mesh`] from a MeshCollider's referenced mesh, in client (Bevy) world space.
+fn mesh_collider_shape(files: &mut Files, sf: &SerializedFile, scene_file: &str, world: Mat4, o: &unity_assets::ObjectInfo) -> Option<Collider> {
+    let mc = level::mesh_collider(sf, o).ok().filter(|c| c.enabled && !c.trigger)?;
+    let (f, pid) = files.resolve(scene_file, mc.mesh)?;
+    let mesh_sf = files.get(&f)?;
+    let res = files.resources();
+    let m = level::mesh(&mesh_sf, mesh_sf.object(pid)?, &res).ok()?;
+    let pos = m.positions();
+    let to_world = |i: u32| pos.get(i as usize).map(|p| world.transform_point3(Vec3::new(p[0], p[1], -p[2])));
+    let mut tris = Vec::new();
+    for s in 0..m.submeshes.len() {
+        if m.submeshes[s].topology != 0 {
+            continue; // triangle lists only
+        }
+        let Some(idx) = m.submesh_indices(s) else { continue };
+        for t in idx.chunks_exact(3) {
+            if let (Some(a), Some(b), Some(c)) = (to_world(t[0]), to_world(t[1]), to_world(t[2])) {
+                tris.push([a, b, c]);
+            }
+        }
+    }
+    (!tris.is_empty()).then(|| Collider::Mesh(MeshShape::new(tris)))
+}
+
 /// World transforms of a scene's spawn points (`SceneSpawnPoint` / `GamePlayerSpawnPoint` MonoBehaviours), for
 /// placing the player. The script class behind each MonoBehaviour is resolved through its `m_Script` and cached.
 fn scene_spawns(files: &mut Files, scene_file: &str, sf: &SerializedFile, scene: &Scene) -> Vec<Mat4> {
@@ -929,26 +977,12 @@ fn load_scene_with(files: &mut Files, room: &str) -> Result<RoomData, String> {
     r.places.push(Mat4::IDENTITY);
     r.props.push(false);
     let root = r.roots.len() - 1;
-    // solid box colliders and realtime lights of active objects (read before the mesh builder borrows `files`)
+    // solid colliders (box, sphere, capsule, mesh; triggers left out) and realtime lights of active objects
+    // (read before the mesh builder borrows `files`)
     let sf = files.get(&scene.file).ok_or("scene file")?;
-    for (i, n) in scene.nodes.iter().enumerate() {
-        if !n.active {
-            continue;
-        }
-        for &(class, id) in &n.components {
-            if class != classes::BOX_COLLIDER {
-                continue;
-            }
-            if let Some(o) = sf.object(id) {
-                if let Ok(c) = level::box_collider(&sf, o) {
-                    if c.enabled && !c.trigger {
-                        r.colliders.push(Obb::from_box_collider(scene.nodes[i].world, c.center, c.size));
-                        r.collider_roots.push(root);
-                    }
-                }
-            }
-        }
-    }
+    let (cols, croots) = scene_colliders(files, &sf, &scene, root);
+    r.colliders = cols;
+    r.collider_roots = croots;
     let lights = scene_lights(&scene, &sf, root);
     if !lights.is_empty() {
         r.lights = lights;

@@ -458,28 +458,97 @@ pub struct BoxCollider {
     pub center: [f32; 3],
 }
 
-pub fn box_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<BoxCollider> {
-    let mut r = reader(sf, o, classes::BOX_COLLIDER, "BoxCollider")?;
-    let game_object = pptr(&mut r)?;
-    pptr(&mut r)?; // m_Material
-    let (trigger, enabled) = if is_u6(sf) {
-        skip(&mut r, 12)?; // m_IncludeLayers, m_ExcludeLayers (BitField), m_LayerOverridePriority
+/// The shared Collider prefix (`m_GameObject`, `m_Material`, the Unity 6 layer block, `m_IsTrigger`,
+/// `m_ProvidesContacts`, `m_Enabled`), leaving the reader at the shape-specific fields.
+fn collider_base(r: &mut Reader, sf: &SerializedFile) -> Result<(PPtr, bool, bool)> {
+    let game_object = pptr(r)?;
+    pptr(r)?; // m_Material
+    if is_u6(sf) {
+        skip(r, 12)?; // m_IncludeLayers, m_ExcludeLayers (BitField), m_LayerOverridePriority
         let trigger = r.bool()?;
         r.bool()?; // m_ProvidesContacts
         r.align(4);
         let enabled = r.bool()?;
         r.align(4);
-        (trigger, enabled)
+        Ok((game_object, trigger, enabled))
     } else {
         let trigger = r.bool()?;
         let enabled = r.bool()?;
         r.align(4);
-        (trigger, enabled)
-    };
+        Ok((game_object, trigger, enabled))
+    }
+}
+
+pub fn box_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<BoxCollider> {
+    let mut r = reader(sf, o, classes::BOX_COLLIDER, "BoxCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
     let size = floats::<3>(&mut r)?;
     let center = floats::<3>(&mut r)?;
     done(&r, "BoxCollider")?;
     Ok(BoxCollider { game_object, trigger, enabled, size, center })
+}
+
+/// SphereCollider (135).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SphereCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub radius: f32,
+    pub center: [f32; 3],
+}
+
+pub fn sphere_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<SphereCollider> {
+    let mut r = reader(sf, o, classes::SPHERE_COLLIDER, "SphereCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let radius = r.f32()?;
+    let center = floats::<3>(&mut r)?;
+    done(&r, "SphereCollider")?;
+    Ok(SphereCollider { game_object, trigger, enabled, radius, center })
+}
+
+/// CapsuleCollider (136). `direction`: 0 = X, 1 = Y, 2 = Z (the axis the height runs along).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CapsuleCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub radius: f32,
+    pub height: f32,
+    pub direction: i32,
+    pub center: [f32; 3],
+}
+
+pub fn capsule_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<CapsuleCollider> {
+    let mut r = reader(sf, o, classes::CAPSULE_COLLIDER, "CapsuleCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let radius = r.f32()?;
+    let height = r.f32()?;
+    let direction = r.i32()?;
+    let center = floats::<3>(&mut r)?;
+    done(&r, "CapsuleCollider")?;
+    Ok(CapsuleCollider { game_object, trigger, enabled, radius, height, direction, center })
+}
+
+/// MeshCollider (64): a collision surface from an arbitrary mesh (`mesh` points at the Mesh to use).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub convex: bool,
+    pub mesh: PPtr,
+}
+
+pub fn mesh_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<MeshCollider> {
+    let mut r = reader(sf, o, classes::MESH_COLLIDER, "MeshCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let convex = r.bool()?;
+    r.align(4);
+    r.i32()?; // m_CookingOptions
+    let mesh = pptr(&mut r)?;
+    done(&r, "MeshCollider")?;
+    Ok(MeshCollider { game_object, trigger, enabled, convex, mesh })
 }
 
 /// Out-of-line data (`.resS` / `.resource`) of plain files in a player's data folder.
