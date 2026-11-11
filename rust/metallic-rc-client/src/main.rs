@@ -27,6 +27,7 @@ use bevy::{
     prelude::*,
     window::{CursorGrabMode, CursorOptions, MonitorSelection, PresentMode, PrimaryWindow, WindowMode},
 };
+use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 use metallic_rc_client::{
     avatar::{self, Drive, Kit, LocalLook, Look, Rig},
     net::{self, Login},
@@ -231,8 +232,24 @@ fn main() {
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
         .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), show_status, spawn_room,
-            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room))
+            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room, auto_shot))
         .run();
+}
+
+/// QA capture: with `METALLIC_SHOT=<path>` set, wait `METALLIC_SHOT_AT` seconds (default 7, to let the room and its
+/// particles settle), save a screenshot of the window to `<path>`, then exit. No effect when the env var is unset.
+fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::ThirdPerson>, mut elapsed: Local<f32>, mut shot: Local<bool>, mut exit: MessageWriter<AppExit>) {
+    let Ok(path) = std::env::var("METALLIC_SHOT") else { return };
+    third.0 = true; // show the avatar in the room (not the first-person face) for the capture
+    *elapsed += time.delta_secs();
+    let at = std::env::var("METALLIC_SHOT_AT").ok().and_then(|s| s.parse().ok()).unwrap_or(7.0);
+    if !*shot && *elapsed >= at {
+        *shot = true;
+        commands.spawn(Screenshot::primary_window()).observe(save_to_disk(std::path::PathBuf::from(path)));
+    }
+    if *shot && *elapsed >= at + 2.0 {
+        exit.write(AppExit::Success);
+    }
 }
 
 /// A stand-in dorm: floor, four walls, a bed and a desk, lit from the ceiling.
