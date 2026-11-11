@@ -18,7 +18,7 @@ use bevy::{
 };
 use unity_assets::{Bundle, Mesh as UMesh, SerializedFile, Texture2D};
 
-use super::{anim, skin, Rig};
+use super::{anim, skin, Drive, Rig};
 use crate::room;
 
 /// The avatar skin bundle inside the install, and the body + nose mesh objects in it.
@@ -357,10 +357,12 @@ pub fn attach_real(
     }
 }
 
-/// A gentle idle: the avatar breathes (a small vertical bob + a hair of scale) and sways, each offset by its phase, so
-/// a standing avatar is never dead-still. The skinned body is posed per joint instead (`animate_skeleton`), so this
-/// only moves the static-body avatars.
-pub fn idle(time: Res<Time>, mut visuals: Query<(&Visual, &mut Transform)>) {
+/// A gentle idle for the *static* (un-skinned) body: it breathes and sways so it is never dead-still. Skinned avatars
+/// are posed per joint (`animate_skeleton`) and skip this.
+pub fn idle(time: Res<Time>, roomie: Option<Res<Roomie>>, mut visuals: Query<(&Visual, &mut Transform)>) {
+    if roomie.as_ref().and_then(|r| r.rig.as_ref()).is_some() {
+        return; // the real rig is posed per joint; don't also bob the whole visual
+    }
     let t = time.elapsed_secs();
     for (v, mut tr) in &mut visuals {
         let b = t * 1.6 + v.phase;
@@ -371,36 +373,103 @@ pub fn idle(time: Res<Time>, mut visuals: Query<(&Visual, &mut Transform)>) {
     }
 }
 
-/// TEMP (stage 2): pose the real skeleton from an env test spec `TP="Jnt.Name:axis:deg,..."` so we can discover each
-/// joint's local bend axes before wiring real locomotion. Resets every joint to its bind pose, then applies the spec.
+// Pose angles (radians), in the rig's own skeleton space: the body-up axis is −z (feet→head), down is +z, forward
+// (the way it faces) is −y, right is +x. Swings are expressed about those axes and conjugated into each joint's local
+// frame by `skel_swing`, so no per-joint axis-guessing is needed. Tuned against `avatar_preview`.
+const ARM_DOWN: f32 = 0.62; // swing the A-pose arms down to the sides, about the body-up axis
+const ELBOW_REST: f32 = 0.18; // a slight resting elbow bend so the arms aren't ramrod straight
+const ARM_SWING: f32 = 0.5; // fore/aft arm swing while walking (opposite the legs)
+const KNEE_BEND: f32 = 1.15; // knee flex on the recovery (back) part of the stride
+const SPINE_LEAN: f32 = 0.45; // share of the torso lean the spine takes (the rest leans the hips)
+const CROUCH_KNEE: f32 = 0.9; // extra knee/hip flex when crouched
+
+/// The skeleton-space swing `r` (about the axes above), conjugated into joint `i`'s local frame and composed onto its
+/// bind local rotation: `local' = (Wₚ⁻¹·r·Wₚ)·L`. `Wₚ` is the parent's bind-pose world rotation, so the bone swings by
+/// `r` in skeleton space about its own pivot (exact when the parent is at bind, a good approximation when it isn't).
+fn skel_swing(rig: &skin::RigDef, i: usize, r: Quat) -> Quat {
+    let wp = match rig.joints[i].parent {
+        Some(p) => rig.bind_world[p].to_scale_rotation_translation().1,
+        None => Quat::IDENTITY,
+    };
+    (wp.inverse() * r * wp) * rig.joints[i].local.rotation
+}
+
+/// Drive the real 111-joint rig from the locomotion model: a natural rest (arms down, slight bend), a walk/run stride on
+/// the hips/knees with the arms swinging against the legs, a forward lean, crouch, and a head that turns to the look.
+/// Resets every joint to its bind pose first, then applies the swings; the body bobs/lowers via the skeleton node.
 pub fn animate_skeleton(
+    time: Res<Time>,
     roomie: Option<Res<Roomie>>,
-    skels: Query<&Skeleton>,
-    mut xf: Query<&mut Transform>,
+    mut rigs: Query<(&mut Rig, &Drive, &Skeleton, &Transform)>,
+    mut xf: Query<&mut Transform, Without<Rig>>,
 ) {
+    const STAND_EYE: f32 = 1.55;
+    const CROUCH_EYE: f32 = 1.55 * 0.725;
     let Some(roomie) = roomie else { return };
     let Some(rig) = &roomie.rig else { return };
-    let spec = std::env::var("TP").unwrap_or_default();
-    for skel in &skels {
+    let dt = time.delta_secs().min(0.1);
+    let (x_axis, y_axis, z_axis) = (Vec3::X, Vec3::Y, Vec3::Z);
+    let rx = |a: f32| Quat::from_axis_angle(x_axis, a);
+    let ry = |a: f32| Quat::from_axis_angle(y_axis, a);
+    let rz = |a: f32| Quat::from_axis_angle(z_axis, a);
+
+    for (mut r, drive, skel, root) in &mut rigs {
+        let crouch = drive.head_height.map_or(0.0, |h| ((STAND_EYE - h) / (STAND_EYE - CROUCH_EYE)).clamp(0.0, 1.0));
+        r.anim.step(dt, anim::Input { velocity: drive.velocity, grounded: drive.grounded, flying: drive.flying, talking: drive.talking, voice: 0.0, crouch });
+        let pose = r.anim.pose();
+        let phase = r.anim.phase;
+        let swing = phase.sin() * (r.anim.speed / 3.0).min(1.0); // stride amplitude, 0 standing still
+
+        // reset all joints to their bind pose; posed joints are overwritten below
         for (i, j) in rig.joints.iter().enumerate() {
             if let Ok(mut t) = xf.get_mut(skel.joints[i]) {
                 *t = j.local;
             }
         }
-        for part in spec.split(',').filter(|s| !s.is_empty()) {
-            let mut it = part.split(':');
-            let name = it.next().unwrap_or("");
-            let axis = it.next().unwrap_or("x");
-            let deg = it.next().and_then(|d| d.parse::<f32>().ok()).unwrap_or(0.0);
-            let Some(i) = rig.index(name) else { continue };
-            let a = match axis {
-                "y" => Vec3::Y,
-                "z" => Vec3::Z,
-                _ => Vec3::X,
-            };
-            if let Ok(mut t) = xf.get_mut(skel.joints[i]) {
-                t.rotation = rig.joints[i].local.rotation * Quat::from_axis_angle(a, deg.to_radians());
+        let mut set = |name: &str, rot: Quat| {
+            if let Some(i) = rig.index(name) {
+                if let Ok(mut t) = xf.get_mut(skel.joints[i]) {
+                    t.rotation = skel_swing(rig, i, rot);
+                }
             }
+        };
+
+        // --- torso lean (forward when moving/crouched): tilt the spine toward −y ---
+        let lean = pose.lean;
+        set("Jnt.Spine.Mid", rx(-lean * SPINE_LEAN));
+        set("Jnt.Spine.Chest", rx(-lean * SPINE_LEAN * 0.6));
+
+        // --- arms: down to the sides (about body-up), swinging fore/aft (about the left-right axis) opposite the legs ---
+        let arm_l = swing * ARM_SWING; // left arm forward as the left leg goes back
+        let arm_r = -swing * ARM_SWING;
+        set("Jnt.UpperArm.L", rx(arm_l) * ry(ARM_DOWN));
+        set("Jnt.UpperArm.R", rx(arm_r) * ry(-ARM_DOWN));
+        set("Jnt.LowerArm.L", rx(ELBOW_REST + 0.25 * crouch));
+        set("Jnt.LowerArm.R", rx(ELBOW_REST + 0.25 * crouch));
+
+        // --- legs: swing the thighs fore/aft; bend the knee on the recovery; add a crouch squat ---
+        let leg = [pose.legs[0], pose.legs[1]];
+        for (k, side) in ["L", "R"].iter().enumerate() {
+            let thigh = leg[k] - 0.5 * crouch * CROUCH_KNEE; // crouch flexes the hips forward
+            let knee = KNEE_BEND * (-leg[k]).max(0.0) + CROUCH_KNEE * crouch;
+            set(&format!("Jnt.UpperLeg.{side}"), rx(thigh));
+            set(&format!("Jnt.LowerLeg.{side}"), rx(knee));
+            set(&format!("Jnt.Foot.{side}"), rx(-0.4 * knee + 0.5 * leg[k].max(0.0)));
+        }
+
+        // --- head: turn to the synced look (relative to the avatar's facing); counter the spine lean a little ---
+        let (yaw, pitch) = drive.head.map_or((0.0, 0.0), |h| {
+            let (y, x, _) = (root.rotation.inverse() * h).to_euler(EulerRot::YXZ);
+            (y.clamp(-1.1, 1.1), x.clamp(-0.7, 0.7))
+        });
+        set("Jnt.Neck", rz(yaw * 0.4) * rx(pitch * 0.4 + lean * SPINE_LEAN));
+        set("Jnt.Head", rz(yaw * 0.6) * rx(pitch * 0.6));
+
+        // the whole body bobs with the stride and lowers when crouching, via the standing skeleton node
+        if let Ok(mut t) = xf.get_mut(skel.root_node) {
+            let mut tr = Transform::from_rotation(stand());
+            tr.translation.y = pose.bob - pose.drop;
+            *t = tr;
         }
     }
 }
