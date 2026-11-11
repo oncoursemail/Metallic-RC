@@ -138,9 +138,60 @@ Owner commissioned the full devirt. Steady, checkpointed progress (all analysis 
   - The keystream generation + XOR core is inside `0x647af0` and the `j` loop body — the remaining
     depth (and where the embedded master key is consumed).
 
-### Still to do (the long tail)
-1. Reverse `0x647af0` (keystream setup/gen) and the `+0x223fd09` loop body (the XOR), extract the
-   per-op count/stride tables, and locate the master key it consumes.
+- **Per-file key identified = `op`, a per-file index into the revival's asset manifest.** Runtime
+  trace of `0x647af0`'s args across files: the only per-file-varying input is `op` (edx); `offset`
+  and the read size are the other args. `op` is assigned in sorted manifest order (level0=`0x126`,
+  level1=`0x127`, level68=`0x186`, level69=`0x187`, level77=`0x194`, level78=`0x195`, …; the two
+  plaintext JSONs get the special pass-through ops `0xc9e`/`0xc9f`). Captured for all 337 files
+  (thread-filtered; an unfiltered first pass was contaminated by concurrent game reads). So the
+  construction is **keystream = g(op, offset)** — op (file index) is the per-file nonce, offset is
+  the CTR position, and a **global master key** lives inside `0x647af0`. This is an AES-CTR-shaped
+  design (nonce = file index) even though the primitive is bespoke/virtualized.
+
+- **Decrypt call tree mapped** (handler `+0x223f6c0`): (a) input-load loop → `+0x6abb80`
+  (ciphertext → VM scratch, position-based); (b) `0x647af0(0, op, offset, size)` = keystream setup;
+  (c) `count = 0x6eeaf0(op)`, `stride = 0x6f9c00(op)`; (d) **j-loop j=0..count → `0x704cd0(op, j, 1)`
+  = per-block keystream worker** (the cipher core); (e) post-processing that XORs 64-bit entries
+  from a key/config table at RVA ~`0x61bc9c0`. All wrapped in anti-cheat spinlocks + constant-fold
+  obfuscation.
+
+## CRACKED — the cipher is a byte-subtract + XOR against a static 2 MB keystream table
+
+Disassembling the per-op handlers reached through the `+0x6abb80` switch (op `0x126` handler at
+`+0x6af25c`) shows the full decrypt, which is simple:
+
+```
+plaintext[i] = ((ciphertext[i] - sub[op]) & 0xFF) XOR KS[(offset + i + base[op]) & 0x1FFFFF]   for i >= 8
+```
+
+- `KS` is a **single static 2 MB keystream table** in Referee's runtime memory at RVA `0x5bae100`
+  (identical for all ops; `& 0x1FFFFF` = mod 2^21 wraps within it). It is NOT a PRG — it is a fixed
+  2 MB pad, generated/decompressed at load (beyond the on-disk Referee image), extracted once.
+- `sub[op]` is a per-op additive byte correction (some ops subtract, some add), and `base[op]` is a
+  per-op offset into the pad. Both lifted for all 336 ops (`vm_cipher_ops.json`).
+- `op` = the per-file asset-manifest index (filename→op), captured at runtime.
+- `offset` = the chunk's file position (position-based). Bytes `0..7` (the marker) use a separate
+  `+0x6b24e0` path (plaintext header; 0 for SerializedFiles).
+
+**VALIDATED: 117/117 tested files decrypt byte-for-byte against the corpus (bytes[8:])**, purely
+from the formula + extracted tables — NO oracle. (The 1 apparent miss was a contaminated op in the
+unfiltered filename→op capture, not a cipher error.)
+
+### DONE — reversed, implemented in Rust, validated
+- **Clean filename→op captured for all 337 files** (thread-filtered; 337 distinct ops, no
+  collisions). **All 334 testable files decrypt byte-for-byte vs the corpus** (bytes[8:]), from the
+  formula + extracted tables, **no oracle**.
+- The marker region (`i<8`) is handled by `+0x6b24e0` (a per-op value: 0 for SerializedFiles, the
+  real header for raw `.resS`/`.resource`); captured as an 8-byte-per-op `header8`.
+- **Implemented in pure Rust: `unity_assets::decrypt::Cipher`** (`load` / `op_for` / `decrypt` /
+  `decrypt_file`) — loads the 2 MB pad + per-op tables + filename→op from a local data dir and
+  decrypts with no running game. Gated end-to-end test `decrypt_matches_corpus` **passes**
+  (level0/level6/globalgamemanagers/level103/sharedassets0 reproduce the corpus exactly).
+- Extracted cipher data (LOCAL, gitignored, game-derived): `assets/cipher/` =
+  `ks.bin` (2 MB pad), `ops.bin` (443×14: base/sub/kind/header8), `file_ops.tsv` (filename→op).
+
+**The on-the-fly pure-Rust decryption the owner asked for is complete.** The corpus remains as a
+convenience/fallback path (`read_base_file`/`plaintext_dir`).
 2. **Trace-based cross-check**: instrument the load/read path + `0x647af0` at runtime and follow the
    data flow of one decrypt to confirm the keystream generator + the filename key derivation.
 3. Validate offline byte-for-byte vs the corpus; implement real `decrypt()` in Rust.
