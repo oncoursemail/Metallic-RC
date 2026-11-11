@@ -15,6 +15,7 @@ pub mod gear;
 pub mod look;
 pub mod mesh;
 pub mod panel;
+pub mod real;
 pub mod toon;
 
 use bevy::{
@@ -63,7 +64,8 @@ impl Plugin for AvatarPlugin {
     fn build(&self, app: &mut App) {
         bevy::asset::embedded_asset!(app, "avatar/toon.wesl");
         app.add_plugins(MaterialPlugin::<Toon>::default())
-            .add_systems(Startup, make_kit)
+            .add_systems(Startup, (make_kit, real::load_roomie))
+            .add_systems(Update, (real::attach_real, real::idle))
             .add_systems(PostUpdate, (dress, animate).chain().before(TransformSystems::Propagate))
             .add_systems(PostUpdate, place_tags.after(TransformSystems::Propagate).before(UiSystems::Prepare));
     }
@@ -456,11 +458,16 @@ fn dress_eyes(c: &mut Commands, kit: &Kit, mats: &Mats, p: &Parts, e: Eyes) -> [
 fn dress(
     mut commands: Commands,
     kit: Option<Res<Kit>>,
+    roomie: Option<Res<real::Roomie>>,
     mut toons: ResMut<Assets<Toon>>,
     mut plain: ResMut<Assets<StandardMaterial>>,
     mut rigs: Query<(Entity, &mut Rig)>,
     mut visibility: Query<&mut Visibility>,
 ) {
+    // the real Rec Room body (real::attach_real) stands in for the procedural parts when the game files are present.
+    if roomie.is_some() {
+        return;
+    }
     let Some(kit) = kit else { return };
     for (root, mut rig) in &mut rigs {
         let rig = &mut *rig;
@@ -509,6 +516,7 @@ fn ease(from: f32, to: f32, rate: f32, dt: f32) -> f32 {
 #[allow(clippy::too_many_arguments)]
 fn animate(
     time: Res<Time>,
+    roomie: Option<Res<real::Roomie>>,
     loud: Option<Res<crate::voice::Loudness>>,
     camera: Query<&GlobalTransform, With<Camera3d>>,
     mut toons: ResMut<Assets<Toon>>,
@@ -518,6 +526,10 @@ fn animate(
     globals: Query<&GlobalTransform>,
     mut visibility: Query<&mut Visibility>,
 ) {
+    // the real body is static for now (real::attach_real); skip the procedural posing when it is in use.
+    if roomie.is_some() {
+        return;
+    }
     let dt = time.delta_secs().min(0.1);
     let t = time.elapsed_secs();
     let voice_of = |rig: &Rig| loud.as_ref().map_or(0.0, |l| rig.actor.map_or(l.me, |a| l.actors.get(&a).copied().unwrap_or(0.0)));
