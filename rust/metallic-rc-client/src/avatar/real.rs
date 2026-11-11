@@ -31,6 +31,40 @@ const EYE_PATHID: i64 = -6280590809355750825; // Eye_Default
 const MOUTH_BUNDLE: &str = "8fcb685a7a49de356df5b83ada6b0c86.bundle";
 const MOUTH_PATHID: i64 = -8488847646716117003; // Mouth_Blank (neutral)
 
+/// Rec Room ships two avatar body types. The Bean is the classic, iconic Rec Room look: a rounded legless torso with a
+/// head and floating hands. The Full body is the newer humanoid with arms and legs. Both share the same `Jnt.*` rig.
+/// Chosen once for the client with `METALLIC_BODY` (default: the Bean).
+#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum BodyType {
+    Bean,
+    Full,
+}
+
+/// The Modern Bean body bundle and its skinned mesh (`MB_BodyMesh_LOD0`).
+const BEAN_BUNDLE: &str = "38066d851f08e64e9ed64b9094f31883.bundle";
+const BEAN_BODY_ID: i64 = 9072706044162942483;
+
+impl BodyType {
+    fn from_env() -> Self {
+        match std::env::var("METALLIC_BODY").ok().as_deref().map(str::to_ascii_lowercase).as_deref() {
+            Some("full") => BodyType::Full,
+            _ => BodyType::Bean,
+        }
+    }
+    fn bundle(self) -> &'static str {
+        match self {
+            BodyType::Bean => BEAN_BUNDLE,
+            BodyType::Full => AVATAR_BUNDLE,
+        }
+    }
+    fn body_id(self) -> i64 {
+        match self {
+            BodyType::Bean => BEAN_BODY_ID,
+            BodyType::Full => BODY_MESH_PATHID,
+        }
+    }
+}
+
 /// The loaded real avatar meshes, shared by every avatar. Absent when the game files are not installed.
 #[derive(Resource)]
 pub struct Roomie {
@@ -46,6 +80,8 @@ pub struct Roomie {
     /// the real joint rig and its inverse bind poses, when the body is skinned (else the body is the static bind pose)
     pub rig: Option<Arc<skin::RigDef>>,
     pub inverse_bindposes: Option<Handle<SkinnedMeshInverseBindposes>>,
+    /// which body type is loaded (drives how the rig is posed: the Bean floats, the Full body strides)
+    pub body: BodyType,
 }
 
 /// The real avatar's spawned joint entities (rig order) and the standing skeleton node, kept on the avatar root so the
@@ -57,6 +93,8 @@ pub struct Skeleton {
     pub root_node: Entity,
     /// eased finger curls per hand (outer three fingers, index, thumb) so grips don't snap
     pub curls: [[f32; 3]; 2],
+    /// the Bean body floats (no legs; hands drift at the sides) and is posed differently from the Full body
+    pub bean: bool,
 }
 
 /// Marks a `Rig` whose real body has been attached, so it is attached once.
@@ -75,6 +113,9 @@ const EYE_POS: [Vec3; 2] = [Vec3::new(-0.045, 1.528, -0.14), Vec3::new(0.045, 1.
 const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.478, -0.158);
 const EYE_W: f32 = 0.13;
 const MOUTH_W: f32 = 0.12;
+/// The Full body's head joint height in the standing frame (feet at 0); EYE_POS/MOUTH_POS are placed relative to it, so
+/// another body type's face shifts by its own head height minus this.
+const FULL_HEAD_Y: f32 = 1.421;
 
 /// A mesh object read out of the bundle as Bevy-space geometry (Unity is left-handed: z negated, winding flipped, uv v
 /// flipped — same convention as `room.rs`).
@@ -236,10 +277,11 @@ pub fn load_roomie(
     let Some(dir) = room::GAME_DIRS.iter().map(Path::new).find(|p| p.exists()) else {
         return;
     };
+    let body = BodyType::from_env();
     // the skinned body (per-joint rig) is preferred; if its skin data can't be read, fall back to the static bind pose
-    let (bodies, rig, inverse_bindposes) = match skin::load(dir) {
+    let (bodies, rig, inverse_bindposes) = match skin::load(dir, body.bundle(), body.body_id()) {
         Some(l) => {
-            info!("avatar: real Rec Room body loaded skinned ({} joints)", l.rig.joints.len());
+            info!("avatar: real Rec Room {body:?} body loaded skinned ({} joints)", l.rig.joints.len());
             (l.meshes, Some(Arc::new(l.rig)), Some(binds.add(SkinnedMeshInverseBindposes::from(l.inverse_bindposes))))
         }
         None => match load_bodies(dir) {
@@ -270,6 +312,7 @@ pub fn load_roomie(
         mouth_mat: decal(&mut materials, images.add(mouth_img)),
         rig,
         inverse_bindposes,
+        body,
     });
 }
 
@@ -334,7 +377,7 @@ pub fn attach_real(
                 let head = rigdef.head;
                 let cancel = (Mat4::from_quat(stand()) * rigdef.bind_world[head]).inverse();
                 let group = commands.spawn((Transform::from_matrix(cancel), Visibility::default(), ChildOf(joints[head]))).id();
-                commands.entity(root).insert(Skeleton { joints, root_node: skeleton_node, curls: [anim::Grip::Open.curls(); 2] });
+                commands.entity(root).insert(Skeleton { joints, root_node: skeleton_node, curls: [anim::Grip::Open.curls(); 2], bean: roomie.body == BodyType::Bean });
                 group
             }
             _ => {
@@ -346,14 +389,18 @@ pub fn attach_real(
             }
         };
 
-        // the real face sprites as decals, facing -z; the right eye is the same sprite mirrored in x.
+        // the real face sprites as decals, facing -z; the right eye is the same sprite mirrored in x. EYE_POS/MOUTH_POS
+        // are in the Full body's standing frame; the Bean head sits at a different height, so shift the face to the
+        // loaded body's head joint (keeps the Full body unchanged, places the Bean's face correctly).
+        let head_dy = Vec3::Y
+            * roomie.rig.as_ref().map_or(0.0, |r| (Mat4::from_quat(stand()) * r.bind_world[r.head]).to_scale_rotation_translation().2.y - FULL_HEAD_Y);
         for (i, p) in EYE_POS.into_iter().enumerate() {
             let scale = Vec3::new(if i == 0 { 1.0 } else { -1.0 }, 1.0, 1.0);
             commands.spawn((Mesh3d(roomie.eye_quad.clone()), MeshMaterial3d(roomie.eye_mat.clone()),
-                Transform { translation: p, rotation: face, scale }, ChildOf(decal_parent)));
+                Transform { translation: p + head_dy, rotation: face, scale }, ChildOf(decal_parent)));
         }
         commands.spawn((Mesh3d(roomie.mouth_quad.clone()), MeshMaterial3d(roomie.mouth_mat.clone()),
-            Transform { translation: MOUTH_POS, rotation: face, ..default() }, ChildOf(decal_parent)));
+            Transform { translation: MOUTH_POS + head_dy, rotation: face, ..default() }, ChildOf(decal_parent)));
     }
 }
 
@@ -382,6 +429,10 @@ const ARM_SWING: f32 = 0.5; // fore/aft arm swing while walking (opposite the le
 const KNEE_BEND: f32 = 1.15; // knee flex on the recovery (back) part of the stride
 const SPINE_LEAN: f32 = 0.45; // share of the torso lean the spine takes (the rest leans the hips)
 const CROUCH_KNEE: f32 = 0.9; // extra knee/hip flex when crouched
+const BEAN_ARM_DOWN: f32 = 0.05; // the Bean's floating hands rest at the sides of the lower torso (near the bind height)
+const BEAN_ARM_FWD: f32 = 0.18; // a slight fore tuck, so the hands float just ahead of the belly
+const BEAN_ARM_IN: f32 = 0.28; // pulled in toward the body's midline
+const BEAN_HAND_SWING: f32 = 0.22; // gentle fore/aft hand drift while the Bean moves
 
 /// The skeleton-space swing `r` (about the axes above), conjugated into joint `i`'s local frame and composed onto its
 /// bind local rotation: `local' = (Wₚ⁻¹·r·Wₚ)·L`. `Wₚ` is the parent's bind-pose world rotation, so the bone swings by
@@ -439,22 +490,31 @@ pub fn animate_skeleton(
         set("Jnt.Spine.Mid", rx(-lean * SPINE_LEAN));
         set("Jnt.Spine.Chest", rx(-lean * SPINE_LEAN * 0.6));
 
-        // --- arms: down to the sides (about body-up), swinging fore/aft (about the left-right axis) opposite the legs ---
-        let arm_l = swing * ARM_SWING; // left arm forward as the left leg goes back
-        let arm_r = -swing * ARM_SWING;
-        set("Jnt.UpperArm.L", rx(arm_l) * ry(ARM_DOWN));
-        set("Jnt.UpperArm.R", rx(arm_r) * ry(-ARM_DOWN));
-        set("Jnt.LowerArm.L", rx(ELBOW_REST + 0.25 * crouch));
-        set("Jnt.LowerArm.R", rx(ELBOW_REST + 0.25 * crouch));
+        if skel.bean {
+            // The Bean floats: its hands rest at the sides of the lower torso (a slight abduction, since there is no arm
+            // mesh — only the hands float), tucked a little forward and inward, and drift a little while moving.
+            let drift = swing * BEAN_HAND_SWING;
+            // down = abduction (about body-up), fwd = fore (about left-right), in = pull toward the midline (about up)
+            set("Jnt.UpperArm.L", rz(BEAN_ARM_IN) * rx(BEAN_ARM_FWD + drift) * ry(BEAN_ARM_DOWN));
+            set("Jnt.UpperArm.R", rz(-BEAN_ARM_IN) * rx(BEAN_ARM_FWD - drift) * ry(-BEAN_ARM_DOWN));
+        } else {
+            // --- arms: down to the sides (about body-up), swinging fore/aft opposite the legs ---
+            let arm_l = swing * ARM_SWING; // left arm forward as the left leg goes back
+            let arm_r = -swing * ARM_SWING;
+            set("Jnt.UpperArm.L", rx(arm_l) * ry(ARM_DOWN));
+            set("Jnt.UpperArm.R", rx(arm_r) * ry(-ARM_DOWN));
+            set("Jnt.LowerArm.L", rx(ELBOW_REST + 0.25 * crouch));
+            set("Jnt.LowerArm.R", rx(ELBOW_REST + 0.25 * crouch));
 
-        // --- legs: swing the thighs fore/aft; bend the knee on the recovery; add a crouch squat ---
-        let leg = [pose.legs[0], pose.legs[1]];
-        for (k, side) in ["L", "R"].iter().enumerate() {
-            let thigh = leg[k] - 0.5 * crouch * CROUCH_KNEE; // crouch flexes the hips forward
-            let knee = KNEE_BEND * (-leg[k]).max(0.0) + CROUCH_KNEE * crouch;
-            set(&format!("Jnt.UpperLeg.{side}"), rx(thigh));
-            set(&format!("Jnt.LowerLeg.{side}"), rx(knee));
-            set(&format!("Jnt.Foot.{side}"), rx(-0.4 * knee + 0.5 * leg[k].max(0.0)));
+            // --- legs: swing the thighs fore/aft; bend the knee on the recovery; add a crouch squat ---
+            let leg = [pose.legs[0], pose.legs[1]];
+            for (k, side) in ["L", "R"].iter().enumerate() {
+                let thigh = leg[k] - 0.5 * crouch * CROUCH_KNEE; // crouch flexes the hips forward
+                let knee = KNEE_BEND * (-leg[k]).max(0.0) + CROUCH_KNEE * crouch;
+                set(&format!("Jnt.UpperLeg.{side}"), rx(thigh));
+                set(&format!("Jnt.LowerLeg.{side}"), rx(knee));
+                set(&format!("Jnt.Foot.{side}"), rx(-0.4 * knee + 0.5 * leg[k].max(0.0)));
+            }
         }
 
         // --- head: turn to the synced look (relative to the avatar's facing); counter the spine lean a little ---

@@ -172,20 +172,20 @@ fn read_geometry(m: &UMesh) -> (Vec<[f32; 3]>, Vec<[f32; 3]>, Vec<[f32; 2]>, Vec
     (pos, nrm, uv, idx)
 }
 
-/// Loads the real body + nose as three skinned region meshes plus the rig. `None` when the bundle or its skin data is
-/// missing, so the caller can fall back to the static body.
-pub fn load(dir: &Path) -> Option<Loaded> {
-    let path = room::bundle_dir(dir).join(AVATAR_BUNDLE);
+/// Loads a body type from its own bundle + body-mesh path id (Rec Room ships a Full body and a legless Bean body) as
+/// three skinned region meshes plus the rig. `None` when the bundle or its skin data is missing.
+pub fn load(dir: &Path, bundle: &str, body_id: i64) -> Option<Loaded> {
+    let path = room::bundle_dir(dir).join(bundle);
     let b = Bundle::open(&path).ok()?;
     let files = b.serialized_files().ok()?;
-    let sf = files.iter().find_map(|(_, sf)| sf.object(BODY_MESH_PATHID).map(|_| sf))?;
+    let sf = files.iter().find_map(|(_, sf)| sf.object(body_id).map(|_| sf))?;
 
     // the body's skinned renderer: its bone list (order matches the bind poses) and which skeleton instance it uses
-    let (bones, root) = skinned_renderer(sf, BODY_MESH_PATHID)?;
+    let (bones, root) = skinned_renderer(sf, body_id)?;
     let path_to_index: HashMap<i64, usize> = bones.iter().enumerate().map(|(i, &id)| (id, i)).collect();
 
     // the body mesh: geometry + per-vertex skin + bind poses
-    let body_o = sf.object(BODY_MESH_PATHID)?;
+    let body_o = sf.object(body_id)?;
     let body_v = sf.read_value(body_o).ok()?;
     let body_m = UMesh::from_value(&body_v, &b).ok()?;
     let (mut pos, mut nrm, mut uv, mut idx) = read_geometry(&body_m);
