@@ -79,6 +79,12 @@ pub struct Roomie {
     pub mouth_quad: Handle<Mesh>,
     pub eyes: HashMap<String, Handle<StandardMaterial>>,
     pub mouths: HashMap<String, Handle<StandardMaterial>>,
+    /// the orange "smiley box" chest logo decal (generated) and the quad it rides on
+    pub logo: Handle<StandardMaterial>,
+    pub logo_quad: Handle<Mesh>,
+    /// the real Rec Room hair mesh (from the exported wardrobe) and its material; absent if the wardrobe isn't present
+    pub hair: Option<Handle<Mesh>>,
+    pub hair_mat: Handle<StandardMaterial>,
     /// the real joint rig and its inverse bind poses, when the body is skinned (else the body is the static bind pose)
     pub rig: Option<Arc<skin::RigDef>>,
     pub inverse_bindposes: Option<Handle<SkinnedMeshInverseBindposes>>,
@@ -134,6 +140,11 @@ const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.470, -0.158);
 // size without the two eyes overlapping (eye 0.145 → a ~0.11 inked eye; mouth 0.27 → a ~0.10 line).
 const EYE_W: f32 = 0.145;
 const MOUTH_W: f32 = 0.27;
+/// The chest "smiley box" logo, in the Full body's standing frame (feet at 0, facing -z): where it sits and how big.
+const LOGO_POS: Vec3 = Vec3::new(0.0, 1.05, -0.135);
+const LOGO_W: f32 = 0.19;
+/// Joint names to hang the chest logo from, in preference order (the first the rig has wins).
+const CHEST_JOINTS: [&str; 6] = ["Jnt.Spine.Chest", "Jnt.Chest", "Jnt.Spine.Upper", "Jnt.Spine2", "Jnt.Spine.Mid", "Jnt.Spine.Root"];
 /// The Full body's head joint height in the standing frame (feet at 0); EYE_POS/MOUTH_POS are placed relative to it, so
 /// another body type's face shifts by its own head height minus this.
 const FULL_HEAD_Y: f32 = 1.421;
@@ -285,6 +296,81 @@ fn face_decal(t: &Texture2D) -> Option<Image> {
     ))
 }
 
+/// The Rec Room wardrobe meshes exported from the game (AssetStudio `.obj`): real hair, hats, clothing. Override the
+/// folder with METALLIC_WARDROBE_DIR.
+fn wardrobe_dir() -> std::path::PathBuf {
+    std::env::var("METALLIC_WARDROBE_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from(r"C:\Users\alexi\rr-capture\decomp-full\assets\AssetStudioExport"))
+}
+
+/// Loads a Wavefront `.obj` (positions / normals / uvs / triangles) into a Bevy mesh, converting from the game's
+/// authored space to Bevy's the same way the body mesh is (negate z, flip the triangle winding, flip uv v). The wardrobe
+/// meshes are authored in the body's own space, so the result lines up on the rig with no fitting.
+fn load_obj(path: &Path) -> Option<Mesh> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let (mut vs, mut ns, mut ts): (Vec<[f32; 3]>, Vec<[f32; 3]>, Vec<[f32; 2]>) = (Vec::new(), Vec::new(), Vec::new());
+    let nums = |it: std::str::SplitWhitespace, n: usize| -> Vec<f32> { it.take(n).filter_map(|x| x.parse().ok()).collect() };
+    for line in text.lines() {
+        let mut it = line.split_whitespace();
+        match it.next() {
+            Some("v") => { let a = nums(it, 3); if a.len() == 3 { vs.push([a[0], a[1], -a[2]]); } }
+            Some("vn") => { let a = nums(it, 3); if a.len() == 3 { ns.push([a[0], a[1], -a[2]]); } }
+            Some("vt") => { let a = nums(it, 2); if a.len() == 2 { ts.push([a[0], 1.0 - a[1]]); } }
+            _ => {}
+        }
+    }
+    let (mut pos, mut nrm, mut uv): (Vec<[f32; 3]>, Vec<[f32; 3]>, Vec<[f32; 2]>) = (Vec::new(), Vec::new(), Vec::new());
+    let mut idx: Vec<u32> = Vec::new();
+    let mut map: HashMap<String, u32> = HashMap::new();
+    for line in text.lines() {
+        let mut it = line.split_whitespace();
+        if it.next() != Some("f") {
+            continue;
+        }
+        let verts: Vec<&str> = it.collect();
+        if verts.len() < 3 {
+            continue;
+        }
+        let mut face = Vec::with_capacity(verts.len());
+        for v in &verts {
+            let i = *map.entry((*v).to_string()).or_insert_with(|| {
+                let p: Vec<&str> = v.split('/').collect();
+                let vi = p[0].parse::<i64>().unwrap_or(1).max(1) as usize - 1;
+                let ti = p.get(1).filter(|s| !s.is_empty()).and_then(|s| s.parse::<i64>().ok()).map(|t| t as usize - 1);
+                let ni = p.get(2).and_then(|s| s.parse::<i64>().ok()).map(|n| n as usize - 1);
+                pos.push(vs.get(vi).copied().unwrap_or([0.0; 3]));
+                nrm.push(ni.and_then(|n| ns.get(n).copied()).unwrap_or([0.0, 1.0, 0.0]));
+                uv.push(ti.and_then(|t| ts.get(t).copied()).unwrap_or([0.0; 2]));
+                (pos.len() - 1) as u32
+            });
+            face.push(i);
+        }
+        // fan-triangulate, reversing winding (the z negation flips it)
+        for k in 1..face.len() - 1 {
+            idx.extend_from_slice(&[face[0], face[k + 1], face[k]]);
+        }
+    }
+    if pos.is_empty() {
+        return None;
+    }
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, pos);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, nrm);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
+    mesh.insert_indices(Indices::U32(idx));
+    Some(mesh)
+}
+
+/// Loads the real hair mesh for `body` (the Full body's meshes are `FB_`-prefixed; the Bean's are bare), by style name.
+/// Default style: a short curly cut; override with METALLIC_HAIR (e.g. `Afro`, `WavyShort`, `Undercut`).
+fn load_hair(body: BodyType) -> Option<Mesh> {
+    let style = std::env::var("METALLIC_HAIR").unwrap_or_else(|_| "CurlyHelmetHair".into());
+    let prefix = if body == BodyType::Full { "FB_" } else { "" };
+    let path = wardrobe_dir().join(format!("{prefix}{style}_Hair_LOD0.obj"));
+    load_obj(&path).or_else(|| load_obj(&wardrobe_dir().join(format!("{style}_Hair_LOD0.obj"))))
+}
+
 /// Loads every face sprite (`Texture2D`) in a bundle into a map `name -> decal material` (Eye_Default, Eye_Blink, ...;
 /// Mouth_Blank, Mouth_Talking_Open, ...). All share one quad (`animate_face` swaps only the material). Skips unreadable.
 fn load_face_set(dir: &Path, bundle: &str, images: &mut Assets<Image>, materials: &mut Assets<StandardMaterial>) -> HashMap<String, Handle<StandardMaterial>> {
@@ -316,6 +402,52 @@ fn decal(materials: &mut Assets<StandardMaterial>, tex: Handle<Image>) -> Handle
         unlit: true,
         ..default()
     })
+}
+
+/// Draws the Rec Room "smiley box" chest logo: an orange rounded-square outline with two eyes and a smile, on
+/// transparent, so it sits as a decal on the jersey. The ink colour is `rgb`.
+fn logo_texture(rgb: [u8; 3]) -> Image {
+    const N: usize = 256;
+    let nf = N as f32;
+    let mut out = vec![0u8; N * N * 4];
+    // signed distance to a rounded rectangle (half-extents `h`, corner radius `r`) centred at `c`
+    let rrect = |p: Vec2, c: Vec2, h: Vec2, r: f32| {
+        let q = (p - c).abs() - h + Vec2::splat(r);
+        q.max(Vec2::ZERO).length() + q.max_element().min(0.0) - r
+    };
+    for y in 0..N {
+        for x in 0..N {
+            let p = Vec2::new((x as f32 + 0.5) / nf, (y as f32 + 0.5) / nf); // 0..1, y downward
+            let stroke = 0.05;
+            // the box outline
+            let box_sd = rrect(p, Vec2::splat(0.5), Vec2::splat(0.33), 0.14).abs() - stroke * 0.5;
+            // two eyes
+            let eye = 0.052;
+            let le = (p - Vec2::new(0.37, 0.41)).length() - eye;
+            let re = (p - Vec2::new(0.63, 0.41)).length() - eye;
+            // a smile: the lower arc of a circle
+            let sc = Vec2::new(0.5, 0.45);
+            let sr = 0.165;
+            let smile = if p.y > sc.y + 0.015 { ((p - sc).length() - sr).abs() - stroke * 0.5 } else { 1.0 };
+            let d = box_sd.min(le).min(re).min(smile);
+            // anti-alias the edge over ~1.5 px
+            let a = (0.5 - d * nf / 1.5).clamp(0.0, 1.0);
+            if a > 0.0 {
+                let i = (y * N + x) * 4;
+                out[i] = rgb[0];
+                out[i + 1] = rgb[1];
+                out[i + 2] = rgb[2];
+                out[i + 3] = (a * 255.0) as u8;
+            }
+        }
+    }
+    Image::new(
+        Extent3d { width: N as u32, height: N as u32, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        out,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    )
 }
 
 /// Startup: find the install and load the real body, nose and face sprites; absent if the game files are not there.
@@ -362,6 +494,13 @@ pub fn load_roomie(
             commands.insert_resource(loaded);
         }
     }
+    let logo = decal(&mut materials, images.add(logo_texture([0xf0, 0x81, 0x3c])));
+    let hair = load_hair(body).map(|m| meshes.add(m));
+    match &hair {
+        Some(_) => info!("avatar: real Rec Room hair loaded"),
+        None => info!("avatar: no wardrobe hair found (set METALLIC_WARDROBE_DIR)"),
+    }
+    let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.78, ..default() });
     commands.insert_resource(Roomie {
         skin: meshes.add(skin),
         shirt: meshes.add(shirt),
@@ -370,6 +509,10 @@ pub fn load_roomie(
         mouth_quad: meshes.add(Rectangle::new(face_layout().mouth_w, face_layout().mouth_w)),
         eyes,
         mouths,
+        logo,
+        logo_quad: meshes.add(Rectangle::new(LOGO_W, LOGO_W)),
+        hair,
+        hair_mat,
         rig,
         inverse_bindposes,
         body,
@@ -432,11 +575,24 @@ pub fn attach_real(
                         ChildOf(visual),
                     ));
                 }
+                // the real hair mesh rides the standing skeleton node (same flip + stand-up as the body), so it sits on
+                // the head exactly as authored
+                if let Some(hair) = &roomie.hair {
+                    commands.spawn((Mesh3d(hair.clone()), MeshMaterial3d(roomie.hair_mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
+                }
                 // a group under the head joint whose transform cancels the head's bind pose, so decals placed in the
                 // standing avatar frame (EYE_POS / MOUTH_POS) land on the face and then follow the head joint.
                 let head = rigdef.head;
                 let cancel = (Mat4::from_quat(stand()) * rigdef.bind_world[head]).inverse();
                 let group = commands.spawn((Transform::from_matrix(cancel), Visibility::default(), ChildOf(joints[head]))).id();
+                // the chest "smiley box" logo: hung under a chest joint (its bind pose cancelled) so it rides the torso
+                let chest = CHEST_JOINTS.iter().find_map(|n| rigdef.index(n)).unwrap_or(head);
+                let chest_cancel = (Mat4::from_quat(stand()) * rigdef.bind_world[chest]).inverse();
+                let chest_group = commands.spawn((Transform::from_matrix(chest_cancel), Visibility::default(), ChildOf(joints[chest]))).id();
+                let logo_pos = Vec3::new(0.0, envf("METALLIC_LOGO_Y", LOGO_POS.y), envf("METALLIC_LOGO_Z", LOGO_POS.z));
+                commands.spawn((Mesh3d(roomie.logo_quad.clone()), MeshMaterial3d(roomie.logo.clone()),
+                    Transform { translation: logo_pos, rotation: face, ..default() }, ChildOf(chest_group)));
+                info!("avatar: chest logo on joint {:?}", rigdef.joints[chest].name);
                 commands.entity(root).insert(Skeleton { joints, root_node: skeleton_node, curls: [anim::Grip::Open.curls(); 2], bean: roomie.body == BodyType::Bean, clip_state: "idle", blend_from: None, blend: 1.0 });
                 group
             }
