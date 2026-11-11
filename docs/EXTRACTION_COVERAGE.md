@@ -18,9 +18,14 @@ Two distinct data domains:
 - Typed reader success (ok / fail):
   GameObject 207,879/0 · Transform 90,887/0 · MeshFilter 10,473/0 · MeshRenderer+Skinned 12,568/0 ·
   Material 2,300/0 · **Mesh 3,216/13** · **Texture2D 5,266/14** · AssetBundle 2,787/0.
-- **Reader failures: 27 of 932,336 objects (0.003%)**, two causes:
-  1. `13× compressed mesh` (`m_MeshCompression != 0`) — unsupported packed-vertex meshes.
-  2. `14× zero-sized texture` — Texture2D with no pixel data (streaming placeholders / 0×0).
+- **Reader failures: 13 of 932,336 objects (0.0014%)**, one remaining cause:
+  1. `13× compressed mesh` (`m_MeshCompression != 0`) — packed-vertex meshes (`m_CompressedMesh`
+     PackedBitVectors); reader gap, ~150 lines of PackedBitVector decode to close. FOLLOW-UP.
+  2. ~~`14× zero-sized texture`~~ — FIXED: `decode_rgba8` now returns an empty image for 0×0
+     (streaming placeholders), so Texture2D typed extraction is **5,280 / 0**.
+- Batch extraction already exists two ways: our `unity-assets` readers (99.9986% of objects) and a
+  prior AssetStudioModCLI export in `decomp-full/assets/AssetStudioExport` (386,575 files: 9,050
+  textures→PNG, 3,225 meshes→OBJ, 1,178 audio→WAV, 373k MonoBehaviours→JSON).
 
 ## B. Built-in base scenes (encrypted) — `RecRoom_Data`
 - Encrypted with an 8-byte `00 00 52 52` marker + a per-file stream cipher applied by the
@@ -35,8 +40,9 @@ Two distinct data domains:
   dormroom2, reccenter, charades/the-ink-space, discgolf (+Propulsion), dodgeball, paddleball,
   eventroom, paintball (River/Construction/Castle/ClearCut/Dam/DriveIn/MerryMidway/Lobby),
   Quest Goblin_1 + Scifi_1, Orientation, StuntRunner, RecRally, UGC dorms, etc.
-- Corpus completeness: the scene SerializedFiles + their `.resS`/`.resource` geometry/texture/audio
-  streams are being brought to 337/337 via `rebuild_corpus.py` (runtime oracle).
+- Corpus completeness: **337 / 337 encrypted files decrypted** (scenes + `.assets` +
+  `globalgamemanagers.assets` + encrypted `.resS`/`.resource` geometry/texture/audio streams), via
+  `rebuild_corpus.py` (runtime oracle, robust/resumable). State in `assets/decrypted/corpus-manifest.json`.
 
 ## C. IL2CPP code decompile
 - Complete dump exists locally (`decomp-full/code`): `dump.cs` (409,503 methods, all 419 images),
@@ -52,6 +58,6 @@ Two distinct data domains:
    full mesh/texture geometry of the base scenes is available (bundle-sourced meshes already export).
 
 ## Headline numbers
-- Addressables objects readable: **932,309 / 932,336 (99.997%)**.
+- Addressables objects readable: **932,323 / 932,336 (99.9986%)** (only 13 compressed meshes left).
 - Built-in scenes decrypted + parsed: **114 / 114 (100%)**.
-- Encrypted base files in corpus: tracked in `assets/decrypted/corpus-manifest.json`.
+- Encrypted base files in corpus: **337 / 337 (100%)**.
