@@ -38,6 +38,10 @@ pub enum GameInput {
     /// `RpcMasterRequestGuess`). The master validates the guesser is NOT the performer, scores +1 (co-op pool or the
     /// guessing team), and advances to the next word/performer. Correctness is the in-world button signal, not text.
     Guess { guesser: PlayerId },
+    /// `player` crossed the current course's finish gate with a run time of `time_ms` milliseconds (→ StuntRunner's
+    /// `RpcMasterRequestCourseFinishTime`). The master validates + records the per-course time, scores it (faster =
+    /// higher), and advances the 6-course sequence. The clock is master-authoritative; the time is the wire value (ms).
+    FinishCourse { player: PlayerId, time_ms: u32 },
 }
 
 /// The round/match lifecycle, broadcast so clients can show countdowns/scoreboards.

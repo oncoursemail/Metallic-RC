@@ -16,10 +16,12 @@ pub mod dodgeball;
 pub mod mode;
 pub mod paddleball;
 pub mod soccer;
+pub mod stuntrunner;
 
 pub use bowling::{BowlingConfig, BowlingMode};
 pub use charades::{CharadesConfig, CharadesMode};
 pub use discgolf::{DiscGolfConfig, DiscGolfMode};
+pub use stuntrunner::{StuntRunnerConfig, StuntRunnerMode};
 pub use dodgeball::{DodgeballConfig, DodgeballEffects, DodgeballManager, DodgeballMode, Phase, PlayerId, Team};
 pub use mode::{GameEvent, GameInput, GameMode, RoundPhase};
 pub use paddleball::{PaddleballConfig, PaddleballMode};
