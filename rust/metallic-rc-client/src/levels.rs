@@ -1230,6 +1230,54 @@ fn tmp_text(sf: &SerializedFile, o: &ObjectInfo) -> Option<String> {
     None
 }
 
+/// A `TextMeshProUGUI`'s real style — (m_fontColor rgba, m_fontSize, m_HorizontalAlignment, m_VerticalAlignment) —
+/// read from the stripped MonoBehaviour by the authoritative TMP_Text layout (from the decompiled dump.cs). The
+/// fields before m_fontColor are variable (a SerializeReference preprocessor + two material arrays), so the
+/// m_fontColor32(4 bytes)+m_fontColor(4 floats) pair is FOUND by its self-consistent signature (byte == float*255,
+/// alpha ~ 1); from that anchor the layout to m_fontSize (+148) and alignment (+176/+180) is fixed. Validated on the
+/// Rec Center: 169/183 colours found, 167 of those with a sane m_fontSize at +148 (0 at +144 — so each bool aligns).
+fn tmp_style(sf: &SerializedFile, o: &ObjectInfo) -> Option<([f32; 4], f32, i32, i32)> {
+    let b = sf.object_bytes(o);
+    let getf = |off: usize| -> Option<f32> { Some(f32::from_le_bytes(b.get(off..off + 4)?.try_into().ok()?)) };
+    let geti = |off: usize| -> Option<i32> { Some(i32::from_le_bytes(b.get(off..off + 4)?.try_into().ok()?)) };
+    // bound the scan: start just past m_text (header + Graphic base + m_text)
+    let mut r = Reader::new(b, sf.big_endian);
+    (r.i32().ok()?, r.i64().ok()?); // m_GameObject
+    r.u8().ok()?;
+    r.align(4); // m_Enabled
+    (r.i32().ok()?, r.i64().ok()?); // m_Script
+    r.aligned_string().ok()?; // m_Name
+    (r.i32().ok()?, r.i64().ok()?); // m_Material
+    for _ in 0..4 {
+        r.f32().ok()?; // m_Color
+    }
+    r.u8().ok()?;
+    r.align(4); // m_RaycastTarget
+    for _ in 0..4 {
+        r.f32().ok()?; // m_RaycastPadding
+    }
+    r.u8().ok()?;
+    r.align(4); // m_Maskable
+    r.aligned_string().ok()?; // m_text
+    let start = r.pos();
+    let mut off = (start + 3) & !3;
+    while off + 184 + 4 <= b.len() && off < start + 220 {
+        let c32 = [b[off], b[off + 1], b[off + 2], b[off + 3]];
+        let col = [getf(off + 4)?, getf(off + 8)?, getf(off + 12)?, getf(off + 16)?];
+        let sane = col.iter().all(|&x| (-0.01..=1.01).contains(&x));
+        let consistent = (0..4).all(|k| ((c32[k] as f32) - col[k] * 255.0).abs() <= 2.0);
+        // alpha ~ 1 rejects the zero padding (alpha 0) while accepting black text (alpha 255)
+        if sane && consistent && c32[3] >= 200 {
+            let size = getf(off + 148)?;
+            if (2.0..=400.0).contains(&size) {
+                return Some((col, size, geti(off + 176).unwrap_or(2), geti(off + 180).unwrap_or(512)));
+            }
+        }
+        off += 4;
+    }
+    None
+}
+
 /// A `UnityEngine.UI.Image`'s `m_Color` and the byte offset just past it, read from the stripped MonoBehaviour by the
 /// stable UGUI layout: after the MonoBehaviour header (m_GameObject, m_Enabled, m_Script, m_Name) come
 /// `Graphic.m_Material` then `m_Color`, both before any variable field — so this is robust without the script's type
@@ -1455,17 +1503,28 @@ impl OldBuilder<'_> {
                 // a TextMeshPro label: read the string, rasterise it with the game font, fit it (keeping aspect)
                 // centred in the rect
                 let Some(ttf) = rr_font() else { continue };
-                let Some(s) = txt.and_then(|o| tmp_text(&sf, o)) else { continue };
+                let Some(txt_obj) = txt else { continue };
+                let Some(s) = tmp_text(&sf, txt_obj) else { continue };
                 let Some((tw, th, rgba)) = render_text_rgba(ttf, &s, 64.0) else { continue };
                 let ar = tw as f32 / th.max(1) as f32;
                 let (rw, rh) = (w.abs(), h.abs());
-                // size the text by the rect HEIGHT (~ the font size), at its natural width — not stretched to fill the
-                // rect. The exact m_fontSize / m_alignment sit past variable TMP arrays and are coming from the
-                // decompiled layout; until then the rect height stands in for the point size.
-                let (mut fw, mut fh) = (rh * ar, rh);
+                // the REAL style: m_fontColor + m_fontSize (canvas units) from TMP_Text. The font size (not the
+                // rect height) sets the text height — a line is ~fontSize tall — fixing over-sized labels; fall back
+                // to the rect height only when the style can't be read.
+                let style = tmp_style(&sf, txt_obj);
+                let color = style.map_or(TEXT_COLOR, |s| s.0);
+                let lines = s.split('\n').count().max(1) as f32;
+                let mut fh = style.map_or(rh, |s| s.1 * lines);
+                let mut fw = fh * ar;
                 if fw > rw {
-                    fh *= rw / fw;
+                    let sc = rw / fw;
                     fw = rw;
+                    fh *= sc;
+                }
+                if fh > rh {
+                    let sc = rh / fh;
+                    fh *= sc;
+                    fw *= sc;
                 }
                 let (cx, cy) = ((0.5 - px) * w, (0.5 - py) * h);
                 let tcorner = |ux: f32, uy: f32| {
@@ -1475,7 +1534,7 @@ impl OldBuilder<'_> {
                 let positions = vec![tcorner(0.0, 0.0), tcorner(1.0, 0.0), tcorner(1.0, 1.0), tcorner(0.0, 1.0)];
                 // top-down pixels: the top of the text (v=0) is the top of the quad (uy=1)
                 let uvs = vec![[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]];
-                (positions, uvs, Some((tw, th, rgba)), TEXT_COLOR, Blend::Blend)
+                (positions, uvs, Some((tw, th, rgba)), color, Blend::Blend)
             };
             // clip to every ancestor mask (scroll viewports etc.): keep only the part inside the mask window,
             // re-interpolating UVs — this is what makes scrolled lists sit in their box instead of floating
