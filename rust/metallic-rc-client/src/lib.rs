@@ -25,6 +25,7 @@ pub mod settings;
 pub mod shapes;
 pub mod soccer;
 pub mod social;
+pub mod stuntrunner;
 pub mod texprep;
 pub mod ui;
 pub mod voice;

@@ -102,15 +102,19 @@ above already cover elimination, team-points, and per-player scoring.
 ## Roster (remaining `*GameRuleManager` @dump.cs)
 
 Dodgeball ✅ · Paddleball ✅ · DiscGolf ✅ · Soccer ✅ (TIMED) · Bowling ✅ (real 10-pin + real scene config over
-net; **pin-toppling physics is the one open dependency** — see below) · Charades ✅ (CoOp + TeamLightning both
-verified over net; the pen DRAWING / 3D networked strokes is presentation depth, a follow-up, not a scoring
-dependency). Remaining: StuntRunner (StuntRunnerManager, level92–100 — per-player fastest course time, leanest
-of the rest, **do next**) · Paintball (PaintballManager, level14+4 maps, 2 modes CTF/TeamBattle, projectile
-physics) · RecRally (RecRallyManager — KART racing, needs the dynamic-physics foundation) · Arena (horde+shop+AI,
-heavy) · BattleRoyale (level78 HUGE 172k objs, shrinking killzone — isolate) · Quest (co-op campaign + AI, many
-scenes — isolate). **LaserTag is SPECIAL** — no `*Manager` subclass, only `LaserTagGameRuleWrapper`;
-gadget/circuit-based, route it to the CircuitsV2/gadget lane, NOT this manager-body recipe. Each manager game is
-a drop-in via this recipe; give the decompile session (local_9442e322) the manager class name to start.
+net; **pin-toppling physics is the one open dependency** — see below) · Charades ✅ (CoOp + TeamLightning both over
+net; pen DRAWING is presentation depth, a follow-up) · StuntRunner ✅ (6-course time-trial, real formula + base
+score 180000 + real course gates, winner verified over net; two world-depth follow-ups — the multi-course scene
+SWAP (loader doesn't hot-swap level93–98 yet) and the real gate-crossing TIMING; `CourseMaxFinishTimeSeconds` cap
+is a live-capture //1:1-pending and the SS/S/A/B/C grades are prefab percentiles //1:1-pending — all cap/grade
+items are winner-independent). Remaining: Paintball (PaintballManager, level14+4 maps, 2 modes CTF/TeamBattle,
+projectile physics) · RecRally (RecRallyManager — KART racing, needs the dynamic-physics foundation) · Arena
+(horde+shop+AI, heavy) · BattleRoyale (level78 HUGE 172k objs, shrinking killzone — isolate) · Quest (co-op
+campaign + AI, many scenes — isolate). **LaserTag is SPECIAL** — no `*Manager` subclass, only
+`LaserTagGameRuleWrapper`; gadget/circuit-based, route it to the CircuitsV2/gadget lane, NOT this manager-body
+recipe. The remaining games converge on the dynamic-physics foundation (Bowling toppling + RecRally karts +
+Paintball projectiles) — that reusable `bevy_rapier` layer is the next big enabler. Give the decompile session
+(local_9442e322) the manager class name to start each.
 
 **Pin-toppling physics dependency.** Bowling's real pinfall is rigidbody TOPPLING (ball knocks pins, pin-to-pin
 chains, settle; a pin is standing while `AngleFromUpright <= 25.0°`). The rebuild's custom physics (interact.rs
