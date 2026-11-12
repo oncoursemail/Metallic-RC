@@ -204,9 +204,13 @@ fn main() {
     let mut prefs = Prefs { s: Settings::path().map(|p| Settings::load(&p)).unwrap_or_default(), changed: true };
     prefs.s.remember(&a.name);
 
+    // METALLIC_HIDDEN=1: create the window but don't show it. The ECS (net, rules, bots) runs exactly the same, so a
+    // net self-test can drive a game to a result and print its log without popping a window over whatever the owner is
+    // doing (they're often on a call). The window still exists, so the systems that take `Single<&Window>` are fine.
+    let hidden = std::env::var("METALLIC_HIDDEN").is_ok();
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window { title: "Metallic RC".into(), ..default() }),
+            primary_window: Some(Window { title: "Metallic RC".into(), visible: !hidden, ..default() }),
             ..default()
         }))
         .insert_resource(status)
@@ -235,6 +239,8 @@ fn main() {
         .insert_resource(metallic_rc_client::paddleball::PaddleballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("paddleball"))))
         .add_plugins(metallic_rc_client::discgolf::DiscGolfPlugin)
         .insert_resource(metallic_rc_client::discgolf::DiscGolfActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("discgolf"))))
+        .add_plugins(metallic_rc_client::soccer::SoccerPlugin)
+        .insert_resource(metallic_rc_client::soccer::SoccerActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("soccer"))))
         .insert_resource(LocalLook(look))
         // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
         .insert_resource(avatar::Dressing::default())

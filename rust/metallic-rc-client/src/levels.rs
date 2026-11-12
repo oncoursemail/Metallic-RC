@@ -1091,6 +1091,95 @@ pub fn scene_objects(game_data: Option<&Path>, room: &str, needle: &str) -> Vec<
     out
 }
 
+/// A gameplay "goal"/trigger object read by MonoBehaviour CLASS (e.g. `SoccerGoal`, `PaddleballGoal`): its `team`
+/// field and the world-space AABB of the trigger `BoxCollider` it references. Unlike [`scene_objects`] (name match),
+/// this resolves the script class across the scene's sibling files (`mono_script_ref` → `mono_script_name`) and reads
+/// the serialized fields with [`level::MonoFields`], so it returns the REAL per-goal config, not an approximation.
+pub struct SceneGoal {
+    /// the team that DEFENDS this goal (`GameTeam`); scoring into it credits the OTHER team
+    pub team: i32,
+    /// world-space (client/bevy) centre of the trigger box
+    pub center: Vec3,
+    /// world-space half-extent of the trigger box (axis-aligned; goal boxes are not rotated on the pitch)
+    pub half: Vec3,
+}
+
+/// The scene's goal objects of MonoBehaviour class `class`, read the way the decompile lane specifies the field order.
+/// `read`: a cursor positioned just past the MB header; return `(defending_team, goal_collider_pptr_path_id)` — e.g.
+/// SoccerGoal is `|mf| Ok((/* goalCollider */ { let p = mf.pptr()?; p.path_id }, /* team */ mf.i32()?))` but with the
+/// two in field order. Here we hard-wire the SoccerGoal/PaddleballGoal shapes via `goal_collider_first`.
+pub fn scene_goals(game_data: Option<&Path>, room: &str, class: &str, goal_collider_first: bool) -> Vec<SceneGoal> {
+    let Some(dir) = scenes_dir() else { return Vec::new() };
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let mut files = Files::with_res(dir, res_dirs);
+    let Some((file, name)) = scene_file(&mut files, room) else { return Vec::new() };
+    let Ok(scene) = read_scene(&mut files, &file, &name) else { return Vec::new() };
+    let scene_file_name = scene.file.clone();
+    // externals of the scene file, for resolving an m_Script PPtr that points into a sibling file
+    let externals: Vec<String> = match files.get(&scene_file_name) {
+        Some(sf) => sf.externals.iter().map(|e| e.path.rsplit('/').next().unwrap_or(&e.path).to_string()).collect(),
+        None => return Vec::new(),
+    };
+    // component object id -> owning node index (to find the goalCollider's world transform)
+    let mut owner: std::collections::HashMap<i64, usize> = std::collections::HashMap::new();
+    for (i, n) in scene.nodes.iter().enumerate() {
+        for &(_, id) in &n.components {
+            owner.insert(id, i);
+        }
+    }
+    let mut out = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        for &(c, id) in n.components.iter().filter(|(c, _)| *c == classes::MONO_BEHAVIOUR) {
+            // resolve the script class name (same file or an external), each `files.get` in its own scope
+            let p = match files.get(&scene_file_name).and_then(|sf| sf.object(id).and_then(|o| level::mono_script_ref(&sf, o).ok())) {
+                Some(p) => p,
+                None => continue,
+            };
+            let class_name = if p.file_id == 0 {
+                files.get(&scene_file_name).and_then(|sf| sf.object(p.path_id).and_then(|so| level::mono_script_name(&sf, so).ok())).map(|(c, _)| c)
+            } else if let Some(ext) = externals.get(p.file_id as usize - 1).cloned() {
+                files.get(&ext).and_then(|f| f.object(p.path_id).and_then(|so| level::mono_script_name(&f, so).ok())).map(|(c, _)| c)
+            } else {
+                None
+            };
+            if class_name.as_deref() != Some(class) {
+                continue;
+            }
+            // read (goalCollider PPtr, team) in the class's declared field order
+            let read = files.get(&scene_file_name).and_then(|sf| {
+                let o = sf.object(id)?;
+                let mut mf = level::MonoFields::open(&sf, o).ok()?;
+                if goal_collider_first {
+                    let gc = mf.pptr().ok()?; // goalCollider: PPtr(BoxCollider)
+                    let team = mf.i32().ok()?; // team: GameTeam
+                    Some((team, gc.path_id))
+                } else {
+                    let team = mf.i32().ok()?; // team first (PaddleballGoal)
+                    Some((team, 0))
+                }
+            });
+            let Some((team, collider_pid)) = read else { continue };
+            // the referenced goal collider's world AABB (its owning node's transform × the collider's local box)
+            let coll_world = collider_pid.ne(&0).then(|| owner.get(&collider_pid).map(|&i| scene.nodes[i].world)).flatten().unwrap_or(n.world);
+            let (center, half) = files
+                .get(&scene_file_name)
+                .and_then(|sf| sf.object(collider_pid).and_then(|co| level::box_collider(&sf, co).ok()))
+                .map(|bc| {
+                    let center = coll_world.transform_point3(Vec3::new(bc.center[0], bc.center[1], -bc.center[2]));
+                    let scale = coll_world.to_scale_rotation_translation().0.abs();
+                    let half = Vec3::new(bc.size[0], bc.size[1], bc.size[2]) * 0.5 * scale;
+                    (center, half)
+                })
+                .unwrap_or((n.world.transform_point3(Vec3::ZERO), Vec3::splat(2.0)));
+            out.push(SceneGoal { team, center, half });
+        }
+    }
+    out
+}
+
 pub fn load_scene(game_data: Option<&Path>, room: &str) -> Option<Result<RoomData, String>> {
     let dir = scenes_dir()?;
     let mut res_dirs = vec![dir.to_path_buf()];

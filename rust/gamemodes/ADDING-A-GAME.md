@@ -1,11 +1,15 @@
 # Adding a built-in Rec Room Original — the recipe
 
-Three games are ported 1:1 and playable in-client over rr-net through one reusable seam: **Dodgeball**
-(team elimination), **Paddleball** (team goals to 5), **DiscGolf** (per-player stroke play). The seam has
-handled three genuinely different scoring shapes with no structural change, so it is now **frozen** (see
-"The frozen API" below). Every remaining RR Original is a small, well-defined delta. Follow these steps
-verbatim; hold the 1:1 bar (no invented numbers — mark anything unverified `// 1:1:` and get the real value
-from the decompile lane).
+Four games are ported 1:1 and playable in-client over rr-net through one reusable seam: **Dodgeball**
+(team elimination), **Paddleball** (team goals to 5), **DiscGolf** (per-player stroke play), **Soccer**
+(team goals but **TIMED** — 180 s, most goals wins). The seam has handled four genuinely different scoring
+shapes with no structural change (the timed win lives inside the mode's `tick`, not a new enum variant), so
+it is **frozen** (see "The frozen API" below). Every remaining RR Original is a small, well-defined delta.
+Follow these steps verbatim; hold the 1:1 bar (no invented numbers — mark anything unverified `// 1:1:` and
+get the real value from the decompile lane).
+
+Watch for the win CONDITION, not just the scoring: Paddleball is first-to-N, Soccer is most-goals-when-the-
+clock-expires. Ask the decompile lane "goals-to-win or timed?" up front — they read very differently.
 
 ## The recipe (per game)
 
@@ -33,20 +37,23 @@ from the decompile lane).
    gadget/trigger detection. Add `<Game>Active(bool)` + `<Game>Plugin`, and wire both into `lib.rs` +
    `main.rs` (activate on `--world <game>`).
 
-4. **Read scene-specific config** through `levels::scene_objects(game_data, room, needle)` (in `levels.rs`):
-   it returns the scene's objects whose hierarchy NAME contains `needle` (case-insensitive), each with its
-   world position + box/sphere collider half-extent — enough to place goal/basket/hazard zones and spawns from
-   the real scene instead of approximating. Discover a game's gadget names first with `needle = "*"` (lists all
-   scripted objects) — e.g. run `METALLIC_OBJECTS=* levels_report <room> --game-dir <RecRoom>`.
-   KNOWN LIMITS (maps-lane follow-ups; mark affected values `// 1:1:` until closed):
-   - Matching is by NAME, not MonoBehaviour script class: the 2026 scenes reference gameplay MonoScripts
-     EXTERNALLY, so `mono_script_name` resolves none from the scene file alone — resolving those external PPtrs
-     is maps-lane work. (The reader is proven: `*` finds 1410 scripted objects in `discgolf`.)
-   - Serialized FIELDS (a goal's `hole`/`par`/`team`) need the MonoBehaviour byte layout (no type trees) — not
-     read here. Coordinate with the maps session, which parses scene byte-layout.
-   - Some gadgets (e.g. the Paddleball goals) may be instantiated by the `*GameRuleWrapper` prefab at runtime
-     rather than baked into the scene; if `scene_objects` doesn't find them by name, read them from the wrapper
-     prefab (via `world::Addresses`/the bundle) instead.
+4. **Read scene-specific config — REAL values, no stand-ins.** Two readers in `levels.rs`:
+   - `levels::scene_goals(game_data, room, class, goal_collider_first)` — resolves gadget objects by
+     MonoBehaviour CLASS (`mono_script_ref` → `mono_script_name`, across sibling files) and reads their
+     serialized fields with `unity_assets::level::MonoFields`, returning each goal's `team` + the world-space
+     AABB of the trigger `BoxCollider` it references. This is how Soccer gets its real goal teams + AABBs
+     (SoccerGoal = goalCollider PPtr then team → `goal_collider_first = true`). Give the decompile lane the
+     gadget class name; it returns the serialized FIELD ORDER (base-first, Unity declaration order) so you read
+     the right scalars. For a prop ADDRESS (the ball), find the real Addressables key with the `world_inventory`
+     example (`cargo run --example world_inventory -- "" <filter>`) — e.g. Soccer's ball is `(SoccerBall)`.
+   - `levels::scene_objects(game_data, room, needle)` — NAME match (case-insensitive; `*` = all scripted), each
+     with world position + collider half-extent, for discovery / spawns. Discover gadget names with
+     `METALLIC_OBJECTS=* levels_report <room> --game-dir <RecRoom>`.
+   The MonoFields reader (maps lane, merged) CLOSED the old "can't read script class / serialized fields"
+   limit — validated on the corpus (DiscGolfGoal 18/18, PaddleballGoal 2/2, SoccerGoal 2/2). For a gadget the
+   `*GameRuleWrapper` prefab instantiates at runtime rather than baking into the scene, read it from the wrapper
+   prefab (via `world::Addresses`/the bundle) instead. The decompile lane's `rr-mb-dump <scene> <Class>` dumps a
+   class's leading serialized words to confirm a field layout against the real bytes.
 
 5. **Port any non-ballistic prop physics** client-side if the game has them (DiscGolf's disc flight model:
    `airLift` + throw-assist curve + spin — see `discgolf.rs::disc_flight`). Throw speed is always the hand
@@ -55,10 +62,17 @@ from the decompile lane).
 6. **Reconcile every `// 1:1:`** against the decompiled body the moment it lands, and correct any drift. A
    game is not "done" until its rules are verified against the real body, not just plausible.
 
-7. **Self-test, muted, mic off.** Run `--world <game>` with `METALLIC_NO_MIC=1` (never open the mic) +
-   `METALLIC_DEMO_CAM=1` (bounds-framed demo cam) + the game's `METALLIC_<X>_BOTS=1`, against a local
-   `metallic-rc-server --open-rooms`. Confirm the log shows the authority scoring to a win over the net.
-   Commit + push; ping the integrator when it runs a round.
+7. **Self-test, muted, mic off, no window.** Run `--world <game>` with `METALLIC_NO_MIC=1` (never open the
+   mic — owner's hard constraint) + `METALLIC_HIDDEN=1` (create the window but don't show it — the owner is
+   often on a call; the ECS/net/rules run the same, you just read the log) + the game's `METALLIC_<X>_BOTS=1`,
+   against a local `metallic-rc-server --open-rooms`. Mute audio output too: point `LOCALAPPDATA` at a temp dir
+   holding `Metallic-RC/settings.json` = `{"settings":{"volume_master":0}}`. The scene loads from the corpus
+   (first load ~20 s, then cached), so give the run ~45 s (the self-test match clock starts only once the arena
+   is built and `join_game` fires). Confirm the log shows: the real gadget config read (e.g. "read 2 real
+   SoccerGoal(s)"), the prop spawned (no "no GameObject address" error), and the authority scoring to a win/full
+   time over the net. (`METALLIC_DEMO_CAM=1` + `METALLIC_SHOT=<png>` + `METALLIC_SHOT_AT=<s>` instead captures a
+   framed screenshot and exits, if you want a visual — that one does open a window.) Commit + push to `unit`;
+   ping the integrator when it runs a round.
 
 ## The frozen API (`gamemodes::mode`)
 
@@ -81,6 +95,11 @@ above already cover elimination, team-points, and per-player scoring.
 
 ## Roster (remaining `*GameRuleManager` @dump.cs)
 
-Charades @969 · DiscGolf ✅ @2570 · Dodgeball ✅ @5625 · Paddleball ✅ @10788 · Paintball @13813 (5 variants,
-heavy) · Soccer @25313 · BattleRoyale @947469 · RecRally @949803 · Quest @968004 (per-player) · Bowling
-@980135 · Arena @983309. Each is a drop-in via this recipe; give decompile the class name to start.
+Dodgeball ✅ · Paddleball ✅ · DiscGolf ✅ · Soccer ✅ (TIMED team goals). Remaining: Bowling
+(BowlingManager, level91 — per-player pins/frames, ~DiscGolf shape; **do next**, lean) · Paintball
+(PaintballManager, level14+4 maps, 2 modes CTF/TeamBattle) · Charades (CharadesManager, level8, timed
+word-guess, 2 modes) · RecRally (racing) + StuntRunner (time-trial, natural pair) · Arena (horde+shop, heavy)
+· BattleRoyale (level78 HUGE 172k objs, shrinking killzone — isolate) · Quest (co-op campaign, many scenes —
+isolate). **LaserTag is SPECIAL** — no `*Manager` subclass, only `LaserTagGameRuleWrapper`; it's
+gadget/circuit-based, so route it to the CircuitsV2/gadget lane, NOT this manager-body recipe. Each manager
+game is a drop-in via this recipe; give decompile the class name to start.
