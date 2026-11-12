@@ -2274,6 +2274,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuits"
+version = "0.1.0"
+
+[[package]]
 name = "clipboard-win"
 version = "5.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3029,6 +3033,10 @@ dependencies = [
  "pin-project-lite",
  "slab",
 ]
+
+[[package]]
+name = "gamemodes"
+version = "0.1.0"
 
 [[package]]
 name = "generator"
@@ -4104,6 +4112,7 @@ dependencies = [
  "axum",
  "bevy",
  "cpal",
+ "gamemodes",
  "image",
  "intel_tex_2",
  "metallic-rc-server",
