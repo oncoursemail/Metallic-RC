@@ -474,7 +474,8 @@ fn wear(d: &mut avatar::Dressing, outfit_type: i32, val: &str) {
         Slot::Bottom => d.bottom = format!("{val}_{}", slot.suffix()),
         Slot::Shoes => d.shoes = format!("{val}_{}", slot.suffix()),
         Slot::Hat => d.hat = format!("{val}_{}", slot.suffix()),
-        Slot::Beard | Slot::Glasses => {} // not yet worn as a mesh
+        Slot::Beard => d.beard = format!("{val}_{}", slot.suffix()),
+        Slot::Glasses => d.glasses = format!("{val}_{}", slot.suffix()),
     }
 }
 

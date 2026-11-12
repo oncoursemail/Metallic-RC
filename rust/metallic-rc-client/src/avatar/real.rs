@@ -143,9 +143,17 @@ pub struct RealWorn {
     pub top: Worn,
     pub bottom: Worn,
     pub shoes: Worn,
-    /// the head accessory: its mesh entity and the stem it shows (empty = bare head)
-    pub hat: Option<Entity>,
-    pub hat_style: String,
+    /// the accessory meshes: each one's entity and the stem it shows (empty = none)
+    pub hat: Accessory,
+    pub beard: Accessory,
+    pub glasses: Accessory,
+}
+
+/// A simple worn accessory (hat/beard/glasses): its mesh entity (if any) and the wardrobe stem it shows.
+#[derive(Default)]
+pub struct Accessory {
+    pub ent: Option<Entity>,
+    pub style: String,
 }
 
 /// One live clothing piece: its spawned mesh entity (if any), its material (recoloured live) and the wardrobe stem it
@@ -164,11 +172,13 @@ pub struct Dressing {
     pub hair_color: [u8; 3],
     pub shirt: [u8; 3],
     pub pants: [u8; 3],
-    /// wardrobe stems for the worn clothing (e.g. `Blazer_Shirt`, `Sweatpants_Leg`, `Boots_Shoe`); `hat` empty = bare head
+    /// wardrobe stems for the worn clothing (e.g. `Blazer_Shirt`, `Sweatpants_Leg`, `Boots_Shoe`); empty accessory = none
     pub top: String,
     pub bottom: String,
     pub shoes: String,
     pub hat: String,
+    pub beard: String,
+    pub glasses: String,
     /// the hair styles the wardrobe has, for the Customize screen to list
     pub hair_styles: Vec<String>,
 }
@@ -180,7 +190,8 @@ impl Default for Dressing {
         Dressing {
             skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x8f, 0x4a, 0x27], shirt: [0xf3, 0xf1, 0xea], pants: [0x3a, 0x3f, 0x4b],
             // these match the defaults `attach_real` spawns, so a fresh avatar never re-swaps on its first frame
-            top: "ShirtJersey".into(), bottom: "BasicLeggings_Leg".into(), shoes: "Sneakers_Shoe".into(), hat: String::new(),
+            top: "ShirtJersey".into(), bottom: "BasicLeggings_Leg".into(), shoes: "Sneakers_Shoe".into(),
+            hat: String::new(), beard: String::new(), glasses: String::new(),
             hair_styles,
         }
     }
@@ -307,8 +318,29 @@ fn swap_piece(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mu
     piece.style = stem.into();
 }
 
+/// Swaps a plain accessory (hat/beard/glasses) to a new wardrobe `stem`, removing it when `stem` is empty. Its own
+/// tinted+textured material; a no-op when the style is unchanged.
+fn swap_accessory(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, images: &mut Assets<Image>,
+    body: BodyType, node: Entity, acc: &mut Accessory, stem: &str) {
+    if acc.style == stem {
+        return;
+    }
+    if let Some(old) = acc.ent.take() {
+        commands.entity(old).despawn();
+    }
+    if !stem.is_empty() {
+        if let Some(mesh) = load_wardrobe(body, stem) {
+            let tex = wardrobe_tex_for(stem).map(|img| images.add(img));
+            let m = materials.add(StandardMaterial { base_color: Color::WHITE, base_color_texture: tex, perceptual_roughness: 0.6, ..default() });
+            let h = meshes.add(mesh);
+            acc.ent = Some(commands.spawn((Mesh3d(h), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(node))).id());
+        }
+    }
+    acc.style = stem.into();
+}
+
 /// Applies the current [`Dressing`] to the real avatar(s) whenever it changes: the skin/hair/clothing colours (by editing
-/// the tracked materials) and the hair, top, bottom, shoe and hat meshes (by swapping them when the style changes).
+/// the tracked materials) and the hair, top, bottom, shoe and accessory meshes (by swapping them when the style changes).
 pub fn redress(
     mut commands: Commands,
     dressing: Option<Res<Dressing>>,
@@ -348,21 +380,10 @@ pub fn redress(
                 w.hair_style = dressing.hair_style.clone();
             }
         }
-        // the hat: swap or remove when the style changed (its own tinted/textured material)
-        if w.hat_style != dressing.hat {
-            if let Some(old) = w.hat.take() {
-                commands.entity(old).despawn();
-            }
-            if !dressing.hat.is_empty() {
-                if let Some(mesh) = load_wardrobe(body, &dressing.hat) {
-                    let tex = wardrobe_tex_for(&dressing.hat).map(|img| images.add(img));
-                    let m = materials.add(StandardMaterial { base_color: Color::WHITE, base_color_texture: tex, perceptual_roughness: 0.6, ..default() });
-                    let h = meshes.add(mesh);
-                    w.hat = Some(commands.spawn((Mesh3d(h), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(node))).id());
-                }
-            }
-            w.hat_style = dressing.hat.clone();
-        }
+        // the accessories: swap or remove each when its style changed
+        swap_accessory(&mut commands, &mut meshes, &mut materials, &mut images, body, node, &mut w.hat, &dressing.hat);
+        swap_accessory(&mut commands, &mut meshes, &mut materials, &mut images, body, node, &mut w.beard, &dressing.beard);
+        swap_accessory(&mut commands, &mut meshes, &mut materials, &mut images, body, node, &mut w.glasses, &dressing.glasses);
     }
 }
 
@@ -886,7 +907,8 @@ pub fn attach_real(
                 let bottom = piece(&mut commands, &mut materials, &roomie.legs, look.pants, &roomie.legs_tex, 0.8, "BasicLeggings_Leg");
                 let shoes = piece(&mut commands, &mut materials, &roomie.shoes, [0xff, 0xff, 0xff], &roomie.shoes_tex, 0.7, "Sneakers_Shoe");
                 let hair_style = std::env::var("METALLIC_HAIR").unwrap_or_else(|_| "CurlyHelmetHair".into());
-                commands.entity(root).insert(RealWorn { skeleton_node, body: roomie.body, skin_mat, hair: hair_ent, hair_mat, hair_style, top, bottom, shoes, hat: None, hat_style: String::new() });
+                commands.entity(root).insert(RealWorn { skeleton_node, body: roomie.body, skin_mat, hair: hair_ent, hair_mat, hair_style, top, bottom, shoes,
+                    hat: Accessory::default(), beard: Accessory::default(), glasses: Accessory::default() });
                 // a group under the head joint whose transform cancels the head's bind pose, so decals placed in the
                 // standing avatar frame (EYE_POS / MOUTH_POS) land on the face and then follow the head joint.
                 let head = rigdef.head;
