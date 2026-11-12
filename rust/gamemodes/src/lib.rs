@@ -13,4 +13,4 @@ pub mod dodgeball;
 pub mod mode;
 
 pub use dodgeball::{DodgeballConfig, DodgeballEffects, DodgeballManager, DodgeballMode, Phase, PlayerId, Team};
-pub use mode::{GameEvent, GameInput, GameMode, ObjectId, PlayerPose, RoundPhase};
+pub use mode::{GameEvent, GameInput, GameMode, RoundPhase};

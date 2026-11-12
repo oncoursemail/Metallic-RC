@@ -1,85 +1,326 @@
-//! Dodgeball game mode in the client. When the `dodgeball` arena (the decrypted `level11` scene,
-//! Activities/Dodgeball/Scenes/dodgeball.unity) is the loaded world, this sets up a playable round: it spawns the
-//! real `(DodgeballBall)` props on the centre line — grabbable and throwable through the client's own `interact`
-//! grab/throw (E to grab, E again to throw, Q to drop) — and runs the ported [`gamemodes::DodgeballManager`] so the
-//! round/score logic ticks alongside play.
+//! Dodgeball over rr-net, master-client authority — mirroring Rec Room's real flow (verified against the decompiled
+//! bodies). The thrown ball is the thrower's own networked prop: it keeps the hand's release velocity and flies on
+//! that client, which detects the collision with a player body and sends the master a hit *request*
+//! (`RpcMasterRequestPlayerOut`). The master (room authority) runs the verified `IsValidHit` rule via
+//! [`gamemodes::DodgeballMode`] and, if the hit counts, broadcasts the outcome (`RpcOnPlayerOut`) for every client to
+//! apply (topple + respawn). A catch is a grab of a live ball → `RpcMasterRequestPlayerCatch`. No outcome is
+//! client-trusted; the master never simulates the ball.
 //!
-//! The ball prop is the game's own asset (bundle 43ea1176…, a 0.22 m sphere with its Rigidbody, SphereCollider,
-//! `Dodgeball` script, `NetworkTransform` and trail); the client's prop system makes a spawned prop a `Grabbable`
-//! `NetObject`, so grab/throw and rr-net sync come for free. The thrown-ball → player hit that drives the manager's
-//! elimination/scoring is only meaningful with opponents, so it lands with the networked player roster (marked below);
-//! the single-client slice is "real balls you grab and throw in the real arena".
-//!
-//! Keep it muted when running the client (owner's standing request): set the volume_* settings to 0.
+//! `--world dodgeball` sets up the court: the master spawns the real `(DodgeballBall)` props (grab/throwable through
+//! the client's own `interact` grab/throw, which already applies the real release velocity). `METALLIC_DB_BOTS=1`
+//! adds host-side bots that raise scripted hit requests, so scoring can be proven with a single client as authority.
+//! Keep the client muted (owner's standing request).
+
+use std::collections::HashMap;
 
 use bevy::prelude::*;
-use gamemodes::dodgeball::{DodgeballConfig, DodgeballManager};
+use gamemodes::dodgeball::{DodgeballConfig, DodgeballMode as DodgeballRules};
+use gamemodes::mode::{GameEvent, GameInput, GameMode, RoundPhase};
+use rr_net::objects::RpcTarget;
 
-use crate::world::{self, Loader, RoomPiece};
+use crate::netobj::{NetObject, NetObjects, NetRpc, RoomLink};
+use crate::world::RoomPiece;
 
-/// The real Dodgeball ball prop's Addressables key (the parentheses are part of the key).
+/// The game's own ball prop (the parentheses are part of the Addressables key).
 const BALL_ADDRESS: &str = "(DodgeballBall)";
-/// How many balls sit on the centre line at the start of a round (the real game's count).
+/// The balls on the centre line at the start of a round.
 const BALL_COUNT: usize = 6;
+/// A fixed scene index every client registers, so the game's request/outcome RPCs share one networked view.
+const GAME_VIEW_INDEX: u32 = 47110;
+const RPC_HIT: &str = "DbHit"; // client → master: a hit request (thrower, victim)
+const RPC_CATCH: &str = "DbCatch"; // client → master: a catch request (catcher, thrower)
+const RPC_OUT: &str = "DbOut"; // master → others: a player is out
+const RPC_SCORE: &str = "DbScore"; // master → others: team score
+const RPC_ROUND: &str = "DbRound"; // master → others: round state
+/// 1:1: ball↔player contact distance for the owner-side collision — real = the ball SphereCollider (0.11) vs the
+/// player body collider (Unity OnCollisionEnter). Approximated here until the exact body-collider size is decoded.
+const CONTACT: f32 = 0.45;
 
-/// Set when the client is launched into the Dodgeball arena (`--world dodgeball`); off for every other world.
+/// Set when the client launched into the Dodgeball arena (`--world dodgeball`).
 #[derive(Resource, Clone, Copy)]
-pub struct DodgeballMode(pub bool);
+pub struct DodgeballActive(pub bool);
 
-/// The running match state (the ported rules engine), kept so play and scoring tick together.
-#[derive(Resource)]
-pub struct DodgeballGame {
-    pub mgr: DodgeballManager,
+/// Per-client Dodgeball state. The rules (`Some`) live only on the master; everyone keeps the shared game-authority
+/// entity for RPCs and the scoreboard the authority broadcasts.
+#[derive(Resource, Default)]
+pub struct Dodgeball {
+    rules: Option<DodgeballRules>,
+    game: Option<Entity>,
+    /// actors told to the rules, in join order (master only; also the team assignment)
+    roster: Vec<i32>,
+    /// requests the master received this frame, applied in `master_tick`
+    pending: Vec<GameInput>,
+    /// players currently out, and the scoreboard, as last broadcast
+    out: Vec<u32>,
+    score: [u32; 2],
+    round: u32,
+    court_set: bool,
+    bots: Vec<Bot>,
+    bot_elapsed: f32,
+}
+
+/// A scripted bot for the host-side self-test: it raises a hit request against a target at a set time.
+struct Bot {
+    thrower: i32,
+    victim: i32,
+    at: f32,
+    fired: bool,
 }
 
 pub struct DodgeballPlugin;
 
 impl Plugin for DodgeballPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (setup_court, tick_match).chain());
+        app.init_resource::<Dodgeball>().add_systems(Update, (join_game, owner_hit_detect, recv_rpcs, master_tick).chain());
     }
 }
 
-/// Once, after the arena's pieces are in, spawn the real balls on the centre line and start the match. A no-op unless
-/// the loaded world is the Dodgeball arena.
-fn setup_court(
+fn pid(actor: i32) -> u32 {
+    actor as u32
+}
+
+/// Once the arena is built and we're in a room, register the shared game-authority object and set up the court; the
+/// master also starts the rules (and, for the self-test, its bots).
+fn join_game(
     mut commands: Commands,
-    mode: Option<Res<DodgeballMode>>,
-    loader: Option<Res<Loader>>,
+    active: Option<Res<DodgeballActive>>,
+    link: Res<RoomLink>,
     pieces: Query<(), With<RoomPiece>>,
-    game: Option<Res<DodgeballGame>>,
-    mut done: Local<bool>,
+    mut net: NetObjects,
+    mut db: ResMut<Dodgeball>,
 ) {
-    if *done || game.is_some() {
+    if !matches!(active.as_deref(), Some(DodgeballActive(true))) || pieces.is_empty() || db.game.is_some() {
         return;
     }
-    // only in the Dodgeball arena, only once the room has been built, and only with a loader to fetch the prop
-    let (Some(DodgeballMode(true)), Some(loader), false) = (mode.as_deref(), loader, pieces.is_empty()) else {
-        return;
+    let Some(rt) = link.get() else { return };
+    let (actor, master) = {
+        let room = rt.room.lock().unwrap();
+        (room.actor(), room.is_master())
     };
-    *done = true;
+    let Some(actor) = actor else { return }; // not in a room yet
+    let e = commands.spawn((Name::new("dodgeball-authority"), Transform::default(), Visibility::Hidden)).id();
+    net.register_scene(e, GAME_VIEW_INDEX, "debug/DodgeballGame", Transform::default());
+    db.game = Some(e);
 
-    // the six balls, in a row across the centre line (z = 0), just above the floor
-    for i in 0..BALL_COUNT {
-        let x = (i as f32 - (BALL_COUNT as f32 - 1.0) * 0.5) * 1.1;
-        let at = Transform::from_xyz(x, 0.6, 0.0);
-        world::spawn_prop(&mut commands, &loader, BALL_ADDRESS, at);
+    if master {
+        let mut rules = DodgeballRules::new(DodgeballConfig::default());
+        rules.add_player(pid(actor));
+        db.roster.push(actor);
+        db.rules = Some(rules);
+        // the real balls on the centre line (master owns them until a player grabs one; grab/throw via interact)
+        for i in 0..BALL_COUNT {
+            let x = (i as f32 - (BALL_COUNT as f32 - 1.0) * 0.5) * 1.1;
+            net.net_spawn(BALL_ADDRESS, Transform::from_xyz(x, 0.6, 0.0));
+        }
+        db.court_set = true;
+        info!("dodgeball: this client is the authority (actor {actor}); {BALL_COUNT} balls on the centre line");
+        if std::env::var("METALLIC_DB_BOTS").is_ok() {
+            // roster becomes [actor(t0), 9001(t1), 9101(t0)] as they register; 9101 (t0) hits 9001 (t1's only
+            // player) -> team 1 wiped -> team 0 scores. The request is raised after the 3s pre-round.
+            db.roster.push(9001);
+            db.roster.push(9101);
+            if let Some(r) = db.rules.as_mut() {
+                r.add_player(9001);
+                r.add_player(9101);
+            }
+            db.bots = vec![Bot { thrower: 9101, victim: 9001, at: 4.5, fired: false }];
+            info!("dodgeball: self-test bots enabled");
+        }
+    } else {
+        info!("dodgeball: this client is a guest (actor {actor}); the authority scores");
+    }
+}
+
+/// The ball's owner detects the collision: for a live ball THIS client owns (grabbed/thrown), if it contacts a remote
+/// player's body, raise a hit request to the master (Rec Room's `RpcMasterRequestPlayerOut`). The thrower is this
+/// player; the master validates team/round/out state.
+fn owner_hit_detect(
+    active: Option<Res<DodgeballActive>>,
+    link: Res<RoomLink>,
+    mut net: NetObjects,
+    db: Res<Dodgeball>,
+    balls: Query<(&NetObject, &Transform)>,
+    mut last_hit: Local<HashMap<i32, f32>>,
+    time: Res<Time>,
+) {
+    if !matches!(active.as_deref(), Some(DodgeballActive(true))) {
+        return;
+    }
+    let (Some(game), Some(rt)) = (db.game, link.get()) else { return };
+    let (actor, remotes) = {
+        let mut room = rt.room.lock().unwrap();
+        (room.actor().unwrap_or(0), room.remotes(rt.now(), time.delta_secs_f64()))
+    };
+    let now = time.elapsed_secs();
+    for (o, t) in &balls {
+        if !o.mine || o.address != BALL_ADDRESS {
+            continue; // only a ball this client owns (threw)
+        }
+        for s in &remotes {
+            if s.actor == actor {
+                continue;
+            }
+            let bp = t.translation;
+            let pp = Vec3::from(s.body.position) + Vec3::Y; // torso
+            if bp.distance(pp) < CONTACT && last_hit.get(&s.actor).is_none_or(|&t| now - t > 1.0) {
+                last_hit.insert(s.actor, now);
+                let bytes = enc_pair(pid(actor), pid(s.actor));
+                net.send_rpc(game, RPC_HIT, bytes, RpcTarget::Master);
+            }
+        }
+    }
+}
+
+/// Receive request RPCs (the master queues them) and outcome RPCs (guests apply them).
+fn recv_rpcs(mut rpcs: MessageReader<NetRpc>, mut db: ResMut<Dodgeball>) {
+    for rpc in rpcs.read() {
+        match rpc.method.as_str() {
+            RPC_HIT => {
+                if let Some((thrower, victim)) = dec_pair(&rpc.bytes) {
+                    db.pending.push(GameInput::Hit { thrower, victim });
+                }
+            }
+            RPC_CATCH => {
+                if let Some((catcher, thrower)) = dec_pair(&rpc.bytes) {
+                    db.pending.push(GameInput::Catch { catcher, thrower });
+                }
+            }
+            RPC_OUT => {
+                if let Some(p) = dec_u32(&rpc.bytes) {
+                    apply_out(&mut db, p);
+                }
+            }
+            RPC_SCORE => {
+                if rpc.bytes.len() >= 5 {
+                    let team = rpc.bytes[0];
+                    let score = dec_u32(&rpc.bytes[1..]).unwrap_or(0);
+                    if (team as usize) < 2 {
+                        db.score[team as usize] = score;
+                    }
+                    info!("dodgeball: team {team} scores — {}:{}", db.score[0], db.score[1]);
+                }
+            }
+            RPC_ROUND => {
+                if let Some((round, phase, winner)) = dec_round(&rpc.bytes) {
+                    db.round = round;
+                    info!("dodgeball: round {round} {phase:?}{}", winner.map_or(String::new(), |w| format!(" (team {w})")));
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Master only: apply queued requests + the round clock through the rules, then broadcast the outcomes.
+fn master_tick(time: Res<Time>, mut net: NetObjects, mut db: ResMut<Dodgeball>) {
+    if db.rules.is_none() {
+        return;
+    }
+    let dt = time.delta_secs().min(0.1);
+    db.bot_elapsed += dt;
+
+    // self-test bots raise scripted hit requests
+    let elapsed = db.bot_elapsed;
+    let mut bot_inputs = Vec::new();
+    for b in db.bots.iter_mut() {
+        if !b.fired && elapsed >= b.at {
+            b.fired = true;
+            bot_inputs.push(GameInput::Hit { thrower: pid(b.thrower), victim: pid(b.victim) });
+        }
     }
 
-    commands.insert_resource(DodgeballGame { mgr: DodgeballManager::new(DodgeballConfig::default()) });
-    info!("dodgeball: court set up — {BALL_COUNT} balls on the centre line; grab with E, throw with E again");
-    // 1:1: with the networked player roster, register each player on a team here (local + remote avatars), and add
-    // the ball-hit → manager.on_player_hit / on_catch bridge from the thrown ball's collision so rounds actually
-    // score. Single-client has no opponents to hit, so that stays with the net layer.
+    let mut inputs: Vec<GameInput> = std::mem::take(&mut db.pending);
+    inputs.extend(bot_inputs);
+
+    let mut events: Vec<GameEvent> = Vec::new();
+    {
+        let rules = db.rules.as_mut().unwrap();
+        for input in inputs {
+            rules.input(input, &mut events);
+        }
+        rules.tick(dt, &mut events);
+    }
+
+    let game = db.game;
+    for ev in events {
+        // broadcast to the other clients, and apply locally (the master shows it too)
+        if let Some(g) = game {
+            let (method, bytes) = match &ev {
+                GameEvent::PlayerOut(p) => (RPC_OUT, enc_u32(*p)),
+                GameEvent::Score { team, score } => (RPC_SCORE, enc_score(*team, *score)),
+                GameEvent::Round { round, phase, winner } => (RPC_ROUND, enc_round(*round, *phase, *winner)),
+                _ => continue,
+            };
+            net.send_rpc(g, method, bytes, RpcTarget::Others);
+        }
+        match ev {
+            GameEvent::PlayerOut(p) => apply_out(&mut db, p),
+            GameEvent::PlayerRespawned(p) => db.out.retain(|&x| x != p),
+            GameEvent::Score { team, score } => {
+                if (team as usize) < 2 {
+                    db.score[team as usize] = score;
+                }
+                info!("dodgeball: team {team} scores — {}:{}", db.score[0], db.score[1]);
+            }
+            GameEvent::Round { round, phase, winner } => {
+                db.round = round;
+                info!("dodgeball: round {round} {phase:?}{}", winner.map_or(String::new(), |w| format!(" (team {w})")));
+                if phase == RoundPhase::GameOver {
+                    info!("dodgeball: MATCH OVER — team {winner:?} wins");
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
-/// Advances the match clock so the round/score lifecycle runs. (Elimination fires from the net hit bridge above.)
-fn tick_match(time: Res<Time>, game: Option<ResMut<DodgeballGame>>) {
-    let Some(mut game) = game else { return };
-    let mut noop = NoEffects;
-    game.mgr.tick(time.delta_secs().min(0.1), &mut noop);
+fn apply_out(db: &mut Dodgeball, p: u32) {
+    if !db.out.contains(&p) {
+        db.out.push(p);
+        info!("dodgeball: player {p} is OUT");
+    }
 }
 
-/// No-op sink for the manager's effects until the networked VFX/SFX/scoreboard bridge is wired.
-struct NoEffects;
-impl gamemodes::dodgeball::DodgeballEffects for NoEffects {}
+// ---- compact RPC codec (no serde dep): little-endian fields ----
+
+fn enc_u32(v: u32) -> Vec<u8> {
+    v.to_le_bytes().to_vec()
+}
+fn dec_u32(b: &[u8]) -> Option<u32> {
+    Some(u32::from_le_bytes(b.get(0..4)?.try_into().ok()?))
+}
+fn enc_pair(a: u32, b: u32) -> Vec<u8> {
+    let mut v = a.to_le_bytes().to_vec();
+    v.extend_from_slice(&b.to_le_bytes());
+    v
+}
+fn dec_pair(b: &[u8]) -> Option<(u32, u32)> {
+    Some((u32::from_le_bytes(b.get(0..4)?.try_into().ok()?), u32::from_le_bytes(b.get(4..8)?.try_into().ok()?)))
+}
+fn enc_score(team: u8, score: u32) -> Vec<u8> {
+    let mut v = vec![team];
+    v.extend_from_slice(&score.to_le_bytes());
+    v
+}
+fn enc_round(round: u32, phase: RoundPhase, winner: Option<u8>) -> Vec<u8> {
+    let mut v = round.to_le_bytes().to_vec();
+    v.push(match phase {
+        RoundPhase::PreRound => 0,
+        RoundPhase::Running => 1,
+        RoundPhase::PostRound => 2,
+        RoundPhase::GameOver => 3,
+    });
+    v.push(winner.unwrap_or(0xFF));
+    v
+}
+fn dec_round(b: &[u8]) -> Option<(u32, RoundPhase, Option<u8>)> {
+    let round = u32::from_le_bytes(b.get(0..4)?.try_into().ok()?);
+    let phase = match b.get(4)? {
+        0 => RoundPhase::PreRound,
+        1 => RoundPhase::Running,
+        2 => RoundPhase::PostRound,
+        _ => RoundPhase::GameOver,
+    };
+    let w = *b.get(5)?;
+    Some((round, phase, (w != 0xFF).then_some(w)))
+}

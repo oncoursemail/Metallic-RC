@@ -230,7 +230,7 @@ fn main() {
         .add_plugins((metallic_rc_client::quality::QualityPlugin, metallic_rc_client::texprep::TexPrepPlugin, metallic_rc_client::platform::PlatformPlugin::default()))
         // Dodgeball game mode: active when the Dodgeball arena is the loaded world (`--world dodgeball`)
         .add_plugins(metallic_rc_client::dodgeball::DodgeballPlugin)
-        .insert_resource(metallic_rc_client::dodgeball::DodgeballMode(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("dodgeball"))))
+        .insert_resource(metallic_rc_client::dodgeball::DodgeballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("dodgeball"))))
         .insert_resource(LocalLook(look))
         // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
         .insert_resource(avatar::Dressing::default())

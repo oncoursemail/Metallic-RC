@@ -37,15 +37,24 @@ impl Default for DodgeballConfig {
     }
 }
 
-/// The real `DodgeballBall_phys` PhysicsMaterial (decoded 1:1): the ball bounces and grips the floor the same on every
-/// client. Used by the client/server when it simulates the ball (friction/bounce). The ball's Rigidbody mass/drag and
-/// the release throw velocity live in `Dodgeball.OnPostRelease` (a method body not yet recovered), so they're not here.
+/// The ball's physics, VERIFIED against the real binary (decompile lane). The thrown ball is the thrower's networked
+/// prop, simulated client-side by the normal prop physics; these are its 1:1 values. Throw speed is NOT scripted — the
+/// ball keeps the hand's release velocity (`OnPostRelease` just marks it live + sets `thrownBy`).
+///   - DodgeballBall_phys: dynamicFriction 0.6, staticFriction 0.6, bounciness 0.6; frictionCombine = Maximum,
+///     bounceCombine = Minimum (two materials take the max friction, the min bounciness).
+///   - Project gravity = (0, -9.81, 0) (Unity default, from globalgamemanagers DynamicsManager); BounceThreshold 2.
+///   - Ball Rigidbody: mass 1.0, drag 0, angularDrag 0.05, useGravity true, Discrete collision.
+/// 1:1: the ball Rigidbody mass/drag are Unity defaults (the exact spawn-prefab values weren't in the decoded bundles;
+/// low-stakes since throw speed is the release velocity, so mass only affects post-bounce inertia) — exact TBD.
 pub struct BallPhysics {
     pub dynamic_friction: f32,
     pub static_friction: f32,
     pub bounciness: f32,
+    pub mass: f32,
+    pub gravity: f32,
 }
-pub const BALL_PHYSICS: BallPhysics = BallPhysics { dynamic_friction: 0.6, static_friction: 0.6, bounciness: 0.6 };
+pub const BALL_PHYSICS: BallPhysics =
+    BallPhysics { dynamic_friction: 0.6, static_friction: 0.6, bounciness: 0.6, mass: 1.0, gravity: 9.81 };
 
 /// The round/match lifecycle (`IsRoundRunning` + Pre/PostRoundDuration). The `f32` is seconds left in a timed phase.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -145,20 +154,22 @@ impl DodgeballManager {
         let _ = fx;
     }
 
-    /// A ball thrown by `thrower` hit `victim` (ball's `DodgeballPlayerHitEvent`). The ball does the hit detection
-    /// (`OnCollisionEnter`); a hit (not a catch) puts the victim out.
+    /// A ball thrown by `thrower` hit `victim` (the ball's owner raised the hit on its `OnCollisionEnter`). This is
+    /// `DodgeballManager.IsValidHit` (@0xD3DFC0, VERIFIED): the hit counts only if the round is active, both players
+    /// exist and are still in (not out), it is not a self-hit, and they are on different teams (no friendly fire). A
+    /// valid hit puts the victim out.
     pub fn on_player_hit(&mut self, victim: PlayerId, thrower: PlayerId, fx: &mut dyn DodgeballEffects) {
-        if !self.is_round_running() {
-            return;
+        if !self.is_round_running() || victim == thrower {
+            return; // round must be running; a self-hit never counts
         }
-        // 1:1: confirm friendly-fire / self-hit (ball OWEMYSVBCGK). For now a hit between live cross-team players counts.
-        let (Some(&PlayerState { team: vt, alive: true }), Some(tt)) =
-            (self.players.get(&victim), self.players.get(&thrower).map(|p| p.team))
+        // both players present, and NEITHER already out (IsValidHit checks the thrower is in, too)
+        let (Some(&PlayerState { team: vt, alive: true }), Some(&PlayerState { team: tt, alive: true })) =
+            (self.players.get(&victim), self.players.get(&thrower))
         else {
             return;
         };
         if vt == tt {
-            return;
+            return; // same team: no friendly fire
         }
         fx.sfx("playerImpact");
         self.eliminate(victim, fx);
@@ -216,43 +227,24 @@ impl DodgeballManager {
     }
 }
 
-// ---- the authority GameMode: the manager plus the ball simulation it owns ----
+// ---- the authority GameMode: rules only (the master validates requests; it does NOT simulate the ball) ----
 
-use crate::mode::{GameEvent, GameInput, GameMode, ObjectId, PlayerPose, RoundPhase};
+use crate::mode::{GameEvent, GameInput, GameMode, RoundPhase};
 
-const BALL_RADIUS: f32 = 0.11; // the real DodgeballBall SphereCollider radius
-const HIT_RADIUS: f32 = 0.5; // a ball within this of a player's torso is a hit (the ball gadget's OnCollisionEnter)
-const CATCH_RADIUS: f32 = 0.7; // a grab of an in-flight ball within this of the grabber is a catch
-const TORSO_UP: f32 = 1.0; // torso height above the player's root
-const BALL_GRAVITY: f32 = 9.81;
-
-/// An authority-owned ball in flight.
-struct FlightBall {
-    id: ObjectId,
-    pos: [f32; 3],
-    vel: [f32; 3],
-    thrower: PlayerId,
-}
-
-/// Dodgeball as a [`GameMode`] on the room authority: wraps [`DodgeballManager`] (the rules) and owns the thrown balls
-/// (ballistic sim + the hit/catch decision against the authoritative player poses). Clients send throws and catch
-/// grabs; this decides out/score and emits [`GameEvent`]s for the authority to broadcast. Config is the decompile
-/// lane's 1:1 numbers via [`DodgeballConfig::default`].
+/// Dodgeball as a [`GameMode`] on the room authority (the master client). It wraps [`DodgeballManager`] and is a pure
+/// validator + scorer: a client whose thrown ball hit someone sends a [`GameInput::Hit`] (Rec Room's
+/// `RpcMasterRequestPlayerOut`), a catcher sends [`GameInput::Catch`] (`RpcMasterRequestPlayerCatch`), and this runs
+/// the verified `IsValidHit` rule and the round/score logic, emitting [`GameEvent`]s to broadcast (`RpcOnPlayerOut`,
+/// score, round). The ball itself is the thrower's own networked prop (it keeps the hand release velocity and syncs
+/// through object ownership) — the authority never simulates it. Config is the decompile lane's 1:1 numbers.
 pub struct DodgeballMode {
     mgr: DodgeballManager,
-    balls: Vec<FlightBall>,
-    next_object: ObjectId,
     joined: u32,
 }
 
 impl DodgeballMode {
     pub fn new(config: DodgeballConfig) -> Self {
-        DodgeballMode { mgr: DodgeballManager::new(config), balls: Vec::new(), next_object: 1, joined: 0 }
-    }
-
-    /// the court floor, from the lowest player (balls below it are dead); never above 0
-    fn floor(players: &[PlayerPose]) -> f32 {
-        players.iter().map(|p| p.pos[1]).fold(f32::INFINITY, f32::min).min(0.0)
+        DodgeballMode { mgr: DodgeballManager::new(config), joined: 0 }
     }
 }
 
@@ -286,14 +278,6 @@ impl DodgeballEffects for Collect<'_> {
     }
 }
 
-fn torso(root: [f32; 3]) -> [f32; 3] {
-    [root[0], root[1] + TORSO_UP, root[2]]
-}
-fn dist(a: [f32; 3], b: [f32; 3]) -> f32 {
-    let d = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-    (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
-}
-
 impl GameMode for DodgeballMode {
     fn name(&self) -> &'static str {
         "Dodgeball"
@@ -308,82 +292,24 @@ impl GameMode for DodgeballMode {
 
     fn remove_player(&mut self, id: PlayerId) {
         self.mgr.players.remove(&id);
-        self.balls.retain(|b| b.thrower != id);
     }
 
-    fn input(&mut self, input: GameInput, players: &[PlayerPose], out: &mut Vec<GameEvent>) {
+    /// Validate a client's request. A `Hit` runs the verified `IsValidHit` + eliminates the victim; a `Catch` puts the
+    /// thrower out (the catcher's team keeps the catcher). Both emit the resulting out/score/round events.
+    fn input(&mut self, input: GameInput, out: &mut Vec<GameEvent>) {
+        let mut c = Collect { out, round: self.mgr.round };
         match input {
-            GameInput::Throw { player, origin, velocity } => {
-                let id = self.next_object;
-                self.next_object += 1;
-                self.balls.push(FlightBall { id, pos: origin, vel: velocity, thrower: player });
-                out.push(GameEvent::ObjectState { object: id, pos: origin, vel: velocity });
-            }
-            GameInput::Grab { player, object } => {
-                // grabbing an IN-FLIGHT ball within catch range is a catch: the thrower is out, the ball leaves play
-                if let Some(i) = self.balls.iter().position(|b| b.id == object) {
-                    let near = players.iter().find(|p| p.id == player).is_some_and(|g| dist(self.balls[i].pos, torso(g.pos)) < CATCH_RADIUS);
-                    if near {
-                        let thrower = self.balls[i].thrower;
-                        self.balls.swap_remove(i);
-                        out.push(GameEvent::ObjectGone { object });
-                        let mut c = Collect { out: &mut *out, round: self.mgr.round };
-                        self.mgr.on_catch(player, thrower, &mut c);
-                    }
-                }
-            }
-            GameInput::Drop { object, pos, .. } => {
-                if let Some(b) = self.balls.iter_mut().find(|b| b.id == object) {
-                    b.pos = pos;
-                    b.vel = [0.0; 3];
-                    out.push(GameEvent::ObjectState { object, pos, vel: [0.0; 3] });
-                }
-            }
+            GameInput::Hit { thrower, victim } => self.mgr.on_player_hit(victim, thrower, &mut c),
+            GameInput::Catch { catcher, thrower } => self.mgr.on_catch(catcher, thrower, &mut c),
         }
     }
 
-    fn tick(&mut self, dt: f32, players: &[PlayerPose], out: &mut Vec<GameEvent>) {
-        // round / match timer
-        {
-            let mut c = Collect { out: &mut *out, round: self.mgr.round };
-            self.mgr.tick(dt, &mut c);
-        }
-        let floor = Self::floor(players);
-        let mut i = 0;
-        while i < self.balls.len() {
-            self.balls[i].vel[1] -= BALL_GRAVITY * dt;
-            for k in 0..3 {
-                self.balls[i].pos[k] += self.balls[i].vel[k] * dt;
-            }
-            let pos = self.balls[i].pos;
-            // hit the floor -> dead
-            if pos[1] <= floor + BALL_RADIUS {
-                let id = self.balls[i].id;
-                self.balls.swap_remove(i);
-                out.push(GameEvent::ObjectGone { object: id });
-                continue;
-            }
-            // hit a cross-team, alive player -> they are out (unless they catch it first, handled in `input`)
-            let thrower = self.balls[i].thrower;
-            let thrower_team = self.mgr.players.get(&thrower).map(|s| s.team);
-            let victim = players.iter().find(|p| {
-                p.id != thrower
-                    && self.mgr.players.get(&p.id).map(|s| s.alive) == Some(true)
-                    && thrower_team != Some(p.team)
-                    && dist(pos, torso(p.pos)) < HIT_RADIUS
-            });
-            if let Some(v) = victim {
-                let (vid, id) = (v.id, self.balls[i].id);
-                self.balls.swap_remove(i);
-                out.push(GameEvent::ObjectGone { object: id });
-                let mut c = Collect { out: &mut *out, round: self.mgr.round };
-                self.mgr.on_player_hit(vid, thrower, &mut c);
-                continue;
-            }
-            // still flying -> broadcast its state so every client renders the same arc
-            out.push(GameEvent::ObjectState { object: self.balls[i].id, pos, vel: self.balls[i].vel });
-            i += 1;
-        }
+    /// Advance the round/match clock (pre-round → running → post-round → next/game-over). This is the GameRule base's
+    /// timing; the real `DodgeballManager.Update` is only killzone enforcement (teleport out-of-bounds balls back),
+    /// which belongs to the ball/arena layer, not the authority rules.
+    fn tick(&mut self, dt: f32, out: &mut Vec<GameEvent>) {
+        let mut c = Collect { out, round: self.mgr.round };
+        self.mgr.tick(dt, &mut c);
     }
 }
 
@@ -456,40 +382,29 @@ mod tests {
     }
 
     #[test]
-    fn authority_simulates_the_ball_decides_the_hit_and_scores() {
-        use crate::mode::{GameEvent, GameInput, GameMode, PlayerPose, RoundPhase};
+    fn authority_validates_a_hit_request_and_scores() {
+        use crate::mode::{GameEvent, GameInput, GameMode, RoundPhase};
         // two players on opposite teams; score_to_win 1 so one wiped team ends the match
         let mut m = DodgeballMode::new(DodgeballConfig { score_to_win: 1, pre_round_duration: 0.0, post_round_duration: 1.0 });
         let t0 = m.add_player(1);
         let t1 = m.add_player(2);
         assert_ne!(t0, t1, "teams alternate");
-        let poses = vec![PlayerPose { id: 1, team: t0, pos: [0.0, 0.0, 0.0] }, PlayerPose { id: 2, team: t1, pos: [0.0, 0.0, 5.0] }];
 
         let mut out = Vec::new();
-        m.tick(0.1, &poses, &mut out); // pre-round(0) elapses -> Running
+        m.tick(0.1, &mut out); // pre-round(0) elapses -> Running
         assert!(out.iter().any(|e| matches!(e, GameEvent::Round { phase: RoundPhase::Running, .. })));
 
-        // player 1 (team 0) throws at player 2's (team 1) torso [0,1,5]; a ballistic arc that lands on it
-        m.input(GameInput::Throw { player: 1, origin: [0.0, 1.3, 0.0], velocity: [0.0, 1.86, 10.0] }, &poses, &mut out);
+        // a friendly-fire request is rejected (IsValidHit: same team never counts)
+        let mut ff = Vec::new();
+        m.input(GameInput::Hit { thrower: 2, victim: 2 }, &mut ff); // self/own-team
+        assert!(ff.is_empty(), "a self/friendly hit is not valid");
 
-        let (mut out_player, mut scoring_team, mut saw_flight) = (None, None, false);
-        for _ in 0..600 {
-            let mut ev = Vec::new();
-            m.tick(1.0 / 60.0, &poses, &mut ev);
-            for e in &ev {
-                match e {
-                    GameEvent::ObjectState { .. } => saw_flight = true,
-                    GameEvent::PlayerOut(p) => out_player = Some(*p),
-                    GameEvent::Score { team, .. } => scoring_team = Some(*team),
-                    _ => {}
-                }
-            }
-            if scoring_team.is_some() {
-                break;
-            }
-        }
-        assert!(saw_flight, "the authority broadcasts the ball's flight");
-        assert_eq!(out_player, Some(2), "the authority decides player 2 is hit out");
-        assert_eq!(scoring_team, Some(t0), "team 0 scores the round win");
+        // player 1's thrown ball hit player 2 (the owner's client raised RpcMasterRequestPlayerOut)
+        let mut ev = Vec::new();
+        m.input(GameInput::Hit { thrower: 1, victim: 2 }, &mut ev);
+        let out_player = ev.iter().find_map(|e| if let GameEvent::PlayerOut(p) = e { Some(*p) } else { None });
+        let scoring = ev.iter().find_map(|e| if let GameEvent::Score { team, .. } = e { Some(*team) } else { None });
+        assert_eq!(out_player, Some(2), "the authority validates the hit and puts player 2 out");
+        assert_eq!(scoring, Some(t0), "team 0 (last standing) scores the round");
     }
 }
