@@ -9,6 +9,7 @@ pub mod levels;
 pub mod mirror;
 pub mod net;
 pub mod netobj;
+pub mod paddleball;
 pub mod particles;
 pub mod perf;
 pub mod platform;
