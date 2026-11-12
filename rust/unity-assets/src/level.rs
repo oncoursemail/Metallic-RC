@@ -95,6 +95,92 @@ pub fn mono_script_name(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<(S
     Ok((class_name, namespace))
 }
 
+/// A cursor over a scene MonoBehaviour's OWN serialized fields, positioned just past the MonoBehaviour header
+/// (m_GameObject, m_Enabled, m_Script, m_Name). The 2026 scenes carry no type trees, so a caller that knows the
+/// script's serialized field order — e.g. from the decompiled class body — walks the fields in declaration order
+/// with the methods below (reading the ones it needs, skipping the rest) and this applies Unity's serialization
+/// alignment. The rules the methods encode: a serialized `bool`/byte is followed by padding to the next 4-byte
+/// boundary; `int`/`uint`/`float`/`PPtr`/`Vector*`/`Color` are not; a string or an array is length-prefixed and then
+/// aligned to 4. Nested structs are just their fields in order (read them inline); for a list/array call
+/// [`MonoFields::array_len`], read that many elements, then [`MonoFields::align`]. Use this to read gameplay config
+/// off scene objects (a goal's team, a hole's par, a trigger's half-extent) exactly as the game serialized it.
+pub struct MonoFields<'a> {
+    r: Reader<'a>,
+}
+
+impl<'a> MonoFields<'a> {
+    /// Opens a MonoBehaviour object and skips its header, ready to read the script's first serialized field.
+    pub fn open(sf: &'a SerializedFile, o: &crate::ObjectInfo) -> Result<Self> {
+        let mut r = reader(sf, o, classes::MONO_BEHAVIOUR, "MonoBehaviour")?;
+        behaviour(&mut r)?; // m_GameObject, m_Enabled (aligned)
+        pptr(&mut r)?; // m_Script
+        r.aligned_string()?; // m_Name
+        Ok(MonoFields { r })
+    }
+
+    pub fn i32(&mut self) -> Result<i32> {
+        self.r.i32()
+    }
+    pub fn u32(&mut self) -> Result<u32> {
+        self.r.u32()
+    }
+    pub fn i64(&mut self) -> Result<i64> {
+        self.r.i64()
+    }
+    pub fn f32(&mut self) -> Result<f32> {
+        self.r.f32()
+    }
+    /// A serialized `bool`/`byte`: one byte, then padding to the next 4-byte boundary.
+    pub fn bool(&mut self) -> Result<bool> {
+        let b = self.r.bool()?;
+        self.r.align(4);
+        Ok(b)
+    }
+    /// One raw byte with NO following alignment — for walking a run of bytes you align yourself.
+    pub fn byte(&mut self) -> Result<u8> {
+        self.r.u8()
+    }
+    pub fn vector2(&mut self) -> Result<[f32; 2]> {
+        floats::<2>(&mut self.r)
+    }
+    pub fn vector3(&mut self) -> Result<[f32; 3]> {
+        floats::<3>(&mut self.r)
+    }
+    pub fn vector4(&mut self) -> Result<[f32; 4]> {
+        floats::<4>(&mut self.r)
+    }
+    /// A Color (RGBA floats).
+    pub fn color(&mut self) -> Result<[f32; 4]> {
+        floats::<4>(&mut self.r)
+    }
+    pub fn pptr(&mut self) -> Result<PPtr> {
+        pptr(&mut self.r)
+    }
+    /// A Unity string (length-prefixed, then aligned to 4).
+    pub fn string(&mut self) -> Result<String> {
+        self.r.aligned_string()
+    }
+    /// The element count of an array/list field (its int length-prefix). Read that many elements, then [`Self::align`].
+    pub fn array_len(&mut self) -> Result<usize> {
+        self.r.len_prefix(1)
+    }
+    /// Skip `n` raw bytes (a fixed-size field you don't need).
+    pub fn skip(&mut self, n: usize) -> Result<()> {
+        skip(&mut self.r, n)
+    }
+    /// Align the cursor to the next 4-byte boundary (after a bool run, a string, or an array).
+    pub fn align(&mut self) {
+        self.r.align(4);
+    }
+    /// Current byte offset within the object, and bytes left — for diagnostics / layout checks.
+    pub fn pos(&self) -> usize {
+        self.r.pos()
+    }
+    pub fn remaining(&self) -> usize {
+        self.r.remaining()
+    }
+}
+
 /// The readers below know the 2019.3 .. 2021.3 player layouts (checked on 2019.4.26f1) and the Unity 6
 /// (6000.x) player layout (checked on 6000.0.27f1, the decrypted 2026 Rec Room base files). Every reader
 /// also verifies it consumed exactly the object's bytes, so a layout mismatch is an error, not garbage.
