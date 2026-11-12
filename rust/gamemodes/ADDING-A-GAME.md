@@ -111,13 +111,15 @@ items are winner-independent). Paintball — RULES ✅ (CTF 3-captures + TeamBat
 master-validated tags; 1:1 from the real wrapper numbers; client vertical needs the paintball-projectile + flag
 gadgets, a dynamic-physics item). RecRally — RULES ✅ (team finish-ORDER placement, single 3-lap race, winner =
 first team home; totalLaps=3 real, GameDuration a non-win-critical fallback //1:1-pending maps-read; kart
-GroundVehicle physics is the bevy_rapier vertical item). Remaining: Arena
-(horde+shop+AI, heavy) · BattleRoyale (level78 HUGE 172k objs, shrinking killzone — isolate) · Quest (co-op
-campaign + AI, many scenes — isolate). **LaserTag is SPECIAL** — no `*Manager` subclass, only
-`LaserTagGameRuleWrapper`; gadget/circuit-based, route it to the CircuitsV2/gadget lane, NOT this manager-body
-recipe. The remaining games converge on the dynamic-physics foundation (Bowling toppling + RecRally karts +
-Paintball projectiles) — that reusable `bevy_rapier` layer is the next big enabler. Give the decompile session
-(local_9442e322) the manager class name to start each.
+GroundVehicle physics is the bevy_rapier vertical item). Arena — RULES ✅ (Team Warzone red/blue — per-team
+kill-point pool, PvE+PvP, real table +10/−10/+2/+10/−2/+1 clamped ≥0, win at ScoreToWin=400 or highest at
+GameDuration=480s; the enemy-AI waves + shop/credits are gameplay-depth). **NOTE: Arena IS the "LaserTag" game**
+— `ArenaManager : GameRuleManager` uses `LaserTagGameRuleWrapper`, so the earlier "LaserTag has no manager" note
+was a misread; it's a normal manager port (done). Remaining: BattleRoyale (level78 HUGE 172k objs, shrinking
+killzone — isolate) · Quest (co-op campaign + AI, many scenes — isolate). The remaining client verticals converge
+on the dynamic-physics foundation (Bowling toppling + RecRally karts + Paintball projectiles) — that reusable
+`bevy_rapier` layer is the next big enabler. Give the decompile session (local_9442e322) the manager class name
+to start each.
 
 **Pin-toppling physics dependency.** Bowling's real pinfall is rigidbody TOPPLING (ball knocks pins, pin-to-pin
 chains, settle; a pin is standing while `AngleFromUpright <= 25.0°`). The rebuild's custom physics (interact.rs

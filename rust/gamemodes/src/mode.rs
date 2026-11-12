@@ -50,6 +50,27 @@ pub enum GameInput {
     /// The master validates it (not already finished) and assigns the team's PLACE in finish ORDER (1st, 2nd, …);
     /// place 1 wins. A single race, finish-order placement — no points, no time score.
     FinishRace { team: Team },
+    /// an Arena (Team Warzone) kill/pickup that scores for `team` (the KILLER's team). The master awards the real
+    /// per-`kind` kill-points to that team's pool (clamped ≥ 0). PvE and PvP both count. (→ Arena's master-validated
+    /// kill handler.)
+    Kill { team: Team, kind: KillKind },
+}
+
+/// What an Arena kill/pickup was, which fixes its kill-point value (the real `ArenaManager` scoring table).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KillKind {
+    /// killed an enemy-team player (PvP): +10
+    EnemyPlayer,
+    /// killed a teammate (friendly fire): −10
+    Teammate,
+    /// killed a normal enemy (PvE): +2
+    NormalEnemy,
+    /// killed an elite enemy (PvE): +10
+    EliteEnemy,
+    /// an enemy friendly-fire event: −2
+    EnemyFriendlyFire,
+    /// opened a loot chest: +1
+    LootChest,
 }
 
 /// A Paintball CTF flag event (the flag gadget's master-validated signals).
