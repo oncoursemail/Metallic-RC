@@ -18,6 +18,7 @@ use gamemodes::dodgeball::{DodgeballConfig, DodgeballMode as DodgeballRules};
 use gamemodes::mode::{GameEvent, GameInput, GameMode, RoundPhase};
 use rr_net::objects::RpcTarget;
 
+use crate::avatar::Rig;
 use crate::netobj::{NetObject, NetObjects, NetRpc, RoomLink};
 use crate::world::RoomPiece;
 
@@ -57,6 +58,9 @@ pub struct Dodgeball {
     court_set: bool,
     bots: Vec<Bot>,
     bot_elapsed: f32,
+    /// the master should eliminate the first real guest once, so an over-the-net hit can be seen (2-client demo)
+    demo_mode: bool,
+    demo_hit: bool,
 }
 
 /// A scripted bot for the host-side self-test: it raises a hit request against a target at a set time.
@@ -71,7 +75,7 @@ pub struct DodgeballPlugin;
 
 impl Plugin for DodgeballPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Dodgeball>().add_systems(Update, (join_game, owner_hit_detect, recv_rpcs, master_tick).chain());
+        app.init_resource::<Dodgeball>().add_systems(Update, (join_game, owner_hit_detect, recv_rpcs, master_tick, apply_out_visual).chain());
     }
 }
 
@@ -114,17 +118,24 @@ fn join_game(
         }
         db.court_set = true;
         info!("dodgeball: this client is the authority (actor {actor}); {BALL_COUNT} balls on the centre line");
-        if std::env::var("METALLIC_DB_BOTS").is_ok() {
-            // roster becomes [actor(t0), 9001(t1), 9101(t0)] as they register; 9101 (t0) hits 9001 (t1's only
-            // player) -> team 1 wiped -> team 0 scores. The request is raised after the 3s pre-round.
-            db.roster.push(9001);
-            db.roster.push(9101);
-            if let Some(r) = db.rules.as_mut() {
-                r.add_player(9001);
-                r.add_player(9101);
+        match std::env::var("METALLIC_DB_BOTS").ok().as_deref() {
+            Some("1") => {
+                // single-client self-test: roster becomes [actor(t0), 9001(t1), 9101(t0)]; 9101 (t0) hits 9001 (t1's
+                // only player) -> team 1 wiped -> team 0 scores. The request is raised after the 3s pre-round.
+                db.roster.push(9001);
+                db.roster.push(9101);
+                if let Some(r) = db.rules.as_mut() {
+                    r.add_player(9001);
+                    r.add_player(9101);
+                }
+                db.bots = vec![Bot { thrower: 9101, victim: 9001, at: 4.5, fired: false }];
+                info!("dodgeball: self-test bots enabled");
             }
-            db.bots = vec![Bot { thrower: 9101, victim: 9001, at: 4.5, fired: false }];
-            info!("dodgeball: self-test bots enabled");
+            Some("guest") => {
+                db.demo_mode = true; // 2-client demo: hit the first real guest once
+                info!("dodgeball: demo mode — will eliminate the first guest over the net");
+            }
+            _ => {}
         }
     } else {
         info!("dodgeball: this client is a guest (actor {actor}); the authority scores");
@@ -211,13 +222,36 @@ fn recv_rpcs(mut rpcs: MessageReader<NetRpc>, mut db: ResMut<Dodgeball>) {
     }
 }
 
-/// Master only: apply queued requests + the round clock through the rules, then broadcast the outcomes.
-fn master_tick(time: Res<Time>, mut net: NetObjects, mut db: ResMut<Dodgeball>) {
+/// Master only: register joined players, apply queued requests + the round clock through the rules, then broadcast
+/// the outcomes.
+fn master_tick(time: Res<Time>, link: Res<RoomLink>, mut net: NetObjects, mut db: ResMut<Dodgeball>) {
     if db.rules.is_none() {
         return;
     }
     let dt = time.delta_secs().min(0.1);
     db.bot_elapsed += dt;
+
+    // register real remote players who have joined (the local master + bots were added at join_game)
+    let (local_actor, remote_actors): (i32, Vec<i32>) = {
+        match link.get() {
+            Some(rt) => {
+                let mut room = rt.room.lock().unwrap();
+                let local = room.actor().unwrap_or(0);
+                let remotes = room.remotes(rt.now(), dt as f64).into_iter().map(|s| s.actor).filter(|&a| a > 0 && a < 9000).collect();
+                (local, remotes)
+            }
+            None => (0, Vec::new()),
+        }
+    };
+    for a in &remote_actors {
+        if !db.roster.contains(a) {
+            db.roster.push(*a);
+            if let Some(r) = db.rules.as_mut() {
+                r.add_player(pid(*a));
+            }
+            info!("dodgeball: player {a} joined (team {})", (db.roster.len() - 1) % 2);
+        }
+    }
 
     // self-test bots raise scripted hit requests
     let elapsed = db.bot_elapsed;
@@ -226,6 +260,15 @@ fn master_tick(time: Res<Time>, mut net: NetObjects, mut db: ResMut<Dodgeball>) 
         if !b.fired && elapsed >= b.at {
             b.fired = true;
             bot_inputs.push(GameInput::Hit { thrower: pid(b.thrower), victim: pid(b.victim) });
+        }
+    }
+    // 2-client demo: once a real guest has joined and the round is going, the master's ball "hits" them once, so the
+    // over-the-net PlayerOut + topple can be seen (METALLIC_DB_BOTS). Harmless with no guest present.
+    if !db.demo_hit && db.demo_mode && db.bot_elapsed > 6.0 {
+        if let Some(&guest) = remote_actors.iter().find(|&&a| a != local_actor) {
+            bot_inputs.push(GameInput::Hit { thrower: pid(local_actor), victim: pid(guest) });
+            db.demo_hit = true;
+            info!("dodgeball: demo hit — master {local_actor} eliminates guest {guest}");
         }
     }
 
@@ -270,6 +313,31 @@ fn master_tick(time: Res<Time>, mut net: NetObjects, mut db: ResMut<Dodgeball>) 
                 }
             }
             _ => {}
+        }
+    }
+}
+
+/// Every client applies the authority's PlayerOut: topple the out player's avatar (matched by its network actor), and
+/// stand it back up on respawn. This is the visible half of `RpcOnPlayerOut`.
+fn apply_out_visual(db: Res<Dodgeball>, mut avatars: Query<(&Rig, &mut Transform)>, mut toppled: Local<std::collections::HashSet<u32>>) {
+    use std::f32::consts::FRAC_PI_2;
+    for &p in &db.out {
+        if toppled.insert(p) {
+            for (rig, mut t) in &mut avatars {
+                if rig.seed() == p {
+                    t.rotation = Quat::from_rotation_x(-FRAC_PI_2) * t.rotation; // fall backward
+                }
+            }
+        }
+    }
+    let out_now: std::collections::HashSet<u32> = db.out.iter().copied().collect();
+    let restored: Vec<u32> = toppled.iter().copied().filter(|p| !out_now.contains(p)).collect();
+    for p in restored {
+        toppled.remove(&p);
+        for (rig, mut t) in &mut avatars {
+            if rig.seed() == p {
+                t.rotation = Quat::from_rotation_x(FRAC_PI_2) * t.rotation; // stand back up
+            }
         }
     }
 }

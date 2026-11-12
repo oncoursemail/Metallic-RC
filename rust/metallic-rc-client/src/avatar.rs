@@ -319,6 +319,14 @@ pub struct Rig {
     built: Option<Built>,
 }
 
+impl Rig {
+    /// The avatar's seed, which for a remote player is its network actor number (set in `avatar::spawn`). Lets other
+    /// lanes find a remote avatar by actor without the binary's `Avatar` component.
+    pub fn seed(&self) -> u32 {
+        self.seed
+    }
+}
+
 /// A remote avatar's name over its head: the UI node that shows it.
 #[derive(Component)]
 pub struct NameTag(pub Entity);
