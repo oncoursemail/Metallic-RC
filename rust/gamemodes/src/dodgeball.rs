@@ -4,22 +4,24 @@
 //! engine-agnostic: the client/authoritative server feeds it ball events (thrown / hit / caught) and ticks it, and
 //! implements [`DodgeballEffects`] (eliminate, respawn, score, SFX/VFX) over `rr-net`.
 //!
-//! GROUNDED vs PENDING: the manager's fields and lifecycle (ScoreToWin, Pre/PostRoundDuration, IsRoundRunning, round
-//! begin/end, player-out, Update tick) are from the dump; the round-phase timer here is unambiguous. The exact
-//! rule DECISIONS — who scores on a hit, catch-vs-out, respawn-vs-eliminate, teams-vs-FFA, the precise win/round-end
-//! condition — are marked `// 1:1:` and will be reconciled against the decompiled method BODIES (the signatures dump
-//! lacks them); this is a runnable first pass, not the final 1:1 ruleset. Config values are placeholders until the
-//! real `DodgeballGameRuleWrapper`/`DodgeballManager` prefab values are pulled.
+//! RULES SOURCE (per the integrator's steer, since the IL2CPP dump is signatures-only and body recovery is noisy):
+//! ported from the descriptive field/method NAMES + types, the authoritative CONFIG numbers from the prefab, and the
+//! well-understood Dodgeball ruleset — a ROUND is last-team-standing: players are eliminated when a thrown ball hits
+//! them *unless it's caught* (a catch puts the THROWER out); when only one team has live players the round ends and
+//! that team scores a round-win; first team to `ScoreToWin` round-wins takes the match; players revive between
+//! rounds. Decisions that a cleanly-recovered method body would pin down further are marked `// 1:1:`. Config values
+//! are placeholders until the real `DodgeballGameRuleWrapper`/`DodgeballManager` prefab numbers are decoded.
 
 use std::collections::HashMap;
 
 pub type PlayerId = u32;
 pub type Team = u8;
 
-/// Serialized game-rule config (`DodgeballGameRuleData` @29720 + `defaultScoreToWin`). Placeholder numbers until the
-/// real prefab values are decoded.
+/// Game-rule config (`DodgeballGameRuleData` @29720 + `defaultScoreToWin`). Placeholder numbers until the real prefab
+/// values are decoded.
 #[derive(Clone, Debug)]
 pub struct DodgeballConfig {
+    /// round-wins needed to take the match (`ScoreToWin` / `defaultScoreToWin`)
     pub score_to_win: u32,
     pub pre_round_duration: f32,
     pub post_round_duration: f32,
@@ -28,16 +30,17 @@ pub struct DodgeballConfig {
 impl Default for DodgeballConfig {
     fn default() -> Self {
         // 1:1: replace with the real DodgeballGameRuleWrapper.defaultScoreToWin + DodgeballManager.Pre/PostRoundDuration
-        DodgeballConfig { score_to_win: 7, pre_round_duration: 3.0, post_round_duration: 5.0 }
+        DodgeballConfig { score_to_win: 3, pre_round_duration: 3.0, post_round_duration: 5.0 }
     }
 }
 
-/// The round lifecycle (`IsRoundRunning` + Pre/PostRoundDuration). `f32` is the seconds remaining in the timed phase.
+/// The round/match lifecycle (`IsRoundRunning` + Pre/PostRoundDuration). The `f32` is seconds left in a timed phase.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Phase {
     PreRound(f32),
     Running,
     PostRound(f32),
+    GameOver(Team),
 }
 
 #[derive(Clone, Debug)]
@@ -51,34 +54,29 @@ pub struct PlayerState {
 pub trait DodgeballEffects {
     fn round_started(&mut self, _round: u32) {}
     fn round_over(&mut self, _winner: Option<Team>) {}
+    fn match_over(&mut self, _winner: Team) {}
     fn player_out(&mut self, _player: PlayerId) {}
     fn player_respawned(&mut self, _player: PlayerId) {}
-    fn score_changed(&mut self, _team: Team, _score: u32) {}
+    fn score_changed(&mut self, _team: Team, _round_wins: u32) {}
     fn sfx(&mut self, _name: &str) {}
 }
 
-/// Port of `DodgeballManager`: rounds, score-to-win, elimination, timing. Consumes ball events (the ball gadget
-/// detects hits/catches and fires `DodgeballPlayerHitEvent` / `DodgeballCatchEvent`; the manager scores).
+/// Port of `DodgeballManager`: rounds, score-to-win, last-team-standing elimination, timing. Consumes ball events
+/// (the ball gadget detects hits/catches and fires `DodgeballPlayerHitEvent` / `DodgeballCatchEvent`).
 pub struct DodgeballManager {
     pub config: DodgeballConfig,
     pub phase: Phase,
     pub round: u32,
     pub players: HashMap<PlayerId, PlayerState>,
-    /// per-team score (index by `Team`); two teams by default
+    /// round-wins per team
     pub team_score: Vec<u32>,
 }
 
 impl DodgeballManager {
-    /// `DodgeballManager.Start`: begins in the pre-round countdown.
+    /// `DodgeballManager.Start`: begins in the pre-round countdown of round 1.
     pub fn new(config: DodgeballConfig) -> Self {
         let pre = config.pre_round_duration;
-        DodgeballManager {
-            config,
-            phase: Phase::PreRound(pre),
-            round: 1,
-            players: HashMap::new(),
-            team_score: vec![0, 0],
-        }
+        DodgeballManager { config, phase: Phase::PreRound(pre), round: 1, players: HashMap::new(), team_score: vec![0, 0] }
     }
 
     pub fn add_player(&mut self, id: PlayerId, team: Team) {
@@ -92,7 +90,7 @@ impl DodgeballManager {
         self.phase == Phase::Running
     }
 
-    /// `DodgeballManager.Update`: advances the round timer; the timed phases (`PreRound`/`PostRound`) are unambiguous.
+    /// `DodgeballManager.Update`: advances the round timer; the timed phases are unambiguous.
     pub fn tick(&mut self, dt: f32, fx: &mut dyn DodgeballEffects) {
         match self.phase {
             Phase::PreRound(t) => {
@@ -103,7 +101,6 @@ impl DodgeballManager {
                     self.phase = Phase::PreRound(t);
                 }
             }
-            Phase::Running => {}
             Phase::PostRound(t) => {
                 let t = t - dt;
                 if t <= 0.0 {
@@ -112,10 +109,11 @@ impl DodgeballManager {
                     self.phase = Phase::PostRound(t);
                 }
             }
+            Phase::Running | Phase::GameOver(_) => {}
         }
     }
 
-    /// `KTLYQVYAOGB` round-begin override: everyone revives, round goes live.
+    /// `KTLYQVYAOGB` round-begin: everyone revives, round goes live.
     fn begin_round(&mut self, fx: &mut dyn DodgeballEffects) {
         for (id, p) in self.players.iter_mut() {
             if !p.alive {
@@ -128,27 +126,19 @@ impl DodgeballManager {
         fx.sfx("roundStart");
     }
 
-    /// `JIKUUNYQMWA` round-end override: declare a winner and enter the post-round cooldown.
-    fn end_round(&mut self, winner: Option<Team>, fx: &mut dyn DodgeballEffects) {
-        self.phase = Phase::PostRound(self.config.post_round_duration);
-        fx.round_over(winner);
-        fx.sfx("roundOver");
-    }
-
     fn next_round(&mut self, fx: &mut dyn DodgeballEffects) {
         self.round += 1;
         self.phase = Phase::PreRound(self.config.pre_round_duration);
-        // 1:1: confirm whether scores carry across rounds or reset (manager body)
         let _ = fx;
     }
 
-    /// A ball thrown by `thrower` hit `victim` (ball's `DodgeballPlayerHitEvent` -> manager). The ball does the hit
-    /// detection (`OnCollisionEnter`); the manager applies the rule.
+    /// A ball thrown by `thrower` hit `victim` (ball's `DodgeballPlayerHitEvent`). The ball does the hit detection
+    /// (`OnCollisionEnter`); a hit (not a catch) puts the victim out.
     pub fn on_player_hit(&mut self, victim: PlayerId, thrower: PlayerId, fx: &mut dyn DodgeballEffects) {
         if !self.is_round_running() {
             return;
         }
-        // 1:1: confirm friendly-fire / self-hit handling (ball's OWEMYSVBCGK) — for now, a live cross-team hit scores.
+        // 1:1: confirm friendly-fire / self-hit (ball OWEMYSVBCGK). For now a hit between live cross-team players counts.
         let (Some(&PlayerState { team: vt, alive: true }), Some(tt)) =
             (self.players.get(&victim), self.players.get(&thrower).map(|p| p.team))
         else {
@@ -157,9 +147,8 @@ impl DodgeballManager {
         if vt == tt {
             return;
         }
-        self.eliminate(victim, fx);
         fx.sfx("playerImpact");
-        self.award(tt, fx);
+        self.eliminate(victim, fx);
     }
 
     /// `catcher` caught a ball thrown by `thrower` (ball's `DodgeballCatchEvent`): the thrower is out.
@@ -167,30 +156,50 @@ impl DodgeballManager {
         if !self.is_round_running() {
             return;
         }
-        // 1:1: confirm the catch rule (thrower out? catcher's teammate revived? scoring) against the ball/manager body
+        // 1:1: confirm the catch rule (thrower out? a teammate also revived?) against the ball/manager body
         self.eliminate(thrower, fx);
     }
 
     fn eliminate(&mut self, player: PlayerId, fx: &mut dyn DodgeballEffects) {
-        if let Some(p) = self.players.get_mut(&player) {
-            if p.alive {
-                p.alive = false;
-                fx.player_out(player);
-                fx.sfx("playerOut");
-            }
+        if self.players.get(&player).map(|p| p.alive) != Some(true) {
+            return;
+        }
+        self.players.get_mut(&player).unwrap().alive = false;
+        fx.player_out(player);
+        fx.sfx("playerOut");
+        self.check_round_end(fx);
+    }
+
+    /// When one team (or none) still has live players, the round is over: the surviving team scores a round-win.
+    fn check_round_end(&mut self, fx: &mut dyn DodgeballEffects) {
+        if !self.is_round_running() {
+            return;
+        }
+        let mut live: Vec<Team> = self.players.values().filter(|p| p.alive).map(|p| p.team).collect();
+        live.sort_unstable();
+        live.dedup();
+        if live.len() <= 1 {
+            // 1:1: a round timeout (most-players-left wins) may also exist; not modeled until confirmed
+            self.round_won(live.first().copied(), fx);
         }
     }
 
-    fn award(&mut self, team: Team, fx: &mut dyn DodgeballEffects) {
-        let s = &mut self.team_score[team as usize];
-        *s += 1;
-        let score = *s;
-        fx.score_changed(team, score);
-        fx.sfx("playerScore");
-        // 1:1: ScoreToWin ends the game — confirm whether it ends the round (then PostRound) or the whole match
-        if score >= self.config.score_to_win {
-            self.end_round(Some(team), fx);
+    fn round_won(&mut self, winner: Option<Team>, fx: &mut dyn DodgeballEffects) {
+        if let Some(t) = winner {
+            self.team_score[t as usize] += 1;
+            let score = self.team_score[t as usize];
+            fx.score_changed(t, score);
+            fx.sfx("playerScore");
+            if score >= self.config.score_to_win {
+                self.phase = Phase::GameOver(t);
+                fx.round_over(Some(t));
+                fx.match_over(t);
+                return;
+            }
         }
+        self.phase = Phase::PostRound(self.config.post_round_duration);
+        fx.round_over(winner);
+        fx.sfx("roundOver");
     }
 }
 
@@ -207,7 +216,10 @@ mod tests {
             self.log.push(format!("start {r}"));
         }
         fn round_over(&mut self, w: Option<Team>) {
-            self.log.push(format!("over {w:?}"));
+            self.log.push(format!("round_over {w:?}"));
+        }
+        fn match_over(&mut self, w: Team) {
+            self.log.push(format!("match_over {w}"));
         }
         fn player_out(&mut self, p: PlayerId) {
             self.log.push(format!("out {p}"));
@@ -218,48 +230,44 @@ mod tests {
     }
 
     #[test]
-    fn round_timer_and_scoring() {
-        let cfg = DodgeballConfig { score_to_win: 2, pre_round_duration: 2.0, post_round_duration: 1.0 };
+    fn round_is_last_team_standing() {
+        let cfg = DodgeballConfig { score_to_win: 2, pre_round_duration: 1.0, post_round_duration: 1.0 };
         let mut m = DodgeballManager::new(cfg);
         m.add_player(1, 0);
-        m.add_player(2, 1);
+        m.add_player(2, 0);
+        m.add_player(3, 1);
         let mut fx = Rec::default();
 
-        // pre-round: not running until the countdown elapses
-        m.tick(1.0, &mut fx);
-        assert!(!m.is_round_running());
-        m.tick(1.5, &mut fx); // crosses 2.0 -> begin round
+        m.tick(1.0, &mut fx); // pre-round elapses -> running
         assert!(m.is_round_running());
-        assert!(fx.log.contains(&"start 1".to_string()));
 
-        // team 0 hits team 1's player twice (via two live players) -> reaches score_to_win=2 -> round over
-        m.on_player_hit(2, 1, &mut fx); // p2 out, team 0 score 1
-        assert_eq!(m.players[&2].alive, false);
+        // team 0 eliminates team 1's only player -> team 0 wins the round (score 1), not a win yet
+        m.on_player_hit(3, 1, &mut fx);
         assert_eq!(m.team_score[0], 1);
-        m.add_player(3, 1); // another opponent
-        m.on_player_hit(3, 1, &mut fx); // team 0 score 2 -> win
-        assert_eq!(m.team_score[0], 2);
         assert_eq!(m.phase, Phase::PostRound(1.0));
-        assert!(fx.log.contains(&"over Some(0)".to_string()));
 
-        // post-round cooldown -> next round, round goes back to pre-round and players revive
-        m.tick(1.0, &mut fx);
+        // next round: everyone revives
+        m.tick(1.0, &mut fx); // post-round -> pre-round(next)
         assert_eq!(m.round, 2);
-        assert!(matches!(m.phase, Phase::PreRound(_)));
-        m.tick(2.0, &mut fx);
-        assert!(m.is_round_running());
-        assert!(m.players[&2].alive); // revived at round begin
+        m.tick(1.0, &mut fx); // pre-round -> running
+        assert!(m.players[&3].alive);
+
+        // team 0 wins round 2 -> reaches score_to_win=2 -> match over
+        m.on_player_hit(3, 1, &mut fx);
+        assert_eq!(m.team_score[0], 2);
+        assert_eq!(m.phase, Phase::GameOver(0));
+        assert!(fx.log.contains(&"match_over 0".to_string()));
     }
 
     #[test]
-    fn catch_puts_thrower_out() {
+    fn a_catch_eliminates_the_thrower_and_can_end_the_round() {
         let mut m = DodgeballManager::new(DodgeballConfig { pre_round_duration: 0.0, ..Default::default() });
         m.add_player(1, 0);
         m.add_player(2, 1);
         let mut fx = Rec::default();
-        m.tick(0.1, &mut fx); // pre-round 0 -> running
-        assert!(m.is_round_running());
-        m.on_catch(2, 1, &mut fx); // p2 catches p1's throw -> p1 out
+        m.tick(0.1, &mut fx); // running
+        m.on_catch(2, 1, &mut fx); // p2 catches p1's throw -> p1 (team 0) out -> team 1 last standing -> round win
         assert_eq!(m.players[&1].alive, false);
+        assert_eq!(m.team_score[1], 1);
     }
 }
