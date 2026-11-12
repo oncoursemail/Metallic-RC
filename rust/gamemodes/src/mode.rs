@@ -24,6 +24,12 @@ pub enum GameInput {
     /// a ball entered a goal; `team` is the team that scores (→ Paddleball's `RpcMasterRequestScore`). The goal's
     /// owning team is resolved to the scoring team on the client that saw the trigger; the master validates + counts.
     Goal { team: Team },
+    /// `player` released a disc/projectile — one stroke (→ DiscGolf's throw; the authority counts it)
+    Throw { player: PlayerId },
+    /// `player`'s disc entered a basket — hole complete (→ DiscGolf's `RpcMasterFinishHole`)
+    Basket { player: PlayerId },
+    /// `player`'s disc went out of bounds — a penalty stroke + return to tee (→ DiscGolf's `RpcOnDiscHazard`)
+    Hazard { player: PlayerId },
 }
 
 /// The round/match lifecycle, broadcast so clients can show countdowns/scoreboards.
@@ -42,6 +48,10 @@ pub enum GameEvent {
     PlayerRespawned(PlayerId),
     Score { team: Team, score: u32 },
     Round { round: u32, phase: RoundPhase, winner: Option<Team> },
+    /// a per-player score changed (e.g. DiscGolf's running total, strokes relative to par — can be negative)
+    PlayerScore { player: PlayerId, score: i32 },
+    /// a player-scored match ended; `winner` won (e.g. DiscGolf's lowest-strokes/most-under-par player)
+    MatchOver { winner: PlayerId },
     /// a named sound/vfx cue (clients map it to the real SFX/VFX, e.g. the impact at the contact point)
     Cue(String),
 }

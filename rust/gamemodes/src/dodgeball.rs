@@ -301,7 +301,7 @@ impl GameMode for DodgeballMode {
         match input {
             GameInput::Hit { thrower, victim } => self.mgr.on_player_hit(victim, thrower, &mut c),
             GameInput::Catch { catcher, thrower } => self.mgr.on_catch(catcher, thrower, &mut c),
-            GameInput::Goal { .. } => {} // not a Dodgeball input
+            _ => {} // Goal/Throw/Basket/Hazard are other games' inputs
         }
     }
 
