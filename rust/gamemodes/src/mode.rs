@@ -21,6 +21,9 @@ pub enum GameInput {
     Hit { thrower: PlayerId, victim: PlayerId },
     /// `catcher` grabbed a live ball thrown by `thrower` (→ `RpcMasterRequestPlayerCatch`)
     Catch { catcher: PlayerId, thrower: PlayerId },
+    /// a ball entered a goal; `team` is the team that scores (→ Paddleball's `RpcMasterRequestScore`). The goal's
+    /// owning team is resolved to the scoring team on the client that saw the trigger; the master validates + counts.
+    Goal { team: Team },
 }
 
 /// The round/match lifecycle, broadcast so clients can show countdowns/scoreboards.

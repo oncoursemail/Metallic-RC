@@ -11,6 +11,8 @@
 
 pub mod dodgeball;
 pub mod mode;
+pub mod paddleball;
 
 pub use dodgeball::{DodgeballConfig, DodgeballEffects, DodgeballManager, DodgeballMode, Phase, PlayerId, Team};
 pub use mode::{GameEvent, GameInput, GameMode, RoundPhase};
+pub use paddleball::{PaddleballConfig, PaddleballMode};
