@@ -2,6 +2,7 @@
 pub mod audio;
 pub mod bowling;
 pub mod cache;
+pub mod charades;
 pub mod avatar;
 pub mod collide;
 pub mod discgolf;

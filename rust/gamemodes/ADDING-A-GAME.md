@@ -1,9 +1,10 @@
 # Adding a built-in Rec Room Original — the recipe
 
-Five games are ported 1:1 over one reusable seam: **Dodgeball** (team elimination), **Paddleball** (team goals
+Six games are ported 1:1 over one reusable seam: **Dodgeball** (team elimination), **Paddleball** (team goals
 to 5), **DiscGolf** (per-player stroke play), **Soccer** (team goals, TIMED — 180 s, most goals wins), **Bowling**
-(per-player REAL 10-pin frame scoring). The seam has handled five scoring shapes (the timed win and the 10-pin
-algorithm live inside the mode, only Bowling needed a new `GameInput::Bowl` variant), so it is **frozen** (see
+(per-player REAL 10-pin frame scoring), **Charades** (draw-and-guess, CoOp 480 s shared-score + TeamLightning
+4-round team-score). The seam has handled six scoring shapes with only two new `GameInput` variants (`Bowl`,
+`Guess`); the timers/roles/win-conditions live inside each mode, so it is **frozen** (see
 "The frozen API" below). Every remaining RR Original is a small, well-defined delta. Follow these steps verbatim;
 hold the 1:1 bar — NO invented numbers. Mark anything unverified `// 1:1:`, get the real value from the decompile
 lane (or the memory dump for runtime-only values), and make missing real config a HARD-FAIL (refuse to run with a
@@ -100,14 +101,16 @@ above already cover elimination, team-points, and per-player scoring.
 
 ## Roster (remaining `*GameRuleManager` @dump.cs)
 
-Dodgeball ✅ · Paddleball ✅ · DiscGolf ✅ · Soccer ✅ (TIMED) · Bowling ✅ (real 10-pin scoring + real scene
-config verified over net; **pin-toppling physics is the one open dependency** — see below). Remaining:
-Charades (CharadesManager, level8, timed word-guess, 2 modes — **do next**, physics-light) · Paintball
-(PaintballManager, level14+4 maps, 2 modes CTF/TeamBattle) · RecRally (racing) + StuntRunner (time-trial,
-natural pair) · Arena (horde+shop, heavy) · BattleRoyale (level78 HUGE 172k objs, shrinking killzone —
-isolate) · Quest (co-op campaign, many scenes — isolate). **LaserTag is SPECIAL** — no `*Manager` subclass,
-only `LaserTagGameRuleWrapper`; it's gadget/circuit-based, so route it to the CircuitsV2/gadget lane, NOT this
-manager-body recipe. Each manager game is a drop-in via this recipe; give decompile the class name to start.
+Dodgeball ✅ · Paddleball ✅ · DiscGolf ✅ · Soccer ✅ (TIMED) · Bowling ✅ (real 10-pin + real scene config over
+net; **pin-toppling physics is the one open dependency** — see below) · Charades ✅ (CoOp + TeamLightning both
+verified over net; the pen DRAWING / 3D networked strokes is presentation depth, a follow-up, not a scoring
+dependency). Remaining: StuntRunner (StuntRunnerManager, level92–100 — per-player fastest course time, leanest
+of the rest, **do next**) · Paintball (PaintballManager, level14+4 maps, 2 modes CTF/TeamBattle, projectile
+physics) · RecRally (RecRallyManager — KART racing, needs the dynamic-physics foundation) · Arena (horde+shop+AI,
+heavy) · BattleRoyale (level78 HUGE 172k objs, shrinking killzone — isolate) · Quest (co-op campaign + AI, many
+scenes — isolate). **LaserTag is SPECIAL** — no `*Manager` subclass, only `LaserTagGameRuleWrapper`;
+gadget/circuit-based, route it to the CircuitsV2/gadget lane, NOT this manager-body recipe. Each manager game is
+a drop-in via this recipe; give the decompile session (local_9442e322) the manager class name to start.
 
 **Pin-toppling physics dependency.** Bowling's real pinfall is rigidbody TOPPLING (ball knocks pins, pin-to-pin
 chains, settle; a pin is standing while `AngleFromUpright <= 25.0°`). The rebuild's custom physics (interact.rs
