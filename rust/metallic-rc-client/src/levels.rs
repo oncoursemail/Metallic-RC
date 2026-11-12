@@ -15,7 +15,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use bevy::math::{Mat4, Quat, Vec3};
+use bevy::math::{Mat4, Quat, Vec2, Vec3};
 use unity_assets::{classes, level, Material, ObjectInfo, PPtr, Reader, SerializedFile, TypeTree};
 
 use crate::{
@@ -1250,19 +1250,75 @@ fn image_fields(sf: &SerializedFile, o: &ObjectInfo) -> Option<([f32; 4], usize)
     c.iter().all(|&x| (-0.01..=4.0).contains(&x)).then_some((c, r.pos()))
 }
 
+/// A RectTransform's layout fields, for resolving rects top-down (a stretched element's real size comes from its
+/// parent's rect, not its own sizeDelta).
+#[derive(Clone, Copy)]
+struct Rt {
+    pivot: [f32; 2],
+    amin: [f32; 2],
+    amax: [f32; 2],
+    size_delta: [f32; 2],
+}
+
+/// Clips a UI quad (4 world corners + their UVs, an axis-aligned rect in the canvas plane) to a RectMask2D's rect,
+/// given the mask's inverse world transform and its rect bounds in mask-local space `[xmin, xmax, ymin, ymax]`.
+/// Returns the clipped quad with UVs re-interpolated, or None if nothing of it is inside the mask.
+fn clip_to_mask(pos: &[[f32; 3]], uv: &[[f32; 2]], inv: &Mat4, b: &[f32; 4]) -> Option<(Vec<[f32; 3]>, Vec<[f32; 2]>)> {
+    if pos.len() != 4 {
+        return Some((pos.to_vec(), uv.to_vec()));
+    }
+    let lc: Vec<Vec3> = pos.iter().map(|p| inv.transform_point3(Vec3::from(*p))).collect();
+    // the quad as an affine image of the unit square: corner 0 is (u,v)=(0,0), corner 1 (1,0), corner 3 (0,1)
+    let (e1, e2) = (Vec2::new(lc[1].x - lc[0].x, lc[1].y - lc[0].y), Vec2::new(lc[3].x - lc[0].x, lc[3].y - lc[0].y));
+    let det = e1.x * e2.y - e1.y * e2.x;
+    if det.abs() < 1e-12 {
+        return Some((pos.to_vec(), uv.to_vec())); // degenerate: leave it be
+    }
+    let xs = [lc[0].x, lc[1].x, lc[2].x, lc[3].x];
+    let ys = [lc[0].y, lc[1].y, lc[2].y, lc[3].y];
+    let (x0, x1) = (xs.iter().copied().fold(f32::INFINITY, f32::min), xs.iter().copied().fold(f32::NEG_INFINITY, f32::max));
+    let (y0, y1) = (ys.iter().copied().fold(f32::INFINITY, f32::min), ys.iter().copied().fold(f32::NEG_INFINITY, f32::max));
+    let (cx0, cx1) = (x0.max(b[0]), x1.min(b[1]));
+    let (cy0, cy1) = (y0.max(b[2]), y1.min(b[3]));
+    if cx0 >= cx1 - 1e-6 || cy0 >= cy1 - 1e-6 {
+        return None; // fully outside the mask
+    }
+    let bilerp = |a: &[f32], bb: &[f32], c: &[f32], d: &[f32], u: f32, v: f32| -> Vec<f32> {
+        (0..a.len()).map(|k| {
+            let bottom = a[k] + (bb[k] - a[k]) * u; // along u at v=0 (corner0 -> corner1)
+            let top = d[k] + (c[k] - d[k]) * u; // along u at v=1 (corner3 -> corner2)
+            bottom + (top - bottom) * v
+        }).collect()
+    };
+    let mut np = Vec::with_capacity(4);
+    let mut nuv = Vec::with_capacity(4);
+    for (tx, ty) in [(cx0, cy0), (cx1, cy0), (cx1, cy1), (cx0, cy1)] {
+        let d = Vec2::new(tx - lc[0].x, ty - lc[0].y);
+        let u = ((d.x * e2.y - d.y * e2.x) / det).clamp(0.0, 1.0);
+        let v = ((e1.x * d.y - e1.y * d.x) / det).clamp(0.0, 1.0);
+        let p = bilerp(&pos[0], &pos[1], &pos[2], &pos[3], u, v);
+        let t = bilerp(&uv[0], &uv[1], &uv[2], &uv[3], u, v);
+        np.push([p[0], p[1], p[2]]);
+        nuv.push([t[0], t[1]]);
+    }
+    Some((np, nuv))
+}
+
 impl OldBuilder<'_> {
-    /// World-space UI panels — `UnityEngine.UI.Image`s on a world-space Canvas — as flat, unlit, coloured quads,
-    /// reusing the part/material pipeline so the renderer draws them with no new code. Images show their colour and
-    /// sprite art; TextMeshPro labels show their text, rasterised with the game's own font. Subtrees under a UI mask
-    /// and content that lands below the floor (scrolled / clipped lists) are left out. Returns how many were added.
+    /// World-space UI panels — `UnityEngine.UI.Image`s and `TextMeshProUGUI` labels on a world-space Canvas — as
+    /// flat, unlit, textured quads reusing the part/material pipeline, so the renderer draws them with no new code.
+    /// Each rect's real size is resolved top-down through its anchors (not just the non-stretched ones), and every
+    /// quad is clipped to its ancestor `RectMask2D` windows, so scrolled lists sit in their box instead of floating.
+    /// Returns how many were drawn.
     fn add_ui_panels(&mut self, scene: &Scene) -> usize {
         let trees = ui_trees();
         let (Some(ctree), Some(rtree)) = (&trees.canvas, &trees.rect) else { return 0 };
         let Some(sf) = self.files.get(&scene.file) else { return 0 };
+        let n = scene.nodes.len();
         // which canvases are world space (m_RenderMode == 2)
         let mut world_canvas: Vec<usize> = Vec::new();
-        for (i, n) in scene.nodes.iter().enumerate() {
-            let Some(&(_, cid)) = n.components.iter().find(|c| c.0 == CANVAS) else { continue };
+        for (i, nd) in scene.nodes.iter().enumerate() {
+            let Some(&(_, cid)) = nd.components.iter().find(|c| c.0 == CANVAS) else { continue };
             let Some(o) = sf.object(cid) else { continue };
             let mut r = Reader::new(sf.object_bytes(o), sf.big_endian);
             let mode = unity_assets::value::read(ctree, &sf.ref_types, &mut r).ok().and_then(|v| v.get("m_RenderMode").and_then(|x| x.as_i64()));
@@ -1273,31 +1329,68 @@ impl OldBuilder<'_> {
         if world_canvas.is_empty() {
             return 0;
         }
-        // nodes that clip their children (RectMask2D / Mask): the children are positioned in canvas space and only a
-        // window of them shows in game. We can't clip, so their content lands at odd places (e.g. a scroll list
-        // stretching through the floor) — leave whole masked subtrees out.
-        let mut masks: Vec<usize> = Vec::new();
-        for i in 0..scene.nodes.len() {
-            if !world_canvas.iter().any(|&c| scene.under(i, c)) {
-                continue;
-            }
-            let masked = scene.nodes[i].components.iter().filter(|c| c.0 == classes::MONO_BEHAVIOUR).any(|&(_, id)| {
-                sf.object(id).is_some_and(|o| matches!(mb_script_class(self.files, &scene.file, &sf, o).as_deref(), Some("RectMask2D" | "Mask")))
-            });
-            if masked {
-                masks.push(i);
+        // mark everything under a world-space canvas (parents precede children in node order, so one pass does it)
+        let mut in_canvas = vec![false; n];
+        for &c in &world_canvas {
+            in_canvas[c] = true;
+        }
+        for i in 0..n {
+            if !in_canvas[i] {
+                in_canvas[i] = scene.nodes[i].parent.is_some_and(|p| in_canvas[p]);
             }
         }
-        // the room floor (lowest spawn): unclipped scroll/list content lands well below it (underground), so drop
-        // panels that fall far under the floor
-        let floor = self.out.spawns.iter().map(|m| m.w_axis.y).fold(f32::INFINITY, f32::min);
-        let mut added = 0;
-        for i in 0..scene.nodes.len() {
-            if !scene.nodes[i].active || !world_canvas.iter().any(|&c| scene.under(i, c)) {
+        // read every RectTransform under a canvas (pivot, anchors, sizeDelta) — a built-in class, read via its tree
+        let read_rt = |i: usize| -> Option<Rt> {
+            let &(_, rid) = scene.nodes[i].components.iter().find(|c| c.0 == classes::RECT_TRANSFORM)?;
+            let mut rr = Reader::new(sf.object_bytes(sf.object(rid)?), sf.big_endian);
+            let rv = unity_assets::value::read(rtree, &sf.ref_types, &mut rr).ok()?;
+            let g = |p: &str| rv.path(p).and_then(|x| x.as_f32());
+            Some(Rt {
+                pivot: [g("m_Pivot/x")?, g("m_Pivot/y")?],
+                amin: [g("m_AnchorMin/x")?, g("m_AnchorMin/y")?],
+                amax: [g("m_AnchorMax/x")?, g("m_AnchorMax/y")?],
+                size_delta: [g("m_SizeDelta/x")?, g("m_SizeDelta/y")?],
+            })
+        };
+        let rt: Vec<Option<Rt>> = (0..n).map(|i| if in_canvas[i] { read_rt(i) } else { None }).collect();
+        // resolve each rect's real size top-down: a canvas is its own sizeDelta, a child is
+        // (anchorMax-anchorMin)*parentSize + sizeDelta
+        let mut size: Vec<Option<[f32; 2]>> = vec![None; n];
+        for &c in &world_canvas {
+            if let Some(r) = rt[c] {
+                size[c] = Some(r.size_delta);
+            }
+        }
+        for i in 0..n {
+            if size[i].is_some() || !in_canvas[i] {
                 continue;
             }
-            if masks.iter().any(|&m| scene.under(i, m)) {
-                continue; // inside a UI mask: its content is clipped in game, can't place it here
+            let (Some(p), Some(r)) = (scene.nodes[i].parent, rt[i]) else { continue };
+            let Some(ps) = size[p] else { continue };
+            size[i] = Some([(r.amax[0] - r.amin[0]) * ps[0] + r.size_delta[0], (r.amax[1] - r.amin[1]) * ps[1] + r.size_delta[1]]);
+        }
+        // masks (RectMask2D / Mask): each clips its subtree to its own rect. Keep the inverse world and local bounds.
+        let mut masks: Vec<(usize, Mat4, [f32; 4])> = Vec::new();
+        for i in 0..n {
+            if !in_canvas[i] {
+                continue;
+            }
+            let is_mask = scene.nodes[i].components.iter().filter(|c| c.0 == classes::MONO_BEHAVIOUR).any(|&(_, id)| {
+                sf.object(id).is_some_and(|o| matches!(mb_script_class(self.files, &scene.file, &sf, o).as_deref(), Some("RectMask2D" | "Mask")))
+            });
+            if !is_mask {
+                continue;
+            }
+            let (Some(ms), Some(r)) = (size[i], rt[i]) else { continue };
+            let b = [-r.pivot[0] * ms[0], (1.0 - r.pivot[0]) * ms[0], -r.pivot[1] * ms[1], (1.0 - r.pivot[1]) * ms[1]];
+            masks.push((i, scene.nodes[i].world.inverse(), b));
+        }
+        // the room floor (lowest spawn): content with no mask can still land underground, so drop panels far below it
+        let floor = self.out.spawns.iter().map(|m| m.w_axis.y).fold(f32::INFINITY, f32::min);
+        let mut added = 0;
+        for i in 0..n {
+            if !scene.nodes[i].active || !in_canvas[i] {
+                continue;
             }
             // the node's UI content: an Image (coloured panel + sprite art) or a TextMeshPro label
             let mb_of = |want: &str, files: &mut Files| {
@@ -1311,34 +1404,20 @@ impl OldBuilder<'_> {
             if img.is_none() && txt.is_none() {
                 continue;
             }
-            // the rect: size and pivot from the RectTransform (anchored, non-stretched panels only, where sizeDelta
-            // is the real size; stretched children would need full anchor resolution)
-            let Some(&(_, rid)) = scene.nodes[i].components.iter().find(|c| c.0 == classes::RECT_TRANSFORM) else { continue };
-            let Some(ro) = sf.object(rid) else { continue };
-            let mut rr = Reader::new(sf.object_bytes(ro), sf.big_endian);
-            let Ok(rv) = unity_assets::value::read(rtree, &sf.ref_types, &mut rr) else { continue };
-            let f = |p: &str| rv.path(p).and_then(|x| x.as_f32());
-            let (Some(w), Some(h), Some(px), Some(py)) = (f("m_SizeDelta/x"), f("m_SizeDelta/y"), f("m_Pivot/x"), f("m_Pivot/y")) else { continue };
-            let (amnx, amny, amxx, amxy) = (f("m_AnchorMin/x"), f("m_AnchorMin/y"), f("m_AnchorMax/x"), f("m_AnchorMax/y"));
-            if let (Some(a), Some(b), Some(c), Some(d)) = (amnx, amny, amxx, amxy) {
-                if (a - c).abs() > 1e-3 || (b - d).abs() > 1e-3 {
-                    continue; // stretched to its parent: sizeDelta is an offset, not the size
-                }
-            }
+            // the resolved rect: real size (anchors applied) and pivot
+            let (Some([w, h]), Some(r)) = (size[i], rt[i]) else { continue };
             if w.abs() < 1e-3 || h.abs() < 1e-3 {
                 continue;
             }
+            let (px, py) = (r.pivot[0], r.pivot[1]);
             let world = scene.nodes[i].world;
-            // the full rect, used for the floor test (and the panel quad for Images)
             let rect_corner = |cx: f32, cy: f32| {
                 let p = world.transform_point3(Vec3::new((cx - px) * w, (cy - py) * h, 0.0));
                 [p.x, p.y, p.z]
             };
-            if floor.is_finite() {
-                let cy = (rect_corner(0.5, 0.5))[1];
-                if cy < floor - 0.6 {
-                    continue; // sits underground: clipped list/scroll content we can't place
-                }
+            // a panel under no mask can still land underground; masked content is clipped to its (on-screen) window
+            if floor.is_finite() && !masks.iter().any(|&(m, _, _)| scene.under(i, m)) && (rect_corner(0.5, 0.5))[1] < floor - 0.6 {
+                continue;
             }
             // build the drawn content: (positions, uvs, texture, colour, blend)
             let (positions, uvs, texture, color, blend) = if let Some(img) = img {
@@ -1380,7 +1459,14 @@ impl OldBuilder<'_> {
                 let Some((tw, th, rgba)) = render_text_rgba(ttf, &s, 64.0) else { continue };
                 let ar = tw as f32 / th.max(1) as f32;
                 let (rw, rh) = (w.abs(), h.abs());
-                let (fw, fh) = if ar > rw / rh { (rw, rw / ar) } else { (rh * ar, rh) };
+                // size the text by the rect HEIGHT (~ the font size), at its natural width — not stretched to fill the
+                // rect. The exact m_fontSize / m_alignment sit past variable TMP arrays and are coming from the
+                // decompiled layout; until then the rect height stands in for the point size.
+                let (mut fw, mut fh) = (rh * ar, rh);
+                if fw > rw {
+                    fh *= rw / fw;
+                    fw = rw;
+                }
                 let (cx, cy) = ((0.5 - px) * w, (0.5 - py) * h);
                 let tcorner = |ux: f32, uy: f32| {
                     let p = world.transform_point3(Vec3::new(cx + (ux - 0.5) * fw, cy + (uy - 0.5) * fh, 0.0));
@@ -1391,6 +1477,25 @@ impl OldBuilder<'_> {
                 let uvs = vec![[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]];
                 (positions, uvs, Some((tw, th, rgba)), TEXT_COLOR, Blend::Blend)
             };
+            // clip to every ancestor mask (scroll viewports etc.): keep only the part inside the mask window,
+            // re-interpolating UVs — this is what makes scrolled lists sit in their box instead of floating
+            let (mut positions, mut uvs) = (positions, uvs);
+            let mut gone = false;
+            for &(m, inv, b) in &masks {
+                if !scene.under(i, m) {
+                    continue;
+                }
+                match clip_to_mask(&positions, &uvs, &inv, &b) {
+                    Some((np, nu)) => (positions, uvs) = (np, nu),
+                    None => {
+                        gone = true;
+                        break;
+                    }
+                }
+            }
+            if gone {
+                continue;
+            }
             let nz = world.transform_vector3(Vec3::Z).normalize_or_zero();
             let normals = vec![[nz.x, nz.y, nz.z]; 4];
             // drawn from both sides (UI has no thickness; the canvas may face either way)
