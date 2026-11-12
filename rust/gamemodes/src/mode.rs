@@ -34,6 +34,10 @@ pub enum GameInput {
     /// the real 10-pin scoreboard algorithm over the per-player bowl array. Pin count is physics (standing before −
     /// standing after the pins settle), not scripted.
     Bowl { player: PlayerId, pins: u8 },
+    /// `guesser` pressed the guess button signalling a correct guess of the current performer's drawing (→ Charades's
+    /// `RpcMasterRequestGuess`). The master validates the guesser is NOT the performer, scores +1 (co-op pool or the
+    /// guessing team), and advances to the next word/performer. Correctness is the in-world button signal, not text.
+    Guess { guesser: PlayerId },
 }
 
 /// The round/match lifecycle, broadcast so clients can show countdowns/scoreboards.
