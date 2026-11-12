@@ -93,29 +93,29 @@ fn join_game(
     db.game = Some(e);
 
     if master {
-        // 1:1: the real course = the per-DiscGolfGoal pars in the scene. Reading them from the scene objects is the
-        // next refinement; for now a short stand-in course (3 holes par 3) so the vertical runs end-to-end.
-        let mut rules = DiscGolfRules::new(DiscGolfConfig { course: vec![3, 3, 3] });
+        // The REAL level9 course: 9 holes, pars [3,2,3,4,2,4,3,2,5] (total 28), read from the scene's DiscGolfGoal
+        // objects via `unity_assets::level::MonoFields` and now the default (see `gamemodes::DiscGolfConfig`).
+        let cfg = DiscGolfConfig::default();
+        let holes = cfg.course.len();
+        let mut rules = DiscGolfRules::new(cfg);
         rules.add_player(pid(actor));
         db.roster.push(actor);
         db.rules = Some(rules);
         net.net_spawn(DISC_ADDRESS, Transform::from_xyz(0.0, 1.2, 0.0)); // a disc at the first tee (grab/throwable)
         db.court_set = true;
-        info!("discgolf: this client is the authority (actor {actor}); disc spawned, 3-hole stand-in course");
+        info!("discgolf: this client is the authority (actor {actor}); disc spawned, real {holes}-hole level9 course");
         if std::env::var("METALLIC_DG_BOTS").is_ok() {
             let me = pid(actor);
-            // play the master through the course (par 3 each): hole 0 in 1 throw (+2), hole 1 in 2 (+1), hole 2 in 1
-            // (+2) -> total +5 under par, course done
-            db.bots = vec![
-                (2.0, GameInput::Throw { player: me }),
-                (2.5, GameInput::Basket { player: me }), // hole 0: 1 stroke (+2)
-                (3.0, GameInput::Throw { player: me }),
-                (3.5, GameInput::Throw { player: me }),
-                (4.0, GameInput::Basket { player: me }), // hole 1: 2 strokes (+1)
-                (4.5, GameInput::Throw { player: me }),
-                (5.0, GameInput::Basket { player: me }), // hole 2: 1 stroke (+2) -> course done
-            ];
-            info!("discgolf: self-test — master plays the 3-hole course");
+            // play the master through the full real course: each hole in one throw (an ace), so each scores par−1 and
+            // the course completes after the last basket. Throw then basket, spaced per hole.
+            let mut bots = Vec::new();
+            for i in 0..holes {
+                let t = 2.0 + i as f32 * 0.6;
+                bots.push((t, GameInput::Throw { player: me }));
+                bots.push((t + 0.3, GameInput::Basket { player: me }));
+            }
+            db.bots = bots;
+            info!("discgolf: self-test — master plays the real {holes}-hole course");
         }
     } else {
         info!("discgolf: this client is a guest (actor {actor}); the authority scores");

@@ -14,8 +14,8 @@ use std::collections::HashMap;
 
 use crate::mode::{GameEvent, GameInput, GameMode, PlayerId, Team};
 
-/// A DiscGolf course: par per hole, read from the scene's `DiscGolfGoal` objects (each has hole# + par; sample hole 0
-/// par 3). The total par is their sum; the course length is the number of baskets.
+/// A DiscGolf course: par per hole, read from the scene's `DiscGolfGoal` objects (each has hole# + par). The total par
+/// is their sum; the course length is the number of baskets.
 #[derive(Clone, Debug)]
 pub struct DiscGolfConfig {
     pub course: Vec<u32>,
@@ -23,9 +23,11 @@ pub struct DiscGolfConfig {
 
 impl Default for DiscGolfConfig {
     fn default() -> Self {
-        // 1:1: the real course = the per-basket pars from the scene (DiscGolfGoal.hole/par). This default is a stand-in
-        // until the scene's baskets are read; sample hole 0 par 3 is verified.
-        DiscGolfConfig { course: vec![3, 3, 3] }
+        // The REAL level9 course, read from the scene's 9 `DiscGolfGoal` objects via `unity_assets::level::MonoFields`
+        // (hole:i32, par:i32), ordered by hole 0..=8 — pars [3,2,3,4,2,4,3,2,5], total par 28. Validated by the maps
+        // lane (18/18 DiscGolfGoal across level9+level10 read with sane hole/par). No longer a stand-in.
+        // (level10 is the alternate 9-hole course variant; load it the same way for that room.)
+        DiscGolfConfig { course: vec![3, 2, 3, 4, 2, 4, 3, 2, 5] }
     }
 }
 
