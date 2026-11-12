@@ -16,6 +16,7 @@ pub mod dodgeball;
 pub mod mode;
 pub mod paddleball;
 pub mod paintball;
+pub mod recrally;
 pub mod soccer;
 pub mod stuntrunner;
 
@@ -27,4 +28,5 @@ pub use dodgeball::{DodgeballConfig, DodgeballEffects, DodgeballManager, Dodgeba
 pub use mode::{FlagEvent, GameEvent, GameInput, GameMode, RoundPhase};
 pub use paddleball::{PaddleballConfig, PaddleballMode};
 pub use paintball::{PaintballConfig, PaintballMode, PaintballVariant};
+pub use recrally::{RecRallyConfig, RecRallyMode};
 pub use soccer::{SoccerConfig, SoccerMode};

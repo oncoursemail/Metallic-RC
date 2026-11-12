@@ -109,7 +109,9 @@ SWAP (loader doesn't hot-swap level93–98 yet) and the real gate-crossing TIMIN
 is a live-capture //1:1-pending and the SS/S/A/B/C grades are prefab percentiles //1:1-pending — all cap/grade
 items are winner-independent). Paintball — RULES ✅ (CTF 3-captures + TeamBattle 50-tags, both timed 600s + score cap, flag state machine,
 master-validated tags; 1:1 from the real wrapper numbers; client vertical needs the paintball-projectile + flag
-gadgets, a dynamic-physics item). Remaining: RecRally (RecRallyManager — KART racing, needs the dynamic-physics foundation) · Arena
+gadgets, a dynamic-physics item). RecRally — RULES ✅ (team finish-ORDER placement, single 3-lap race, winner =
+first team home; totalLaps=3 real, GameDuration a non-win-critical fallback //1:1-pending maps-read; kart
+GroundVehicle physics is the bevy_rapier vertical item). Remaining: Arena
 (horde+shop+AI, heavy) · BattleRoyale (level78 HUGE 172k objs, shrinking killzone — isolate) · Quest (co-op
 campaign + AI, many scenes — isolate). **LaserTag is SPECIAL** — no `*Manager` subclass, only
 `LaserTagGameRuleWrapper`; gadget/circuit-based, route it to the CircuitsV2/gadget lane, NOT this manager-body

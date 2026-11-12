@@ -46,6 +46,10 @@ pub enum GameInput {
     /// `player` took / captured / dropped / returned it. The master runs the flag state machine; a `Captured` scores
     /// +1 for the capturing player's team. (A paintball TAG reuses [`GameInput::Hit`] — thrower = the shooter.)
     Flag { event: FlagEvent, player: PlayerId, team: Team },
+    /// `team` completed the final lap and crossed the finish line (→ RecRally's `RpcMasterRallyRequestRaceFinish`).
+    /// The master validates it (not already finished) and assigns the team's PLACE in finish ORDER (1st, 2nd, …);
+    /// place 1 wins. A single race, finish-order placement — no points, no time score.
+    FinishRace { team: Team },
 }
 
 /// A Paintball CTF flag event (the flag gadget's master-validated signals).
