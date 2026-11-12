@@ -84,12 +84,13 @@ pub struct Look {
 
 impl Default for Look {
     fn default() -> Self {
+        // The Rec Room new-player default: a tan robot in the white jersey with the orange trim + chest logo.
         Look {
-            skin: SKINS[0],
-            shirt: SHIRTS[0],
-            accent: ACCENTS[0],
-            accessory: Accessory::Antenna,
-            pants: PANTS[0],
+            skin: SKINS[1],    // tan
+            shirt: SHIRTS[6],  // off-white jersey
+            accent: ACCENTS[3], // orange
+            accessory: Accessory::None,
+            pants: PANTS[0],   // dark grey
             visor: VISORS[0],
             eyes: Eyes::Pill,
             outfit: Outfit::None,

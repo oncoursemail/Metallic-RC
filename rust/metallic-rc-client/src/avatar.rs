@@ -31,6 +31,7 @@ use bevy::{
 use anim::{Anim, Input};
 pub use look::{Accessory, Eyes, Look, Outfit};
 pub use panel::{LocalLook, LookPanel};
+pub use real::Dressing;
 use toon::{toon, Toon};
 
 /// Heights in the avatar's own space: feet at 0, facing -z.
@@ -67,7 +68,7 @@ impl Plugin for AvatarPlugin {
         bevy::asset::embedded_asset!(app, "avatar/toon.wesl");
         app.add_plugins(MaterialPlugin::<Toon>::default())
             .add_systems(Startup, (make_kit, real::load_roomie))
-            .add_systems(Update, (real::attach_real, real::idle, real::animate_face))
+            .add_systems(Update, (real::attach_real, real::idle, real::animate_face, real::redress))
             .add_systems(PostUpdate, (dress, animate).chain().before(TransformSystems::Propagate))
             .add_systems(PostUpdate, real::animate_skeleton.before(TransformSystems::Propagate))
             .add_systems(PostUpdate, place_tags.after(TransformSystems::Propagate).before(UiSystems::Prepare));
