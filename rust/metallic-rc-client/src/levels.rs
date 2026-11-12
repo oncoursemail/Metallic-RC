@@ -1132,7 +1132,7 @@ pub fn scene_goals(game_data: Option<&Path>, room: &str, class: &str, goal_colli
     }
     let mut out = Vec::new();
     for n in scene.nodes.iter().filter(|n| n.active) {
-        for &(c, id) in n.components.iter().filter(|(c, _)| *c == classes::MONO_BEHAVIOUR) {
+        for &(_, id) in n.components.iter().filter(|(c, _)| *c == classes::MONO_BEHAVIOUR) {
             // resolve the script class name (same file or an external), each `files.get` in its own scope
             let p = match files.get(&scene_file_name).and_then(|sf| sf.object(id).and_then(|o| level::mono_script_ref(&sf, o).ok())) {
                 Some(p) => p,
