@@ -117,11 +117,17 @@ GameDuration=480s; the enemy-AI waves + shop/credits are gameplay-depth). **NOTE
 — `ArenaManager : GameRuleManager` uses `LaserTagGameRuleWrapper`, so the earlier "LaserTag has no manager" note
 was a misread; it's a normal manager port (done). BattleRoyale — RULES ✅ (purely last-standing, NO score/timer;
 elimination-ORDER rank = first out gets the highest number, last standing = rank 1 = winner; SOLOS per-player +
-SQUADS per-team rollup; config is just modeType). Remaining: Quest (co-op campaign + AI, many scenes — the last
-manager game, isolate). The remaining client verticals converge
-on the dynamic-physics foundation (Bowling toppling + RecRally karts + Paintball projectiles) — that reusable
-`bevy_rapier` layer is the next big enabler. Give the decompile session (local_9442e322) the manager class name
-to start each.
+SQUADS per-team rollup; config is just modeType). Quest — RULES ✅ (co-op PvE CAMPAIGN: StoryState progression —
+objectives advance rooms in sequence — WON on campaign completion, LOST on team wipe past the continue budget;
+co-op LOOT-points rating with real per-campaign penalties death/FF 1200 or 2000, collectible 50/100; health/down/
+revive; story_states + continue_budget are //1:1: gameplay-depth from QuestCampaign data).
+
+**THE 12-GAME MANAGER ROSTER IS COMPLETE.** Every `*GameRuleManager` RR Original is ported 1:1 at the rules
+level (7 are full in-client verticals; Paintball/RecRally/Arena/BattleRoyale/Quest are rules + their client
+verticals gated on the physics foundation). The remaining work is the reusable **`bevy_rapier` dynamic-physics
+foundation** (unblocks Bowling pin-toppling + Paintball projectiles + RecRally karts + the BattleRoyale zone +
+Arena/Quest enemy AI) and the per-game client verticals on top of it — that layer is the next big enabler. For a
+NEW RR Original beyond the 12, give the decompile session (local_9442e322) the manager class name to start.
 
 **Pin-toppling physics dependency.** Bowling's real pinfall is rigidbody TOPPLING (ball knocks pins, pin-to-pin
 chains, settle; a pin is standing while `AngleFromUpright <= 25.0°`). The rebuild's custom physics (interact.rs

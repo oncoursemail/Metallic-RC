@@ -58,6 +58,17 @@ pub enum GameInput {
     /// master-validated elimination). The master assigns their rank in ELIMINATION order (first out = highest rank,
     /// last standing = rank 1 = winner) and ends the match when one player (Solos) / one team (Squads) remains.
     Eliminated { player: PlayerId },
+    /// a Quest campaign objective was completed (room cleared / checkpoint reached) → advance the StoryState; the
+    /// co-op campaign is WON when the final objective completes.
+    ObjectiveComplete,
+    /// a Quest `player` went DOWN (health depleted — `friendly_fire` distinguishes the loot penalty). Revivable by a
+    /// teammate while the continue budget lasts; the whole team down with no continues left = a wipe (campaign LOST).
+    PlayerDown { player: PlayerId, friendly_fire: bool },
+    /// a downed Quest `player` was revived by a teammate.
+    PlayerRevived { player: PlayerId },
+    /// award `amount` co-op loot points in Quest (enemy kills / collectibles). A rating, not the win condition;
+    /// penalties (death / friendly fire) subtract from the same pool.
+    AwardLoot { amount: i32 },
 }
 
 /// What an Arena kill/pickup was, which fixes its kill-point value (the real `ArenaManager` scoring table).
