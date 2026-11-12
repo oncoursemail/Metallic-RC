@@ -29,10 +29,23 @@ pub struct DodgeballConfig {
 
 impl Default for DodgeballConfig {
     fn default() -> Self {
-        // 1:1: replace with the real DodgeballGameRuleWrapper.defaultScoreToWin + DodgeballManager.Pre/PostRoundDuration
-        DodgeballConfig { score_to_win: 3, pre_round_duration: 3.0, post_round_duration: 5.0 }
+        // 1:1 decoded from the prefabs + dump.cs (decompile lane, sweet-galileo_dodgeball-recon.md §EXACT CONFIG):
+        //   ScoreToWin = DodgeballGameRuleWrapper.defaultScoreToWin = 3
+        //   PreRoundDuration / PostRoundDuration = DodgeballManager consts 3f / 3f (the third const, 0.35f, is a
+        //   separate threshold whose exact use needs the method body — see on_player_hit).
+        DodgeballConfig { score_to_win: 3, pre_round_duration: 3.0, post_round_duration: 3.0 }
     }
 }
+
+/// The real `DodgeballBall_phys` PhysicsMaterial (decoded 1:1): the ball bounces and grips the floor the same on every
+/// client. Used by the client/server when it simulates the ball (friction/bounce). The ball's Rigidbody mass/drag and
+/// the release throw velocity live in `Dodgeball.OnPostRelease` (a method body not yet recovered), so they're not here.
+pub struct BallPhysics {
+    pub dynamic_friction: f32,
+    pub static_friction: f32,
+    pub bounciness: f32,
+}
+pub const BALL_PHYSICS: BallPhysics = BallPhysics { dynamic_friction: 0.6, static_friction: 0.6, bounciness: 0.6 };
 
 /// The round/match lifecycle (`IsRoundRunning` + Pre/PostRoundDuration). The `f32` is seconds left in a timed phase.
 #[derive(Clone, Copy, Debug, PartialEq)]
