@@ -1,4 +1,4 @@
-//! StuntRunner, ported from the decompiled `StuntRunnerManager : QuestManager` (scene level92 lobby + level93–98
+//! StuntRunner, ported from the decompiled `StuntRunnerManager : QuestManager : GameRuleManager` (scene level92 lobby + level93–98
 //! course rooms), VERIFIED against the real binary (decompile lane, sweet-galileo_stuntrunner-recon.md). It is a
 //! competitive per-player TIME-TRIAL over a fixed sequence of 6 courses: each player runs a course once, their finish
 //! time (in milliseconds) converts to a per-course point score (faster = higher, linear to a time cap), and after all
@@ -21,20 +21,25 @@ use crate::mode::{GameEvent, GameInput, GameMode, PlayerId, Team};
 pub struct StuntRunnerConfig {
     /// number of courses in the sequence (VERIFIED 6)
     pub courses: usize,
-    /// per-course maximum score, awarded for an instant finish (`courseMaxBaseScore`, int @0x220).
-    /// 1:1: placeholder until the decompile lane reads the prefab value.
+    /// per-course maximum score, awarded for an instant finish (`courseMaxBaseScore`, int @0x220). VERIFIED 180000
+    /// (the manager `.ctor` sets it; one global value for all 6 courses). It is `[SerializeField]`, so maps is
+    /// confirming level92 carries no override — 180000 is the default.
     pub course_max_base_score: u32,
-    /// per-course time cap in seconds (`CourseMaxFinishTimeSeconds`, float @0x820); at the cap the score is 0.
-    /// 1:1: placeholder until the decompile lane reads the prefab value (and confirms global vs per-course).
+    /// one global time cap in seconds (`CourseMaxFinishTimeSeconds`, @0x820); at the cap the score is 0.
+    /// 1:1-PENDING: this backing field is `[CompilerGenerated]`, NOT `[SerializeField]` and never set in the manager
+    /// — it is assigned at RUNTIME by an external configurator, so it is NOT statically readable from level92. It
+    /// needs a live capture of the running game. The value below is a flagged placeholder. NOTE: the final RANKING /
+    /// WINNER is independent of the cap (total score ranks by total time either way — the cap only scales the absolute
+    /// scores and sets the timeout threshold), so the sequence/formula/winner are correct meanwhile.
     pub course_max_finish_seconds: f32,
 }
 
 impl Default for StuntRunnerConfig {
     fn default() -> Self {
-        // 1:1: `course_max_base_score` and `course_max_finish_seconds` are provisional placeholders — the real values
-        // are serialized on the StuntRunnerManager prefab (courseMaxBaseScore @0x220, CourseMaxFinishTimeSeconds
-        // @0x820) and must replace these before StuntRunner is "done". `courses` = 6 is VERIFIED.
-        StuntRunnerConfig { courses: 6, course_max_base_score: 1000, course_max_finish_seconds: 120.0 }
+        // `courses` = 6 and `course_max_base_score` = 180000 are VERIFIED. `course_max_finish_seconds` is
+        // 1:1-PENDING a live capture (runtime-assigned, not in the scene/manager) — see the field doc. The winner is
+        // cap-independent, so this placeholder affects only displayed absolute scores and the timeout threshold.
+        StuntRunnerConfig { courses: 6, course_max_base_score: 180000, course_max_finish_seconds: 120.0 }
     }
 }
 
@@ -99,8 +104,10 @@ impl StuntRunnerMode {
 
     fn finish(&mut self, out: &mut Vec<GameEvent>) {
         self.over = true;
-        // highest total score wins; ties broken by join order. (1:1: the SS/S/A/B/C placement GRADES are a designer
-        // mapping from the final ranking — pending from the decompile lane; the winner + totals are exact.)
+        // highest total score wins; ties broken by join order. The winner + totals are EXACT (and cap-independent).
+        // 1:1-pending (presentation, not scoring): the SS/S/A/B/C grades are PERCENTILE buckets — each player's grade
+        // is their percentile among all players (StuntRunnerBucketedFeedbackStep.feedbackBuckets[].percentile, 5
+        // thresholds serialized on level92, read via maps). Grades are end-game feedback tiers, not the winner.
         let winner = self.players.iter().copied().max_by_key(|p| self.cards.get(p).map(|c| c.total).unwrap_or(i32::MIN));
         if let Some(w) = winner {
             out.push(GameEvent::MatchOver { winner: w });
