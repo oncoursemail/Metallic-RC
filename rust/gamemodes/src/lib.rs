@@ -10,5 +10,7 @@
 //! Dodgeball is the first (simplest) slice.
 
 pub mod dodgeball;
+pub mod mode;
 
-pub use dodgeball::{DodgeballConfig, DodgeballEffects, DodgeballManager, Phase, PlayerId, Team};
+pub use dodgeball::{DodgeballConfig, DodgeballEffects, DodgeballManager, DodgeballMode, Phase, PlayerId, Team};
+pub use mode::{GameEvent, GameInput, GameMode, ObjectId, PlayerPose, RoundPhase};
