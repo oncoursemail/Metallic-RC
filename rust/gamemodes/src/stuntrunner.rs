@@ -21,9 +21,9 @@ use crate::mode::{GameEvent, GameInput, GameMode, PlayerId, Team};
 pub struct StuntRunnerConfig {
     /// number of courses in the sequence (VERIFIED 6)
     pub courses: usize,
-    /// per-course maximum score, awarded for an instant finish (`courseMaxBaseScore`, int @0x220). VERIFIED 180000
-    /// (the manager `.ctor` sets it; one global value for all 6 courses). It is `[SerializeField]`, so maps is
-    /// confirming level92 carries no override — 180000 is the default.
+    /// per-course maximum score, awarded for an instant finish (`courseMaxBaseScore`). CONFIRMED 180000 — read
+    /// directly from the StuntRunnerManager prefab via `value::read` (the `.ctor` default, NOT overridden); one global
+    /// value for all 6 courses.
     pub course_max_base_score: u32,
     /// one global time cap in seconds (`CourseMaxFinishTimeSeconds`, @0x820); at the cap the score is 0.
     /// 1:1-PENDING: this backing field is `[CompilerGenerated]`, NOT `[SerializeField]` and never set in the manager
@@ -105,9 +105,9 @@ impl StuntRunnerMode {
     fn finish(&mut self, out: &mut Vec<GameEvent>) {
         self.over = true;
         // highest total score wins; ties broken by join order. The winner + totals are EXACT (and cap-independent).
-        // 1:1-pending (presentation, not scoring): the SS/S/A/B/C grades are PERCENTILE buckets — each player's grade
-        // is their percentile among all players (StuntRunnerBucketedFeedbackStep.feedbackBuckets[].percentile, 5
-        // thresholds serialized on level92, read via maps). Grades are end-game feedback tiers, not the winner.
+        // The end-game grades (S+/S/A/B/C, real notification titles) are COSMETIC — they show each player's rank and
+        // are winner/scoring-independent. Confirmed via the prefab read: the grade is picked by CODE in the
+        // win-sequence coroutine, NOT serialized percentile cutoffs (feedbackBuckets is empty). Not modeled here.
         let winner = self.players.iter().copied().max_by_key(|p| self.cards.get(p).map(|c| c.total).unwrap_or(i32::MIN));
         if let Some(w) = winner {
             out.push(GameEvent::MatchOver { winner: w });
