@@ -397,9 +397,10 @@ pub struct PropColliders(pub Vec<Collider>);
 #[derive(Component, Clone, Copy)]
 pub struct RoomPiece;
 
-/// The room's fixed colliders (props' are on their entities).
+/// The room's fixed colliders (props' are on their entities). `pub` so the rapier physics foundation can mirror them
+/// as fixed rigidbodies.
 #[derive(Resource, Default)]
-struct FixedSolids(Vec<Collider>);
+pub struct FixedSolids(pub Vec<Collider>);
 
 /// FNV-1a: a stable id from a room name, a root's index and its name.
 pub fn stable_id(parts: &[&str]) -> u64 {

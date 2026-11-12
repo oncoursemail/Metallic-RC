@@ -15,6 +15,7 @@ pub mod netobj;
 pub mod paddleball;
 pub mod particles;
 pub mod perf;
+pub mod physics;
 pub mod platform;
 pub mod player;
 pub mod quality;

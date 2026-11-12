@@ -232,6 +232,9 @@ fn main() {
         // engine lane: quality tiers, texture mips/compression, platform defaults (touch, mobile)
         .add_plugins(metallic_rc_client::particles::ParticlePlugin)
         .add_plugins((metallic_rc_client::quality::QualityPlugin, metallic_rc_client::texprep::TexPrepPlugin, metallic_rc_client::platform::PlatformPlugin::default()))
+        // dynamic-prop rigidbody physics foundation (bevy_rapier): mirrors the room's static colliders + lets games
+        // spawn dynamic props (bowling pins, projectiles, karts) that a real solver simulates
+        .add_plugins(metallic_rc_client::physics::RapierFoundationPlugin)
         // Dodgeball game mode: active when the Dodgeball arena is the loaded world (`--world dodgeball`)
         .add_plugins(metallic_rc_client::dodgeball::DodgeballPlugin)
         .insert_resource(metallic_rc_client::dodgeball::DodgeballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("dodgeball"))))
