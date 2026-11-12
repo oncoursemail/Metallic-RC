@@ -50,6 +50,47 @@ pub struct Loaded {
     pub meshes: [Mesh; 3],
     pub inverse_bindposes: Vec<Mat4>,
     pub rig: RigDef,
+    /// the body's skinned vertices (bind-pose position + joint weights/indices), so wardrobe meshes authored in the same
+    /// space can borrow the nearest vertex's skin and deform with the body (see [`skin_wrap`])
+    pub skin_cloud: SkinCloud,
+}
+
+/// The body's per-vertex skin in bind space: position, the four joint weights and the four joint indices. Used to skin an
+/// un-skinned wardrobe mesh by nearest-point transfer.
+pub struct SkinCloud {
+    pub pos: Vec<[f32; 3]>,
+    pub weights: Vec<[f32; 4]>,
+    pub indices: Vec<[u16; 4]>,
+}
+
+/// Transfers the body's skin onto an un-skinned wardrobe mesh (hair, clothing, hat, ...) by nearest bind-pose vertex, so
+/// it deforms with the body. The wardrobe meshes are authored in the body's own bind space, so each clothing vertex
+/// borrows the skin of the body vertex it sits closest to. Returns the mesh unchanged if it has no positions or the body
+/// has no skin cloud.
+pub fn skin_wrap(cloud: &SkinCloud, mut mesh: Mesh) -> Mesh {
+    let positions: Vec<[f32; 3]> = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+        Some(VertexAttributeValues::Float32x3(p)) => p.clone(),
+        _ => return mesh,
+    };
+    if cloud.pos.is_empty() {
+        return mesh;
+    }
+    let mut weights = Vec::with_capacity(positions.len());
+    let mut indices = Vec::with_capacity(positions.len());
+    for p in &positions {
+        let mut best = (f32::MAX, 0usize);
+        for (i, q) in cloud.pos.iter().enumerate() {
+            let d = (p[0] - q[0]).powi(2) + (p[1] - q[1]).powi(2) + (p[2] - q[2]).powi(2);
+            if d < best.0 {
+                best = (d, i);
+            }
+        }
+        weights.push(cloud.weights[best.1]);
+        indices.push(cloud.indices[best.1]);
+    }
+    mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, weights);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, VertexAttributeValues::Uint16x4(indices));
+    mesh
 }
 
 /// The z reflection that maps Unity's left-handed space to Bevy's (same as the mesh's `z -> -z`).
@@ -243,6 +284,8 @@ pub fn load(dir: &Path, bundle: &str, body_id: i64, bean: bool) -> Option<Loaded
         mesh
     };
     let meshes = [make(std::mem::take(&mut zones[0])), make(std::mem::take(&mut zones[1])), make(std::mem::take(&mut zones[2]))];
+    // the body's skin, kept so wardrobe meshes can borrow the nearest vertex's weights and deform with the body
+    let skin_cloud = SkinCloud { pos, weights, indices };
 
     // the joint hierarchy: each bone's name, local transform (conjugated) and parent among the bones
     let mut joints = Vec::with_capacity(bones.len());
@@ -278,7 +321,7 @@ pub fn load(dir: &Path, bundle: &str, body_id: i64, bean: bool) -> Option<Loaded
     }
     let bind_world: Vec<Mat4> = (0..joints.len()).map(|i| world(i, &joints, &mut bind_world)).collect();
 
-    Some(Loaded { meshes, inverse_bindposes, rig: RigDef { joints, head, name_to_index, bind_world } })
+    Some(Loaded { meshes, inverse_bindposes, rig: RigDef { joints, head, name_to_index, bind_world }, skin_cloud })
 }
 
 /// Spawns the joint hierarchy under `parent` (the avatar's standing skeleton node) and returns an entity per joint,
