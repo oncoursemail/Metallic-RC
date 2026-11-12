@@ -12,7 +12,7 @@ use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     rc::Rc,
-    sync::OnceLock,
+    sync::{Arc, OnceLock},
 };
 
 use bevy::math::{Mat4, Quat, Vec3};
@@ -1036,6 +1036,10 @@ fn scene_particles(sf: &SerializedFile, scene: &Scene) -> Vec<ParticleEmitter> {
 const CANVAS: i32 = 223;
 const SPRITE: i32 = 213;
 
+/// The colour in-world TMP labels are drawn in. The real `m_fontColor` sits past variable arrays in the stripped
+/// TMP MonoBehaviour (not reliably reachable), so a light default is used — readable on the dark RR+ / store boards.
+const TEXT_COLOR: [f32; 4] = [0.93, 0.94, 0.96, 1.0];
+
 /// Built-in type trees injected to read the stripped scene's UI objects: a Canvas's render mode, a RectTransform's
 /// rect, and a Sprite's atlas rect/texture. The decrypted scenes carry no type trees, so these are taken (once,
 /// cached) from any install bundle that still has them — the same route as the ParticleSystem tree.
@@ -1093,6 +1097,139 @@ fn mb_script_class(files: &mut Files, scene_file: &str, sf: &SerializedFile, o: 
     level::mono_script_name(&x, so).ok().map(|(c, _)| c)
 }
 
+/// The game's Latin UI font (TMP's `legacy_FuturaExtraBold`), read once from the install: scan bundles for a
+/// Unity Font(128) whose `m_FontData` is a TrueType file (sig 00 01 00 00; the OTF CJK fallbacks are skipped). Cached.
+static RR_FONT: OnceLock<Option<Arc<Vec<u8>>>> = OnceLock::new();
+
+fn rr_font() -> Option<&'static Arc<Vec<u8>>> {
+    RR_FONT
+        .get_or_init(|| {
+            let game = room::GAME_DIRS.iter().map(PathBuf::from).find(|p| p.exists())?;
+            let mut best: Option<Arc<Vec<u8>>> = None;
+            for (i, entry) in std::fs::read_dir(room::bundle_dir(&game)).ok()?.flatten().enumerate() {
+                if i >= 1500 || best.is_some() {
+                    break; // the Futura font sits early in the dir; stop at the first TrueType one
+                }
+                let p = entry.path();
+                if p.extension().and_then(|e| e.to_str()) != Some("bundle") {
+                    continue;
+                }
+                let Ok(b) = unity_assets::Bundle::open(&p) else { continue };
+                let Ok(sfs) = b.serialized_files() else { continue };
+                for (_, sf) in sfs {
+                    for o in sf.objects.iter().filter(|o| o.class_id == 128) {
+                        let data = sf.read_value(o).ok().and_then(|v| v.get("m_FontData").and_then(|x| x.as_bytes()).map(<[u8]>::to_vec));
+                        if let Some(d) = data.filter(|d| d.starts_with(&[0, 1, 0, 0])) {
+                            best = Some(Arc::new(d));
+                            break;
+                        }
+                    }
+                    if best.is_some() {
+                        break;
+                    }
+                }
+            }
+            best
+        })
+        .as_ref()
+}
+
+/// Rasterises `text` (laid out left to right, `\n` breaks lines) with a TTF into tight RGBA rows (top-down): white
+/// glyphs, alpha = coverage, so a tint colours them. `None` if the font won't parse or the result is empty/huge.
+fn render_text_rgba(ttf: &[u8], text: &str, px: f32) -> Option<Pixels> {
+    use ab_glyph::{point, Font, FontRef, Glyph, PxScale, ScaleFont};
+    let font = FontRef::try_from_slice(ttf).ok()?;
+    let sf = font.as_scaled(PxScale::from(px));
+    let lines: Vec<&str> = text.split('\n').collect();
+    let line_h = sf.height() + sf.line_gap();
+    let pad = (px * 0.12).ceil();
+    let line_w = |ln: &str| {
+        let (mut w, mut prev) = (0.0f32, None);
+        for c in ln.chars() {
+            let g = font.glyph_id(c);
+            if let Some(p) = prev {
+                w += sf.kern(p, g);
+            }
+            w += sf.h_advance(g);
+            prev = Some(g);
+        }
+        w
+    };
+    let max_w = lines.iter().map(|l| line_w(l)).fold(1.0f32, f32::max);
+    let width = (max_w + pad * 2.0).ceil() as usize;
+    let height = (line_h * lines.len() as f32 + pad * 2.0).ceil() as usize;
+    if !(1..=4096).contains(&width) || !(1..=4096).contains(&height) {
+        return None;
+    }
+    let mut rgba = vec![0u8; width * height * 4];
+    let mut y = pad + sf.ascent();
+    for ln in &lines {
+        let (mut x, mut prev) = (pad, None);
+        for c in ln.chars() {
+            let g = font.glyph_id(c);
+            if let Some(p) = prev {
+                x += sf.kern(p, g);
+            }
+            let glyph: Glyph = g.with_scale_and_position(px, point(x, y));
+            if let Some(og) = font.outline_glyph(glyph) {
+                let bb = og.px_bounds();
+                og.draw(|gx, gy, cov| {
+                    let (xx, yy) = (bb.min.x as i32 + gx as i32, bb.min.y as i32 + gy as i32);
+                    if xx >= 0 && yy >= 0 && (xx as usize) < width && (yy as usize) < height {
+                        let i = (yy as usize * width + xx as usize) * 4;
+                        let a = (cov * 255.0) as u8;
+                        if a > rgba[i + 3] {
+                            rgba[i..i + 4].copy_from_slice(&[255, 255, 255, a]);
+                        }
+                    }
+                });
+            }
+            x += sf.h_advance(g);
+            prev = Some(g);
+        }
+        y += line_h;
+    }
+    Some((width as u32, height as u32, rgba))
+}
+
+/// A `TextMeshProUGUI`'s `m_text`, read from the stripped MonoBehaviour. TMP derives Graphic -> MaskableGraphic ->
+/// TMP_Text, so `m_text` follows the header, the Graphic fields and a UnityEvent; parse the fixed header + m_Color
+/// (robust, as for Image), then take the first sane aligned string after it (the fields between hold none).
+fn tmp_text(sf: &SerializedFile, o: &ObjectInfo) -> Option<String> {
+    let bytes = sf.object_bytes(o);
+    let mut r = Reader::new(bytes, sf.big_endian);
+    (r.i32().ok()?, r.i64().ok()?); // m_GameObject
+    r.u8().ok()?;
+    r.align(4); // m_Enabled
+    let (_, sid) = (r.i32().ok()?, r.i64().ok()?); // m_Script
+    if sid == 0 {
+        return None;
+    }
+    r.aligned_string().ok()?; // m_Name
+    (r.i32().ok()?, r.i64().ok()?); // m_Material
+    for _ in 0..4 {
+        r.f32().ok()?; // m_Color
+    }
+    let start = r.pos();
+    let mut off = (start + 3) & !3;
+    while off + 4 <= bytes.len() && off < start + 96 {
+        let len = i32::from_le_bytes(bytes[off..off + 4].try_into().ok()?);
+        if (1..=512).contains(&len) && off + 4 + len as usize <= bytes.len() {
+            let s = &bytes[off + 4..off + 4 + len as usize];
+            let printable = s.iter().filter(|&&b| b == b' ' || b.is_ascii_graphic() || b >= 0x80).count();
+            if printable * 10 >= s.len() * 9 {
+                if let Ok(st) = std::str::from_utf8(s) {
+                    if !st.trim().is_empty() {
+                        return Some(st.to_string());
+                    }
+                }
+            }
+        }
+        off += 4;
+    }
+    None
+}
+
 /// A `UnityEngine.UI.Image`'s `m_Color` and the byte offset just past it, read from the stripped MonoBehaviour by the
 /// stable UGUI layout: after the MonoBehaviour header (m_GameObject, m_Enabled, m_Script, m_Name) come
 /// `Graphic.m_Material` then `m_Color`, both before any variable field — so this is robust without the script's type
@@ -1115,10 +1252,9 @@ fn image_fields(sf: &SerializedFile, o: &ObjectInfo) -> Option<([f32; 4], usize)
 
 impl OldBuilder<'_> {
     /// World-space UI panels — `UnityEngine.UI.Image`s on a world-space Canvas — as flat, unlit, coloured quads,
-    /// reusing the part/material pipeline so the renderer draws them with no new code. The Image's sprite art and
-    /// any TextMeshPro text are not drawn yet (reading `m_Sprite`/the TMP fields needs those scripts' serialization
-    /// layouts, past a variable UnityEvent); opaque-white images carry no colour of their own (their look is all in
-    /// the sprite), so they are left out and only real coloured/translucent panels show. Returns how many were added.
+    /// reusing the part/material pipeline so the renderer draws them with no new code. Images show their colour and
+    /// sprite art; TextMeshPro labels show their text, rasterised with the game's own font. Subtrees under a UI mask
+    /// and content that lands below the floor (scrolled / clipped lists) are left out. Returns how many were added.
     fn add_ui_panels(&mut self, scene: &Scene) -> usize {
         let trees = ui_trees();
         let (Some(ctree), Some(rtree)) = (&trees.canvas, &trees.rect) else { return 0 };
@@ -1163,34 +1299,16 @@ impl OldBuilder<'_> {
             if masks.iter().any(|&m| scene.under(i, m)) {
                 continue; // inside a UI mask: its content is clipped in game, can't place it here
             }
-            // the node's Image MonoBehaviour, if any
-            let img = scene.nodes[i].components.iter().filter(|c| c.0 == classes::MONO_BEHAVIOUR).find_map(|&(_, id)| {
-                let o = sf.object(id)?;
-                (mb_script_class(self.files, &scene.file, &sf, o).as_deref() == Some("Image")).then_some(o)
-            });
-            let Some(img) = img else { continue };
-            let Some((color, after)) = image_fields(&sf, img) else { continue };
-            // Image.m_Sprite sits past a variable UnityEvent (m_OnCullStateChanged); find it as the first PPtr after
-            // m_Color that resolves to a Sprite(213) — self-verifying, since no other PPtr in that run is a Sprite.
-            let bytes = sf.object_bytes(img);
-            let mut sprite = None;
-            for off in (0..72).step_by(4) {
-                let mut rr = Reader::new(bytes, sf.big_endian);
-                rr.set_pos(after + off);
-                let (Some(fid), Some(pid)) = (rr.i32().ok(), rr.i64().ok()) else { break };
-                if pid == 0 || fid < 0 {
-                    continue;
-                }
-                let p = PPtr { file_id: fid, path_id: pid };
-                let is_sprite = self.files.resolve(&scene.file, p).and_then(|(rf, rid)| Some(self.files.get(&rf)?.object(rid)?.class_id)) == Some(SPRITE);
-                if is_sprite {
-                    sprite = Some(p);
-                    break;
-                }
-            }
-            let art = sprite.zip(trees.sprite.as_ref()).and_then(|(p, t)| self.sprite_art(&scene.file, p, t));
-            // without art, an opaque-white image is a sprite-art icon whose look we can't draw — leave it out
-            if art.is_none() && color.iter().all(|&x| x > 0.96) {
+            // the node's UI content: an Image (coloured panel + sprite art) or a TextMeshPro label
+            let mb_of = |want: &str, files: &mut Files| {
+                scene.nodes[i].components.iter().filter(|c| c.0 == classes::MONO_BEHAVIOUR).find_map(|&(_, id)| {
+                    let o = sf.object(id)?;
+                    (mb_script_class(files, &scene.file, &sf, o).as_deref() == Some(want)).then_some(o)
+                })
+            };
+            let img = mb_of("Image", self.files);
+            let txt = if img.is_none() { mb_of("TextMeshProUGUI", self.files) } else { None };
+            if img.is_none() && txt.is_none() {
                 continue;
             }
             // the rect: size and pivot from the RectTransform (anchored, non-stretched panels only, where sizeDelta
@@ -1211,32 +1329,78 @@ impl OldBuilder<'_> {
                 continue;
             }
             let world = scene.nodes[i].world;
-            let corner = |cx: f32, cy: f32| {
+            // the full rect, used for the floor test (and the panel quad for Images)
+            let rect_corner = |cx: f32, cy: f32| {
                 let p = world.transform_point3(Vec3::new((cx - px) * w, (cy - py) * h, 0.0));
                 [p.x, p.y, p.z]
             };
-            let positions = vec![corner(0.0, 0.0), corner(1.0, 0.0), corner(1.0, 1.0), corner(0.0, 1.0)];
-            if floor.is_finite() && positions.iter().map(|p| p[1]).sum::<f32>() * 0.25 < floor - 0.6 {
-                continue; // sits underground: clipped list/scroll content we can't place
+            if floor.is_finite() {
+                let cy = (rect_corner(0.5, 0.5))[1];
+                if cy < floor - 0.6 {
+                    continue; // sits underground: clipped list/scroll content we can't place
+                }
             }
+            // build the drawn content: (positions, uvs, texture, colour, blend)
+            let (positions, uvs, texture, color, blend) = if let Some(img) = img {
+                let Some((color, after)) = image_fields(&sf, img) else { continue };
+                // Image.m_Sprite sits past a variable UnityEvent; find it as the first PPtr after m_Color that
+                // resolves to a Sprite(213) — self-verifying, since no other PPtr in that run is a Sprite.
+                let bytes = sf.object_bytes(img);
+                let mut sprite = None;
+                for off in (0..72).step_by(4) {
+                    let mut r = Reader::new(bytes, sf.big_endian);
+                    r.set_pos(after + off);
+                    let (Some(fid), Some(pid)) = (r.i32().ok(), r.i64().ok()) else { break };
+                    if pid == 0 || fid < 0 {
+                        continue;
+                    }
+                    let p = PPtr { file_id: fid, path_id: pid };
+                    if self.files.resolve(&scene.file, p).and_then(|(rf, rid)| Some(self.files.get(&rf)?.object(rid)?.class_id)) == Some(SPRITE) {
+                        sprite = Some(p);
+                        break;
+                    }
+                }
+                let art = sprite.zip(trees.sprite.as_ref()).and_then(|(p, t)| self.sprite_art(&scene.file, p, t));
+                // without art, an opaque-white image is a sprite-art icon whose look we can't draw — leave it out
+                if art.is_none() && color.iter().all(|&x| x > 0.96) {
+                    continue;
+                }
+                let positions = vec![rect_corner(0.0, 0.0), rect_corner(1.0, 0.0), rect_corner(1.0, 1.0), rect_corner(0.0, 1.0)];
+                let uvs = match art.as_ref().map(|a| a.uv) {
+                    Some([u0, v0, u1, v1]) => vec![[u0, v0], [u1, v0], [u1, v1], [u0, v1]],
+                    None => vec![[0.0, 0.0]; 4],
+                };
+                let blend = if art.is_some() || color[3] < 0.999 { Blend::Blend } else { Blend::Opaque };
+                (positions, uvs, art.map(|a| a.tex), color, blend)
+            } else {
+                // a TextMeshPro label: read the string, rasterise it with the game font, fit it (keeping aspect)
+                // centred in the rect
+                let Some(ttf) = rr_font() else { continue };
+                let Some(s) = txt.and_then(|o| tmp_text(&sf, o)) else { continue };
+                let Some((tw, th, rgba)) = render_text_rgba(ttf, &s, 64.0) else { continue };
+                let ar = tw as f32 / th.max(1) as f32;
+                let (rw, rh) = (w.abs(), h.abs());
+                let (fw, fh) = if ar > rw / rh { (rw, rw / ar) } else { (rh * ar, rh) };
+                let (cx, cy) = ((0.5 - px) * w, (0.5 - py) * h);
+                let tcorner = |ux: f32, uy: f32| {
+                    let p = world.transform_point3(Vec3::new(cx + (ux - 0.5) * fw, cy + (uy - 0.5) * fh, 0.0));
+                    [p.x, p.y, p.z]
+                };
+                let positions = vec![tcorner(0.0, 0.0), tcorner(1.0, 0.0), tcorner(1.0, 1.0), tcorner(0.0, 1.0)];
+                // top-down pixels: the top of the text (v=0) is the top of the quad (uy=1)
+                let uvs = vec![[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]];
+                (positions, uvs, Some((tw, th, rgba)), TEXT_COLOR, Blend::Blend)
+            };
             let nz = world.transform_vector3(Vec3::Z).normalize_or_zero();
             let normals = vec![[nz.x, nz.y, nz.z]; 4];
             // drawn from both sides (UI has no thickness; the canvas may face either way)
             let indices = vec![0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2];
-            let uv = art.as_ref().map(|a| a.uv);
-            let cuv = |cx: f32, cy: f32| match uv {
-                Some([u0, v0, u1, v1]) => [u0 + (u1 - u0) * cx, v0 + (v1 - v0) * cy],
-                None => [0.0, 0.0],
-            };
-            let uvs = vec![cuv(0.0, 0.0), cuv(1.0, 0.0), cuv(1.0, 1.0), cuv(0.0, 1.0)];
-            // UI is alpha-blended (sprites have soft edges / rounded corners); a plain opaque colour fill stays opaque
-            let blend = if art.is_some() || color[3] < 0.999 { Blend::Blend } else { Blend::Opaque };
             self.out.materials.push(RoomMaterial {
                 name: format!("UIPanel {}", scene.nodes[i].name),
                 shader: "UI/Default".into(),
-                color, // the Image's m_Color: a tint over the sprite (white = the art as-is)
+                color, // Image: m_Color tint over the sprite; Text: the label colour
                 masked: false,
-                texture: art.map(|a| a.tex),
+                texture,
                 spec_map: None,
                 spec_color: [1.0; 3],
                 smoothness: 0.0,
