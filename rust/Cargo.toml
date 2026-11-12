@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["metallic-rc-server", "unity-assets", "metallic-rc-client", "rr-net", "circuits"]
+members = ["metallic-rc-server", "unity-assets", "metallic-rc-client", "rr-net", "circuits", "gamemodes"]
 
 [profile.release]
 lto = "thin"
