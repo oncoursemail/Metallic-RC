@@ -115,8 +115,10 @@ GroundVehicle physics is the bevy_rapier vertical item). Arena — RULES ✅ (Te
 kill-point pool, PvE+PvP, real table +10/−10/+2/+10/−2/+1 clamped ≥0, win at ScoreToWin=400 or highest at
 GameDuration=480s; the enemy-AI waves + shop/credits are gameplay-depth). **NOTE: Arena IS the "LaserTag" game**
 — `ArenaManager : GameRuleManager` uses `LaserTagGameRuleWrapper`, so the earlier "LaserTag has no manager" note
-was a misread; it's a normal manager port (done). Remaining: BattleRoyale (level78 HUGE 172k objs, shrinking
-killzone — isolate) · Quest (co-op campaign + AI, many scenes — isolate). The remaining client verticals converge
+was a misread; it's a normal manager port (done). BattleRoyale — RULES ✅ (purely last-standing, NO score/timer;
+elimination-ORDER rank = first out gets the highest number, last standing = rank 1 = winner; SOLOS per-player +
+SQUADS per-team rollup; config is just modeType). Remaining: Quest (co-op campaign + AI, many scenes — the last
+manager game, isolate). The remaining client verticals converge
 on the dynamic-physics foundation (Bowling toppling + RecRally karts + Paintball projectiles) — that reusable
 `bevy_rapier` layer is the next big enabler. Give the decompile session (local_9442e322) the manager class name
 to start each.

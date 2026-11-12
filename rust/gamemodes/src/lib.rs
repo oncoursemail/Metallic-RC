@@ -10,6 +10,7 @@
 //! Dodgeball is the first (simplest) slice.
 
 pub mod arena;
+pub mod battleroyale;
 pub mod bowling;
 pub mod charades;
 pub mod discgolf;
@@ -22,6 +23,7 @@ pub mod soccer;
 pub mod stuntrunner;
 
 pub use arena::{ArenaConfig, ArenaMode};
+pub use battleroyale::{BattleRoyaleConfig, BattleRoyaleMode};
 pub use bowling::{BowlingConfig, BowlingMode};
 pub use charades::{CharadesConfig, CharadesMode};
 pub use discgolf::{DiscGolfConfig, DiscGolfMode};

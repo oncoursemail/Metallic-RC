@@ -54,6 +54,10 @@ pub enum GameInput {
     /// per-`kind` kill-points to that team's pool (clamped ≥ 0). PvE and PvP both count. (→ Arena's master-validated
     /// kill handler.)
     Kill { team: Team, kind: KillKind },
+    /// `player` was eliminated in BattleRoyale — permanently out, from the shrinking killzone or combat (→ the
+    /// master-validated elimination). The master assigns their rank in ELIMINATION order (first out = highest rank,
+    /// last standing = rank 1 = winner) and ends the match when one player (Solos) / one team (Squads) remains.
+    Eliminated { player: PlayerId },
 }
 
 /// What an Arena kill/pickup was, which fixes its kill-point value (the real `ArenaManager` scoring table).
