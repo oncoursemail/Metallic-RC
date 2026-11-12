@@ -229,6 +229,8 @@ fn main() {
         .add_plugins(metallic_rc_client::particles::ParticlePlugin)
         .add_plugins((metallic_rc_client::quality::QualityPlugin, metallic_rc_client::texprep::TexPrepPlugin, metallic_rc_client::platform::PlatformPlugin::default()))
         .insert_resource(LocalLook(look))
+        // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
+        .insert_resource(avatar::Dressing::default())
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
         .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), show_status, spawn_room,
@@ -439,6 +441,43 @@ fn leave_room(net: &Net) -> Option<Realtime> {
     Some(rt)
 }
 
+/// Parses a `#rrggbb` (or `rrggbb`) colour into bytes.
+fn hex_rgb(s: &str) -> Option<[u8; 3]> {
+    let s = s.trim_start_matches('#');
+    if s.len() < 6 {
+        return None;
+    }
+    Some([
+        u8::from_str_radix(&s[0..2], 16).ok()?,
+        u8::from_str_radix(&s[2..4], 16).ok()?,
+        u8::from_str_radix(&s[4..6], 16).ok()?,
+    ])
+}
+
+/// Applies a Customize-screen click to the local [`avatar::Dressing`]: a colour swatch (outfit type >= 1000 carries the
+/// hex and `1000 + avatarColorType`) or a wardrobe item (the game's `OutfitType` and the item's style name).
+fn wear(d: &mut avatar::Dressing, outfit_type: i32, val: &str) {
+    if outfit_type >= 1000 {
+        let Some(c) = hex_rgb(val) else { return };
+        match outfit_type - 1000 {
+            0 => d.skin = c,       // avatarColorType 0 = skin
+            _ => d.hair_color = c, // 1 / 2 = hair primary / highlight
+        }
+        return;
+    }
+    let Some(slot) = avatar::real::Slot::from_outfit_type(outfit_type) else { return };
+    use avatar::real::Slot;
+    match slot {
+        // the hair swap wants the bare style name (`redress` appends `_Hair`); the others want the full wardrobe stem
+        Slot::Hair => d.hair_style = val.to_string(),
+        Slot::Top => d.top = format!("{val}_{}", slot.suffix()),
+        Slot::Bottom => d.bottom = format!("{val}_{}", slot.suffix()),
+        Slot::Shoes => d.shoes = format!("{val}_{}", slot.suffix()),
+        Slot::Hat => d.hat = format!("{val}_{}", slot.suffix()),
+        Slot::Beard | Slot::Glasses => {} // not yet worn as a mesh
+    }
+}
+
 /// The escape menu's input: Esc opens it, closes it or leaves the name field; the pointer presses and drags its
 /// selectables, the wheel scrolls its lists, typing fills the name field, and clicks do what the page's controllers
 /// say.
@@ -450,6 +489,7 @@ fn use_menu(
     mut menu: ResMut<Menu>,
     mut prefs: ResMut<Prefs>,
     mut account: ResMut<Account>,
+    mut dress: ResMut<avatar::Dressing>,
     (net, status): (Res<Net>, Res<Status>),
     window: Single<&Window, With<PrimaryWindow>>,
     avatars: Query<Entity, With<Avatar>>,
@@ -542,8 +582,9 @@ fn use_menu(
         Some(Action::Login) => switch_to = Some(menu.typed.trim().to_string()).filter(|n| !n.is_empty()),
         Some(Action::Account(name)) => switch_to = Some(name),
         Some(Action::GoToRoom(room)) => (account.goto, rejoin) = (Some(room), true),
-        // WearItem is wired to the avatar in a follow-up; the Customize grids already show the real items.
-        Some(Action::Slider(_)) | Some(Action::WearItem(..)) | None => {}
+        // a Customize click: recolour or re-equip the live avatar (`avatar::real::redress` applies the change)
+        Some(Action::WearItem(ot, val)) => wear(&mut dress, ot, &val),
+        Some(Action::Slider(_)) | None => {}
     }
     // a new account goes to its dorm; a room from the rooms browser is joined by logging in again and going there
     let new_account = switch_to.as_ref().is_some_and(|n| *n != account.name);

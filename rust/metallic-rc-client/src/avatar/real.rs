@@ -139,8 +139,21 @@ pub struct RealWorn {
     pub hair: Option<Entity>,
     pub hair_mat: Handle<StandardMaterial>,
     pub hair_style: String,
-    pub jersey_mat: Option<Handle<StandardMaterial>>,
-    pub legs_mat: Option<Handle<StandardMaterial>>,
+    /// the three recolour/re-mesh clothing pieces (torso top, leggings, shoes)
+    pub top: Worn,
+    pub bottom: Worn,
+    pub shoes: Worn,
+    /// the head accessory: its mesh entity and the stem it shows (empty = bare head)
+    pub hat: Option<Entity>,
+    pub hat_style: String,
+}
+
+/// One live clothing piece: its spawned mesh entity (if any), its material (recoloured live) and the wardrobe stem it
+/// currently shows (e.g. `Blazer_Shirt`), so [`redress`] can swap the mesh when the Customize screen picks another.
+pub struct Worn {
+    pub ent: Option<Entity>,
+    pub mat: Handle<StandardMaterial>,
+    pub style: String,
 }
 
 /// The local player's avatar customisation, edited by the Customize screen; [`redress`] applies it live.
@@ -151,6 +164,11 @@ pub struct Dressing {
     pub hair_color: [u8; 3],
     pub shirt: [u8; 3],
     pub pants: [u8; 3],
+    /// wardrobe stems for the worn clothing (e.g. `Blazer_Shirt`, `Sweatpants_Leg`, `Boots_Shoe`); `hat` empty = bare head
+    pub top: String,
+    pub bottom: String,
+    pub shoes: String,
+    pub hat: String,
     /// the hair styles the wardrobe has, for the Customize screen to list
     pub hair_styles: Vec<String>,
 }
@@ -159,7 +177,12 @@ impl Default for Dressing {
     fn default() -> Self {
         let hair_styles = scan_hair_styles();
         let hair_style = std::env::var("METALLIC_HAIR").ok().filter(|s| hair_styles.contains(s)).unwrap_or_else(|| "CurlyHelmetHair".into());
-        Dressing { skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x8f, 0x4a, 0x27], shirt: [0xf3, 0xf1, 0xea], pants: [0x3a, 0x3f, 0x4b], hair_styles }
+        Dressing {
+            skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x8f, 0x4a, 0x27], shirt: [0xf3, 0xf1, 0xea], pants: [0x3a, 0x3f, 0x4b],
+            // these match the defaults `attach_real` spawns, so a fresh avatar never re-swaps on its first frame
+            top: "ShirtJersey".into(), bottom: "BasicLeggings_Leg".into(), shoes: "Sneakers_Shoe".into(), hat: String::new(),
+            hair_styles,
+        }
     }
 }
 
@@ -218,6 +241,20 @@ impl Slot {
             Slot::Glasses => 10,
         }
     }
+
+    /// The slot a game `OutfitType` maps to, or `None` for a type the customiser doesn't wear as a mesh.
+    pub fn from_outfit_type(ot: i32) -> Option<Slot> {
+        Some(match ot {
+            2 => Slot::Hair,
+            101 => Slot::Top,
+            300 => Slot::Bottom,
+            301 => Slot::Shoes,
+            0 => Slot::Hat,
+            20 => Slot::Beard,
+            10 => Slot::Glasses,
+            _ => return None,
+        })
+    }
 }
 
 /// Item styles the wardrobe offers for a slot (the `FB_<Style>_<Suffix>_LOD0.obj` meshes for the Full body, bare for the
@@ -239,8 +276,39 @@ pub fn scan_slot(body: BodyType, slot: Slot) -> Vec<String> {
     v
 }
 
-/// Applies the current [`Dressing`] to the real avatar(s) whenever it changes: skin colour, hair colour, the
-/// jersey/leggings colours (by editing the tracked materials), and the hair style (by swapping the hair mesh).
+/// The real texture for a wardrobe stem (e.g. `HockeySet_Shirt` -> `HockeySet_Shirt_Tex.png`), trying the few naming
+/// conventions the export uses; `None` when the style ships no base texture (the mesh then shows its tint alone).
+fn wardrobe_tex_for(stem: &str) -> Option<Image> {
+    let names = [format!("{stem}_Tex.png"), format!("FB_{stem}_Tex.png"), format!("{stem}_tex.png")];
+    names.iter().find_map(|n| load_texture(&wardrobe_dir().join(n)))
+}
+
+/// Swaps one clothing piece to a new wardrobe `stem` (keeping its recolourable material, re-textured to the new style and
+/// re-tinted). A no-op when the style is unchanged, since loading an `.obj` every frame would be wasteful.
+#[allow(clippy::too_many_arguments)]
+fn swap_piece(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, images: &mut Assets<Image>,
+    body: BodyType, node: Entity, piece: &mut Worn, stem: &str, tint: [u8; 3], rough: f32) {
+    if piece.style == stem {
+        return;
+    }
+    if let Some(old) = piece.ent.take() {
+        commands.entity(old).despawn();
+    }
+    let tex = wardrobe_tex_for(stem).map(|img| images.add(img));
+    if let Some(mut m) = materials.get_mut(&piece.mat) {
+        m.base_color = Color::srgb_u8(tint[0], tint[1], tint[2]);
+        m.base_color_texture = tex;
+        m.perceptual_roughness = rough;
+    }
+    piece.ent = load_wardrobe(body, stem).map(|mesh| {
+        let h = meshes.add(mesh);
+        commands.spawn((Mesh3d(h), MeshMaterial3d(piece.mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(node))).id()
+    });
+    piece.style = stem.into();
+}
+
+/// Applies the current [`Dressing`] to the real avatar(s) whenever it changes: the skin/hair/clothing colours (by editing
+/// the tracked materials) and the hair, top, bottom, shoe and hat meshes (by swapping them when the style changes).
 pub fn redress(
     mut commands: Commands,
     dressing: Option<Res<Dressing>>,
@@ -248,6 +316,7 @@ pub fn redress(
     mut worn: Query<&mut RealWorn>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     let (Some(dressing), Some(_)) = (dressing, roomie) else { return };
     if !dressing.is_changed() {
@@ -259,25 +328,40 @@ pub fn redress(
         }
     };
     for mut w in &mut worn {
+        let (body, node) = (w.body, w.skeleton_node);
         set(&mut materials, &w.skin_mat, dressing.skin);
         set(&mut materials, &w.hair_mat, dressing.hair_color);
-        if let Some(j) = w.jersey_mat.clone() {
-            set(&mut materials, &j, dressing.shirt);
-        }
-        if let Some(l) = w.legs_mat.clone() {
-            set(&mut materials, &l, dressing.pants);
-        }
-        // swap the hair mesh only when the style actually changed (loading an .obj each time would be wasteful)
+        set(&mut materials, &w.top.mat, dressing.shirt);
+        set(&mut materials, &w.bottom.mat, dressing.pants);
+        // the clothing meshes: swap when the picked style changed
+        swap_piece(&mut commands, &mut meshes, &mut materials, &mut images, body, node, &mut w.top, &dressing.top, dressing.shirt, 0.85);
+        swap_piece(&mut commands, &mut meshes, &mut materials, &mut images, body, node, &mut w.bottom, &dressing.bottom, dressing.pants, 0.8);
+        swap_piece(&mut commands, &mut meshes, &mut materials, &mut images, body, node, &mut w.shoes, &dressing.shoes, [0xff, 0xff, 0xff], 0.7);
+        // the hair mesh: swap when the style changed
         if w.hair_style != dressing.hair_style {
-            if let Some(mesh) = load_wardrobe(w.body, &format!("{}_Hair", dressing.hair_style)) {
+            if let Some(mesh) = load_wardrobe(body, &format!("{}_Hair", dressing.hair_style)) {
                 if let Some(old) = w.hair.take() {
                     commands.entity(old).despawn();
                 }
                 let h = meshes.add(mesh);
-                let e = commands.spawn((Mesh3d(h), MeshMaterial3d(w.hair_mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(w.skeleton_node))).id();
-                w.hair = Some(e);
+                w.hair = Some(commands.spawn((Mesh3d(h), MeshMaterial3d(w.hair_mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(node))).id());
                 w.hair_style = dressing.hair_style.clone();
             }
+        }
+        // the hat: swap or remove when the style changed (its own tinted/textured material)
+        if w.hat_style != dressing.hat {
+            if let Some(old) = w.hat.take() {
+                commands.entity(old).despawn();
+            }
+            if !dressing.hat.is_empty() {
+                if let Some(mesh) = load_wardrobe(body, &dressing.hat) {
+                    let tex = wardrobe_tex_for(&dressing.hat).map(|img| images.add(img));
+                    let m = materials.add(StandardMaterial { base_color: Color::WHITE, base_color_texture: tex, perceptual_roughness: 0.6, ..default() });
+                    let h = meshes.add(mesh);
+                    w.hat = Some(commands.spawn((Mesh3d(h), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(node))).id());
+                }
+            }
+            w.hat_style = dressing.hat.clone();
         }
     }
 }
@@ -790,22 +874,19 @@ pub fn attach_real(
                         ..default()
                     })
                 };
-                let jersey_mat = roomie.jersey.as_ref().map(|j| {
-                    let m = worn(&mut materials, look.shirt, &roomie.jersey_tex, 0.85);
-                    commands.spawn((Mesh3d(j.clone()), MeshMaterial3d(m.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
-                    m
-                });
-                let legs_mat = roomie.legs.as_ref().map(|l| {
-                    let m = worn(&mut materials, look.pants, &roomie.legs_tex, 0.8);
-                    commands.spawn((Mesh3d(l.clone()), MeshMaterial3d(m.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
-                    m
-                });
-                if let Some(s) = &roomie.shoes {
-                    let m = worn(&mut materials, [0xff, 0xff, 0xff], &roomie.shoes_tex, 0.7);
-                    commands.spawn((Mesh3d(s.clone()), MeshMaterial3d(m), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node)));
-                }
+                // each clothing piece as a live `Worn`: its mesh entity (when the default exists), its recolourable
+                // material and the wardrobe stem it shows, so the customiser can swap the mesh and recolour it.
+                let piece = |commands: &mut Commands, materials: &mut Assets<StandardMaterial>, mesh: &Option<Handle<Mesh>>,
+                    tint: [u8; 3], tex: &Option<Handle<Image>>, rough: f32, style: &str| -> Worn {
+                    let mat = worn(materials, tint, tex, rough);
+                    let ent = mesh.as_ref().map(|m| commands.spawn((Mesh3d(m.clone()), MeshMaterial3d(mat.clone()), Transform::default(), NoFrustumCulling, ChildOf(skeleton_node))).id());
+                    Worn { ent, mat, style: style.into() }
+                };
+                let top = piece(&mut commands, &mut materials, &roomie.jersey, look.shirt, &roomie.jersey_tex, 0.85, "ShirtJersey");
+                let bottom = piece(&mut commands, &mut materials, &roomie.legs, look.pants, &roomie.legs_tex, 0.8, "BasicLeggings_Leg");
+                let shoes = piece(&mut commands, &mut materials, &roomie.shoes, [0xff, 0xff, 0xff], &roomie.shoes_tex, 0.7, "Sneakers_Shoe");
                 let hair_style = std::env::var("METALLIC_HAIR").unwrap_or_else(|_| "CurlyHelmetHair".into());
-                commands.entity(root).insert(RealWorn { skeleton_node, body: roomie.body, skin_mat, hair: hair_ent, hair_mat, hair_style, jersey_mat, legs_mat });
+                commands.entity(root).insert(RealWorn { skeleton_node, body: roomie.body, skin_mat, hair: hair_ent, hair_mat, hair_style, top, bottom, shoes, hat: None, hat_style: String::new() });
                 // a group under the head joint whose transform cancels the head's bind pose, so decals placed in the
                 // standing avatar frame (EYE_POS / MOUTH_POS) land on the face and then follow the head joint.
                 let head = rigdef.head;
