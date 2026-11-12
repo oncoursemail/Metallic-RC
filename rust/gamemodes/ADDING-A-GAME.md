@@ -107,8 +107,9 @@ net; pen DRAWING is presentation depth, a follow-up) · StuntRunner ✅ (6-cours
 score 180000 + real course gates, winner verified over net; two world-depth follow-ups — the multi-course scene
 SWAP (loader doesn't hot-swap level93–98 yet) and the real gate-crossing TIMING; `CourseMaxFinishTimeSeconds` cap
 is a live-capture //1:1-pending and the SS/S/A/B/C grades are prefab percentiles //1:1-pending — all cap/grade
-items are winner-independent). Remaining: Paintball (PaintballManager, level14+4 maps, 2 modes CTF/TeamBattle,
-projectile physics) · RecRally (RecRallyManager — KART racing, needs the dynamic-physics foundation) · Arena
+items are winner-independent). Paintball — RULES ✅ (CTF 3-captures + TeamBattle 50-tags, both timed 600s + score cap, flag state machine,
+master-validated tags; 1:1 from the real wrapper numbers; client vertical needs the paintball-projectile + flag
+gadgets, a dynamic-physics item). Remaining: RecRally (RecRallyManager — KART racing, needs the dynamic-physics foundation) · Arena
 (horde+shop+AI, heavy) · BattleRoyale (level78 HUGE 172k objs, shrinking killzone — isolate) · Quest (co-op
 campaign + AI, many scenes — isolate). **LaserTag is SPECIAL** — no `*Manager` subclass, only
 `LaserTagGameRuleWrapper`; gadget/circuit-based, route it to the CircuitsV2/gadget lane, NOT this manager-body

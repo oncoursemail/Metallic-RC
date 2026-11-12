@@ -42,6 +42,23 @@ pub enum GameInput {
     /// `RpcMasterRequestCourseFinishTime`). The master validates + records the per-course time, scores it (faster =
     /// higher), and advances the 6-course sequence. The clock is master-authoritative; the time is the wire value (ms).
     FinishCourse { player: PlayerId, time_ms: u32 },
+    /// a Paintball CTF flag event on the flag that belongs to `team` (→ the manager's `RpcMasterRequestFlag*`):
+    /// `player` took / captured / dropped / returned it. The master runs the flag state machine; a `Captured` scores
+    /// +1 for the capturing player's team. (A paintball TAG reuses [`GameInput::Hit`] — thrower = the shooter.)
+    Flag { event: FlagEvent, player: PlayerId, team: Team },
+}
+
+/// A Paintball CTF flag event (the flag gadget's master-validated signals).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FlagEvent {
+    /// an enemy picked up this team's flag from its base
+    Taken,
+    /// the carrier brought this (enemy) flag to their own base — the carrier's team scores
+    Captured,
+    /// the carrier was tagged — this flag drops where they stood
+    Dropped,
+    /// this team's flag was returned to its base
+    Returned,
 }
 
 /// The round/match lifecycle, broadcast so clients can show countdowns/scoreboards.
