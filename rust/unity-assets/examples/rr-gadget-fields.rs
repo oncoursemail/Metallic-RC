@@ -20,7 +20,7 @@ impl Files {
 fn main() {
     let dir = std::path::PathBuf::from(std::env::args().nth(1).expect("corpus dir"));
     let mut files = Files { dir: dir.clone(), open: HashMap::new() };
-    let (mut disc, mut disc_ok, mut pad, mut pad_ok) = (0, 0, 0, 0);
+    let (mut disc, mut disc_ok, mut pad, mut pad_ok, mut soccer, mut soccer_ok) = (0, 0, 0, 0, 0, 0);
     for i in 0..=200 {
         let name = format!("level{i}");
         if !dir.join(&name).exists() {
@@ -66,10 +66,28 @@ fn main() {
                         }
                     }
                 }
+                Some("SoccerGoal") => {
+                    // SoccerGoal { goalCollider: PPtr(BoxCollider), team: int } — the AABB is the referenced collider
+                    soccer += 1;
+                    if let Ok(mut mf) = level::MonoFields::open(&sf, o) {
+                        let gc = mf.pptr().ok();
+                        let team = mf.i32().unwrap_or(-999);
+                        let bc = gc.filter(|p| p.file_id == 0).and_then(|p| sf.object(p.path_id)).and_then(|co| level::box_collider(&sf, co).ok());
+                        let sane = (0..=16).contains(&team) && bc.is_some();
+                        if sane {
+                            soccer_ok += 1;
+                        }
+                        if soccer <= 10 {
+                            let aabb = bc.map(|c| format!("goalCollider size={:?} center={:?} trigger={}", c.size, c.center, c.trigger)).unwrap_or_else(|| "goalCollider UNRESOLVED".into());
+                            println!("{name}: SoccerGoal team={team} {aabb}  {}", if sane { "OK" } else { "??" });
+                        }
+                    }
+                }
                 _ => {}
             }
         }
     }
     println!("\nDiscGolfGoal: {disc} found, {disc_ok} with sane hole/par");
     println!("PaddleballGoal: {pad} found, {pad_ok} with sane team");
+    println!("SoccerGoal: {soccer} found, {soccer_ok} with sane team + resolved goalCollider");
 }
