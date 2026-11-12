@@ -20,22 +20,22 @@ use crate::mode::{GameEvent, GameInput, GameMode, RoundPhase, Team};
 pub struct SoccerConfig {
     /// match length in seconds; most goals at expiry wins (`SoccerGameRuleWrapper.defaultGameDuration`). VERIFIED 180.
     pub match_duration: f32,
-    /// the post-goal kickoff pause (ball reset to centre + round-starting sequence).
-    /// 1:1: no numeric constant exists in `SoccerManager` — the real restart is the `WaitAndPlayRoundStarting`
-    /// coroutine. Placeholder until that coroutine's timing is pulled; a goal during this pause doesn't double-count.
-    pub kickoff_pause: f32,
 }
 
 impl Default for SoccerConfig {
     fn default() -> Self {
-        SoccerConfig { match_duration: 180.0, kickoff_pause: 2.0 } // 180 VERIFIED; kickoff_pause 1:1: provisional
+        SoccerConfig { match_duration: 180.0 } // VERIFIED
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Phase {
-    /// kickoff pause (pre-round and post-goal), seconds left — the ball is at centre, goals don't count
-    Kickoff(f32),
+    /// ball-scored / kickoff state (pre-round and post-goal): the ball is reset to centre and goals don't count,
+    /// until the round-start sequence completes. This is EVENT-DRIVEN, not timed: the decompiled
+    /// `WaitAndPlayRoundStarting` coroutine awaits an async round-start op and has NO numeric duration (verified — no
+    /// WaitForSeconds / no const / no inspector field). We resume on the authority's next tick (the round-start op is
+    /// instant in this rebuild — no async loading to wait for), so no number is invented.
+    Kickoff,
     Playing,
     /// match over; the winner, or `None` for a draw
     Over(Option<Team>),
@@ -46,7 +46,6 @@ enum Phase {
 /// own-goals count), the master counts it, runs a short kickoff pause, and when the clock expires the team with the
 /// most goals wins.
 pub struct SoccerMode {
-    config: SoccerConfig,
     phase: Phase,
     /// match time remaining (counts down from `match_duration`)
     clock: f32,
@@ -58,8 +57,7 @@ pub struct SoccerMode {
 impl SoccerMode {
     pub fn new(config: SoccerConfig) -> Self {
         SoccerMode {
-            config,
-            phase: Phase::Kickoff(config.kickoff_pause),
+            phase: Phase::Kickoff,
             clock: config.match_duration,
             team_score: vec![0, 0],
             joined: 0,
@@ -108,8 +106,8 @@ impl GameMode for SoccerMode {
         let score = self.team_score[t];
         out.push(GameEvent::Score { team, score });
         out.push(GameEvent::Cue("goalScored".into())); // RpcOnScore: VFX/SFX/VO + ball reset to centre
-        // no goals-to-win check — the match is decided by the clock; a goal just resets to kickoff
-        self.phase = Phase::Kickoff(self.config.kickoff_pause);
+        // no goals-to-win check — the match is decided by the clock; a goal just enters the ball-scored/kickoff state
+        self.phase = Phase::Kickoff;
     }
 
     fn tick(&mut self, dt: f32, out: &mut Vec<GameEvent>) {
@@ -117,7 +115,7 @@ impl GameMode for SoccerMode {
             return;
         }
         // the match clock runs down over the whole match.
-        // 1:1: assumed to keep running during the kickoff pause (the base round timer is not paused on a goal in the
+        // 1:1: assumed to keep running during the kickoff state (the base round timer is not paused on a goal in the
         // decompiled Update; revisit if the base timer turns out to stop during the ball-scored state).
         self.clock -= dt;
         if self.clock <= 0.0 {
@@ -127,14 +125,11 @@ impl GameMode for SoccerMode {
             out.push(GameEvent::Round { round: 1, phase: RoundPhase::GameOver, winner });
             return;
         }
-        if let Phase::Kickoff(t) = self.phase {
-            let t = t - dt;
-            if t <= 0.0 {
-                self.phase = Phase::Playing;
-                out.push(GameEvent::Round { round: 1, phase: RoundPhase::Running, winner: None });
-            } else {
-                self.phase = Phase::Kickoff(t);
-            }
+        // event-driven kickoff: the round-start op completes (instantly in this rebuild — no async loading), so play
+        // resumes on this next authority tick. No invented pause duration.
+        if self.phase == Phase::Kickoff {
+            self.phase = Phase::Playing;
+            out.push(GameEvent::Round { round: 1, phase: RoundPhase::Running, winner: None });
         }
     }
 }
@@ -146,30 +141,30 @@ mod tests {
     #[test]
     fn timed_most_goals_wins() {
         // a short match so the test is quick; the real default is 180 s
-        let cfg = SoccerConfig { match_duration: 10.0, kickoff_pause: 1.0 };
+        let cfg = SoccerConfig { match_duration: 10.0 };
         let mut m = SoccerMode::new(cfg);
         let t0 = m.add_player(1);
         let t1 = m.add_player(2);
         assert_ne!(t0, t1);
 
-        // clear the opening kickoff pause -> Playing
+        // the opening kickoff resumes on the next tick (event-driven, no pause duration)
         let mut out = Vec::new();
-        m.tick(cfg.kickoff_pause, &mut out);
+        m.tick(0.01, &mut out);
         assert!(out.iter().any(|e| matches!(e, GameEvent::Round { phase: RoundPhase::Running, .. })));
 
-        // a goal during the kickoff pause doesn't count
-        m.phase = Phase::Kickoff(cfg.kickoff_pause);
+        // a goal during the kickoff state doesn't count
+        m.phase = Phase::Kickoff;
         let mut ignored = Vec::new();
         m.input(GameInput::Goal { team: t0 }, &mut ignored);
         assert!(!ignored.iter().any(|e| matches!(e, GameEvent::Score { .. })), "a goal during kickoff doesn't count");
         m.phase = Phase::Playing;
 
-        // team 0 scores twice, team 1 once; each goal is followed by clearing the kickoff pause
+        // team 0 scores twice, team 1 once; each goal is followed by the next tick clearing the kickoff state
         for team in [t0, t0, t1] {
             let mut ev = Vec::new();
             m.input(GameInput::Goal { team }, &mut ev);
             assert!(ev.iter().any(|e| matches!(e, GameEvent::Score { .. })), "goal counts while playing");
-            m.tick(cfg.kickoff_pause, &mut Vec::new()); // clear kickoff back to Playing
+            m.tick(0.01, &mut Vec::new()); // next tick clears kickoff back to Playing
         }
 
         // run the clock out
@@ -181,14 +176,14 @@ mod tests {
 
     #[test]
     fn equal_goals_is_a_draw() {
-        let cfg = SoccerConfig { match_duration: 6.0, kickoff_pause: 0.5 };
+        let cfg = SoccerConfig { match_duration: 6.0 };
         let mut m = SoccerMode::new(cfg);
         let t0 = m.add_player(1);
         let t1 = m.add_player(2);
-        m.tick(cfg.kickoff_pause, &mut Vec::new()); // -> Playing
+        m.tick(0.01, &mut Vec::new()); // kickoff -> Playing
         for team in [t0, t1] {
             m.input(GameInput::Goal { team }, &mut Vec::new());
-            m.tick(cfg.kickoff_pause, &mut Vec::new());
+            m.tick(0.01, &mut Vec::new());
         }
         let mut end = Vec::new();
         m.tick(cfg.match_duration, &mut end);

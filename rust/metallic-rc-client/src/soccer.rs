@@ -5,9 +5,10 @@
 //! broadcasts `RpcOnScore`. First team to `GoalsToWin` wins.
 //!
 //! This is the Paddleball plugin with two differences: there is no paddle (Soccer's ball is driven by the player's
-//! own body/feet collider — physics-authentic, no scripted kick force, same principle as the Dodgeball throw), and
-//! Soccer has powerups. `METALLIC_SOC_BOTS=1` drives the score to a win with one client. Keep the client muted
-//! (owner's standing request) — run self-tests with `METALLIC_NO_MIC=1`.
+//! own body — thrown via the Ball base's release velocity, or kicked by running into it with the real fixed
+//! locomotion-attack impulse `SOCCER_KICK_FORCE` = 20.0), and Soccer has powerups. `METALLIC_SOC_BOTS=1` drives the
+//! score to a win with one client. Keep the client muted (owner's standing request) — run self-tests with
+//! `METALLIC_NO_MIC=1`.
 //!
 //! SCAFFOLD STATUS (2026-11-12): structure is the proven Paddleball shape; values a clean `SoccerManager` body pins
 //! down are marked `// 1:1:` (the ball Addressables key, the goal AABBs/geometry from level72, GoalsToWin, the
@@ -24,6 +25,10 @@ use crate::world::RoomPiece;
 // VERIFIED (world_inventory): the real Soccer ball — (SoccerBall) carries the SoccerBall script + Tool/RigidbodyPickup
 // (grabbable/throwable) + LocomotionSettings (the body-kick), a 1.4 m ball with box+sphere colliders.
 const BALL_ADDRESS: &str = "(SoccerBall)";
+/// VERIFIED (SoccerBall prefab): the body-kick impulse. The prefab's min/maxLocomotionAttackForce are BOTH 20.0, so
+/// the shipped kick is a fixed 20.0, not a range. Wire the locomotion-attack (running into the ball) to this impulse.
+#[allow(dead_code)]
+const SOCCER_KICK_FORCE: f32 = 20.0;
 const GAME_VIEW_INDEX: u32 = 47113; // distinct from Dodgeball/Paddleball/DiscGolf authority views
 const RPC_GOAL: &str = "SocGoal"; // client → master: a goal scored (scoring team)
 const RPC_SCORE: &str = "SocScore"; // master → others: team score
@@ -121,14 +126,14 @@ fn join_game(
         db.roster.push(actor);
         db.rules = Some(rules);
         // the real ball at centre (SoccerBall : Ball — grabbable/throwable physics prop, also kicked by running into
-        // it; 1:1: the locomotion-attack force range [minLocomotionAttackForce, maxLocomotionAttackForce] is on the
-        // SoccerBall prefab — pull from level72/the ball prefab when wiring the kick force)
+        // it). The body-kick impulse is the real SoccerBall locomotion-attack force = SOCCER_KICK_FORCE (20.0, a
+        // fixed value — min == max == 20.0 on the prefab), to wire into the locomotion-attack/ball-contact system.
         net.net_spawn(BALL_ADDRESS, Transform::from_xyz(0.0, 1.0, 0.0));
         db.court_set = true;
         info!("soccer: this client is the authority (actor {actor}); 180s timed match, ball spawned, {} real goals", db.real_goals.len());
         if self_test {
-            // self-test: team 0 scores twice, team 1 once; the clock expires at 12 s and team 0 wins 2–1. Space goals
-            // >kickoff_pause apart so each lands while Playing (a goal during the kickoff pause doesn't count).
+            // self-test: team 0 scores twice, team 1 once; the clock expires at 12 s and team 0 wins 2–1. Goals are
+            // spaced seconds apart so each lands while Playing (the event-driven kickoff clears on the next tick).
             db.bots = vec![(2.5, 0), (5.3, 0), (8.1, 1)];
             info!("soccer: self-test — team 0 to 2, team 1 to 1, whistle at 12s → team 0 wins");
         }
