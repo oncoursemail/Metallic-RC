@@ -241,6 +241,8 @@ fn main() {
         .insert_resource(metallic_rc_client::discgolf::DiscGolfActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("discgolf"))))
         .add_plugins(metallic_rc_client::soccer::SoccerPlugin)
         .insert_resource(metallic_rc_client::soccer::SoccerActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("soccer"))))
+        .add_plugins(metallic_rc_client::bowling::BowlingPlugin)
+        .insert_resource(metallic_rc_client::bowling::BowlingActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("bowlingalley") || w.eq_ignore_ascii_case("bowling"))))
         .insert_resource(LocalLook(look))
         // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
         .insert_resource(avatar::Dressing::default())

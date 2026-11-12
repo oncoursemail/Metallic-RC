@@ -1,15 +1,14 @@
 # Adding a built-in Rec Room Original — the recipe
 
-Four games are ported 1:1 and playable in-client over rr-net through one reusable seam: **Dodgeball**
-(team elimination), **Paddleball** (team goals to 5), **DiscGolf** (per-player stroke play), **Soccer**
-(team goals but **TIMED** — 180 s, most goals wins). The seam has handled four genuinely different scoring
-shapes with no structural change (the timed win lives inside the mode's `tick`, not a new enum variant), so
-it is **frozen** (see "The frozen API" below). Every remaining RR Original is a small, well-defined delta.
-Follow these steps verbatim; hold the 1:1 bar (no invented numbers — mark anything unverified `// 1:1:` and
-get the real value from the decompile lane).
-
-Watch for the win CONDITION, not just the scoring: Paddleball is first-to-N, Soccer is most-goals-when-the-
-clock-expires. Ask the decompile lane "goals-to-win or timed?" up front — they read very differently.
+Five games are ported 1:1 over one reusable seam: **Dodgeball** (team elimination), **Paddleball** (team goals
+to 5), **DiscGolf** (per-player stroke play), **Soccer** (team goals, TIMED — 180 s, most goals wins), **Bowling**
+(per-player REAL 10-pin frame scoring). The seam has handled five scoring shapes (the timed win and the 10-pin
+algorithm live inside the mode, only Bowling needed a new `GameInput::Bowl` variant), so it is **frozen** (see
+"The frozen API" below). Every remaining RR Original is a small, well-defined delta. Follow these steps verbatim;
+hold the 1:1 bar — NO invented numbers. Mark anything unverified `// 1:1:`, get the real value from the decompile
+lane (or the memory dump for runtime-only values), and make missing real config a HARD-FAIL (refuse to run with a
+clear error), never a silent approximation. Watch the win CONDITION, not just scoring: first-to-N (Paddleball),
+most-goals-on-the-clock (Soccer), highest-frame-total (Bowling) read very differently — ask decompile up front.
 
 ## The recipe (per game)
 
@@ -46,6 +45,10 @@ clock-expires. Ask the decompile lane "goals-to-win or timed?" up front — they
      gadget class name; it returns the serialized FIELD ORDER (base-first, Unity declaration order) so you read
      the right scalars. For a prop ADDRESS (the ball), find the real Addressables key with the `world_inventory`
      example (`cargo run --example world_inventory -- "" <filter>`) — e.g. Soccer's ball is `(SoccerBall)`.
+   - `levels::scene_class_positions(game_data, room, class)` — the world positions of every scene object of a
+     MonoBehaviour CLASS (same class resolution). This is how Bowling reads its real pin layout
+     (`scene_class_positions(_, "bowlingalley", "BowlingPin")` → the 33 real `BowlingPin` placements in level91, the
+     4-3-2-1 ten-pin triangle per lane). Verify with `METALLIC_CLASS=<Class> levels_report <room>`.
    - `levels::scene_objects(game_data, room, needle)` — NAME match (case-insensitive; `*` = all scripted), each
      with world position + collider half-extent, for discovery / spawns. Discover gadget names with
      `METALLIC_OBJECTS=* levels_report <room> --game-dir <RecRoom>`.
@@ -67,10 +70,11 @@ clock-expires. Ask the decompile lane "goals-to-win or timed?" up front — they
    often on a call; the ECS/net/rules run the same, you just read the log) + the game's `METALLIC_<X>_BOTS=1`,
    against a local `metallic-rc-server --open-rooms`. Mute audio output too: point `LOCALAPPDATA` at a temp dir
    holding `Metallic-RC/settings.json` = `{"settings":{"volume_master":0}}`. The scene loads from the corpus
-   (first load ~20 s, then cached), so give the run ~45 s (the self-test match clock starts only once the arena
-   is built and `join_game` fires). Confirm the log shows: the real gadget config read (e.g. "read 2 real
-   SoccerGoal(s)"), the prop spawned (no "no GameObject address" error), and the authority scoring to a win/full
-   time over the net. (`METALLIC_DEMO_CAM=1` + `METALLIC_SHOT=<png>` + `METALLIC_SHOT_AT=<s>` instead captures a
+   (first load ~20 s for a small scene, ~45 s for a big one like level91, then cached) and `join_game` may re-read
+   it for a class lookup, so give a big-scene run ~120 s+ (the self-test starts only once the arena is built and
+   `join_game` fires). Confirm the log shows: the real gadget config read (e.g. "read 2 real SoccerGoal(s)" /
+   "read 33 real BowlingPins"), the prop spawned (no "no GameObject address" error), and the authority scoring to
+   a win/full time over the net. (`METALLIC_DEMO_CAM=1` + `METALLIC_SHOT=<png>` + `METALLIC_SHOT_AT=<s>` instead captures a
    framed screenshot and exits, if you want a visual — that one does open a window.) Commit + push to `unit`;
    ping the integrator when it runs a round.
 
@@ -79,8 +83,9 @@ clock-expires. Ask the decompile lane "goals-to-win or timed?" up front — they
 ```
 trait GameMode { name; add_player(id)->Team; remove_player(id); input(GameInput, &mut Vec<GameEvent>); tick(dt, &mut Vec<GameEvent>); }
 enum GameInput  { Hit{thrower,victim}, Catch{catcher,thrower},  // Dodgeball
-                  Goal{team},                                     // Paddleball / team-goal games
-                  Throw{player}, Basket{player}, Hazard{player} } // DiscGolf / per-player games
+                  Goal{team},                                     // Paddleball / Soccer / team-goal games
+                  Throw{player}, Basket{player}, Hazard{player},  // DiscGolf / per-player games
+                  Bowl{player,pins} }                             // Bowling (pins = physics pinfall, 0..=10)
 enum GameEvent  { PlayerOut(p), PlayerRespawned(p), Score{team,score}, Round{round,phase,winner},  // team
                   PlayerScore{player,score:i32}, MatchOver{winner},                                 // per-player
                   Cue(String) }
@@ -95,11 +100,18 @@ above already cover elimination, team-points, and per-player scoring.
 
 ## Roster (remaining `*GameRuleManager` @dump.cs)
 
-Dodgeball ✅ · Paddleball ✅ · DiscGolf ✅ · Soccer ✅ (TIMED team goals). Remaining: Bowling
-(BowlingManager, level91 — per-player pins/frames, ~DiscGolf shape; **do next**, lean) · Paintball
-(PaintballManager, level14+4 maps, 2 modes CTF/TeamBattle) · Charades (CharadesManager, level8, timed
-word-guess, 2 modes) · RecRally (racing) + StuntRunner (time-trial, natural pair) · Arena (horde+shop, heavy)
-· BattleRoyale (level78 HUGE 172k objs, shrinking killzone — isolate) · Quest (co-op campaign, many scenes —
-isolate). **LaserTag is SPECIAL** — no `*Manager` subclass, only `LaserTagGameRuleWrapper`; it's
-gadget/circuit-based, so route it to the CircuitsV2/gadget lane, NOT this manager-body recipe. Each manager
-game is a drop-in via this recipe; give decompile the class name to start.
+Dodgeball ✅ · Paddleball ✅ · DiscGolf ✅ · Soccer ✅ (TIMED) · Bowling ✅ (real 10-pin scoring + real scene
+config verified over net; **pin-toppling physics is the one open dependency** — see below). Remaining:
+Charades (CharadesManager, level8, timed word-guess, 2 modes — **do next**, physics-light) · Paintball
+(PaintballManager, level14+4 maps, 2 modes CTF/TeamBattle) · RecRally (racing) + StuntRunner (time-trial,
+natural pair) · Arena (horde+shop, heavy) · BattleRoyale (level78 HUGE 172k objs, shrinking killzone —
+isolate) · Quest (co-op campaign, many scenes — isolate). **LaserTag is SPECIAL** — no `*Manager` subclass,
+only `LaserTagGameRuleWrapper`; it's gadget/circuit-based, so route it to the CircuitsV2/gadget lane, NOT this
+manager-body recipe. Each manager game is a drop-in via this recipe; give decompile the class name to start.
+
+**Pin-toppling physics dependency.** Bowling's real pinfall is rigidbody TOPPLING (ball knocks pins, pin-to-pin
+chains, settle; a pin is standing while `AngleFromUpright <= 25.0°`). The rebuild's custom physics (interact.rs
+`Body`) only bounces box props — it doesn't topple. The planned home is a REUSABLE dynamic-prop foundation
+(evaluate `bevy_rapier` for PhysX-matching rigidbody dynamics) that BattleRoyale / RecRally karts will also use,
+with the 25° IsUpright check (`bowling::pin_is_standing`) + `pinfall_from_physics` on top. Until it lands, the
+Bowling self-test injects bowls (`METALLIC_BW_BOTS=1`); the scoring + scene config are real and verified.

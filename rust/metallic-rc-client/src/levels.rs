@@ -1180,6 +1180,45 @@ pub fn scene_goals(game_data: Option<&Path>, room: &str, class: &str, goal_colli
     out
 }
 
+/// The world-space (client/bevy) positions of every active scene object whose MonoBehaviour class is `class`
+/// (resolved via `mono_script_ref` → `mono_script_name`, across sibling files — the same class resolution as
+/// [`scene_goals`]). Use it to read the real placements of a gameplay gadget by class, e.g. the 10 `BowlingPin`
+/// objects baked into a bowling lane. Empty without the corpus.
+pub fn scene_class_positions(game_data: Option<&Path>, room: &str, class: &str) -> Vec<Vec3> {
+    let Some(dir) = scenes_dir() else { return Vec::new() };
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let mut files = Files::with_res(dir, res_dirs);
+    let Some((file, name)) = scene_file(&mut files, room) else { return Vec::new() };
+    let Ok(scene) = read_scene(&mut files, &file, &name) else { return Vec::new() };
+    let scene_file_name = scene.file.clone();
+    let externals: Vec<String> = match files.get(&scene_file_name) {
+        Some(sf) => sf.externals.iter().map(|e| e.path.rsplit('/').next().unwrap_or(&e.path).to_string()).collect(),
+        None => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        for &(c, id) in n.components.iter().filter(|(c, _)| *c == classes::MONO_BEHAVIOUR) {
+            let _ = c;
+            let Some(p) = files.get(&scene_file_name).and_then(|sf| sf.object(id).and_then(|o| level::mono_script_ref(&sf, o).ok())) else { continue };
+            let class_name = if p.file_id == 0 {
+                files.get(&scene_file_name).and_then(|sf| sf.object(p.path_id).and_then(|so| level::mono_script_name(&sf, so).ok())).map(|(c, _)| c)
+            } else if let Some(ext) = externals.get(p.file_id as usize - 1).cloned() {
+                files.get(&ext).and_then(|f| f.object(p.path_id).and_then(|so| level::mono_script_name(&f, so).ok())).map(|(c, _)| c)
+            } else {
+                None
+            };
+            if class_name.as_deref() == Some(class) {
+                out.push(n.world.transform_point3(Vec3::ZERO));
+                break; // one position per object, even if it carries multiple MonoBehaviours
+            }
+        }
+    }
+    out
+}
+
 pub fn load_scene(game_data: Option<&Path>, room: &str) -> Option<Result<RoomData, String>> {
     let dir = scenes_dir()?;
     let mut res_dirs = vec![dir.to_path_buf()];

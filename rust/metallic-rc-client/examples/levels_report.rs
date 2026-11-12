@@ -22,6 +22,17 @@ fn main() {
     // METALLIC_OBJECTS=<ScriptClass>: list the scene's objects with that MonoBehaviour (goals, baskets, spawns, ...)
     // via the shared scene-object reader, to verify it finds the real per-game gadgets. (Standalone of the layout
     // report below, which needs a 2019 reference install.)
+    // METALLIC_CLASS=<MonoBehaviourClass>: list the world positions of scene objects of that script class (via the
+    // class-based reader scene_class_positions), e.g. the real BowlingPin placements in level91.
+    if let Ok(class) = std::env::var("METALLIC_CLASS") {
+        let data = game.join("RecRoom_Data");
+        let pos = levels::scene_class_positions(Some(data.as_path()), &room, &class);
+        println!("scene_class_positions '{class}' in {room}: {} found", pos.len());
+        for (i, p) in pos.iter().enumerate().take(30) {
+            println!("  {i:3}  ({:7.2} {:6.2} {:7.2})", p.x, p.y, p.z);
+        }
+        return;
+    }
     if let Ok(script) = std::env::var("METALLIC_OBJECTS") {
         let data = game.join("RecRoom_Data");
         let objs = levels::scene_objects(Some(data.as_path()), &room, &script);
