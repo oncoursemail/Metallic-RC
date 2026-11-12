@@ -245,9 +245,21 @@ fn main() {
 
 /// QA capture: with `METALLIC_SHOT=<path>` set, wait `METALLIC_SHOT_AT` seconds (default 7, to let the room and its
 /// particles settle), save a screenshot of the window to `<path>`, then exit. No effect when the env var is unset.
-fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::ThirdPerson>, mut elapsed: Local<f32>, mut shot: Local<bool>, mut exit: MessageWriter<AppExit>) {
+#[allow(clippy::too_many_arguments)]
+fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::ThirdPerson>, mut elapsed: Local<f32>, mut shot: Local<bool>, mut exit: MessageWriter<AppExit>, mut cam: Query<&mut Transform, With<Camera3d>>) {
     let Ok(path) = std::env::var("METALLIC_SHOT") else { return };
-    third.0 = true; // show the avatar in the room (not the first-person face) for the capture
+    // METALLIC_DEMO_CAM: a fixed, framed court-overview camera, detached from the player (behind + above one end,
+    // looking down the court, well clear of any avatar). Reusable for every game's demo shot. Runs after the player
+    // camera systems, so it wins for the rendered frame. Default pose suits the shared arena shell (±14 x, ±18 z).
+    if std::env::var("METALLIC_DEMO_CAM").is_ok() {
+        if let Some(mut t) = cam.iter_mut().next() {
+            // inside the court (past the end columns), a little above head height, looking down the court centre —
+            // the clean down-court framing that worked for the arena shell, clear of avatars and structure
+            *t = Transform::from_xyz(0.0, 4.5, 14.0).looking_at(Vec3::new(0.0, 1.3, -4.0), Vec3::Y);
+        }
+    } else {
+        third.0 = true; // show the avatar in the room (not the first-person face) for the capture
+    }
     *elapsed += time.delta_secs();
     let at = std::env::var("METALLIC_SHOT_AT").ok().and_then(|s| s.parse().ok()).unwrap_or(7.0);
     if !*shot && *elapsed >= at {

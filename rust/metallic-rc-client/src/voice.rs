@@ -203,6 +203,8 @@ struct Voice {
     settings: Settings,
     settings_stamp: Option<std::time::SystemTime>,
     problem: Option<String>,
+    /// mic capture was never started (METALLIC_NO_MIC) — the status shows "mic off", not the setting
+    no_mic: bool,
 }
 
 #[derive(Component)]
@@ -212,7 +214,13 @@ fn start(mut commands: Commands) {
     let mixer = Arc::new(Mutex::new(Mixer::default()));
     let (tx, rx) = channel();
     let tone = std::env::var("METALLIC_VOICE_TONE").ok().and_then(|v| v.parse::<f32>().ok()).map(|hz| (hz, 0));
-    let problem = audio_thread(mixer.clone(), (tone.is_none()).then_some(tx)).err();
+    // METALLIC_NO_MIC: never open/capture the microphone (for automated test/demo runs — the machine's mic may be in
+    // use by a call). This skips mic init entirely, not just muting it.
+    let no_mic = std::env::var("METALLIC_NO_MIC").is_ok();
+    let problem = audio_thread(mixer.clone(), (tone.is_none() && !no_mic).then_some(tx)).err();
+    if no_mic {
+        info!("voice: microphone capture disabled (METALLIC_NO_MIC)");
+    }
     if let Some(p) = &problem {
         warn!("voice: {p}");
     }
@@ -227,6 +235,7 @@ fn start(mut commands: Commands) {
         settings: Settings::default(),
         settings_stamp: None,
         problem,
+        no_mic,
     });
     commands.spawn((Text::new(""), TextFont { font_size: bevy::text::FontSize::Px(14.0), ..default() }, VoiceText,
         Node { position_type: PositionType::Absolute, bottom: px(12.0), right: px(12.0), ..default() }));
@@ -435,7 +444,7 @@ fn voice(
     v.speakers.retain(|_, s| now - s.heard < 5.0);
 
     let hearing: Vec<&str> = v.speakers.iter().filter(|(_, s)| now - s.heard < 0.5).filter_map(|(w, _)| heads.get(w).map(|h| h.1.as_str())).collect();
-    let mode = if muted { "muted" } else if open_mic { "open mic" } else { "push to talk (T)" };
+    let mode = if v.no_mic { "mic off" } else if muted { "muted" } else if open_mic { "open mic" } else { "push to talk (T)" };
     let line = format!("Voice: {mode}{}{}{}", if talking { ", talking" } else { "" },
         if hearing.is_empty() { String::new() } else { format!(" | hearing {}", hearing.join(", ")) },
         v.problem.as_ref().map_or(String::new(), |p| format!(" | {p}")));
