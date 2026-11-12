@@ -9,12 +9,14 @@
 //! The `*GameRuleWrapper` family (@dump.cs:695966-696240) enumerates every built-in game; each is a bounded port.
 //! Dodgeball is the first (simplest) slice.
 
+pub mod bowling;
 pub mod discgolf;
 pub mod dodgeball;
 pub mod mode;
 pub mod paddleball;
 pub mod soccer;
 
+pub use bowling::{BowlingConfig, BowlingMode};
 pub use discgolf::{DiscGolfConfig, DiscGolfMode};
 pub use dodgeball::{DodgeballConfig, DodgeballEffects, DodgeballManager, DodgeballMode, Phase, PlayerId, Team};
 pub use mode::{GameEvent, GameInput, GameMode, RoundPhase};

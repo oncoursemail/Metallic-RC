@@ -30,6 +30,10 @@ pub enum GameInput {
     Basket { player: PlayerId },
     /// `player`'s disc went out of bounds — a penalty stroke + return to tee (→ DiscGolf's `RpcOnDiscHazard`)
     Hazard { player: PlayerId },
+    /// `player` completed a bowl that knocked down `pins` pins (0..=10); recorded by Bowling's authority, which runs
+    /// the real 10-pin scoreboard algorithm over the per-player bowl array. Pin count is physics (standing before −
+    /// standing after the pins settle), not scripted.
+    Bowl { player: PlayerId, pins: u8 },
 }
 
 /// The round/match lifecycle, broadcast so clients can show countdowns/scoreboards.
