@@ -233,6 +233,8 @@ fn main() {
         .insert_resource(metallic_rc_client::dodgeball::DodgeballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("dodgeball"))))
         .add_plugins(metallic_rc_client::paddleball::PaddleballPlugin)
         .insert_resource(metallic_rc_client::paddleball::PaddleballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("paddleball"))))
+        .add_plugins(metallic_rc_client::discgolf::DiscGolfPlugin)
+        .insert_resource(metallic_rc_client::discgolf::DiscGolfActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("discgolf"))))
         .insert_resource(LocalLook(look))
         // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
         .insert_resource(avatar::Dressing::default())
@@ -253,9 +255,9 @@ fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::
     // camera systems, so it wins for the rendered frame. Default pose suits the shared arena shell (±14 x, ±18 z).
     if std::env::var("METALLIC_DEMO_CAM").is_ok() {
         if let Some(mut t) = cam.iter_mut().next() {
-            // inside the court (past the end columns), a little above head height, looking down the court centre —
-            // the clean down-court framing that worked for the arena shell, clear of avatars and structure
-            *t = Transform::from_xyz(0.0, 4.5, 14.0).looking_at(Vec3::new(0.0, 1.3, -4.0), Vec3::Y);
+            // elevated, looking ACROSS the court (down the short axis) so the bright end-window walls are to the
+            // sides, not dead ahead — keeps the court front-lit, not silhouetted. Clear of avatars/structure.
+            *t = Transform::from_xyz(11.0, 4.5, 2.0).looking_at(Vec3::new(-3.0, 1.3, -1.0), Vec3::Y);
         }
     } else {
         third.0 = true; // show the avatar in the room (not the first-person face) for the capture

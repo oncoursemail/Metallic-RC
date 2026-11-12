@@ -3,6 +3,7 @@ pub mod audio;
 pub mod cache;
 pub mod avatar;
 pub mod collide;
+pub mod discgolf;
 pub mod dodgeball;
 pub mod interact;
 pub mod levels;
