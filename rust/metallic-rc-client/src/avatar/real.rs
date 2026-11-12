@@ -26,6 +26,10 @@ use crate::room;
 const AVATAR_BUNDLE: &str = "edf7f2d64a5698a6cec7ec8a1f821ab8.bundle";
 const BODY_MESH_PATHID: i64 = 8332635914843264857; // BodyMesh_LOD0
 const NOSE_MESH_PATHID: i64 = 62350462907586393; // Nose_01Base_LOD0
+/// The real authored face-screen geometry (the Full body's `FacialSpritesMesh_LOD0`): three islands — two eyes and a
+/// mouth — sitting on the face surface, so the expression sprites render exactly where Rec Room places them instead of
+/// on eyeballed flat quads. 161 verts; eyes at x=±0.043, the mouth at x=0 and lower.
+const FACE_SPRITES_MESH_PATHID: i64 = -3450666020669679783;
 /// The real Rec Room face sprite bundles. Each holds the whole expression set as separate 256²/512² textures, named
 /// (Eye_Default, Eye_Blink, Eye_Happy, ...; Mouth_Blank, Mouth_Talking_Open/Tall/Wide, Mouth_Smile, ...); `load_face_set`
 /// reads them all by name and `animate_face` swaps them to blink and run talking visemes.
@@ -75,10 +79,9 @@ pub struct Roomie {
     pub skin: Handle<Mesh>,
     pub shirt: Handle<Mesh>,
     pub pants: Handle<Mesh>,
-    /// the shared eye / mouth quads (square, the full sprite canvas), facing -z (the eye quad is mirrored for the right
-    /// side), and every expression by name as a decal material for `animate_face` to swap (blink, talking visemes, ...)
-    pub eye_quad: Handle<Mesh>,
-    pub mouth_quad: Handle<Mesh>,
+    /// the real face-screen feature meshes (mouth + two eyes) from `FacialSpritesMesh_LOD0`, skin-wrapped to ride the
+    /// head; each carries a decal material `animate_face` swaps (blink, talking visemes, ...)
+    pub face_features: Vec<(FaceWhich, Handle<Mesh>)>,
     pub eyes: HashMap<String, Handle<StandardMaterial>>,
     pub mouths: HashMap<String, Handle<StandardMaterial>>,
     /// the orange "smiley box" chest logo decal (generated) and the quad it rides on
@@ -417,26 +420,13 @@ pub struct Visual {
     phase: f32,
 }
 
-/// Where the face sits in the avatar's upright local space (feet at 0, facing -z): each eye, and the mouth.
-/// The eyes are set ~0.124 m apart (±0.062): the Eye_Default sprite's ink (pupil + upper-lid swoosh) spans most of its
-/// canvas, so at a smaller spacing the two mirrored quads overlapped into one bar (the "sunglasses" look). Wider and a
-/// touch smaller makes two distinct Rec Room eyes with a clear gap.
-const EYE_POS: [Vec3; 2] = [Vec3::new(-0.062, 1.521, -0.14), Vec3::new(0.062, 1.521, -0.14)];
-const MOUTH_POS: Vec3 = Vec3::new(0.0, 1.470, -0.158);
-// the quads are the sprite's full square canvas (256² eye, 512² mouth): sized so the inked feature reads at the right
-// size without the two eyes overlapping (eye 0.145 → a ~0.11 inked eye; mouth 0.27 → a ~0.10 line).
-const EYE_W: f32 = 0.145;
-const MOUTH_W: f32 = 0.27;
 /// The chest "smiley box" logo, in the Full body's standing frame (feet at 0, facing -z): where it sits and how big.
 const LOGO_POS: Vec3 = Vec3::new(0.0, 1.05, -0.135);
 const LOGO_W: f32 = 0.19;
 /// Joint names to hang the chest logo from, in preference order (the first the rig has wins).
 const CHEST_JOINTS: [&str; 6] = ["Jnt.Spine.Chest", "Jnt.Chest", "Jnt.Spine.Upper", "Jnt.Spine2", "Jnt.Spine.Mid", "Jnt.Spine.Root"];
-/// The Full body's head joint height in the standing frame (feet at 0); EYE_POS/MOUTH_POS are placed relative to it, so
-/// another body type's face shifts by its own head height minus this.
-const FULL_HEAD_Y: f32 = 1.421;
 
-/// A float from an env var, for dialling the face in without a rebuild (e.g. `METALLIC_EYE_X`); falls back to `d`.
+/// A float from an env var, for dialling values in without a rebuild (e.g. `METALLIC_FACE_BIAS`); falls back to `d`.
 fn envf(key: &str, d: f32) -> f32 {
     std::env::var(key).ok().and_then(|s| s.parse().ok()).unwrap_or(d)
 }
@@ -449,26 +439,6 @@ fn rest_eye() -> String {
 }
 fn rest_mouth() -> String {
     std::env::var("METALLIC_REST_MOUTH").unwrap_or_else(|_| "Mouth_Smile".into())
-}
-
-/// The face layout, overridable per-field by env while tuning (METALLIC_EYE_X/Y/Z/W, METALLIC_MOUTH_Y/Z/W).
-struct FaceLayout {
-    eye: [Vec3; 2],
-    eye_w: f32,
-    mouth: Vec3,
-    mouth_w: f32,
-}
-
-fn face_layout() -> FaceLayout {
-    let ex = envf("METALLIC_EYE_X", EYE_POS[1].x);
-    let ey = envf("METALLIC_EYE_Y", EYE_POS[0].y);
-    let ez = envf("METALLIC_EYE_Z", EYE_POS[0].z);
-    FaceLayout {
-        eye: [Vec3::new(-ex, ey, ez), Vec3::new(ex, ey, ez)],
-        eye_w: envf("METALLIC_EYE_W", EYE_W),
-        mouth: Vec3::new(MOUTH_POS.x, envf("METALLIC_MOUTH_Y", MOUTH_POS.y), envf("METALLIC_MOUTH_Z", MOUTH_POS.z)),
-        mouth_w: envf("METALLIC_MOUTH_W", MOUTH_W),
-    }
 }
 
 /// A mesh object read out of the bundle as Bevy-space geometry (Unity is left-handed: z negated, winding flipped, uv v
@@ -507,6 +477,96 @@ fn read_umesh(b: &Bundle, sf: &SerializedFile, pathid: i64) -> Option<Raw> {
         }
     }
     Some(Raw { pos, nrm, uv, idx })
+}
+
+/// Which facial sprite feature an island of the FacialSpritesMesh is.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum FaceWhich {
+    EyeL,
+    EyeR,
+    Mouth,
+}
+
+/// Builds a Bevy mesh from one island (a connected set of vertices) of the face mesh, remapping the island's UVs to fill
+/// [0,1] so a whole expression sprite maps onto it (the right eye mirrored in u so the two eyes face outward).
+fn build_face_feature(raw: &Raw, island: &std::collections::BTreeSet<usize>, mirror: bool) -> Mesh {
+    let remap: std::collections::HashMap<usize, u32> = island.iter().enumerate().map(|(i, &v)| (v, i as u32)).collect();
+    let (mut umin, mut umax, mut vmin, mut vmax) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+    for &i in island {
+        let [u, v] = raw.uv[i];
+        umin = umin.min(u);
+        umax = umax.max(u);
+        vmin = vmin.min(v);
+        vmax = vmax.max(v);
+    }
+    let (du, dv) = ((umax - umin).max(1e-5), (vmax - vmin).max(1e-5));
+    // lift the patch a hair off the head surface along its normal, so the rounded head doesn't z-fight/occlude it
+    let bias = envf("METALLIC_FACE_BIAS", 0.008);
+    let (mut pos, mut nrm, mut uv) = (Vec::new(), Vec::new(), Vec::new());
+    for &i in island {
+        let (p, nn) = (raw.pos[i], raw.nrm[i]);
+        pos.push([p[0] + nn[0] * bias, p[1] + nn[1] * bias, p[2] + nn[2] * bias]);
+        nrm.push(nn);
+        let mut u = (raw.uv[i][0] - umin) / du;
+        let v = (raw.uv[i][1] - vmin) / dv;
+        if mirror {
+            u = 1.0 - u;
+        }
+        uv.push([u, v]);
+    }
+    let idx: Vec<u32> = raw.idx.chunks_exact(3)
+        .filter(|t| t.iter().all(|&v| remap.contains_key(&(v as usize))))
+        .flat_map(|t| t.iter().map(|&v| remap[&(v as usize)]))
+        .collect();
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, pos);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, nrm);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
+    mesh.insert_indices(Indices::U32(idx));
+    mesh
+}
+
+/// Loads the real `FacialSpritesMesh_LOD0` and splits it into its three feature islands (mouth + two eyes) as Bevy
+/// meshes. The geometry sits on the real face surface, so the expression sprites render exactly where Rec Room places
+/// them — no eyeballed quad positions. Empty when the bundle or mesh is missing.
+fn load_face_features(dir: &Path) -> Vec<(FaceWhich, Mesh)> {
+    let path = room::bundle_dir(dir).join(AVATAR_BUNDLE);
+    let Ok(b) = Bundle::open(&path) else { return vec![] };
+    let Ok(files) = b.serialized_files() else { return vec![] };
+    let Some(sf) = files.iter().find_map(|(_, sf)| sf.object(FACE_SPRITES_MESH_PATHID).map(|_| sf)) else { return vec![] };
+    let Some(raw) = read_umesh(&b, sf, FACE_SPRITES_MESH_PATHID) else { return vec![] };
+    let n = raw.pos.len();
+    // union-find over triangle edges to split the mesh into connected islands
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn find(p: &mut [usize], x: usize) -> usize {
+        let mut r = x;
+        while p[r] != r { r = p[r]; }
+        let mut c = x;
+        while p[c] != c { let nx = p[c]; p[c] = r; c = nx; }
+        r
+    }
+    for t in raw.idx.chunks_exact(3) {
+        let (a, b2, c) = (t[0] as usize, t[1] as usize, t[2] as usize);
+        let (ra, rb) = (find(&mut parent, a), find(&mut parent, b2));
+        parent[ra] = rb;
+        let (rb2, rc) = (find(&mut parent, b2), find(&mut parent, c));
+        parent[rb2] = rc;
+    }
+    let mut groups: std::collections::BTreeMap<usize, std::collections::BTreeSet<usize>> = Default::default();
+    for i in 0..n {
+        let r = find(&mut parent, i);
+        groups.entry(r).or_default().insert(i);
+    }
+    let mut islands: Vec<std::collections::BTreeSet<usize>> = groups.into_values().collect();
+    let center_x = |g: &std::collections::BTreeSet<usize>| g.iter().map(|&i| raw.pos[i][0]).sum::<f32>() / g.len().max(1) as f32;
+    // the mouth is the island centred on x=0; the eyes are the other two, split by the sign of x
+    islands.sort_by(|a, b| center_x(a).abs().partial_cmp(&center_x(b).abs()).unwrap_or(std::cmp::Ordering::Equal));
+    let mut out = Vec::new();
+    for (k, g) in islands.iter().enumerate() {
+        let which = if k == 0 { FaceWhich::Mouth } else if center_x(g) < 0.0 { FaceWhich::EyeL } else { FaceWhich::EyeR };
+        out.push((which, build_face_feature(&raw, g, which == FaceWhich::EyeR)));
+    }
+    out
 }
 
 /// Which clothing zone a body triangle belongs to, from its centre in the avatar's own space (height along -z after our
@@ -805,6 +865,9 @@ pub fn load_roomie(
         }
     }
     let logo = decal(&mut materials, images.add(logo_texture([0xf0, 0x81, 0x3c])));
+    // the wardrobe meshes are authored for the Full body; on the legless Bean they don't fit (they collapse at the feet),
+    // so only the Full body wears them — the Bean keeps the classic clean look (its body regions carry the colours).
+    let full = body == BodyType::Full;
     // skin-wrap a wardrobe mesh onto the body (when skinned) so it deforms with the body instead of floating at bind pose
     let wrap = |m: Option<Mesh>| -> Option<Mesh> {
         match (&skin_cloud, m) {
@@ -812,25 +875,29 @@ pub fn load_roomie(
             (_, m) => m,
         }
     };
-    let hair = wrap(load_hair(body)).map(|m| meshes.add(m));
+    let hair = full.then(|| wrap(load_hair(body))).flatten().map(|m| meshes.add(m));
     match &hair {
         Some(_) => info!("avatar: real Rec Room hair loaded"),
         None => info!("avatar: no wardrobe hair found (set METALLIC_WARDROBE_DIR)"),
     }
     let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.78, ..default() });
-    let jersey = wrap(load_wardrobe(body, "ShirtJersey")).map(|m| meshes.add(m));
-    let legs = wrap(load_wardrobe(body, "BasicLeggings_Leg")).map(|m| meshes.add(m));
-    let shoes = wrap(load_wardrobe(body, "Sneakers_Shoe")).map(|m| meshes.add(m));
+    let jersey = full.then(|| wrap(load_wardrobe(body, "ShirtJersey"))).flatten().map(|m| meshes.add(m));
+    let legs = full.then(|| wrap(load_wardrobe(body, "BasicLeggings_Leg"))).flatten().map(|m| meshes.add(m));
+    let shoes = full.then(|| wrap(load_wardrobe(body, "Sneakers_Shoe"))).flatten().map(|m| meshes.add(m));
     let jersey_tex = wardrobe_tex(&["Jersey_Shirt_tex.png"]).map(|i| images.add(i));
     let legs_tex = wardrobe_tex(&["Basic_Leggings_Tex.png"]).map(|i| images.add(i));
     let shoes_tex = wardrobe_tex(&["FB_Sneaker_Shoe_Tex.png", "FB_Sneakers_Shoe_Tex.png", "FB_Flat_Shoe_Tex.png"]).map(|i| images.add(i));
-    info!("avatar: wardrobe — hair {}, jersey {}, legs {}, shoes {}", hair.is_some(), jersey.is_some(), legs.is_some(), shoes.is_some());
+    // the real face-screen feature meshes, skin-wrapped to ride the head (exact authored eye/mouth placement)
+    let face_features: Vec<(FaceWhich, Handle<Mesh>)> = load_face_features(dir)
+        .into_iter()
+        .map(|(which, mesh)| (which, meshes.add(wrap(Some(mesh)).unwrap())))
+        .collect();
+    info!("avatar: wardrobe — hair {}, jersey {}, legs {}, shoes {}; face features {}", hair.is_some(), jersey.is_some(), legs.is_some(), shoes.is_some(), face_features.len());
     commands.insert_resource(Roomie {
         skin: meshes.add(skin),
         shirt: meshes.add(shirt),
         pants: meshes.add(pants),
-        eye_quad: meshes.add(Rectangle::new(face_layout().eye_w, face_layout().eye_w)),
-        mouth_quad: meshes.add(Rectangle::new(face_layout().mouth_w, face_layout().mouth_w)),
+        face_features,
         eyes,
         mouths,
         logo,
@@ -891,9 +958,10 @@ pub fn attach_real(
         };
         let regions = [roomie.skin.clone(), roomie.shirt.clone(), roomie.pants.clone()];
 
-        // where the face decals hang: under the head joint when skinned (so they follow the head), else the visual node
-        let face = Quat::from_rotation_y(std::f32::consts::PI);
-        let decal_parent = match (&roomie.rig, &roomie.inverse_bindposes) {
+        // the body's skin binding, shared by the skin-wrapped wardrobe + face meshes so they deform with the body
+        let mut face_skin: Option<SkinnedMesh> = None;
+        let face = Quat::from_rotation_y(std::f32::consts::PI); // -z facing, for the optional chest logo decal
+        let _decal_parent = match (&roomie.rig, &roomie.inverse_bindposes) {
             (Some(rigdef), Some(binds)) => {
                 // the standing skeleton: a node with the stand-up, the joints under it, the meshes skinned to them
                 let skeleton_node = commands.spawn((Transform::from_rotation(stand()), Visibility::default(), ChildOf(visual))).id();
@@ -902,6 +970,7 @@ pub fn attach_real(
                 // deform with the body. They parent to `visual`, NOT the skeleton node — the stand-up rotation is in the
                 // joints, so a skinned mesh parented under it would have the stand-up applied twice.
                 let skin_bind = SkinnedMesh { inverse_bindposes: binds.clone(), joints: joints.clone() };
+                face_skin = Some(skin_bind.clone());
                 let skin_mat = mats[0].clone();
                 for (mesh, mat) in regions.into_iter().zip(mats) {
                     // skinned geometry is placed by the joints, not by this entity's transform, so its default AABB is
@@ -973,24 +1042,29 @@ pub fn attach_real(
             }
         };
 
-        // the real face sprites as decals, facing -z; the right eye is the same sprite mirrored in x. EYE_POS/MOUTH_POS
-        // are in the Full body's standing frame; the Bean head sits at a different height, so shift the face to the
-        // loaded body's head joint (keeps the Full body unchanged, places the Bean's face correctly).
-        let head_dy = Vec3::Y
-            * roomie.rig.as_ref().map_or(0.0, |r| (Mat4::from_quat(stand()) * r.bind_world[r.head]).to_scale_rotation_translation().2.y - FULL_HEAD_Y);
-        // start at the resting expression; `animate_face` swaps these materials to blink and talk.
+        // the real face: the FacialSpritesMesh feature islands (mouth + two eyes), skin-wrapped to ride the head and
+        // parented to `visual` like the body, so the expression sprites sit exactly where Rec Room authored them.
+        // `animate_face` swaps these materials to blink and talk.
         let eye_mat = roomie.eyes.get(&rest_eye()).cloned().unwrap_or_default();
         let mouth_mat = roomie.mouths.get(&rest_mouth()).cloned().unwrap_or_default();
-        let layout = face_layout();
         let mut eyes = [Entity::PLACEHOLDER; 2];
-        for (i, p) in layout.eye.into_iter().enumerate() {
-            let scale = Vec3::new(if i == 0 { 1.0 } else { -1.0 }, 1.0, 1.0);
-            eyes[i] = commands.spawn((Mesh3d(roomie.eye_quad.clone()), MeshMaterial3d(eye_mat.clone()),
-                Transform { translation: p + head_dy, rotation: face, scale }, ChildOf(decal_parent))).id();
+        let mut mouth = Entity::PLACEHOLDER;
+        for (which, mesh) in &roomie.face_features {
+            let mat = if *which == FaceWhich::Mouth { mouth_mat.clone() } else { eye_mat.clone() };
+            let mut e = commands.spawn((Mesh3d(mesh.clone()), MeshMaterial3d(mat), Transform::default(), NoFrustumCulling, ChildOf(visual)));
+            if let Some(sb) = &face_skin {
+                e.insert(sb.clone());
+            }
+            let id = e.id();
+            match which {
+                FaceWhich::EyeL => eyes[0] = id,
+                FaceWhich::EyeR => eyes[1] = id,
+                FaceWhich::Mouth => mouth = id,
+            }
         }
-        let mouth = commands.spawn((Mesh3d(roomie.mouth_quad.clone()), MeshMaterial3d(mouth_mat),
-            Transform { translation: layout.mouth + head_dy, rotation: face, ..default() }, ChildOf(decal_parent))).id();
-        commands.entity(root).insert(Face { eyes, mouth, seed: rig.seed });
+        if mouth != Entity::PLACEHOLDER || eyes[0] != Entity::PLACEHOLDER {
+            commands.entity(root).insert(Face { eyes, mouth, seed: rig.seed });
+        }
     }
 }
 
