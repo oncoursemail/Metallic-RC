@@ -376,6 +376,11 @@ fn unplace(r: &mut RoomData) {
 #[derive(Resource, Default)]
 pub struct Arrived(pub Option<RoomData>);
 
+/// The world-space bounds (min, max) of the room that was last built, for anyone that needs to frame it (the demo
+/// camera). `None` until a room is in.
+#[derive(Resource, Default)]
+pub struct RoomBounds(pub Option<(Vec3, Vec3)>);
+
 /// A spawnable or interactive object in the room: the prefab's address and an id that is the same on every client
 /// that loads the same room (for room props) or that the spawner chose. The realtime lane syncs props by `id`.
 #[derive(Component, Clone, Debug)]
@@ -423,6 +428,7 @@ impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(render::LookPlugin)
             .init_resource::<Arrived>()
+            .init_resource::<RoomBounds>()
             .init_resource::<FixedSolids>()
             .init_resource::<Solids>()
             .add_systems(Update, (spawn_arrived, attach_props, update_solids.after(spawn_arrived).after(attach_props)))
@@ -535,12 +541,14 @@ fn spawn_arrived(
     env: Res<render::RoomEnvMaps>,
     mut player: Query<(&mut crate::player::Player, &mut Transform)>,
     particle_assets: Res<crate::particles::ParticleAssets>,
+    mut room_bounds: ResMut<RoomBounds>,
 ) {
     let Some(mut r) = arrived.0.take() else { return };
     for e in &old {
         commands.entity(e).despawn();
     }
     let (lo, hi) = bounds(&r);
+    room_bounds.0 = Some((lo, hi));
     let has_lights = !r.lights.is_empty();
     let name = r.roots.first().cloned().unwrap_or_default();
     let props: Vec<&str> = r.roots.iter().zip(&r.props).filter(|(_, p)| **p).map(|(n, _)| n.as_str()).collect();

@@ -1031,6 +1031,66 @@ fn scene_particles(sf: &SerializedFile, scene: &Scene) -> Vec<ParticleEmitter> {
     out
 }
 
+/// A scene GameObject matched by its hierarchy NAME (e.g. objects whose name contains "Goal", "Basket", "Tee"): its
+/// world position (client/Bevy space) and, if it has a box/sphere collider, that collider's local half-extent. Per-
+/// game plugins use this to place goal/basket/hazard zones and spawns from the REAL scene objects instead of
+/// approximating from the arena bounds — the shared scene-object reader.
+///
+/// NOTE on the matcher: matching is by object NAME, not MonoBehaviour script class. The 2026 scenes reference their
+/// gameplay MonoScripts EXTERNALLY (in the game assembly), so the script class can't be resolved from the scene file
+/// alone (`mono_script_name` finds none) — resolving those external PPtrs is a maps-lane follow-up. Name matching
+/// works today and is enough to locate the gadgets. The objects' serialized FIELDS (a goal's hole/par/team) likewise
+/// need the MonoBehaviour byte layout and are not read here — mark those `// 1:1:` until the maps lane exposes them.
+pub struct SceneObject {
+    pub name: String,
+    /// true if it carries a MonoBehaviour (a gameplay script object, not just geometry)
+    pub scripted: bool,
+    /// world position, client (Bevy) space
+    pub pos: Vec3,
+    /// the object's box/sphere collider half-extent (local), if it has one — for a trigger zone's size
+    pub half: Option<Vec3>,
+}
+
+/// Every active scene object whose hierarchy name contains `needle` (case-insensitive; `*` matches all scripted
+/// objects, for discovery). Empty without the corpus.
+pub fn scene_objects(game_data: Option<&Path>, room: &str, needle: &str) -> Vec<SceneObject> {
+    let Some(dir) = scenes_dir() else { return Vec::new() };
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let mut files = Files::with_res(dir, res_dirs);
+    let Some((file, name)) = scene_file(&mut files, room) else { return Vec::new() };
+    let Ok(scene) = read_scene(&mut files, &file, &name) else { return Vec::new() };
+    let Some(sf) = files.get(&scene.file) else { return Vec::new() };
+    let needle = needle.to_lowercase();
+    let mut out = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        let scripted = n.components.iter().any(|(c, _)| *c == classes::MONO_BEHAVIOUR);
+        let wildcard = needle == "*";
+        if wildcard {
+            if !scripted {
+                continue; // discovery lists scripted objects only
+            }
+        } else if !n.name.to_lowercase().contains(&needle) {
+            continue;
+        }
+        let pos = n.world.transform_point3(Vec3::ZERO);
+        let half = n.components.iter().find_map(|(c, id)| {
+            let o = sf.object(*id)?;
+            if *c == classes::BOX_COLLIDER {
+                level::box_collider(&sf, o).ok().map(|bc| Vec3::from(bc.size) * 0.5)
+            } else if *c == classes::SPHERE_COLLIDER {
+                level::sphere_collider(&sf, o).ok().map(|sc| Vec3::splat(sc.radius))
+            } else {
+                None
+            }
+        });
+        out.push(SceneObject { name: n.name.clone(), scripted, pos, half });
+    }
+    out
+}
+
 pub fn load_scene(game_data: Option<&Path>, room: &str) -> Option<Result<RoomData, String>> {
     let dir = scenes_dir()?;
     let mut res_dirs = vec![dir.to_path_buf()];

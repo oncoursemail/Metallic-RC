@@ -248,16 +248,17 @@ fn main() {
 /// QA capture: with `METALLIC_SHOT=<path>` set, wait `METALLIC_SHOT_AT` seconds (default 7, to let the room and its
 /// particles settle), save a screenshot of the window to `<path>`, then exit. No effect when the env var is unset.
 #[allow(clippy::too_many_arguments)]
-fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::ThirdPerson>, mut elapsed: Local<f32>, mut shot: Local<bool>, mut exit: MessageWriter<AppExit>, mut cam: Query<&mut Transform, With<Camera3d>>) {
+fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::ThirdPerson>, mut elapsed: Local<f32>, mut shot: Local<bool>, mut exit: MessageWriter<AppExit>, mut cam: Query<&mut Transform, With<Camera3d>>, bounds: Res<world::RoomBounds>) {
     let Ok(path) = std::env::var("METALLIC_SHOT") else { return };
-    // METALLIC_DEMO_CAM: a fixed, framed court-overview camera, detached from the player (behind + above one end,
-    // looking down the court, well clear of any avatar). Reusable for every game's demo shot. Runs after the player
-    // camera systems, so it wins for the rendered frame. Default pose suits the shared arena shell (±14 x, ±18 z).
+    // METALLIC_DEMO_CAM: a demo camera framed from the loaded room's own bounds (the same 3/4 overview the offscreen
+    // rasterizer uses), detached from the player and overriding the player-follow each frame. One rule frames every
+    // arena cleanly — the ±14/±18 shell (Dodgeball/Paddleball) and the large open DiscGolf course alike.
     if std::env::var("METALLIC_DEMO_CAM").is_ok() {
-        if let Some(mut t) = cam.iter_mut().next() {
-            // elevated, looking ACROSS the court (down the short axis) so the bright end-window walls are to the
-            // sides, not dead ahead — keeps the court front-lit, not silhouetted. Clear of avatars/structure.
-            *t = Transform::from_xyz(11.0, 4.5, 2.0).looking_at(Vec3::new(-3.0, 1.3, -1.0), Vec3::Y);
+        if let (Some(mut t), Some((lo, hi))) = (cam.iter_mut().next(), bounds.0) {
+            let center = (lo + hi) * 0.5;
+            let radius = (hi - lo).length() * 0.5;
+            let eye = center + Vec3::new(0.9, 0.55, 0.9).normalize() * radius * 1.6;
+            *t = Transform::from_translation(eye).looking_at(center, Vec3::Y);
         }
     } else {
         third.0 = true; // show the avatar in the room (not the first-person face) for the capture

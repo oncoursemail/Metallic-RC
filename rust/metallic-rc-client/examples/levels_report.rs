@@ -19,6 +19,29 @@ fn main() {
     }
     levels::set_ref_install(reference.as_deref());
     let game = game.or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists())).expect("no game folder");
+    // METALLIC_OBJECTS=<ScriptClass>: list the scene's objects with that MonoBehaviour (goals, baskets, spawns, ...)
+    // via the shared scene-object reader, to verify it finds the real per-game gadgets. (Standalone of the layout
+    // report below, which needs a 2019 reference install.)
+    if let Ok(script) = std::env::var("METALLIC_OBJECTS") {
+        let data = game.join("RecRoom_Data");
+        let objs = levels::scene_objects(Some(data.as_path()), &room, &script);
+        println!("scene_objects '{script}' in {room}: {} found", objs.len());
+        if script == "*" {
+            // discovery: distinct scripted-object names, with counts
+            let mut counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+            for o in &objs {
+                *counts.entry(o.name.clone()).or_default() += 1;
+            }
+            for (name, n) in counts.iter().take(60) {
+                println!("  {n:4}  {name}");
+            }
+        } else {
+            for o in objs.iter().take(24) {
+                println!("  {:34}{} at ({:7.1} {:6.1} {:7.1})  half {:?}", o.name, if o.scripted { " [script]" } else { "" }, o.pos.x, o.pos.y, o.pos.z, o.half.map(|h| (h.x, h.y, h.z)));
+            }
+        }
+        return;
+    }
     let dir = room::bundle_dir(&game);
     let mut lib = Library::new(&dir).expect("bundles");
     if load {
