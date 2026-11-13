@@ -21,6 +21,7 @@ pub mod layer;
 pub mod lnl;
 pub mod ngo;
 pub mod objects;
+pub mod rabbit;
 pub mod room;
 pub mod sync;
 pub mod voice;

@@ -19,6 +19,97 @@ pub mod msg {
 /// Default world position range (metres); positions quantize over `[-POS_RANGE, POS_RANGE]`. Per-world tunable.
 pub const POS_RANGE: f32 = 256.0;
 
+// --- Handshake: device profile + ephemeral X25519 + Rabbit-key derivation (mirrors the server's netproto.rs) ------
+
+/// A client's hard device budget (the overload/crash bound), carried in ClientHello. Derived from the engine quality
+/// tier + platform; the server clamps it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DeviceProfile {
+    pub max_entities: u16,
+    pub max_hz: u8,
+    pub max_bytes: u32,
+}
+
+impl DeviceProfile {
+    /// Reference tiers (spec §4): the client sends the one matching its quality/platform.
+    pub const MOBILE_LOW: DeviceProfile = DeviceProfile { max_entities: 40, max_hz: 10, max_bytes: 48_000 };
+    pub const QUEST: DeviceProfile = DeviceProfile { max_entities: 80, max_hz: 20, max_bytes: 128_000 };
+    pub const PC: DeviceProfile = DeviceProfile { max_entities: 250, max_hz: 30, max_bytes: 512_000 };
+}
+
+/// An ephemeral X25519 keypair (one per connection), matching the server's.
+pub struct EphemeralKeypair {
+    secret: x25519_dalek::EphemeralSecret,
+    pub public: [u8; 32],
+}
+
+/// Generate a fresh ephemeral X25519 keypair.
+pub fn new_ephemeral() -> EphemeralKeypair {
+    let secret = x25519_dalek::EphemeralSecret::random_from_rng(rand::rngs::OsRng);
+    let public = x25519_dalek::PublicKey::from(&secret).to_bytes();
+    EphemeralKeypair { secret, public }
+}
+
+impl EphemeralKeypair {
+    /// Consume this keypair to compute the X25519 shared secret with the peer's (server's) public key.
+    pub fn shared(self, peer_pub: &[u8; 32]) -> [u8; 32] {
+        self.secret.diffie_hellman(&x25519_dalek::PublicKey::from(*peer_pub)).to_bytes()
+    }
+}
+
+/// Derive the 16-byte Rabbit key from the X25519 shared secret: `SHA256(shared || "kiwii-rabbit-v1")[0..16]`. Both
+/// sides compute the same value; the per-packet IV comes from the cipher trailer (see rr_net::rabbit).
+pub fn derive_rabbit_key(shared: &[u8; 32]) -> [u8; 16] {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(shared);
+    h.update(b"kiwii-rabbit-v1");
+    let d = h.finalize();
+    let mut k = [0u8; 16];
+    k.copy_from_slice(&d[..16]);
+    k
+}
+
+/// ClientHello (0x01) body: `[0x01][pubkey:32][maxEntities:u16 LE][maxHz:u8][maxBytes:u32 LE]`.
+pub fn encode_client_hello(pubkey: &[u8; 32], p: &DeviceProfile) -> Vec<u8> {
+    let mut v = Vec::with_capacity(1 + 32 + 7);
+    v.push(msg::CLIENT_HELLO);
+    v.extend_from_slice(pubkey);
+    v.extend_from_slice(&p.max_entities.to_le_bytes());
+    v.push(p.max_hz);
+    v.extend_from_slice(&p.max_bytes.to_le_bytes());
+    v
+}
+
+/// ServerHello (0x02) body: `[0x02][pubkey:32]` → the server's X25519 public key.
+pub fn decode_server_hello(payload: &[u8]) -> Option<[u8; 32]> {
+    if payload.first() != Some(&msg::SERVER_HELLO) {
+        return None;
+    }
+    payload.get(1..33)?.try_into().ok()
+}
+
+/// Input (0x10) body: `[0x10][pos: 3×f32 LE][yaw: f32 LE]` (16-byte body). Sent each input tick, encrypted.
+pub fn encode_input(pos: [f32; 3], yaw: f32) -> Vec<u8> {
+    let mut v = Vec::with_capacity(1 + 16);
+    v.push(msg::INPUT);
+    for c in pos {
+        v.extend_from_slice(&c.to_le_bytes());
+    }
+    v.extend_from_slice(&yaw.to_le_bytes());
+    v
+}
+
+/// Parse an Input (0x10) body back to `(pos, yaw)` — for round-trip tests / a local echo.
+pub fn decode_input(payload: &[u8]) -> Option<([f32; 3], f32)> {
+    if payload.first() != Some(&msg::INPUT) {
+        return None;
+    }
+    let b = &payload[1..];
+    let f = |i: usize| -> Option<f32> { Some(f32::from_le_bytes(b.get(i..i + 4)?.try_into().ok()?)) };
+    Some(([f(0)?, f(4)?, f(8)?], f(12)?))
+}
+
 /// Level of detail — drives position precision (Near=16-bit, Mid=12-bit, Far=8-bit per axis).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lod {
@@ -230,5 +321,41 @@ mod tests {
         let fr = ReplicationFrame { server_tick: 5, entities: vec![] };
         let back = ReplicationFrame::decode(&fr.encode(POS_RANGE), POS_RANGE).unwrap();
         assert_eq!(back, fr);
+    }
+
+    #[test]
+    fn x25519_both_sides_derive_the_same_rabbit_key() {
+        let client = new_ephemeral();
+        let server = new_ephemeral();
+        let (cpub, spub) = (client.public, server.public);
+        let cs = client.shared(&spub);
+        let ss = server.shared(&cpub);
+        assert_eq!(cs, ss, "ECDH shared secret must match on both sides");
+        assert_eq!(derive_rabbit_key(&cs), derive_rabbit_key(&ss));
+    }
+
+    #[test]
+    fn client_hello_matches_the_server_layout() {
+        let pk = [7u8; 32];
+        let h = encode_client_hello(&pk, &DeviceProfile::PC);
+        assert_eq!(h[0], msg::CLIENT_HELLO);
+        assert_eq!(&h[1..33], &pk);
+        assert_eq!(u16::from_le_bytes([h[33], h[34]]), 250);
+        assert_eq!(h[35], 30);
+        assert_eq!(u32::from_le_bytes([h[36], h[37], h[38], h[39]]), 512_000);
+        assert_eq!(h.len(), 40);
+    }
+
+    #[test]
+    fn server_hello_and_input_round_trip() {
+        let pub_bytes = new_ephemeral().public;
+        let mut sh = vec![msg::SERVER_HELLO];
+        sh.extend_from_slice(&pub_bytes);
+        assert_eq!(decode_server_hello(&sh), Some(pub_bytes));
+
+        let inp = encode_input([1.0, -2.5, 3.0], 1.25);
+        assert_eq!(inp[0], msg::INPUT);
+        assert_eq!(inp.len(), 17);
+        assert_eq!(decode_input(&inp), Some(([1.0, -2.5, 3.0], 1.25)));
     }
 }
