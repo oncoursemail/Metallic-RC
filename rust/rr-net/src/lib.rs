@@ -16,6 +16,7 @@
 //! client and the server.
 pub mod events;
 pub mod games;
+pub mod kiwii;
 pub mod layer;
 pub mod lnl;
 pub mod ngo;
