@@ -5,6 +5,7 @@
 //! Every request is logged; requests nothing answers are also appended to `<data-dir>/unknown.jsonl`, which is the
 //! list of what to build next.
 pub mod auth;
+pub mod creations;
 pub mod discovery;
 pub mod game;
 pub mod hub;
@@ -55,6 +56,7 @@ pub fn router(app: Shared) -> Router {
         .merge(discovery::routes())
         .nest("/auth", auth::routes())
         .merge(game::routes())
+        .merge(creations::routes())
         .merge(social::routes().merge(party::routes()).merge(profile::routes()).merge(inventory::routes()))
         .nest("/notifications", hub::routes())
         .fallback(unknown)

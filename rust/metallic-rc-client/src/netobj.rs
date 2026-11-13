@@ -85,8 +85,10 @@ pub struct Prop;
 /// The object for `address`: the prefab from the game files through the world loader, or a 0.3 m box tinted by its
 /// address for `debug/` and `test/` addresses and when there is no loader.
 pub fn spawn_prop(commands: &mut Commands, loader: Option<&world::Loader>, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, address: &str, at: Transform) -> Entity {
-    if let Some(loader) = loader.filter(|_| !address.starts_with("debug/") && !address.starts_with("test/")) {
-        return world::spawn_prop(commands, loader, address, at);
+    // maker objects (`maker::kit`): a prefab address with "#m<uid>" after it, or a shape (the maker module draws it)
+    let base = address.split("#m").next().unwrap_or(address);
+    if let Some(loader) = loader.filter(|_| !["debug/", "test/", "maker/"].iter().any(|p| base.starts_with(p))) {
+        return world::spawn_prop(commands, loader, base, at);
     }
     let hue = address.bytes().fold(7u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32)) % 360;
     let material = materials.add(StandardMaterial { base_color: Color::hsl(hue as f32, 0.6, 0.55), ..default() });

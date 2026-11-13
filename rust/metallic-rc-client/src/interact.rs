@@ -139,7 +139,7 @@ fn ray_prop(g: &Grabbable, at: &Transform, from: Vec3, dir: Vec3) -> Option<f32>
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn grab_and_throw(
     mut commands: Commands,
-    (mouse, keys, tuning, solids, panel): (Res<ButtonInput<MouseButton>>, Res<ButtonInput<KeyCode>>, Res<Tuning>, Res<Solids>, Res<LookPanel>),
+    (mouse, keys, tuning, solids, panel, pen): (Res<ButtonInput<MouseButton>>, Res<ButtonInput<KeyCode>>, Res<Tuning>, Res<Solids>, Res<LookPanel>, Option<Res<crate::maker::Pen>>),
     cursor: Single<&CursorOptions, With<PrimaryWindow>>,
     player: Single<(&Player, &Transform), Without<View>>,
     view: Single<&Transform, (With<View>, Without<Player>)>,
@@ -161,7 +161,8 @@ fn grab_and_throw(
         .filter(|&(_, d)| d < wall && (from + dir * d).distance(eye.translation) <= tuning.reach)
         .min_by(|a, b| a.1.total_cmp(&b.1));
     // clicks count once the mouse is already taken for looking (the first click only takes it)
-    let locked = cursor.grab_mode != CursorGrabMode::None && panel.open.is_none();
+    // the Maker Pen's clicks are its own (maker objects are not Grabbable: they stay where they are put)
+    let locked = cursor.grab_mode != CursorGrabMode::None && panel.open.is_none() && !pen.is_some_and(|p| p.equipped);
     let click = locked && *was_locked && mouse.just_pressed(MouseButton::Left);
     *was_locked = locked;
 
@@ -238,7 +239,7 @@ fn claim(
     mut commands: Commands,
     mut events: MessageReader<HandEvent>,
     mut net: NetObjects,
-    bare: Query<(Entity, &NetObject, &Transform), Without<Grabbable>>,
+    bare: Query<(Entity, &NetObject, &Transform), (Without<Grabbable>, Without<crate::maker::Made>)>,
 ) {
     for ev in events.read() {
         if let HandEvent::Grabbed(e) = ev {

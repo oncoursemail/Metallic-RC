@@ -6,6 +6,7 @@ pub mod collide;
 pub mod drive;
 pub mod interact;
 pub mod levels;
+pub mod maker;
 pub mod mirror;
 pub mod net;
 pub mod netobj;
