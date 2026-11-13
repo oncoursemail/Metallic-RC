@@ -809,13 +809,17 @@ fn scene_lights(scene: &Scene, sf: &SerializedFile, root: usize) -> Vec<RoomLigh
     out
 }
 
-/// A cubemap's six faces (+X -X +Y -Y +Z -Z), mip 0, RGBA8 (HDR formats clamped to 0..1).
+/// A cubemap's six faces (+X -X +Y -Y +Z -Z, rows top down as Unity stores cubemap faces), linear RGB with HDR
+/// kept, `size` x `size` each: the largest stored mip of at most [`MAX_CUBE`] px.
 #[derive(Clone)]
 pub struct Cubemap {
     pub name: String,
     pub size: u32,
-    pub faces: Vec<Pixels>,
+    pub faces: Vec<Vec<[f32; 3]>>,
 }
+
+/// Cubemaps are read at this face size at most (the Dorm's 1024 px sky would be 75 MB as floats).
+pub const MAX_CUBE: usize = 512;
 
 /// A reflection probe of the scene, with its baked or custom cubemap.
 #[derive(Clone)]
@@ -877,15 +881,22 @@ fn cubemap(files: &mut Files, from: &str, p: PPtr) -> Option<Cubemap> {
     let (f, id) = files.resolve(from, p)?;
     let sf = files.get(&f)?;
     let t = level::texture(&sf, sf.object(id)?, &files.resources()).ok()?;
+    let mip_size = |m: usize| unity_assets::texture::mip0_size(t.format, (t.width >> m).max(1), (t.height >> m).max(1));
     let mut face_bytes = 0;
     for m in 0..t.mip_count.max(1) as usize {
-        face_bytes += unity_assets::texture::mip0_size(t.format, (t.width >> m).max(1), (t.height >> m).max(1))?;
+        face_bytes += mip_size(m)?;
     }
+    // the first mip at most MAX_CUBE wide, and where it starts within a face
+    let (mut mip, mut skip) = (0, 0);
+    while (t.width >> mip) > MAX_CUBE && mip + 1 < t.mip_count.max(1) as usize {
+        skip += mip_size(mip)?;
+        mip += 1;
+    }
+    let (w, h) = ((t.width >> mip).max(1), (t.height >> mip).max(1));
     let faces = (0..t.image_count.max(1) as usize)
-        .map(|i| t.data.get(i * face_bytes..).and_then(|d| unity_assets::texture::decode_rgba8(t.format, t.width, t.height, d).ok()))
-        .map(|d| d.map(|d| (t.width as u32, t.height as u32, d)))
+        .map(|i| t.data.get(i * face_bytes + skip..).and_then(|d| unity_assets::texture::decode_rgb_f32_as_stored(t.format, w, h, d).ok()))
         .collect::<Option<Vec<_>>>()?;
-    Some(Cubemap { name: t.name, size: t.width as u32, faces })
+    Some(Cubemap { name: t.name, size: w as u32, faces })
 }
 
 /// The lighting of `room` (a room name, scene name or `levelN`) from the reference install.

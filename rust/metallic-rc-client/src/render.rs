@@ -319,29 +319,75 @@ fn dress_cameras(mut commands: Commands, cameras: Query<Entity, (Added<Camera3d>
     }
 }
 
-/// A room's ambient and reflections from its level file (`levels::lighting`), handed over by the loader thread.
+/// A room's ambient, reflections and sky from its level file (`levels::lighting`), handed over by the loader thread.
 pub struct RoomEnv {
     /// RenderSettings' ambient probe, `[channel][coefficient]`
     pub sh: [[f32; 9]; 3],
-    /// the custom reflection cubemap's faces (+X -X +Y -Y +Z -Z, sRGB) and its intensity
-    pub reflection: Option<Vec<Pixels>>,
+    /// the custom reflection cubemap (linear) and its intensity
+    pub reflection: Option<crate::levels::Cubemap>,
     pub reflection_intensity: f32,
     pub fog: Option<crate::levels::Fog>,
+    /// the skybox cubemap (linear, HDR) times the skybox material's tint and exposure, and its turn about y (radians)
+    pub sky: Option<(crate::levels::Cubemap, f32)>,
+    /// the scene's enabled reflection probes
+    pub probes: Vec<crate::levels::Probe>,
 }
 
 impl RoomEnv {
     pub fn new(l: &crate::levels::Lighting) -> Self {
-        let square = |c: &&crate::levels::Cubemap| c.faces.len() == 6 && c.faces.iter().all(|f| f.0 == c.size && f.1 == c.size);
-        RoomEnv { sh: l.ambient_sh, reflection: l.reflection.as_ref().filter(square).map(|c| c.faces.clone()), reflection_intensity: l.reflection_intensity, fog: l.fog.clone() }
+        let square = |c: &&crate::levels::Cubemap| c.faces.len() == 6 && c.faces.iter().all(|f| f.len() == (c.size * c.size) as usize);
+        let sky = l.skybox_cubemap.as_ref().filter(square).map(|c| {
+            let m = l.skybox.as_ref();
+            let float = |n: &str, d: f32| m.and_then(|m| m.floats.iter().find(|f| f.0 == n)).map_or(d, |f| f.1);
+            let tint = m.and_then(|m| m.colors.iter().find(|c| c.0 == "_Tint")).map_or([0.5; 3], |c| [c.1[0], c.1[1], c.1[2]]);
+            // Skybox/Cubemap: texel x tint x unity_ColorSpaceDouble (4.595 in a linear project) x _Exposure, so
+            // the default grey tint 0.5 is 1 (the project being linear is INFERRED)
+            let k = crate::shapes::linear(tint).map(|t| t * 4.594_794 * float("_Exposure", 1.0));
+            let mut c = c.clone();
+            c.faces.iter_mut().flatten().for_each(|p| *p = [p[0] * k[0], p[1] * k[1], p[2] * k[2]]);
+            (c, float("_Rotation", 0.0).to_radians())
+        });
+        RoomEnv {
+            sh: l.ambient_sh,
+            reflection: l.reflection.as_ref().filter(square).cloned(),
+            reflection_intensity: l.reflection_intensity,
+            fog: l.fog.clone(),
+            sky,
+            probes: l.probes.iter().filter(|p| p.cubemap.as_ref().is_some_and(|c| square(&c))).cloned().collect(),
+        }
     }
+}
+
+/// A cubemap (faces +X -X +Y -Y +Z -Z, rows top down) as a Bevy cube image of linear half floats. Faces are
+/// uploaded as stored: Unity and Bevy both look up cube faces the D3D way (Bevy with z negated, which is Unity's
+/// left-handed z).
+pub fn cube_image(c: &crate::levels::Cubemap) -> Image {
+    let mut data = Vec::with_capacity(c.faces.len() * c.faces[0].len() * 8);
+    for p in c.faces.iter().flatten() {
+        for ch in [p[0], p[1], p[2], 1.0] {
+            data.extend_from_slice(&f16_bits(ch.clamp(0.0, 60000.0)).to_le_bytes());
+        }
+    }
+    let n = c.size;
+    let mut img = Image::new(Extent3d { width: n, height: n, depth_or_array_layers: 6 }, TextureDimension::D2, data, TextureFormat::Rgba16Float, RenderAssetUsages::RENDER_WORLD);
+    img.texture_view_descriptor = Some(TextureViewDescriptor { dimension: Some(TextureViewDimension::Cube), ..default() });
+    img
 }
 
 /// Set by the loader thread when the room's level file has lighting; `apply_room_env` takes it.
 pub static ROOM_ENV: std::sync::Mutex<Option<RoomEnv>> = std::sync::Mutex::new(None);
 
-/// The room's environment cube and fog once applied (cameras added later get them too).
+/// The room's environment cube, fog and sky once applied (cameras added later get them too).
 #[derive(Resource, Default)]
-pub struct RoomEnvMaps(pub Option<(Handle<Image>, Option<DistanceFog>)>);
+pub struct RoomEnvMaps {
+    pub ambient: Option<Handle<Image>>,
+    pub fog: Option<DistanceFog>,
+    pub sky: Option<(Handle<Image>, Quat)>,
+}
+
+/// A reflection probe of the room's level file (a Bevy light probe box with its own generated environment map).
+#[derive(Component)]
+pub struct RoomProbe;
 
 /// The radiance whose cosine-weighted average (Bevy's diffuse ambient) is what Unity's `ShadeSH9` gives for the
 /// probe (the shader-constant form: `sh0 + sh3 x + sh1 y + sh2 z + sh4 xy + sh5 yz + sh6 (3z^2 - 1) + sh7 xz +
@@ -399,27 +445,23 @@ fn cube_texel(n: usize, d: Vec3) -> (usize, usize, usize) {
 /// diffuse light is not counted twice). Without a reflection cubemap, the probe alone.
 pub fn room_env_cubemap(env: &RoomEnv) -> Image {
     let n = ENV_SIZE;
-    let lin = |b: u8| {
-        let c = b as f32 / 255.0;
-        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
-    };
     let texel = |n: usize, f: usize, x: usize, y: usize| {
         let (u, v) = ((x as f32 + 0.5) / n as f32 * 2.0 - 1.0, (y as f32 + 0.5) / n as f32 * 2.0 - 1.0);
         (cube_dir(f, u, v).normalize(), (1.0 + u * u + v * v).powf(-1.5))
     };
     // the reflection's own bands 0..2: projection weighted by each texel's solid angle
     let mut low = [[0.0f32; 9]; 3];
-    if let Some(faces) = &env.reflection {
+    if let Some(cube) = &env.reflection {
         let mut total = 0.0;
-        for (f, (size, _, px)) in faces.iter().enumerate() {
-            let m = *size as usize;
+        for (f, px) in cube.faces.iter().enumerate() {
+            let m = cube.size as usize;
             for y in 0..m {
                 for x in 0..m {
                     let (d, w) = texel(m, f, x, y);
                     let b = sh_basis(d);
-                    let p = &px[(y * m + x) * 4..];
+                    let p = px[y * m + x];
                     for c in 0..3 {
-                        let l = lin(p[c]) * w;
+                        let l = p[c] * w;
                         for k in 0..9 {
                             low[c][k] += l * b[k];
                         }
@@ -437,14 +479,14 @@ pub fn room_env_cubemap(env: &RoomEnv) -> Image {
             for x in 0..n {
                 let d = texel(n, f, x, y).0;
                 let mut c = sh_radiance(&env.sh, d);
-                if let Some(faces) = &env.reflection {
+                if let Some(cube) = &env.reflection {
                     let b = sh_basis(d);
-                    let m = faces[0].0 as usize;
+                    let m = cube.size as usize;
                     let (sf, sx, sy) = cube_texel(m, d);
-                    let p = &faces[sf].2[(sy * m + sx) * 4..];
+                    let p = cube.faces[sf][sy * m + sx];
                     for ch in 0..3 {
                         let lowpass: f32 = (0..9).map(|k| low[ch][k] * b[k]).sum();
-                        c[ch] += env.reflection_intensity * (lin(p[ch]) - lowpass);
+                        c[ch] += env.reflection_intensity * (p[ch] - lowpass);
                     }
                 }
                 for ch in [c[0], c[1], c[2], 1.0] {
@@ -475,28 +517,63 @@ fn room_fog(f: &crate::levels::Fog) -> DistanceFog {
 /// pipeline, whose post chain is not in these files).
 const LEVEL_EV: f32 = 1.0;
 
-/// Puts the room's environment (`ROOM_ENV`) on the main cameras when it arrives, and on cameras added later.
+/// Puts the room's environment (`ROOM_ENV`) on the main cameras when it arrives, and on cameras added later: the
+/// ambient/reflection cube, fog, the level's skybox and its reflection probes.
+#[allow(clippy::type_complexity)]
 fn apply_room_env(mut commands: Commands, mut maps: ResMut<RoomEnvMaps>, mut images: ResMut<Assets<Image>>,
                   cameras: Query<Entity, (With<Camera3d>, Without<crate::mirror::MirrorCamera>)>,
-                  added: Query<Entity, (Added<Camera3d>, Without<crate::mirror::MirrorCamera>)>) {
+                  added: Query<Entity, (Added<Camera3d>, Without<crate::mirror::MirrorCamera>)>,
+                  old_probes: Query<Entity, With<RoomProbe>>) {
     let fresh = ROOM_ENV.lock().unwrap().take();
     if let Some(env) = &fresh {
         let t = std::time::Instant::now();
-        maps.0 = Some((images.add(room_env_cubemap(env)), env.fog.as_ref().map(room_fog)));
-        info!("room environment: ambient probe, reflection cubemap {} (x{:.2}), fog {}, made in {:.2} s", env.reflection.is_some(),
-              env.reflection_intensity, env.fog.is_some(), t.elapsed().as_secs_f32());
+        maps.ambient = Some(images.add(room_env_cubemap(env)));
+        maps.fog = env.fog.as_ref().map(room_fog);
+        maps.sky = env.sky.as_ref().map(|(c, turn)| (images.add(cube_image(c)), Quat::from_rotation_y(-turn)));
+        for e in &old_probes {
+            commands.entity(e).despawn();
+        }
+        for p in &env.probes {
+            let Some(c) = &p.cubemap else { continue };
+            // Unity probes are axis-aligned boxes at the object's position plus the offset (rotation ignored)
+            let at = p.world.transform_point3(Vec3::new(p.offset[0], p.offset[1], -p.offset[2]));
+            let size = Vec3::from(p.size).abs().max(Vec3::splat(0.01));
+            commands.spawn((
+                RoomProbe,
+                bevy::light::LightProbe { falloff: Vec3::splat(0.1) },
+                GeneratedEnvironmentMapLight { environment_map: images.add(cube_image(c)), intensity: UNEXPOSE * p.intensity, affects_lightmapped_mesh_diffuse: false, ..default() },
+                Transform::from_translation(at).with_scale(size),
+            ));
+        }
+        info!("room environment: ambient probe, reflection cubemap {} (x{:.2}), fog {}, sky {}, {} reflection probes, made in {:.2} s",
+              env.reflection.is_some(), env.reflection_intensity, env.fog.is_some(), env.sky.as_ref().map_or("none".into(), |s| format!("{} {} px", s.0.name, s.0.size)),
+              env.probes.len(), t.elapsed().as_secs_f32());
     }
-    let Some((map, fog)) = &maps.0 else { return };
+    let Some(map) = &maps.ambient else { return };
     let targets: Vec<Entity> = if fresh.is_some() { cameras.iter().collect() } else { added.iter().collect() };
     for cam in targets {
         let mut e = commands.entity(cam);
+        // a frozen map (quality.rs) is an EnvironmentMapLight: drop it so the new source is filtered
+        e.remove::<bevy::light::EnvironmentMapLight>();
         e.insert((
             GeneratedEnvironmentMapLight { environment_map: map.clone(), intensity: UNEXPOSE, affects_lightmapped_mesh_diffuse: false, ..default() },
             Exposure { ev100: EV100 - 0.21 - LEVEL_EV },
         ));
-        if let Some(fog) = fog {
+        if let Some(fog) = &maps.fog {
             e.insert(fog.clone());
         }
+        if let Some((sky, turn)) = &maps.sky {
+            e.insert(Skybox { image: Some(sky.clone()), brightness: UNEXPOSE, rotation: *turn });
+        }
+    }
+}
+
+/// Forgets the room's level environment (a room without a level file comes next): probes go, cameras keep their
+/// maps until the next room's `sky_on_camera` / `apply_room_env` replaces them.
+pub fn clear_room_env(commands: &mut Commands, maps: &mut RoomEnvMaps, probes: impl IntoIterator<Item = Entity>) {
+    *maps = RoomEnvMaps::default();
+    for e in probes {
+        commands.entity(e).despawn();
     }
 }
 
@@ -612,9 +689,10 @@ pub fn sky_cubemap(sky: &SimpleGradient) -> Image {
 /// probes baked into its level files). URP lights a surface's ambient with spherical harmonics at
 /// `ambientIntensity` 1 (INFERRED), so the map is scaled by the exposure factor only. Baked lightmaps
 /// already hold the ambient light, so lightmapped meshes take only reflections from it.
-pub fn sky_on_camera(commands: &mut Commands, camera: Entity, sky: Handle<Image>, ambient: Handle<Image>) {
-    commands.entity(camera).insert((
-        Skybox { image: Some(sky), brightness: UNEXPOSE, ..default() },
+pub fn sky_on_camera(commands: &mut Commands, camera: Entity, sky: Handle<Image>, rotation: Quat, ambient: Handle<Image>) {
+    // a frozen map (quality.rs) is an EnvironmentMapLight: drop it so the new source is filtered
+    commands.entity(camera).remove::<bevy::light::EnvironmentMapLight>().insert((
+        Skybox { image: Some(sky), brightness: UNEXPOSE, rotation },
         GeneratedEnvironmentMapLight { environment_map: ambient, intensity: UNEXPOSE, affects_lightmapped_mesh_diffuse: false, ..default() },
     ));
 }

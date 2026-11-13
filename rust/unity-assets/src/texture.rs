@@ -54,6 +54,41 @@ pub fn mip0_size(format: i32, w: usize, h: usize) -> Option<usize> {
 
 /// Decodes mip 0 of `data` to RGBA8, rows top to bottom (Unity stores them bottom-up).
 pub fn decode_rgba8(format: i32, w: usize, h: usize, data: &[u8]) -> Result<Vec<u8>> {
+    let mut out = decode_rgba8_as_stored(format, w, h, data)?;
+    let row = w * 4;
+    for y in 0..h / 2 {
+        let (a, b) = out.split_at_mut((h - 1 - y) * row);
+        a[y * row..(y + 1) * row].swap_with_slice(&mut b[..row]);
+    }
+    Ok(out)
+}
+
+/// Decodes mip 0 to linear float RGB, rows as stored (a Cubemap's faces are stored top row first). HDR formats
+/// (BC6H, RGBAHalf, RGBAFloat, RGB9e5) keep values over 1; other formats are their RGBA8 decode / 255.
+pub fn decode_rgb_f32_as_stored(format: i32, w: usize, h: usize, data: &[u8]) -> Result<Vec<[f32; 3]>> {
+    let need = mip0_size(format, w, h).unwrap_or(0);
+    if data.len() < need {
+        return format_err(format!("{} needs {need} bytes, have {}", format_name(format), data.len()));
+    }
+    let f = |i: usize| f32::from_le_bytes(data[i..i + 4].try_into().unwrap());
+    let h16 = |i: usize| crate::bc6h::half_to_f32(u16::from_le_bytes([data[i], data[i + 1]]));
+    Ok(match format {
+        24 => crate::bc6h::decode(data, w, h),
+        17 => (0..w * h).map(|i| [h16(i * 8), h16(i * 8 + 2), h16(i * 8 + 4)]).collect(),
+        20 => (0..w * h).map(|i| [f(i * 16), f(i * 16 + 4), f(i * 16 + 8)]).collect(),
+        22 => (0..w * h)
+            .map(|i| {
+                let v = u32::from_le_bytes(data[i * 4..i * 4 + 4].try_into().unwrap());
+                let scale = 2f32.powi((v >> 27) as i32 - 15 - 9);
+                [(v & 511) as f32 * scale, ((v >> 9) & 511) as f32 * scale, ((v >> 18) & 511) as f32 * scale]
+            })
+            .collect(),
+        _ => decode_rgba8_as_stored(format, w, h, data)?.chunks_exact(4).map(|p| [p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0]).collect(),
+    })
+}
+
+/// Decodes mip 0 of `data` to RGBA8, rows as stored (BC6H clamped to 0..1, linear).
+pub fn decode_rgba8_as_stored(format: i32, w: usize, h: usize, data: &[u8]) -> Result<Vec<u8>> {
     if w == 0 || h == 0 {
         return format_err("zero-sized texture");
     }
@@ -95,12 +130,17 @@ pub fn decode_rgba8(format: i32, w: usize, h: usize, data: &[u8]) -> Result<Vec<
             },
             2,
         ),
-        10 | 12 | 24 | 25 | 26 | 27 | 28 | 29 => {
+        24 => {
+            for (o, p) in out.chunks_exact_mut(4).zip(crate::bc6h::decode(src, w, h)) {
+                let q = |v: f32| (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8;
+                o.copy_from_slice(&[q(p[0]), q(p[1]), q(p[2]), 255]);
+            }
+        }
+        10 | 12 | 25 | 26 | 27 | 28 | 29 => {
             let mut img = vec![0u32; w * h];
             let res = match format {
                 10 => t2d::decode_bc1(src, w, h, &mut img),
                 12 => t2d::decode_bc3(src, w, h, &mut img),
-                24 => t2d::decode_bc6_unsigned(src, w, h, &mut img),
                 25 => t2d::decode_bc7(src, w, h, &mut img),
                 26 => t2d::decode_bc4(src, w, h, &mut img),
                 27 => t2d::decode_bc5(src, w, h, &mut img),
@@ -113,11 +153,6 @@ pub fn decode_rgba8(format: i32, w: usize, h: usize, data: &[u8]) -> Result<Vec<
             }
         }
         _ => return unsupported(format!("texture format {} ({format})", format_name(format))),
-    }
-    let row = w * 4;
-    for y in 0..h / 2 {
-        let (a, b) = out.split_at_mut((h - 1 - y) * row);
-        a[y * row..(y + 1) * row].swap_with_slice(&mut b[..row]);
     }
     Ok(out)
 }

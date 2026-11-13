@@ -6,6 +6,7 @@
 //! Addressables `catalog.bin`.
 
 mod reader;
+pub mod bc6h;
 pub mod bundle;
 pub mod catalog;
 pub mod classes;
