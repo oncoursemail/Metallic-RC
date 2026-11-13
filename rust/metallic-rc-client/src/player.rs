@@ -273,11 +273,16 @@ fn camera_view(
     p.sprint_view += (goal - p.sprint_view).clamp(-dt / tuning.sprint_camera_blend.max(1e-3), dt / tuning.sprint_camera_blend.max(1e-3));
     let to_local = |at: Transform| Transform::from_matrix(eye.to_matrix().inverse() * at.to_matrix());
     let (want, fov) = if in_title.0 {
-        // the title screen: camera in front of the avatar and off to its right, looking back at its face, so the
-        // avatar frames to the left of screen with the panel clear on the right (the real client's title layout)
+        // the title screen: camera in front of the avatar, pulled in to an upper-body crop and panned so the avatar
+        // frames to the left with the panel clear on the right — the real client's title presentation. Tunable without
+        // a rebuild: METALLIC_TITLE_CAM_DIST / _H (camera distance / height), _PAN / _LOOK_H (look-target pan / height).
         let body = Quat::from_rotation_y(p.yaw);
-        // camera dead in front (avatar faces us), pulled back; pan the look target hard so the avatar sits screen-left
-        let at = Transform::from_translation(feet + body * Vec3::new(0.0, 1.2, -3.2)).looking_at(feet + body * Vec3::new(-2.6, 0.0, 0.0) + Vec3::Y * 1.2, Vec3::Y);
+        let dist = crate::envf("METALLIC_TITLE_CAM_DIST", 1.7);
+        let cam_h = crate::envf("METALLIC_TITLE_CAM_H", 1.47);
+        let pan = crate::envf("METALLIC_TITLE_CAM_PAN", 1.32);
+        let look_h = crate::envf("METALLIC_TITLE_LOOK_H", 1.45);
+        let at = Transform::from_translation(feet + body * Vec3::new(0.0, cam_h, -dist))
+            .looking_at(feet + body * Vec3::new(-pan, 0.0, 0.0) + Vec3::Y * look_h, Vec3::Y);
         (to_local(at), fov_setting)
     } else if panel.open.is_some() {
         // world place first: 2.2 m in front, a little above the chest, looking back at the whole body

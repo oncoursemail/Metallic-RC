@@ -339,9 +339,20 @@ struct TitleWallpaper {
     mark: Option<Handle<Image>>,
 }
 
+/// A float from an env var, for dialling title values in without a rebuild (e.g. `METALLIC_TITLE_KEY`); falls back to `d`.
+pub(crate) fn envf(key: &str, d: f32) -> f32 {
+    std::env::var(key).ok().and_then(|s| s.parse().ok()).unwrap_or(d)
+}
+
 /// A full-screen quad (child of the camera) that shows the tiled wallpaper behind the title screen.
 #[derive(Component)]
 struct TitleBackdrop;
+
+/// A light we spawn for the title presentation (key + fill). Marked so the scene-light hide doesn't touch our own
+/// title lights — the room's lights are dimmed while the title is up so the avatar is lit like the real title's soft
+/// even light (otherwise the kept room lights blow the navy blazer out to periwinkle).
+#[derive(Component)]
+struct TitleLight;
 
 /// The wallpaper quad itself, whose UV scrolls so the pattern drifts like the real title.
 #[derive(Component)]
@@ -382,6 +393,8 @@ fn title_backdrop(
     mut commands: Commands,
     mut third: ResMut<player::ThirdPerson>,
     mut meshes: Query<&mut Visibility, (Or<(With<world::RoomPiece>, With<StandIn>)>, Without<PointLight>, Without<DirectionalLight>, Without<SpotLight>)>,
+    mut scene_lights: Query<&mut Visibility, (Or<(With<PointLight>, With<DirectionalLight>, With<SpotLight>)>, Without<TitleLight>, Without<world::RoomPiece>, Without<StandIn>)>,
+    mut room_lights: Query<&mut Visibility, (Or<(With<world::RoomPiece>, With<StandIn>)>, Or<(With<PointLight>, With<DirectionalLight>, With<SpotLight>)>, Without<TitleLight>)>,
     camera: Query<Entity, With<Camera3d>>,
     (mut mesh_assets, mut mats): (ResMut<Assets<Mesh>>, ResMut<Assets<StandardMaterial>>),
     wall: Res<TitleWallpaper>,
@@ -391,15 +404,22 @@ fn title_backdrop(
 ) {
     let title = menu.router.top() == Some(menu::TITLE_CACHED);
     in_title.0 = title;
+    // the title lights the avatar with a controlled key+fill (below), so the scene's own lights are dimmed while the
+    // title is up — otherwise the kept room lights over-light the avatar and the navy blazer blows out to periwinkle.
+    // Tunable without a rebuild: METALLIC_TITLE_KEY (front key lux), METALLIC_TITLE_FILL (opposite fill lux).
+    let key_lux = envf("METALLIC_TITLE_KEY", 1800.0);
+    let fill_lux = envf("METALLIC_TITLE_FILL", 450.0);
     if title {
         third.0 = true;
         for mut v in &mut meshes {
             *v = Visibility::Hidden;
         }
+        for mut v in scene_lights.iter_mut().chain(room_lights.iter_mut()) {
+            *v = Visibility::Hidden;
+        }
         if backdrop.is_none() {
             if let (Ok(cam), Some(grad), Some(mark)) = (camera.single(), wall.gradient.clone(), wall.mark.clone()) {
-                // two layers behind the avatar: the orange gradient (back) and the RECface mark tile (front), plus a
-                // key light along the camera's view so the avatar's front is lit (the kept room lights are behind it)
+                // two layers behind the avatar: the orange gradient (back) and the RECface mark tile (front)
                 let grad_mesh = mesh_assets.add(Mesh::from(Rectangle::new(120.0, 72.0)));
                 let grad_mat = mats.add(StandardMaterial { base_color_texture: Some(grad), unlit: true, ..default() });
                 let grad_quad = commands.spawn((Mesh3d(grad_mesh), MeshMaterial3d(grad_mat), Transform::from_xyz(0.0, 0.0, -21.0))).id();
@@ -408,9 +428,14 @@ fn title_backdrop(
                 tile_mat.uv_transform = title_tile_uv(0.0);
                 let tile_m = mats.add(tile_mat);
                 let tile_quad = commands.spawn((Mesh3d(tile_mesh), MeshMaterial3d(tile_m), Transform::from_xyz(0.0, 0.0, -20.9), TitleBackdropQuad)).id();
-                let key = commands.spawn((DirectionalLight { illuminance: 9000.0, ..default() }, Transform::from_xyz(0.0, 0.5, 0.0).looking_at(Vec3::new(0.0, 0.0, -2.0), Vec3::Y))).id();
+                // the avatar's own soft lighting: a front-left key along the camera's view (like the reference's lighting
+                // from screen-left) and a dimmer fill from the opposite side so the shaded side doesn't go black
+                let key = commands.spawn((DirectionalLight { illuminance: key_lux, ..default() }, TitleLight,
+                    Transform::from_xyz(-1.2, 0.8, 1.0).looking_at(Vec3::new(0.0, -0.2, -2.0), Vec3::Y))).id();
+                let fill = commands.spawn((DirectionalLight { illuminance: fill_lux, shadow_maps_enabled: false, ..default() }, TitleLight,
+                    Transform::from_xyz(1.6, 0.4, 0.5).looking_at(Vec3::new(0.0, 0.0, -2.0), Vec3::Y))).id();
                 let container = commands.spawn((Transform::default(), Visibility::default(), TitleBackdrop)).id();
-                commands.entity(container).add_children(&[grad_quad, tile_quad, key]);
+                commands.entity(container).add_children(&[grad_quad, tile_quad, key, fill]);
                 commands.entity(cam).add_child(container);
                 *backdrop = Some(container);
             }
@@ -418,6 +443,9 @@ fn title_backdrop(
         *was_title = true;
     } else if *was_title {
         for mut v in &mut meshes {
+            *v = Visibility::Inherited;
+        }
+        for mut v in scene_lights.iter_mut().chain(room_lights.iter_mut()) {
             *v = Visibility::Inherited;
         }
         if let Some(e) = backdrop.take() {

@@ -38,7 +38,8 @@ const MOUTH_BUNDLE: &str = "8fcb685a7a49de356df5b83ada6b0c86.bundle";
 
 /// Rec Room ships two avatar body types. The Bean is the classic, iconic Rec Room look: a rounded legless torso with a
 /// head and floating hands. The Full body is the newer humanoid with arms and legs. Both share the same `Jnt.*` rig.
-/// Chosen once for the client with `METALLIC_BODY` (default: the Full body; `METALLIC_BODY=bean` for the legacy Bean).
+/// Chosen once for the client with `METALLIC_BODY` (default: the classic Bean — the owner's @alexbuz reference avatar;
+/// `METALLIC_BODY=full` for the newer humanoid).
 #[derive(Resource, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BodyType {
     Bean,
@@ -51,11 +52,11 @@ const BEAN_BODY_ID: i64 = 9072706044162942483;
 
 impl BodyType {
     fn from_env() -> Self {
-        // the Full body is the real Rec Room 2026 avatar (hair, clothing and shoes skin-wrap onto it correctly); the Bean
-        // is the legacy legless body and is opt-in with METALLIC_BODY=bean
+        // the Bean is the classic Rec Room look and the owner's own @alexbuz avatar (the title reference), so it is the
+        // default; the newer Full humanoid is opt-in with METALLIC_BODY=full
         match std::env::var("METALLIC_BODY").ok().as_deref().map(str::to_ascii_lowercase).as_deref() {
-            Some("bean") => BodyType::Bean,
-            _ => BodyType::Full,
+            Some("full") => BodyType::Full,
+            _ => BodyType::Bean,
         }
     }
     fn bundle(self) -> &'static str {
@@ -204,14 +205,16 @@ pub struct Dressing {
 impl Default for Dressing {
     fn default() -> Self {
         let hair_styles = scan_hair_styles();
-        // The owner's real Rec Room avatar (the title reference): the navy business suit, all real full-body meshes
-        // from the decompiled dump — navy blazer (solid-tinted, its region mask suppressed), a white dress shirt under
-        // it, a dark business tie, and the slicked GordonGekko hair. Overridable with METALLIC_HAIR.
+        // The owner's real Rec Room avatar (the title reference): the navy business suit, all real meshes from the
+        // decompiled dump. The blazer item (`Blazer_Shirt`) is ONE mesh with the white dress shirt + buttons baked in
+        // via its recolour mask (see `wardrobe_tex_for`), so there is no separate collar-shirt layer — just the blazer
+        // and a dark business tie, plus the slicked GordonGekko hair. The blazer's colours come from its baked texture,
+        // so its tint is white (un-tinted). Overridable with METALLIC_HAIR.
         let hair_style = std::env::var("METALLIC_HAIR").ok().filter(|s| hair_styles.contains(s)).unwrap_or_else(|| "Hair_GordonGekko".into());
         Dressing {
-            skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x5a, 0x37, 0x24], shirt: [0x20, 0x30, 0x58], pants: [0x1c, 0x1e, 0x26],
+            skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x5a, 0x37, 0x24], shirt: [0xff, 0xff, 0xff], pants: [0x1c, 0x1e, 0x26],
             top: "Blazer_Shirt".into(), bottom: "BasicPants_Leg".into(), shoes: "Boots_Shoe".into(),
-            undershirt: "CollarShirt_Shirt".into(), tie: "Tie_Neck".into(),
+            undershirt: String::new(), tie: "Tie_Neck".into(),
             hat: String::new(), beard: String::new(), glasses: String::new(),
             hair_styles,
         }
@@ -311,16 +314,40 @@ pub fn scan_slot(body: BodyType, slot: Slot) -> Vec<String> {
 /// The real texture for a wardrobe stem (e.g. `HockeySet_Shirt` -> `HockeySet_Shirt_Tex.png`), trying the few naming
 /// conventions the export uses; `None` when the style ships no base texture (the mesh then shows its tint alone).
 fn wardrobe_tex_for(stem: &str) -> Option<Image> {
-    // the blazer's own texture is a region mask (navy/shirt/tie zones); the real suit tints it SOLID navy via the
-    // MidnightBlue combination, so skip the mask and let the base colour carry it. The tie uses the business-tie tex.
+    // The blazer item (`Blazer_Shirt`) is one mesh with the dress shirt + buttons baked in; its texture is a three-zone
+    // region MASK (R = blazer, G = shirt, black = buttons) that the game recolours per combination. The real title look
+    // is the MidnightBlue combination: blazer navy `_Blue_Col` #211f46, shirt white `_Green_Col` #dfe2e5, buttons tan
+    // `_Base_Col` #c2ab82 (exact material values from the decompiled dump). Bake that recolour so one mesh carries the
+    // whole suit — no separate collar-shirt mesh (which is a standalone shirt and clips at the shoulders).
     if stem == "Blazer_Shirt" {
-        return None;
+        return bake_region_mask(&wardrobe_dir().join("Blazer_Shirt_tex.png"), [0x21, 0x1f, 0x46], [0xdf, 0xe2, 0xe5], [0xc2, 0xab, 0x82]);
     }
     if stem == "Tie_Neck" {
         return load_texture(&wardrobe_dir().join("BusinessTie_Neck_tex.png"));
     }
     let names = [format!("{stem}_Tex.png"), format!("FB_{stem}_Tex.png"), format!("{stem}_tex.png")];
     names.iter().find_map(|n| load_texture(&wardrobe_dir().join(n)))
+}
+
+/// Bakes a Rec Room three-zone recolour mask into a solid-colour sRGB texture: red-channel pixels take `red`, green
+/// take `green`, and everything else (the black "base" zone) takes `base`. Used for the blazer's blazer/shirt/buttons
+/// zones so one mesh renders the whole suit without the game's runtime recolour shader.
+fn bake_region_mask(path: &Path, red: [u8; 3], green: [u8; 3], base: [u8; 3]) -> Option<Image> {
+    let mask = image::open(path).ok()?.to_rgba8();
+    let (w, h) = mask.dimensions();
+    let mut out = image::RgbaImage::new(w, h);
+    for (o, m) in out.pixels_mut().zip(mask.pixels()) {
+        let [r, g, b, _] = m.0;
+        let c = if r > 96 && r >= g { red } else if g > 96 && g >= r { green } else if b > 96 && b > r && b > g { red } else { base };
+        *o = image::Rgba([c[0], c[1], c[2], 255]);
+    }
+    Some(Image::new(
+        Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        out.into_raw(),
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    ))
 }
 
 /// The body's skin binding + point cloud kept on a [`RealWorn`], for spawning skin-wrapped wardrobe meshes live.
@@ -740,9 +767,42 @@ fn load_obj(path: &Path) -> Option<Mesh> {
 /// Loads a wardrobe mesh `stem` (e.g. "ShirtJersey", "BasicPants_Leg", "CurlyHelmetHair_Hair") for `body`: the Full
 /// body's meshes are `FB_`-prefixed, the Bean's are bare. Tries the prefixed name, then the bare one.
 fn load_wardrobe(body: BodyType, stem: &str) -> Option<Mesh> {
-    let prefix = if body == BodyType::Full { "FB_" } else { "" };
-    load_obj(&wardrobe_dir().join(format!("{prefix}{stem}_LOD0.obj")))
-        .or_else(|| load_obj(&wardrobe_dir().join(format!("{stem}_LOD0.obj"))))
+    let dir = wardrobe_dir();
+    let obj = |name: String| load_obj(&dir.join(name));
+    match body {
+        // the Full body's garments are `FB_`-prefixed; fall back to the bare name for shared items.
+        BodyType::Full => obj(format!("FB_{stem}_LOD0.obj")).or_else(|| obj(format!("{stem}_LOD0.obj"))),
+        BodyType::Bean => {
+            // The Modern Bean wears its own `MB_`-prefixed garments, fitted to the legless bean torso. A few suit items
+            // map to a differently-named MB mesh (the blazer item is the `MB_Suit` mesh, the tie is `MB_Neck_Tie`), and
+            // the legless bean has no pants or shoes, so those items wear nothing.
+            if let Some(mb) = bean_mesh(stem) {
+                return obj(format!("{mb}_LOD0.obj"));
+            }
+            if stem.ends_with("_Leg") || stem.ends_with("_Shoe") {
+                return None;
+            }
+            // Hair rides the head joint, and the bean shares the Full body's skeleton (same head height), so use the
+            // body-space `FB_` hair mesh — the bare `Hair_*` export is head-local (centred at the origin) and would
+            // collapse to the bean's feet when skin-wrapped to the body cloud.
+            if stem.starts_with("Hair_") || stem.ends_with("_Hair") {
+                return obj(format!("FB_{stem}_LOD0.obj")).or_else(|| obj(format!("{stem}_LOD0.obj")));
+            }
+            // other shared items: the `MB_` variant if present, else the bare mesh.
+            obj(format!("MB_{stem}_LOD0.obj")).or_else(|| obj(format!("{stem}_LOD0.obj")))
+        }
+    }
+}
+
+/// The Modern Bean mesh file stem for a wardrobe item whose MB mesh is named differently from `MB_<item>` (the suit
+/// pieces), or `None` to fall through to the generic `MB_<item>` / bare lookup.
+fn bean_mesh(stem: &str) -> Option<&'static str> {
+    Some(match stem {
+        "Blazer_Shirt" => "MB_Suit",
+        "CollarShirt_Shirt" => "MB_CollarShirt_Shirt",
+        "Tie_Neck" => "MB_Neck_Tie",
+        _ => return None,
+    })
 }
 
 /// The hair mesh for `body`. Default style: a short curly cut; override with METALLIC_HAIR (`Afro`, `WavyShort`, ...).
@@ -920,6 +980,12 @@ pub fn load_roomie(
         return;
     }
     info!("avatar: face sprites loaded ({} eye, {} mouth expressions)", eyes.len(), mouths.len());
+    if std::env::var("METALLIC_FACE_DBG").is_ok() {
+        let mut ek: Vec<&String> = eyes.keys().collect(); ek.sort();
+        let mut mk: Vec<&String> = mouths.keys().collect(); mk.sort();
+        eprintln!("[face] eyes: {ek:?}");
+        eprintln!("[face] mouths: {mk:?}");
+    }
     // the real authored locomotion clips, when a (decrypted) corpus is reachable; else the procedural poser drives the rig
     if let Some(rigdef) = &rig {
         if let Some(loaded) = clips::load(dir, rigdef) {
@@ -1011,7 +1077,10 @@ pub fn attach_real(
         let look = &rig.look;
         // when real clothing meshes are worn, the base body is all skin (the jersey + pants provide shirt/legs);
         // otherwise the body's own regions carry the shirt/pants colours
-        let clothed = roomie.jersey.is_some() || roomie.legs.is_some();
+        // the Bean always wears its suit (redress dresses the local bean, and the torso is covered by the blazer+collar),
+        // so treat it as clothed too — otherwise the body's shirt/pants region colours (e.g. a teal default) show through
+        // the collar gap at the neck.
+        let clothed = roomie.jersey.is_some() || roomie.legs.is_some() || roomie.body == BodyType::Bean;
         let mats = if clothed {
             let skin = solid(&mut materials, look.skin, 0.55);
             [skin.clone(), skin.clone(), skin]
@@ -1369,6 +1438,7 @@ pub fn animate_skeleton(
 pub fn animate_face(
     time: Res<Time>,
     roomie: Option<Res<Roomie>>,
+    in_title: Option<Res<crate::player::InTitle>>,
     faces: Query<(&Face, &Drive)>,
     mut mats: Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
@@ -1384,6 +1454,29 @@ pub fn animate_face(
             }
         }
     };
+    // The title avatar wears the real title idle face: fixed caret "^^" happy eyes and a gentle mouth that drifts
+    // between a closed and an open smile (the reference's idle facial animation). Overridable with METALLIC_TITLE_EYE.
+    let title = in_title.map_or(false, |it| it.0);
+    if title {
+        // the reference's caret "^^" happy eyes are the fully-closed happy expression (`Eye_Blink_Happy`); `Eye_Happy`
+        // is the open squint with pupils, which is not the title look.
+        let eye_name = std::env::var("METALLIC_TITLE_EYE").unwrap_or_else(|_| "Eye_Blink_Happy".into());
+        // fall back to another closed/happy eye in the set if the preferred name is missing from this bundle
+        let eye_key = roomie.eyes.get(&eye_name).map(|_| eye_name.clone())
+            .or_else(|| ["Eye_Happy", "Eye_Closed_Half", "Eye_Happy_Big"].iter().find(|k| roomie.eyes.contains_key(**k)).map(|k| k.to_string()))
+            .unwrap_or_else(|| rest_eye.clone());
+        let eye = roomie.eyes.get(&eye_key);
+        for (face, _) in &faces {
+            for &e in &face.eyes {
+                put(e, eye);
+            }
+            // a ~2.6 s cycle, open-smile for the middle third, closed smile otherwise, offset per avatar
+            let phase = (t / 2.6 + face.seed as f32 * 0.37).fract();
+            let mouth = if (0.34..0.66).contains(&phase) { "Mouth_Smile_Open" } else { "Mouth_Smile" };
+            put(face.mouth, roomie.mouths.get(mouth).or_else(|| roomie.mouths.get(rest_mouth.as_str())));
+        }
+        return;
+    }
     for (face, drive) in &faces {
         // blink: a quick close for ~0.12 s every few seconds, offset per avatar so they don't blink in lockstep
         let period = 3.2 + (face.seed % 7) as f32 * 0.45;

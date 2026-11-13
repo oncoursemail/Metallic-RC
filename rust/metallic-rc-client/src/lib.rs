@@ -35,3 +35,8 @@ pub mod texprep;
 pub mod ui;
 pub mod voice;
 pub mod world;
+
+/// A float from an env var, for dialling values in without a rebuild (e.g. `METALLIC_TITLE_CAM_DIST`); falls back to `d`.
+pub fn envf(key: &str, d: f32) -> f32 {
+    std::env::var(key).ok().and_then(|s| s.parse().ok()).unwrap_or(d)
+}
