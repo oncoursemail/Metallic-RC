@@ -27,6 +27,9 @@ const ITEM_CARD: &str = "Assets/RRUI/Prefabs/WatchMenu/Components/Cards/(AvatarC
 pub const ESCAPE: &str = "(EscapeMenu_standalone)";
 pub const SWITCH_ACCOUNT: &str = "(SwitchAccount)";
 pub const LOGIN: &str = "(Login)";
+/// The signed-in title screen (the real client's front door): REC ROOM logo, the handle, a hideable friends grid and
+/// the big Play button, over the posed avatar.
+pub const TITLE_CACHED: &str = "(TitleScreenCachedAccount)";
 pub const CONTROLS: &str = "(Watch_Settings_Page_Controls_Tab)";
 pub const VISUALS: &str = "(Watch_Settings_Page_Visuals_Tab)";
 /// The rooms browser: the watch's Play grid (a card per room).
@@ -354,6 +357,10 @@ fn hidden(class: &str, d: &Value, ctx: &Ctx) -> Option<bool> {
         "HideIfItemsExistImpl" | "HideIfNotEmptyImpl" | "HideIfNoSubtabsImpl" | "HideIfNotLocalAccountImpl" | "HideIfJuniorAccountImpl"
         | "HideIfOfflineImpl" | "HideIfActuallyOfflineImpl" | "HideIfBlockingLocalPlayerImpl" | "HideIfBlockedByLocalPlayerImpl" => false,
         "HideIfEmptyImpl" => true,
+        // title screen, signed in with no friends online (placeholder): collapse the "Join your friends" grid so the
+        // panel is just the handle + Play, as the real client shows it when nobody's on. Not a high-friend-count user.
+        "HideIfNoFriendsOnlineImpl" | "HideIfPlayerDoesntHaveHighFriendCountImpl" => true,
+        "HideIfPlayerHasHighFriendCountImpl" => false,
         "HideIfScreensInputModeImpl" => input == Some(1),
         "HideIfNotScreensInputModeImpl" => input != Some(1),
         _ => return None,
@@ -365,6 +372,8 @@ fn hidden(class: &str, d: &Value, ctx: &Ctx) -> Option<bool> {
 fn account_text(class: &str, d: &Value, account: &str) -> Option<String> {
     let value = match class {
         "AccountModelController/DisplayNameTextImpl" | "AccountModelController/UsernameTextImpl" => account,
+        // the title screen's signed-in handle: "@" + the account name (the prefab default is "@Username")
+        "TitleScreenFlowModelController/CachedAccountUsernameTextImpl" => return Some(format!("@{account}")),
         "AccountModelController/LevelTextImpl" | "PlayerProgressionWatchHomeModelController/LevelTextImpl" => "1",
         "PlayerCommerceModelController/TokenBalanceTextImpl" => "0",
         _ => return None,
@@ -646,6 +655,13 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     if leaf == LOGIN {
         const NOT_OURS: [&str; 5] = ["[TextFieldSingleLine] Password", "[Checkbox]", "[TextButton] Forgot password", "[TextButton] Create an account", "(TermsOfServiceButton)"];
         page.each_mut(&mut |e| e.active &= !NOT_OURS.iter().any(|n| e.name.starts_with(n)));
+    }
+    // the signed-in title screen with no friend data: collapse the "Join your friends" grid (its cards are the
+    // prefab's placeholder template, filled by the account list controller at runtime) and the boot-time Terms/Update
+    // prompts, so the panel is the handle + Play over the avatar — the real front door when nobody's online.
+    if leaf == TITLE_CACHED {
+        const HIDE: [&str; 3] = ["OnlineFriends", "(TermsOfServiceButton)", "[TextButton] Update"];
+        page.each_mut(&mut |e| e.active &= !HIDE.iter().any(|n| e.name.starts_with(n)));
     }
     // the watch shows no tutorial highlight (the root screen holds a sample one, shown only while a tutorial runs)
     if ctx.page.starts_with(routes::ROOT) {

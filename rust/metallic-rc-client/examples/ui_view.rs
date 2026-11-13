@@ -19,7 +19,8 @@ fn main() {
         .or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()))
         .expect("no game folder");
     let painter = menu::Painter::start(room::bundle_dir(&game));
-    painter.ask(menu::Request { page: address.clone(), back_stack: 1, settings: Settings::default(), account: "Player".into(), typed: String::new(),
+    let account = std::env::var("UI_ACCOUNT").unwrap_or_else(|_| "Player".into());
+    painter.ask(menu::Request { page: address.clone(), back_stack: 1, settings: Settings::default(), account, typed: String::new(),
         focused: false, scroll: HashMap::new(), choosing: None, server: String::new(), token: String::new() });
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
