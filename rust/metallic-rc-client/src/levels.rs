@@ -26,8 +26,15 @@ use crate::{
 
 static REF_INSTALL: OnceLock<Option<PathBuf>> = OnceLock::new();
 
-/// The default reference install.
-pub const DEFAULT_REF_INSTALL: &str = r"C:\Meow.Net";
+/// The reference installs we look for (plain scene files, for room lighting/layout), tried in order; the first whose
+/// `RecRoom_Data` has `globalgamemanagers` wins. `--ref-install` overrides this. These are the owner's local installs,
+/// like [`room::GAME_DIRS`]; add a path here (or pass `--ref-install`) when the install lives elsewhere.
+pub const DEFAULT_REF_INSTALLS: [&str; 2] = [r"C:\Meow.Net", r"C:\Users\alexi\Stella\Build"];
+
+/// The first default reference install present on this machine, if any.
+fn default_ref_install() -> Option<PathBuf> {
+    DEFAULT_REF_INSTALLS.iter().map(|p| data_dir(Path::new(p))).find(|d| d.join("globalgamemanagers").exists())
+}
 
 /// Sets the reference install from `--ref-install` (the install folder or its `RecRoom_Data`); `none` turns the
 /// levels off. Call once, before the first room loads; later calls are ignored.
@@ -35,7 +42,7 @@ pub fn set_ref_install(arg: Option<&str>) {
     let dir = match arg {
         Some(a) if a.eq_ignore_ascii_case("none") => None,
         Some(a) => Some(data_dir(Path::new(a))),
-        None => Some(data_dir(Path::new(DEFAULT_REF_INSTALL))).filter(|d| d.join("globalgamemanagers").exists()),
+        None => default_ref_install(),
     };
     let _ = REF_INSTALL.set(dir);
 }
@@ -46,7 +53,7 @@ fn data_dir(p: &Path) -> PathBuf {
 
 /// The reference install's `RecRoom_Data`, if there is one.
 pub fn ref_install() -> Option<&'static Path> {
-    REF_INSTALL.get_or_init(|| Some(data_dir(Path::new(DEFAULT_REF_INSTALL))).filter(|d| d.join("globalgamemanagers").exists())).as_deref()
+    REF_INSTALL.get_or_init(default_ref_install).as_deref()
 }
 
 /// A tag for the world cache key: rooms built from the reference install differ from those built without it.
