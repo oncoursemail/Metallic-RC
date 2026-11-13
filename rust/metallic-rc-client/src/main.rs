@@ -256,6 +256,8 @@ fn main() {
         .insert_resource(metallic_rc_client::paintball::PaintballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("paintball") || matches!(w.to_ascii_lowercase().as_str(), "level14" | "level15" | "level16" | "level17" | "level18"))))
         .add_plugins(metallic_rc_client::battleroyale::BattleRoyalePlugin)
         .insert_resource(metallic_rc_client::battleroyale::BattleRoyaleActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("battleroyale") || w.eq_ignore_ascii_case("recroyale") || w.eq_ignore_ascii_case("level78"))))
+        .add_plugins(metallic_rc_client::arena::ArenaPlugin)
+        .insert_resource(metallic_rc_client::arena::ArenaActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("arena") || w.eq_ignore_ascii_case("lasertag") || matches!(w.to_ascii_lowercase().as_str(), "level75" | "level76"))))
         .insert_resource(LocalLook(look))
         // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
         .insert_resource(avatar::Dressing::default())
