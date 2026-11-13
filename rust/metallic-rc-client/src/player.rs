@@ -277,10 +277,10 @@ fn camera_view(
         // frames to the left with the panel clear on the right — the real client's title presentation. Tunable without
         // a rebuild: METALLIC_TITLE_CAM_DIST / _H (camera distance / height), _PAN / _LOOK_H (look-target pan / height).
         let body = Quat::from_rotation_y(p.yaw);
-        let dist = crate::envf("METALLIC_TITLE_CAM_DIST", 1.5);
-        let cam_h = crate::envf("METALLIC_TITLE_CAM_H", 1.5);
-        let pan = crate::envf("METALLIC_TITLE_CAM_PAN", 1.2);
-        let look_h = crate::envf("METALLIC_TITLE_LOOK_H", 1.32);
+        let dist = crate::envf("METALLIC_TITLE_CAM_DIST", 1.34);
+        let cam_h = crate::envf("METALLIC_TITLE_CAM_H", 1.52);
+        let pan = crate::envf("METALLIC_TITLE_CAM_PAN", 1.12);
+        let look_h = crate::envf("METALLIC_TITLE_LOOK_H", 1.26);
         let at = Transform::from_translation(feet + body * Vec3::new(0.0, cam_h, -dist))
             .looking_at(feet + body * Vec3::new(-pan, 0.0, 0.0) + Vec3::Y * look_h, Vec3::Y);
         (to_local(at), fov_setting)

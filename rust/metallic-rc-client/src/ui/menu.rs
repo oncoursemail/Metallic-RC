@@ -739,7 +739,7 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             let mut l = fresh(&icon, LOGO_SALT);
             l.name = "[Icon] Logo".into();
             l.active = true;
-            l.rect.size_delta = [0.0, 170.0];
+            l.rect.size_delta = [0.0, 220.0];
             l.rect.anchored_position = [0.0, 0.0];
             l.each_mut(&mut |e| {
                 e.active = true;
@@ -750,7 +750,7 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             });
             // the card's vertical layout controls child height, so give the logo a LayoutElement preferred height
             l.components.push(made("UnityEngine.UI.LayoutElement", LOGO_SALT ^ 0xabc,
-                vec![("m_PreferredHeight", Value::Float(170.0)), ("m_MinHeight", Value::Float(170.0)),
+                vec![("m_PreferredHeight", Value::Float(220.0)), ("m_MinHeight", Value::Float(220.0)),
                      ("m_PreferredWidth", Value::Float(-1.0)), ("m_MinWidth", Value::Float(-1.0)),
                      ("m_FlexibleWidth", Value::Float(-1.0)), ("m_FlexibleHeight", Value::Float(-1.0)), ("m_IgnoreLayout", Value::Int(0))]));
             if let Some(iid) = l.walk().iter().find_map(|(_, k)| k.component("UnityEngine.UI.Image").map(|c| c.id)) {
