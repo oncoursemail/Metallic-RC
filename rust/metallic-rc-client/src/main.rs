@@ -237,6 +237,8 @@ fn main() {
         .add_plugins(metallic_rc_client::physics::RapierFoundationPlugin)
         // reusable projectile-combat on the physics foundation (shared by the shooter games: Paintball/BR/Arena/Quest)
         .add_plugins(metallic_rc_client::combat::CombatPlugin)
+        // reusable kart (GroundVehicle) physics on the physics foundation (RecRally + any kart game)
+        .add_plugins(metallic_rc_client::kart::KartPlugin)
         // Dodgeball game mode: active when the Dodgeball arena is the loaded world (`--world dodgeball`)
         .add_plugins(metallic_rc_client::dodgeball::DodgeballPlugin)
         .insert_resource(metallic_rc_client::dodgeball::DodgeballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("dodgeball"))))
@@ -258,6 +260,8 @@ fn main() {
         .insert_resource(metallic_rc_client::battleroyale::BattleRoyaleActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("battleroyale") || w.eq_ignore_ascii_case("recroyale") || w.eq_ignore_ascii_case("level78"))))
         .add_plugins(metallic_rc_client::arena::ArenaPlugin)
         .insert_resource(metallic_rc_client::arena::ArenaActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("arena") || w.eq_ignore_ascii_case("lasertag") || matches!(w.to_ascii_lowercase().as_str(), "level75" | "level76"))))
+        .add_plugins(metallic_rc_client::recrally::RecRallyPlugin)
+        .insert_resource(metallic_rc_client::recrally::RecRallyActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("recrally") || w.eq_ignore_ascii_case("chaparral") || w.eq_ignore_ascii_case("level107"))))
         .insert_resource(LocalLook(look))
         // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
         .insert_resource(avatar::Dressing::default())
