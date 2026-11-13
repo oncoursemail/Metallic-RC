@@ -111,6 +111,14 @@ pub fn load_icon_sprite(path: &std::path::Path, tint: [u8; 3]) -> Option<Arc<Spr
     Some(Arc::new(Sprite { name: "icon".into(), width: w, height: h, rgba, border: [0.0; 4], pixels_per_unit: 100.0 }))
 }
 
+/// Loads a full-colour sprite PNG (keeping its own RGB, unlike `load_icon_sprite` which recolours it) — for a logo or
+/// any coloured image placed on a UI element by filename.
+pub fn load_sprite_png(path: &std::path::Path) -> Option<Arc<Sprite>> {
+    let img = image::open(path).ok()?.to_rgba8();
+    let (w, h) = img.dimensions();
+    Some(Arc::new(Sprite { name: "img".into(), width: w, height: h, rgba: img.into_raw(), border: [0.0; 4], pixels_per_unit: 100.0 }))
+}
+
 fn color(v: Option<&Value>) -> Option<[f32; 4]> {
     let f = v?.floats();
     (f.len() == 4).then(|| [f[0], f[1], f[2], f[3]])

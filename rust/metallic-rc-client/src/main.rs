@@ -223,7 +223,10 @@ fn main() {
     // Boot into the title screen (the real client's front door): the room loads behind it; Play dismisses it.
     // METALLIC_SKIP_TITLE goes straight to the Dorm (for the multiplayer capture / headless checks).
     if std::env::var("METALLIC_SKIP_TITLE").is_err() {
-        menu.router.open(menu::TITLE_CACHED);
+        // the boot title page; overridable (METALLIC_TITLE_PAGE) to try the real title variants (NewAccount/
+        // InterruptedAccount) that ship the unified card + in-panel logo + full footer.
+        let page = std::env::var("METALLIC_TITLE_PAGE").unwrap_or_else(|_| menu::TITLE_CACHED.to_string());
+        menu.router.open(&page);
     }
     let loader = world::Loader::start(game_dir, a.world.clone(), slot);
 
@@ -402,7 +405,7 @@ fn title_backdrop(
     mut backdrop: Local<Option<Entity>>,
     mut was_title: Local<bool>,
 ) {
-    let title = menu.router.top() == Some(menu::TITLE_CACHED);
+    let title = menu.router.top().is_some_and(|t| t.contains("TitleScreen"));
     in_title.0 = title;
     // the title lights the avatar with a controlled key+fill (below), so the scene's own lights are dimmed while the
     // title is up — otherwise the kept room lights over-light the avatar and the navy blazer blows out to periwinkle.

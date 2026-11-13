@@ -170,6 +170,9 @@ pub struct Built {
     /// runtime-assigned graphics: (Image component id, icon PNG file name) — e.g. the customize category tab icons the
     /// prefab leaves null. The painter loads each from the exported icon set and overrides the sprite.
     pub icons: Vec<(i64, String)>,
+    /// a full-colour image override (Image component id, PNG file name) — e.g. the title's orange REC ROOM logo. Unlike
+    /// `icons` (recoloured to a flat tint), this keeps the sprite's own colours.
+    pub logo: Option<(i64, String)>,
 }
 
 /// The exported RRUI icon for a customize category tab (the `[IconToggleChip] <Category>` chips), or None.
@@ -558,6 +561,8 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     let mut room_list = None;
     // extra sprite overrides the client composes (e.g. the title footer's Authorize Device shield), merged into `icons`
     let mut footer_icons: Vec<(i64, String)> = vec![];
+    // a full-colour logo override the client composes (the title's orange REC ROOM logo in the card)
+    let mut logo: Option<(i64, String)> = None;
     for (_, e) in page.walk() {
         for (class, d) in e.impls() {
             let name = class.rsplit('/').next().unwrap_or(class);
@@ -723,6 +728,41 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             }
             ps.children.extend(moved);
         }
+        // Bring the REC ROOM logo into the card top (the video's layout). The real logo is a separate top-left [Icon] in
+        // PrePageContent in this build — clone it (re-id'd), size it to a wide banner at the card top, and recolour it to
+        // the real orange RecRoomLogo_Sprite. Hide the original corner logo.
+        const LOGO_SALT: i64 = 0x109 << 44;
+        if let Some(icon) = find(&page, &|e| e.name == "PrePageContent")
+            .and_then(|pre| pre.children.iter().find(|c| c.name.starts_with("[Icon]")))
+            .cloned()
+        {
+            let mut l = fresh(&icon, LOGO_SALT);
+            l.name = "[Icon] Logo".into();
+            l.active = true;
+            l.rect.size_delta = [0.0, 170.0];
+            l.rect.anchored_position = [0.0, 0.0];
+            l.each_mut(&mut |e| {
+                e.active = true;
+                // keep the logo at its own aspect (centred), not stretched to the full card width
+                for c in e.components.iter_mut().filter(|c| c.class == "UnityEngine.UI.Image") {
+                    set(&mut c.value, "m_PreserveAspect", Value::Bool(true));
+                }
+            });
+            // the card's vertical layout controls child height, so give the logo a LayoutElement preferred height
+            l.components.push(made("UnityEngine.UI.LayoutElement", LOGO_SALT ^ 0xabc,
+                vec![("m_PreferredHeight", Value::Float(170.0)), ("m_MinHeight", Value::Float(170.0)),
+                     ("m_PreferredWidth", Value::Float(-1.0)), ("m_MinWidth", Value::Float(-1.0)),
+                     ("m_FlexibleWidth", Value::Float(-1.0)), ("m_FlexibleHeight", Value::Float(-1.0)), ("m_IgnoreLayout", Value::Int(0))]));
+            if let Some(iid) = l.walk().iter().find_map(|(_, k)| k.component("UnityEngine.UI.Image").map(|c| c.id)) {
+                logo = Some((iid, "RecRoomLogo_Sprite.png".into()));
+            }
+            if let Some(card) = find_mut(&mut page, &|e| e.name.starts_with("[PanelWithPaddingVertical] Player Section")) {
+                card.children.insert(0, l);
+            }
+        }
+        if let Some(pre) = find_mut(&mut page, &|e| e.name == "PrePageContent") {
+            pre.each_mut(&mut |e| if e.name.starts_with("[Icon]") { e.active = false; });
+        }
         // uppercase the two primary button labels (PLAY / SWITCH ACCOUNT), as the real buttons render them
         for (name, label) in [("[TextButton] Play", "PLAY"), ("[TextButton] Switch account", "SWITCH ACCOUNT")] {
             if let Some(id) = find(&page, &|e| e.active && e.name.starts_with(name))
@@ -808,7 +848,7 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     }
     color_swatches(&mut page, &mut w.actions);
     theme.apply_with(&mut page, &active);
-    Built { page, actions: w.actions, scrolls, icons }
+    Built { page, actions: w.actions, scrolls, icons, logo }
 }
 
 fn strukt(fields: Vec<(&str, Value)>) -> Value {
@@ -937,6 +977,13 @@ impl Painter {
                 Err(e) => return drop(tell.send(Err(format!("{}: {e}", bundle_dir.display())))),
             };
             let pages = Pages::open(&bundle_dir);
+            if std::env::var("METALLIC_UI_DUMP").is_ok() {
+                if let Ok(p) = &pages {
+                    for term in ["WindowPage", "Login", "TitleScreen", "Customize", "Avatar"] {
+                        eprintln!("[pages] {term:?} -> {:?}", p.search(term));
+                    }
+                }
+            }
             let theme = pages.as_ref().map_err(Clone::clone).and_then(|p| Theme::load(&mut lib, p, &bundle_dir));
             let (pages, theme) = match (pages, theme) {
                 (Ok(p), Ok(t)) => (p, t),
@@ -1000,6 +1047,16 @@ impl Painter {
                         let sprite = icon_cache
                             .entry(file.clone())
                             .or_insert_with(|| paint::load_icon_sprite(&icon_dir().join(file), [0x33, 0x34, 0x3a]))
+                            .clone();
+                        if let Some(s) = sprite {
+                            looks.override_sprite(*id, s);
+                        }
+                    }
+                    // the full-colour logo keeps its own colours (loaded untinted)
+                    if let Some((id, file)) = &b.logo {
+                        let sprite = icon_cache
+                            .entry(format!("full:{file}"))
+                            .or_insert_with(|| paint::load_sprite_png(&icon_dir().join(file)))
                             .clone();
                         if let Some(s) = sprite {
                             looks.override_sprite(*id, s);
