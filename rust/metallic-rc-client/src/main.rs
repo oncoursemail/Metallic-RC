@@ -402,11 +402,14 @@ fn title_backdrop(
     (mut mesh_assets, mut mats): (ResMut<Assets<Mesh>>, ResMut<Assets<StandardMaterial>>),
     wall: Res<TitleWallpaper>,
     mut in_title: ResMut<player::InTitle>,
+    mut in_customize: ResMut<player::InCustomize>,
     mut backdrop: Local<Option<Entity>>,
     mut was_title: Local<bool>,
 ) {
     let title = menu.router.top().is_some_and(|t| t.contains("TitleScreen"));
     in_title.0 = title;
+    // the real Avatar Customization screen frames the avatar face-forward (handled in camera_view), like the title
+    in_customize.0 = menu.router.top().is_some_and(|t| t.contains("AvatarCustomization"));
     // the title lights the avatar with a controlled key+fill (below), so the scene's own lights are dimmed while the
     // title is up — otherwise the kept room lights over-light the avatar and the navy blazer blows out to periwinkle.
     // Tunable without a rebuild: METALLIC_TITLE_KEY (front key lux), METALLIC_TITLE_FILL (opposite fill lux).

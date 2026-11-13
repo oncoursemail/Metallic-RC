@@ -666,7 +666,7 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     // the signed-in title screen with no friend data: collapse the "Join your friends" grid (its cards are the
     // prefab's placeholder template, filled by the account list controller at runtime) and the boot-time Terms/Update
     // prompts, so the panel is the handle + Play over the avatar — the real front door when nobody's online.
-    if std::env::var("METALLIC_UI_DUMP").is_ok() && ctx.page.contains("TitleScreen") {
+    if std::env::var("METALLIC_UI_DUMP").is_ok() && (ctx.page.contains("TitleScreen") || ctx.page.contains("AvatarCustomization")) {
         eprintln!("[ui] === build page={} leaf={} ===", ctx.page, leaf);
         for (d, e) in page.walk() {
             let img = e.component("UnityEngine.UI.Image").map(|c| pptr(&c.value, "m_Sprite").map(|_| "sprite").unwrap_or("Image"));

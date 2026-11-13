@@ -535,8 +535,16 @@ fn spawn_arrived(
     mut ambient: ResMut<GlobalAmbientLight>,
     env: Res<render::RoomEnvMaps>,
     mut room_bounds: ResMut<RoomBounds>,
+    mut player: Single<(&mut Transform, &mut crate::player::Player), Without<Camera3d>>,
 ) {
     let Some(r) = arrived.0.take() else { return };
+    // place the player at the real scene's spawn point (SceneSpawnPoint/GamePlayerSpawnPoint), so they stand on the
+    // real floor among the real colliders instead of at the world origin (where they'd be mis-placed / clip the scene).
+    // TODO: dormroom2's spawn uses a spawn-point script class scene_spawns doesn't yet match, so r.spawns is empty for
+    // it — fall back to the real traced dorm spawn (maps lane) until scene_spawns learns the dorm's spawn class.
+    let dorm_name = r.roots.first().is_some_and(|n| n.contains("dormroom2"));
+    let spawn = r.spawns.first().copied()
+        .or_else(|| (dorm_name && r.spawns.is_empty()).then(|| Mat4::from_translation(Vec3::new(-2.96, 0.01, 1.12))));
     for e in &old {
         commands.entity(e).despawn();
     }
@@ -550,6 +558,15 @@ fn spawn_arrived(
     println!("world: {} pieces, {} props {props:?}, {} lights, {} colliders, {} sounds {sounds:?}", r.roots.len(), props.len(), r.lights.len(), r.colliders.len(), sounds.len());
     let (_, solids) = build(&mut commands, r, &name, None, &mut meshes, &mut materials, &mut images, &mut clips);
     fixed.0 = solids;
+    if let Some(m) = spawn {
+        let (_, rot, feet) = m.to_scale_rotation_translation();
+        let (yaw, ..) = rot.to_euler(EulerRot::YXZ);
+        let (t, p) = &mut *player;
+        p.yaw = yaw;
+        p.motor.flying = false;
+        t.translation = feet + Vec3::Y * p.eye;
+        t.rotation = Quat::from_euler(EulerRot::YXZ, yaw, p.pitch, 0.0);
+    }
     if !has_lights && lo.x <= hi.x {
         for e in render::spawn_default_lights(&mut commands, lo, hi) {
             commands.entity(e).insert(RoomPiece);

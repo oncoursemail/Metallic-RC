@@ -48,6 +48,11 @@ pub struct ThirdPerson(pub bool);
 #[derive(Resource, Default)]
 pub struct InTitle(pub bool);
 
+/// Set while the real Avatar Customization screen is open: the camera swings in front of the avatar (face forward,
+/// framed left with the panel on the right), like the real client's customize flow.
+#[derive(Resource, Default)]
+pub struct InCustomize(pub bool);
+
 /// The camera, a child of the player (at the eyes): there in first person, behind the shoulder in third.
 #[derive(Component)]
 pub struct View;
@@ -114,6 +119,7 @@ impl Plugin for PlayerPlugin {
             .init_resource::<Controls>()
             .init_resource::<ThirdPerson>()
             .init_resource::<InTitle>()
+            .init_resource::<InCustomize>()
             .init_resource::<LookPanel>()
             .init_resource::<LocalHands>()
             .add_plugins(interact::InteractPlugin)
@@ -164,8 +170,15 @@ fn look_and_walk(
     mut player: Single<(&mut Player, &mut Transform)>,
     (solids, controls, tuning, third, panel): (Res<Solids>, Res<Controls>, Res<Tuning>, Res<ThirdPerson>, Res<LookPanel>),
     props: Res<PropSolids>,
+    mut collide_dbg: Local<u32>,
 ) {
     let (p, t) = &mut *player;
+    if std::env::var("METALLIC_COLLIDE_DBG").is_ok() && !solids.0.is_empty() && *collide_dbg < 1 {
+        *collide_dbg += 1;
+        let pos = t.translation;
+        let near = solids.0.iter().filter(|c| c.top() > pos.y - 2.0).map(|c| (c.top() - pos.y).abs()).fold(f32::MAX, f32::min);
+        eprintln!("[collide] player at {:.2?}, {} solids, {} props, nearest-top dy {:.2}", pos, solids.0.len(), props.0.len(), near);
+    }
     // typing into the menu does not walk; the editor keeps the arrow keys
     let idle = ButtonInput::default();
     let keys = if controls.typing || panel.open.is_some() { &idle } else { &*keys };
@@ -259,10 +272,15 @@ fn camera_view(
     mut view: Single<(&mut Transform, &mut Projection), With<View>>,
     rig: Query<&Rig, With<LocalAvatar>>,
     in_title: Res<InTitle>,
+    in_customize: Res<InCustomize>,
 ) {
     let fov_setting = (controls.settings.get("fov") as f32).clamp(30.0, 120.0);
     if keys.just_pressed(KeyCode::KeyV) && !controls.typing {
         third.0 = !third.0;
+    }
+    // the customize screen always shows the avatar (third person), facing the camera
+    if in_customize.0 {
+        third.0 = true;
     }
     let dt = time.delta_secs();
     let (p, eye) = &mut *player;
@@ -281,6 +299,17 @@ fn camera_view(
         let cam_h = crate::envf("METALLIC_TITLE_CAM_H", 1.55);
         let pan = crate::envf("METALLIC_TITLE_CAM_PAN", 0.6);
         let look_h = crate::envf("METALLIC_TITLE_LOOK_H", 1.2);
+        let at = Transform::from_translation(feet + body * Vec3::new(0.0, cam_h, -dist))
+            .looking_at(feet + body * Vec3::new(-pan, 0.0, 0.0) + Vec3::Y * look_h, Vec3::Y);
+        (to_local(at), fov_setting)
+    } else if in_customize.0 {
+        // the Avatar Customization screen: camera in front of the avatar, framed to the left with the Customize panel
+        // on the right (the real client's customize presentation). Env-tunable METALLIC_CZ_CAM_DIST/_H/_PAN/_LOOK_H.
+        let body = Quat::from_rotation_y(p.yaw);
+        let dist = crate::envf("METALLIC_CZ_CAM_DIST", 1.6);
+        let cam_h = crate::envf("METALLIC_CZ_CAM_H", 1.45);
+        let pan = crate::envf("METALLIC_CZ_CAM_PAN", 1.15);
+        let look_h = crate::envf("METALLIC_CZ_LOOK_H", 1.0);
         let at = Transform::from_translation(feet + body * Vec3::new(0.0, cam_h, -dist))
             .looking_at(feet + body * Vec3::new(-pan, 0.0, 0.0) + Vec3::Y * look_h, Vec3::Y);
         (to_local(at), fov_setting)
