@@ -390,16 +390,17 @@ pub fn redress(
     mut commands: Commands,
     dressing: Option<Res<Dressing>>,
     roomie: Option<Res<Roomie>>,
-    mut worn: Query<&mut RealWorn>,
+    mut worn: Query<&mut RealWorn, With<crate::player::LocalAvatar>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
 ) {
     let (Some(dressing), Some(_)) = (dressing, roomie) else { return };
-    // Runs every frame (not just on Dressing change): avatars attach after the Dressing is set, so the gate used to
-    // leave newly-attached avatars in their spawn defaults. swap_piece/accessory short-circuit unchanged pieces and
-    // set() is a few cheap material writes, so this is light. (TODO: apply only to the local avatar; remotes carry
-    // their own look — until then redress dresses every RealWorn from the single local Dressing.)
+    // Runs every frame (not just on Dressing change): the local avatar attaches its RealWorn after the Dressing is set,
+    // so the gate used to leave the newly-attached body in its spawn defaults. swap_piece/accessory short-circuit
+    // unchanged pieces and set() is a few cheap material writes, so this is light. The query is gated to the LOCAL
+    // avatar (With<LocalAvatar>): the single Dressing is the local player's own, and remote players carry their own
+    // look (dressed from their Look at spawn), so they must not be re-dressed from it.
     let set = |materials: &mut Assets<StandardMaterial>, h: &Handle<StandardMaterial>, c: [u8; 3]| {
         if let Some(mut m) = materials.get_mut(h) {
             m.base_color = Color::srgb_u8(c[0], c[1], c[2]);
