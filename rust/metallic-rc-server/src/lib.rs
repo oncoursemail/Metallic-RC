@@ -8,6 +8,7 @@ pub mod auth;
 pub mod creations;
 pub mod discovery;
 pub mod game;
+pub mod games;
 pub mod hub;
 pub mod inventory;
 pub mod party;

@@ -4,6 +4,7 @@ pub mod cache;
 pub mod avatar;
 pub mod collide;
 pub mod drive;
+pub mod games;
 pub mod interact;
 pub mod levels;
 pub mod maker;

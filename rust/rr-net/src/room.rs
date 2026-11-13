@@ -22,6 +22,7 @@ use crate::ngo::session::TICK_RATE;
 use crate::ngo::{Client, ClientEvent, NgoDelivery};
 use crate::objects::{self, moved, Object, ObjectEvent, RpcTarget};
 use crate::sync::{self, AvatarData, Pose, Smoother};
+use crate::games;
 use crate::voice::{self, VoicePacket};
 
 pub const PLAYER_PREFAB: &str = "Player";
@@ -124,6 +125,8 @@ pub struct RoomClient {
     resend: bool,
     voice_in: VecDeque<VoicePacket>,
     voice_sequence: u16,
+    /// game-mode messages from the server (`games`), for the game to take
+    game_in: VecDeque<Vec<u8>>,
     /// the other players as last drawn
     shown: Vec<Shown>,
 }
@@ -164,6 +167,7 @@ impl RoomClient {
             resend: false,
             voice_in: VecDeque::new(),
             voice_sequence: 0,
+            game_in: VecDeque::new(),
             shown: vec![],
         }
     }
@@ -588,6 +592,11 @@ impl RoomClient {
                         self.voice_in.push_back(v);
                     }
                 }
+                ClientEvent::Named { hash: games::TO_CLIENT, payload } => {
+                    if self.game_in.len() < MAX_VOICE {
+                        self.game_in.push_back(payload);
+                    }
+                }
                 ClientEvent::Named { .. } => {}
             }
         }
@@ -770,6 +779,18 @@ impl RoomClient {
     /// The next voice packet another player sent.
     pub fn poll_voice(&mut self) -> Option<VoicePacket> {
         self.voice_in.pop_front()
+    }
+
+    /// Sends a game-mode message (`games::Up`) to the room server, in order with the others.
+    pub fn send_game(&mut self, up: &games::Up) {
+        if self.actor.is_some() {
+            self.ngo.send_named(games::TO_SERVER, &up.encode(), NgoDelivery::ReliableFragmentedSequenced);
+        }
+    }
+
+    /// The next game-mode message from the room server (`games::Down` encoded).
+    pub fn poll_game(&mut self) -> Option<Vec<u8>> {
+        self.game_in.pop_front()
     }
 }
 

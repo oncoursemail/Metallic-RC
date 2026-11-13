@@ -228,6 +228,8 @@ fn main() {
         .add_plugins(avatar::AvatarPlugin)
         .add_plugins(metallic_rc_client::social::SocialPlugin)
         .add_plugins(metallic_rc_client::drive::DrivePlugin)
+        // built-in game modes (Paintball), run by the room server
+        .add_plugins(metallic_rc_client::games::GamesPlugin)
         .add_plugins(player)
         .add_plugins(metallic_rc_client::maker::MakerPlugin)
         // engine lane: quality tiers, texture mips/compression, platform defaults (touch, mobile)
