@@ -202,8 +202,8 @@ fn load_with(lib: &mut Library, kit: &mut ShapeKit, addresses: &mut Option<Addre
     // loader. `load_scene` resolves the decrypted-scenes dir itself; `dir.ancestors().nth(3)` is the install's
     // `RecRoom_Data` (for the out-of-line `.resS`/`.resource` mesh streams). It returns None when the corpus has no such
     // scene, so game-specific groups (stuntrunner/sandbox) still fall through to their prefab path.
-    let is_group = GROUPS.iter().any(|g| g.name.eq_ignore_ascii_case(world));
-    if !is_group || world.eq_ignore_ascii_case("dorm") {
+    let group_only = GROUPS.iter().any(|g| g.name.eq_ignore_ascii_case(world)) && !world.eq_ignore_ascii_case("dorm");
+    if !group_only {
         if let Some(r) = crate::levels::load_scene(dir.ancestors().nth(3), world) {
             return r;
         }
@@ -302,7 +302,7 @@ impl Loader {
             // the disk cache first (METALLIC_RC_NO_CACHE skips it, for timing the cold path); the bundles are
             // indexed after it, as props need them
             let cached = std::env::var_os("METALLIC_RC_NO_CACHE").is_none()
-                .then(|| cache::file_for(&dir, name, &format!("{:?}{}", shapes::old_build_dirs().iter().find(|d| d.exists()), crate::levels::cache_tag()))).flatten();
+                .then(|| cache::file_for(&dir, name, &format!("{:?}{}{}", shapes::old_build_dirs().iter().find(|d| d.exists()), crate::levels::cache_tag(), crate::levels::scenes_cache_tag()))).flatten();
             let hit = cached.as_deref().and_then(cache::read);
             let from_cache = hit.is_some();
             if let Some(r) = hit {
@@ -324,11 +324,17 @@ impl Loader {
                 }
                 *room.lock().unwrap() = Some(r);
             }
-            // the room's ambient probe, reflection cubemap and fog, when its level file has them
-            if crate::levels::ref_install().is_some() {
-                if let Ok(l) = crate::levels::lighting(name) {
-                    *render::ROOM_ENV.lock().unwrap() = Some(render::RoomEnv::new(&l));
-                }
+            // the room's ambient probe, reflection cubemap and fog. 2026 corpus scenes get their own baked lighting
+            // (Env/Skybox BC6H reflection cubemaps); group-only worlds fall back to the reference install, mirroring the
+            // geometry routing in load_with.
+            let group_only = GROUPS.iter().any(|g| g.name.eq_ignore_ascii_case(name)) && !name.eq_ignore_ascii_case("dorm");
+            let env = if !group_only {
+                crate::levels::scene_lighting(dir.ancestors().nth(3), name).ok()
+            } else {
+                crate::levels::ref_install().is_some().then(|| crate::levels::lighting(name).ok()).flatten()
+            };
+            if let Some(l) = env {
+                *render::ROOM_ENV.lock().unwrap() = Some(render::RoomEnv::new(&l));
             }
             for req in requests {
                 match req {
