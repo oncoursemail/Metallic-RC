@@ -212,7 +212,7 @@ impl Default for Dressing {
         // so its tint is white (un-tinted). Overridable with METALLIC_HAIR.
         let hair_style = std::env::var("METALLIC_HAIR").ok().filter(|s| hair_styles.contains(s)).unwrap_or_else(|| "Hair_GordonGekko".into());
         Dressing {
-            skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x5a, 0x37, 0x24], shirt: [0xff, 0xff, 0xff], pants: [0x1c, 0x1e, 0x26],
+            skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x74, 0x3a, 0x1e], shirt: [0xff, 0xff, 0xff], pants: [0x1c, 0x1e, 0x26],
             top: "Blazer_Shirt".into(), bottom: "BasicPants_Leg".into(), shoes: "Boots_Shoe".into(),
             undershirt: String::new(), tie: "Tie_Neck".into(),
             hat: String::new(), beard: String::new(), glasses: String::new(),
@@ -1008,7 +1008,7 @@ pub fn load_roomie(
         Some(_) => info!("avatar: real Rec Room hair loaded"),
         None => info!("avatar: no wardrobe hair found (set METALLIC_WARDROBE_DIR)"),
     }
-    let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.78, ..default() });
+    let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.5, reflectance: 0.45, ..default() });
     let jersey = full.then(|| wrap(load_wardrobe(body, "ShirtJersey"))).flatten().map(|m| meshes.add(m));
     let legs = full.then(|| wrap(load_wardrobe(body, "BasicLeggings_Leg"))).flatten().map(|m| meshes.add(m));
     let shoes = full.then(|| wrap(load_wardrobe(body, "Sneakers_Shoe"))).flatten().map(|m| meshes.add(m));
@@ -1117,7 +1117,7 @@ pub fn attach_real(
                 }
                 // the real hair mesh, skin-wrapped to the body so it rides the head. Its material is per-avatar so it can
                 // be recoloured live in the customiser.
-                let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.78, ..default() });
+                let hair_mat = materials.add(StandardMaterial { base_color: Color::srgb_u8(0x8f, 0x4a, 0x27), perceptual_roughness: 0.5, reflectance: 0.45, ..default() });
                 let hair_ent = roomie.hair.as_ref().map(|hair| {
                     commands.spawn((Mesh3d(hair.clone()), MeshMaterial3d(hair_mat.clone()), Transform::default(), skin_bind.clone(), NoFrustumCulling, ChildOf(visual))).id()
                 });

@@ -674,18 +674,38 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
         }
     }
     if leaf == TITLE_CACHED {
-        // the real title video shows the full inline footer, not the collapsed "…" menu. Hide the friends grid + boot
-        // prompts + the "…" Player Menu button + the language blurb.
-        const HIDE: [&str; 5] = ["OnlineFriends", "(TermsOfServiceButton)", "[TextButton] Update", "[IconButton] Player Menu", "[ParagraphText] Language Warning"];
+        // Compose the real title video's ONE white card: @handle, PLAY, SWITCH ACCOUNT, and the Language/Authorize
+        // footer, all in a single panel. Hide the friends grid + boot prompts + the "…" Player Menu button + the
+        // language blurb + the divider + the now-unused separate Call-to-Action panel.
+        const HIDE: [&str; 7] = ["OnlineFriends", "(TermsOfServiceButton)", "[TextButton] Update", "[IconButton] Player Menu",
+            "[ParagraphText] Language Warning", "[HorizontalDivider]", "[PanelWithPaddingVertical] Call to Action"];
         page.each_mut(&mut |e| e.active &= !HIDE.iter().any(|n| e.name.starts_with(n)));
         // The "Dropdown menu" element is a popup overlay holding the real Switch Account button + Language icon-button.
-        // MOVE those two out of it and stack them inline in the Call-to-Action panel, below Play (the video's layout),
-        // then hide the now-empty dropdown. Moving (not cloning) keeps each component id unique.
+        // Pull those two out (moving, not cloning, keeps component ids unique) and add an Authorize Device button beside
+        // Language — a `fresh` (re-id'd) copy of the Language icon-text button with the real SafeModeShield icon. Visual
+        // only: the OAuth device-code flow is wired to our own backend at the account step (rec.net's auth is gone).
+        const AUTH_SALT: i64 = 0x5a1d << 40;
         let mut moved = vec![];
         if let Some(dd) = find_mut(&mut page, &|e| e.name == "Dropdown menu") {
             let mut keep = vec![];
             for mut c in dd.children.drain(..) {
-                if c.name.starts_with("[TextButton] Switch account") || c.name == "[PanelHorizontal]" {
+                if c.name == "[PanelHorizontal]" {
+                    // the footer row: add Authorize Device beside Language
+                    if let Some(lang) = c.children.iter().find(|k| k.name.starts_with("[IconTextButton_OneLine] Language")).cloned() {
+                        let mut auth = fresh(&lang, AUTH_SALT);
+                        auth.name = "[IconTextButton_OneLine] Authorize Device".into();
+                        auth.active = true;
+                        if let Some(tid) = auth.walk().iter().find_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id)) {
+                            set_text(&mut auth, tid, "Authorize Device");
+                        }
+                        if let Some(iid) = find(&auth, &|e| e.name.starts_with("Icon - Change Icon")).and_then(|e| e.component("UnityEngine.UI.Image").map(|c| c.id)) {
+                            footer_icons.push((iid, "MenuIcon_Sprites_3(HR)_SafeModeShield.png".into()));
+                        }
+                        c.children.push(auth);
+                    }
+                    c.active = true;
+                    moved.push(c);
+                } else if c.name.starts_with("[TextButton] Switch account") {
                     c.active = true;
                     moved.push(c);
                 } else {
@@ -695,26 +715,20 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             dd.children = keep;
             dd.active = false;
         }
-        // stack them in the vertical "Content" container (which already stacks the @handle panel above the Play panel),
-        // so they flow below Play rather than crowding into the Play panel's horizontal row.
-        if let Some(content) = find_mut(&mut page, &|e| e.name == "Content" && e.children.iter().any(|c| c.name.starts_with("[PanelWithPaddingVertical] Call to Action"))) {
-            content.children.extend(moved);
+        // The Player Section panel already contains an (inactive) Play button alongside the @handle header — activate it
+        // and stack Switch Account + the footer row after it, so one card holds @handle, PLAY, SWITCH ACCOUNT, footer.
+        if let Some(ps) = find_mut(&mut page, &|e| e.name.starts_with("[PanelWithPaddingVertical] Player Section")) {
+            if let Some(play) = ps.children.iter_mut().find(|c| c.name.starts_with("[TextButton] Play")) {
+                play.active = true;
+            }
+            ps.children.extend(moved);
         }
-        // add an Authorize Device button beside Language in the footer row — a `fresh` copy of the real Language
-        // icon-text button (re-id'd so its text + icon are independent), relabelled with the security-shield icon. Visual
-        // only: the real OAuth device-code flow is wired to our own backend at the account step (rec.net's auth is gone).
-        const AUTH_SALT: i64 = 0x5a1d << 40;
-        if let Some(row) = find_mut(&mut page, &|e| e.name == "[PanelHorizontal]" && e.children.iter().any(|c| c.name.starts_with("[IconTextButton_OneLine] Language"))) {
-            if let Some(lang) = row.children.iter().find(|c| c.name.starts_with("[IconTextButton_OneLine] Language")).cloned() {
-                let mut auth = fresh(&lang, AUTH_SALT);
-                auth.name = "[IconTextButton_OneLine] Authorize Device".into();
-                if let Some(tid) = auth.walk().iter().find_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id)) {
-                    set_text(&mut auth, tid, "Authorize Device");
-                }
-                if let Some(iid) = find(&auth, &|e| e.name.starts_with("Icon - Change Icon")).and_then(|e| e.component("UnityEngine.UI.Image").map(|c| c.id)) {
-                    footer_icons.push((iid, "MenuIcon_Sprites_3(HR)_SafeModeShield.png".into()));
-                }
-                row.children.push(auth);
+        // uppercase the two primary button labels (PLAY / SWITCH ACCOUNT), as the real buttons render them
+        for (name, label) in [("[TextButton] Play", "PLAY"), ("[TextButton] Switch account", "SWITCH ACCOUNT")] {
+            if let Some(id) = find(&page, &|e| e.active && e.name.starts_with(name))
+                .and_then(|p| p.walk().iter().find_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id)))
+            {
+                texts.push((id, label.to_string()));
             }
         }
         // the Switch Account button goes to the switch-account page (the real LogoutButton/GoToSwitchAccount action)
