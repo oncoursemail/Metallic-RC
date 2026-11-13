@@ -556,6 +556,8 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     let mut active = HashSet::new();
     let mut cards = None;
     let mut room_list = None;
+    // extra sprite overrides the client composes (e.g. the title footer's Authorize Device shield), merged into `icons`
+    let mut footer_icons: Vec<(i64, String)> = vec![];
     for (_, e) in page.walk() {
         for (class, d) in e.impls() {
             let name = class.rsplit('/').next().unwrap_or(class);
@@ -659,9 +661,68 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     // the signed-in title screen with no friend data: collapse the "Join your friends" grid (its cards are the
     // prefab's placeholder template, filled by the account list controller at runtime) and the boot-time Terms/Update
     // prompts, so the panel is the handle + Play over the avatar — the real front door when nobody's online.
+    if std::env::var("METALLIC_UI_DUMP").is_ok() && ctx.page.contains("TitleScreen") {
+        eprintln!("[ui] === build page={} leaf={} ===", ctx.page, leaf);
+        for (d, e) in page.walk() {
+            let img = e.component("UnityEngine.UI.Image").map(|c| pptr(&c.value, "m_Sprite").map(|_| "sprite").unwrap_or("Image"));
+            let txt = e.component("TMPro.TextMeshProUGUI").and_then(|c| c.value.get("m_text").and_then(Value::as_str)).map(|s| s.chars().take(24).collect::<String>());
+            let grad = e.has("RRUI.MultiGraphicButton") || e.has("UnityEngine.UI.Button");
+            eprintln!("[ui] {:width$}{} active={}{}{}{}", "", e.name, e.active,
+                img.map(|s| format!(" [{s}]")).unwrap_or_default(),
+                if grad { " [BTN]" } else { "" },
+                txt.map(|t| format!(" text={t:?}")).unwrap_or_default(), width = d * 2);
+        }
+    }
     if leaf == TITLE_CACHED {
-        const HIDE: [&str; 3] = ["OnlineFriends", "(TermsOfServiceButton)", "[TextButton] Update"];
+        // the real title video shows the full inline footer, not the collapsed "…" menu. Hide the friends grid + boot
+        // prompts + the "…" Player Menu button + the language blurb.
+        const HIDE: [&str; 5] = ["OnlineFriends", "(TermsOfServiceButton)", "[TextButton] Update", "[IconButton] Player Menu", "[ParagraphText] Language Warning"];
         page.each_mut(&mut |e| e.active &= !HIDE.iter().any(|n| e.name.starts_with(n)));
+        // The "Dropdown menu" element is a popup overlay holding the real Switch Account button + Language icon-button.
+        // MOVE those two out of it and stack them inline in the Call-to-Action panel, below Play (the video's layout),
+        // then hide the now-empty dropdown. Moving (not cloning) keeps each component id unique.
+        let mut moved = vec![];
+        if let Some(dd) = find_mut(&mut page, &|e| e.name == "Dropdown menu") {
+            let mut keep = vec![];
+            for mut c in dd.children.drain(..) {
+                if c.name.starts_with("[TextButton] Switch account") || c.name == "[PanelHorizontal]" {
+                    c.active = true;
+                    moved.push(c);
+                } else {
+                    keep.push(c);
+                }
+            }
+            dd.children = keep;
+            dd.active = false;
+        }
+        // stack them in the vertical "Content" container (which already stacks the @handle panel above the Play panel),
+        // so they flow below Play rather than crowding into the Play panel's horizontal row.
+        if let Some(content) = find_mut(&mut page, &|e| e.name == "Content" && e.children.iter().any(|c| c.name.starts_with("[PanelWithPaddingVertical] Call to Action"))) {
+            content.children.extend(moved);
+        }
+        // add an Authorize Device button beside Language in the footer row — a `fresh` copy of the real Language
+        // icon-text button (re-id'd so its text + icon are independent), relabelled with the security-shield icon. Visual
+        // only: the real OAuth device-code flow is wired to our own backend at the account step (rec.net's auth is gone).
+        const AUTH_SALT: i64 = 0x5a1d << 40;
+        if let Some(row) = find_mut(&mut page, &|e| e.name == "[PanelHorizontal]" && e.children.iter().any(|c| c.name.starts_with("[IconTextButton_OneLine] Language"))) {
+            if let Some(lang) = row.children.iter().find(|c| c.name.starts_with("[IconTextButton_OneLine] Language")).cloned() {
+                let mut auth = fresh(&lang, AUTH_SALT);
+                auth.name = "[IconTextButton_OneLine] Authorize Device".into();
+                if let Some(tid) = auth.walk().iter().find_map(|(_, k)| k.component("TMPro.TextMeshProUGUI").map(|c| c.id)) {
+                    set_text(&mut auth, tid, "Authorize Device");
+                }
+                if let Some(iid) = find(&auth, &|e| e.name.starts_with("Icon - Change Icon")).and_then(|e| e.component("UnityEngine.UI.Image").map(|c| c.id)) {
+                    footer_icons.push((iid, "MenuIcon_Sprites_3(HR)_SafeModeShield.png".into()));
+                }
+                row.children.push(auth);
+            }
+        }
+        // the Switch Account button goes to the switch-account page (the real LogoutButton/GoToSwitchAccount action)
+        if let Some(id) = find(&page, &|e| e.name.starts_with("[TextButton] Switch account"))
+            .and_then(|p| p.walk().iter().find_map(|(_, k)| k.component("RRUI.MultiGraphicButton").map(|c| c.id)))
+        {
+            w.actions.insert(id, Action::SwitchAccount);
+        }
         // the big Play button dismisses the title into the game (the room already loads behind it)
         if let Some(id) = find(&page, &|e| e.active && e.name.starts_with("[TextButton] Play"))
             .and_then(|p| p.walk().iter().find_map(|(_, k)| k.component("RRUI.MultiGraphicButton").map(|c| c.id)))
@@ -726,6 +787,7 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             icons.push((id, file.to_string()));
         }
     }
+    icons.extend(footer_icons);
     // fill the Customize item grids with real wardrobe items, and the colour grids with the real swatches
     if let Some(card) = ctx.item_card {
         item_cards(&mut page, card, &mut w.actions);
