@@ -16,9 +16,11 @@
 use bevy::prelude::*;
 use gamemodes::bowling::{BowlingConfig, BowlingMode as BowlingRules};
 use gamemodes::mode::{GameEvent, GameInput, GameMode};
+use bevy_rapier3d::prelude::*;
 use rr_net::objects::RpcTarget;
 
 use crate::netobj::{NetObjects, NetRpc, RoomLink};
+use crate::physics::tilt_from_upright_deg;
 use crate::world::RoomPiece;
 
 const BALL_ADDRESS: &str = "(BowlingBall)"; // VERIFIED (world_inventory): BowlingBall script + rigidbody, grabbable
@@ -57,11 +59,74 @@ pub struct Bowling {
     bot_elapsed: f32,
 }
 
+/// A real bowling pin as a rapier rigidbody (it topples; whether it still counts as standing is judged by its tilt).
+#[derive(Component)]
+struct BwPin;
+
+/// The real bowling ball as a rapier rigidbody (bowled with a release velocity).
+#[derive(Component)]
+struct BwBall;
+
+#[derive(Clone, Copy, PartialEq)]
+enum BowlPhase {
+    NeedRack,
+    Aiming(f32),
+    Settling(f32),
+}
+
+/// The physics bowling run (master only, `METALLIC_BW_PHYSICS=1`): the real pins + ball as rapier bodies bowled on a
+/// physical lane. A bowl's pinfall is (standing before) − (standing after the pins settle) by the real 25° rule, fed
+/// to the same `BowlingMode` scoreboard over the net — the real physics replacing the bot-injected pin counts.
+#[derive(Resource)]
+struct BowlingPhysics {
+    active: bool,
+    player: u32,
+    /// the 10 lane-1 pin spawn poses (re-racked between frames)
+    pin_homes: Vec<Transform>,
+    ball_home: Transform,
+    /// the current rack's pin entities
+    pins: Vec<Entity>,
+    ball: Option<Entity>,
+    phase: BowlPhase,
+    standing_before: u8,
+    bowls_this_rack: u8,
+    /// total bowls so far (a safety cap on the self-test)
+    bowl_index: u8,
+}
+
+impl Default for BowlingPhysics {
+    fn default() -> Self {
+        BowlingPhysics {
+            active: false,
+            player: 0,
+            pin_homes: Vec::new(),
+            ball_home: Transform::IDENTITY,
+            pins: Vec::new(),
+            ball: None,
+            phase: BowlPhase::NeedRack,
+            standing_before: 0,
+            bowls_this_rack: 0,
+            bowl_index: 0,
+        }
+    }
+}
+
+// pin + ball physical shape (metres / kg): a tall thin pin, a heavy ball
+const PIN_HALF_H: f32 = 0.19;
+const PIN_RADIUS: f32 = 0.045;
+const PIN_MASS: f32 = 1.5;
+const BALL_RADIUS: f32 = 0.11;
+const BALL_MASS: f32 = 7.0;
+const BOWL_SPEED: f32 = 9.0; // m/s down the lane
+const SETTLE_SECS: f32 = 3.5; // time for the ball to travel + the pins to settle
+
 pub struct BowlingPlugin;
 
 impl Plugin for BowlingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Bowling>().add_systems(Update, (join_game, recv_rpcs, master_tick).chain());
+        app.init_resource::<Bowling>()
+            .init_resource::<BowlingPhysics>()
+            .add_systems(Update, (join_game, recv_rpcs, master_tick, physics_bowl).chain());
     }
 }
 
@@ -93,6 +158,7 @@ fn join_game(
     pieces: Query<(), With<RoomPiece>>,
     mut net: NetObjects,
     mut db: ResMut<Bowling>,
+    mut phys: ResMut<BowlingPhysics>,
     mut exit: MessageWriter<AppExit>,
 ) {
     if !matches!(active.as_deref(), Some(BowlingActive(true))) || pieces.is_empty() || db.game.is_some() {
@@ -139,9 +205,30 @@ fn join_game(
              maxDepen {BALL_MAX_DEPENETRATION_VELOCITY}; pins standing while tilt<= {PIN_UPRIGHT_MAX_DEG}°"
         );
 
-        if std::env::var("METALLIC_BW_BOTS").is_ok() {
-            // self-test: the master bowls a full real card (the 167 textbook game) to completion → MatchOver. Verifies
-            // the 10-pin scoreboard + the match-complete/win broadcast over the net. One bowl every 0.8 s.
+        if std::env::var("METALLIC_BW_PHYSICS").is_ok() {
+            // REAL physics: spawn the 10 lane-1 pins + ball as rapier rigidbodies on a physical lane; the solver
+            // topples the pins and pinfall is counted by the 25° rule (physics_bowl), feeding the same scoreboard.
+            let lane: Vec<Vec3> = db.pins.iter().copied().take(10).collect();
+            // NOTE: the foundation mirrors the scene's OWN BowlingPin colliders as FIXED bodies, so spawning our
+            // DYNAMIC pins at the real floor height would overlap them and eject the rack. Run the physics lane in
+            // clear space ABOVE the room (same real x/z layout, lifted) so only our dynamic pins + ball + lane exist.
+            // (Excluding the scene pins from the fixed mirror, to bowl on the real floor, is the follow-up.)
+            let floor_y = 50.0_f32;
+            let cx = lane.iter().map(|p| p.x).sum::<f32>() / lane.len() as f32;
+            let min_z = lane.iter().map(|p| p.z).fold(f32::INFINITY, f32::min);
+            let max_z = lane.iter().map(|p| p.z).fold(f32::NEG_INFINITY, f32::max);
+            phys.pin_homes = lane.iter().map(|p| Transform::from_xyz(p.x, floor_y + PIN_HALF_H, p.z)).collect();
+            phys.ball_home = Transform::from_xyz(cx, floor_y + BALL_RADIUS, min_z - 14.0); // ~14 m run-up
+            phys.player = pid(actor);
+            phys.active = true;
+            // a flat fixed lane under the pins + run-up — a bowling lane IS flat, so this matches the real geometry
+            // and guarantees a surface even if the room floor is a mesh collider the foundation skips.
+            let start_z = min_z - 14.0;
+            let (lane_half_len, lane_mid_z) = ((max_z - start_z) * 0.5 + 1.0, (max_z + start_z) * 0.5);
+            commands.spawn((RigidBody::Fixed, Collider::cuboid(1.5, 0.1, lane_half_len), Transform::from_xyz(cx, floor_y - 0.1, lane_mid_z)));
+            info!("bowling: PHYSICS mode — real pins + ball as rapier bodies, bowling a full game on a physical lane");
+        } else if std::env::var("METALLIC_BW_BOTS").is_ok() {
+            // non-physics self-test: the master bowls a scripted card (the 167 textbook game) to completion → MatchOver.
             let me = pid(actor);
             let card: [u8; 17] = [10, 7, 3, 9, 0, 10, 0, 8, 8, 2, 0, 6, 10, 10, 10, 8, 1];
             db.bots = card.iter().enumerate().map(|(i, &pins)| (1.5 + i as f32 * 0.8, me, pins)).collect();
@@ -250,6 +337,107 @@ fn master_tick(time: Res<Time>, link: Res<RoomLink>, mut net: NetObjects, mut db
                 info!("bowling: GAME OVER — player {winner} WINS (total {})", db.scores.get(&winner).copied().unwrap_or(0));
             }
             _ => {}
+        }
+    }
+}
+
+/// Spawn the real ball as a rapier rigidbody at `home`, moving at `vel` (zero = resting at the start).
+fn spawn_ball(commands: &mut Commands, home: Transform, vel: Vec3) -> Entity {
+    commands
+        .spawn((
+            RigidBody::Dynamic,
+            Collider::ball(BALL_RADIUS),
+            ColliderMassProperties::Mass(BALL_MASS),
+            Velocity { linear: vel, angular: Vec3::ZERO },
+            home,
+            BwBall,
+        ))
+        .id()
+}
+
+/// Master + physics mode: the bowl→settle→count state machine. Racks 10 real pins + a ball as rapier bodies, bowls
+/// the ball down the lane (the solver topples pins), then counts the pins still STANDING by the 25° rule and feeds the
+/// real pinfall (standing-before − standing-after) to the scoreboard — the physics replacing the bot-injected counts.
+fn physics_bowl(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut phys: ResMut<BowlingPhysics>,
+    mut db: ResMut<Bowling>,
+    pins_q: Query<&Transform, With<BwPin>>,
+) {
+    if !phys.active || db.rules.is_none() {
+        return;
+    }
+    let dt = time.delta_secs().min(0.1);
+    let standing = pins_q.iter().filter(|t| tilt_from_upright_deg(t.rotation) <= PIN_UPRIGHT_MAX_DEG).count() as u8;
+
+    match phys.phase {
+        BowlPhase::NeedRack => {
+            // re-rack: despawn the old pins + ball, spawn a fresh upright 10-pin rack + a resting ball
+            for e in std::mem::take(&mut phys.pins) {
+                commands.entity(e).despawn();
+            }
+            if let Some(b) = phys.ball.take() {
+                commands.entity(b).despawn();
+            }
+            let homes = phys.pin_homes.clone();
+            let mut pins = Vec::with_capacity(homes.len());
+            for home in homes {
+                let e = commands
+                    .spawn((RigidBody::Dynamic, Collider::cylinder(PIN_HALF_H, PIN_RADIUS), ColliderMassProperties::Mass(PIN_MASS), home, BwPin))
+                    .id();
+                pins.push(e);
+            }
+            phys.pins = pins;
+            let home = phys.ball_home;
+            phys.ball = Some(spawn_ball(&mut commands, home, Vec3::ZERO));
+            phys.bowls_this_rack = 0;
+            phys.phase = BowlPhase::Aiming(1.0); // let the fresh rack settle before bowling
+        }
+        BowlPhase::Aiming(t) => {
+            let t = t - dt;
+            if t > 0.0 {
+                phys.phase = BowlPhase::Aiming(t);
+                return;
+            }
+            phys.standing_before = standing;
+            // bowl: respawn the ball moving down the lane, with the line varied a little per bowl (strikes + splits)
+            if let Some(b) = phys.ball.take() {
+                commands.entity(b).despawn();
+            }
+            let line_x = 0.09 + ((phys.bowl_index % 3) as f32 - 1.0) * 0.06;
+            let home = phys.ball_home;
+            phys.ball = Some(spawn_ball(&mut commands, home, Vec3::new(line_x, 0.0, BOWL_SPEED)));
+            phys.bowls_this_rack += 1;
+            phys.bowl_index += 1;
+            phys.phase = BowlPhase::Settling(SETTLE_SECS);
+        }
+        BowlPhase::Settling(t) => {
+            let t = t - dt;
+            if t > 0.0 {
+                phys.phase = BowlPhase::Settling(t);
+                return;
+            }
+            let pinfall = phys.standing_before.saturating_sub(standing);
+            let player = phys.player;
+            db.pending.push(GameInput::Bowl { player, pins: pinfall });
+            info!("bowling: PHYSICS bowl {} — {} standing → {standing} standing, PINFALL {pinfall}", phys.bowl_index, phys.standing_before);
+            if standing == 0 || phys.bowls_this_rack >= 2 {
+                // frame done (strike, or both balls bowled) → re-rack, unless we've hit the safety cap
+                if phys.bowl_index >= 21 {
+                    phys.active = false;
+                } else {
+                    phys.phase = BowlPhase::NeedRack;
+                }
+            } else {
+                // a second ball at the pins left standing: reset only the ball
+                if let Some(b) = phys.ball.take() {
+                    commands.entity(b).despawn();
+                }
+                let home = phys.ball_home;
+                phys.ball = Some(spawn_ball(&mut commands, home, Vec3::ZERO));
+                phys.phase = BowlPhase::Aiming(0.5);
+            }
         }
     }
 }
