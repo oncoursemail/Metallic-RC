@@ -25,12 +25,14 @@ pub struct StuntRunnerConfig {
     /// directly from the StuntRunnerManager prefab via `value::read` (the `.ctor` default, NOT overridden); one global
     /// value for all 6 courses.
     pub course_max_base_score: u32,
-    /// one global time cap in seconds (`CourseMaxFinishTimeSeconds`, @0x820); at the cap the score is 0.
-    /// 1:1-PENDING: this backing field is `[CompilerGenerated]`, NOT `[SerializeField]` and never set in the manager
-    /// — it is assigned at RUNTIME by an external configurator, so it is NOT statically readable from level92. It
-    /// needs a live capture of the running game. The value below is a flagged placeholder. NOTE: the final RANKING /
-    /// WINNER is independent of the cap (total score ranks by total time either way — the cap only scales the absolute
-    /// scores and sets the timeout threshold), so the sequence/formula/winner are correct meanwhile.
+    /// one time cap in seconds (`CourseMaxFinishTimeSeconds`, auto-property @0x820); at the cap the score is 0.
+    /// 1:1: this is PER-COURSE CONTENT, not a client constant (dump-verified, sweet-galileo_bowling-stunt-charades):
+    /// the backing field is `[CompilerGenerated]`, NOT `[SerializeField]`, and the finish time is master-authoritative
+    /// — `RpcMasterRequestCourseFinishTime(player, int finishTimeMilliseconds)` carries it FROM THE COURSE (each
+    /// StuntRunner course's circuit sets its own; `StuntRunner_Config.json` has no finish time). So it VARIES per
+    /// course and lives in room/circuit data, not the client binary — model it as a per-course parameter. The value
+    /// below is our own-course default. NOTE: the final RANKING / WINNER is cap-independent (total score ranks by total
+    /// time either way — the cap only scales absolute scores and sets the timeout), so sequence/formula/winner hold.
     pub course_max_finish_seconds: f32,
 }
 

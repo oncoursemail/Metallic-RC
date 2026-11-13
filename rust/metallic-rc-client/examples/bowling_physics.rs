@@ -42,29 +42,41 @@ fn setup(mut commands: Commands) {
     // the lane: a fixed slab with its top at FLOOR_TOP
     commands.spawn((RigidBody::Fixed, Collider::cuboid(3.0, 0.1, 30.0), Transform::from_xyz(0.0, FLOOR_TOP - 0.1, 9.0)));
 
-    // the real lane-1 ten-pin triangle (4-3-2-1), z rows from level91's BowlingPin layout
-    let (pin_half, pin_r, pin_mass) = (0.19_f32, 0.045_f32, 1.5_f32);
+    // the real lane-1 ten-pin triangle (4-3-2-1), z rows from level91's BowlingPin layout. EXACT dump pin: compound
+    // body (base box + neck/belly capsules), mass 1, root at the base (sweet-galileo_bowling-stunt-charades).
+    let pin = || {
+        Collider::compound(vec![
+            (Vec3::new(0.0, 0.05, 0.0), Quat::IDENTITY, Collider::cuboid(0.0275, 0.05, 0.0275)),
+            (Vec3::new(0.0, 0.19, 0.0), Quat::IDENTITY, Collider::capsule_y(0.15, 0.04)),
+            (Vec3::new(0.0, 0.12, 0.0), Quat::IDENTITY, Collider::capsule_y(0.024, 0.076)),
+        ])
+    };
     let rows = [(4usize, 17.67_f32), (3, 17.28), (2, 16.89), (1, 16.50)];
     for (count, z) in rows {
         for i in 0..count {
             let x = (i as f32 - (count as f32 - 1.0) / 2.0) * 0.45; // ~0.45 m pin spacing
             commands.spawn((
                 RigidBody::Dynamic,
-                Collider::cylinder(pin_half, pin_r),
-                ColliderMassProperties::Mass(pin_mass),
-                Transform::from_xyz(x, FLOOR_TOP + pin_half, z),
+                pin(),
+                ColliderMassProperties::Mass(1.0),
+                Damping { linear_damping: 0.0, angular_damping: 1.0 },
+                Friction { coefficient: 0.6, combine_rule: CoefficientCombineRule::Average },
+                Restitution { coefficient: 0.6, combine_rule: CoefficientCombineRule::Max },
+                Transform::from_xyz(x, FLOOR_TOP, z), // compound root = pin base
                 Pin,
             ));
         }
     }
 
     // the ball bowled into the 1-3 POCKET (a dead-centre ball splits; the pocket line strikes). Aimed from slightly
-    // left of the lane centre toward x≈0.15 at the pins, ~9 m/s.
+    // left of the lane centre toward x≈0.15 at the pins, ~9 m/s. EXACT dump ball: sphere r0.125, mass 8 (8:1 vs pin).
     commands.spawn((
         RigidBody::Dynamic,
-        Collider::ball(0.11),
-        ColliderMassProperties::Mass(7.0),
+        Collider::ball(0.125),
+        ColliderMassProperties::Mass(8.0),
+        Friction { coefficient: 0.14, combine_rule: CoefficientCombineRule::Multiply },
+        Restitution { coefficient: 0.25, combine_rule: CoefficientCombineRule::Multiply },
         Velocity { linear: Vec3::new(0.09, 0.0, 9.0), angular: Vec3::ZERO },
-        Transform::from_xyz(-0.1, FLOOR_TOP + 0.11, 0.0),
+        Transform::from_xyz(-0.1, FLOOR_TOP + 0.125, 0.0),
     ));
 }

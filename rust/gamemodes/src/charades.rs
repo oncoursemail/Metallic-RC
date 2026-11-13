@@ -3,7 +3,11 @@
 //! PERFORMER draws the current word with a pen, and GUESSERS press a physical guess button to signal a correct guess.
 //! Correctness is the in-world button signal (master-validated: the guesser is NOT the performer), not text matching —
 //! so a correct guess is a [`GameInput::Guess`], and the word bank itself is server/content-driven (not in these
-//! rules). Two modes, both from the real wrappers (no invented numbers):
+//! rules). 1:1: the words are EXTERNAL, dump-verified NOT in the client (sweet-galileo_bowling-stunt-charades):
+//! `CharadesManager` has no word array; words load from a `CardBox` → `CardData` (namespace RecNet, field `EN_US` =
+//! the word) via `GET api/activities/charades/v1/words/{source}`, source enum {Charades=0, CharadesAprilFoolsDay=1,
+//! Icebreakers=2}. RR's servers are down (2026-06-01), so the live list isn't fetchable — model the word source as
+//! external, never invent words. Two modes, both from the real wrappers (no invented numbers):
 //!
 //! - **CoOpClassic**: all players vs the clock. A 480 s game, 60 s per performer; a correct guess is +1 to the SHARED
 //!   score; performers rotate; most words before the game timer expires is the co-op result.

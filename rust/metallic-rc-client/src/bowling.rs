@@ -111,14 +111,28 @@ impl Default for BowlingPhysics {
     }
 }
 
-// pin + ball physical shape (metres / kg): a tall thin pin, a heavy ball
-const PIN_HALF_H: f32 = 0.19;
-const PIN_RADIUS: f32 = 0.045;
-const PIN_MASS: f32 = 1.5;
-const BALL_RADIUS: f32 = 0.11;
-const BALL_MASS: f32 = 7.0;
+// EXACT dump physics (prefabs (BowlingBall) + (SandboxBowlingPin), sweet-galileo_bowling-stunt-charades): a heavy
+// sphere ball + a light compound-body pin — ball:pin mass = 8:1 (the key strike-realism correction).
+const BALL_RADIUS: f32 = 0.125; // SphereCollider radius (0.25 m dia)
+const BALL_MASS: f32 = 8.0; // Rigidbody mass
+const BALL_FRICTION: f32 = 0.14; // PhysicMaterial "BowlingBall" dynamicFriction (frictionCombine Multiply)
+const BALL_BOUNCE: f32 = 0.25; // bounciness (bounceCombine Multiply)
+const PIN_MASS: f32 = 1.0; // Rigidbody mass
+const PIN_ANGULAR_DAMPING: f32 = 1.0; // Rigidbody angularDrag
+const PIN_FRICTION: f32 = 0.6; // PhysicMaterial "BowlingPin" dynamicFriction (frictionCombine Average)
+const PIN_BOUNCE: f32 = 0.6; // bounciness (bounceCombine Maximum)
 const BOWL_SPEED: f32 = 9.0; // m/s down the lane
 const SETTLE_SECS: f32 = 3.5; // time for the ball to travel + the pins to settle
+
+/// The real SandboxBowlingPin compound collider, root at the pin base (exact dump dimensions). Unity CapsuleCollider
+/// height is the total cap-to-cap height, so the bevy cylinder half-height = height/2 − radius.
+fn pin_collider() -> Collider {
+    Collider::compound(vec![
+        (Vec3::new(0.0, 0.05, 0.0), Quat::IDENTITY, Collider::cuboid(0.0275, 0.05, 0.0275)), // BoxCollider size (0.055,0.10,0.055)
+        (Vec3::new(0.0, 0.19, 0.0), Quat::IDENTITY, Collider::capsule_y(0.15, 0.04)), // CapsuleCollider r0.04 h0.38 (neck)
+        (Vec3::new(0.0, 0.12, 0.0), Quat::IDENTITY, Collider::capsule_y(0.024, 0.076)), // CapsuleCollider r0.076 h0.20 (belly)
+    ])
+}
 
 pub struct BowlingPlugin;
 
@@ -217,7 +231,7 @@ fn join_game(
             let cx = lane.iter().map(|p| p.x).sum::<f32>() / lane.len() as f32;
             let min_z = lane.iter().map(|p| p.z).fold(f32::INFINITY, f32::min);
             let max_z = lane.iter().map(|p| p.z).fold(f32::NEG_INFINITY, f32::max);
-            phys.pin_homes = lane.iter().map(|p| Transform::from_xyz(p.x, floor_y + PIN_HALF_H, p.z)).collect();
+            phys.pin_homes = lane.iter().map(|p| Transform::from_xyz(p.x, floor_y, p.z)).collect(); // compound root = pin base
             phys.ball_home = Transform::from_xyz(cx, floor_y + BALL_RADIUS, min_z - 14.0); // ~14 m run-up
             phys.player = pid(actor);
             phys.active = true;
@@ -348,6 +362,8 @@ fn spawn_ball(commands: &mut Commands, home: Transform, vel: Vec3) -> Entity {
             RigidBody::Dynamic,
             Collider::ball(BALL_RADIUS),
             ColliderMassProperties::Mass(BALL_MASS),
+            Friction { coefficient: BALL_FRICTION, combine_rule: CoefficientCombineRule::Multiply },
+            Restitution { coefficient: BALL_BOUNCE, combine_rule: CoefficientCombineRule::Multiply },
             Velocity { linear: vel, angular: Vec3::ZERO },
             home,
             BwBall,
@@ -384,7 +400,16 @@ fn physics_bowl(
             let mut pins = Vec::with_capacity(homes.len());
             for home in homes {
                 let e = commands
-                    .spawn((RigidBody::Dynamic, Collider::cylinder(PIN_HALF_H, PIN_RADIUS), ColliderMassProperties::Mass(PIN_MASS), home, BwPin))
+                    .spawn((
+                        RigidBody::Dynamic,
+                        pin_collider(),
+                        ColliderMassProperties::Mass(PIN_MASS),
+                        Damping { linear_damping: 0.0, angular_damping: PIN_ANGULAR_DAMPING },
+                        Friction { coefficient: PIN_FRICTION, combine_rule: CoefficientCombineRule::Average },
+                        Restitution { coefficient: PIN_BOUNCE, combine_rule: CoefficientCombineRule::Max },
+                        home,
+                        BwPin,
+                    ))
                     .id();
                 pins.push(e);
             }
