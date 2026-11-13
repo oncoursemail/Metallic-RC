@@ -329,23 +329,24 @@ fn property_byte(property: u8, conn: u8) -> u8 {
     (property & 0x1F) | ((conn & 0x03) << 5)
 }
 
-/// Build a Channeled packet in the realtime server's order: `[prop|conn][channelId][seq:u16 LE][payload]`.
+/// Build a Channeled packet in stock LiteNetLib / the server's order: `[prop|conn][seq:u16 LE][channelId][payload]`
+/// (Sequence@1, ChannelId@3 — matches rr_net::lnl and upstream LiteNetLib).
 pub fn build_channeled(conn: u8, seq: u16, channel: u8, payload: &[u8]) -> Vec<u8> {
     let mut v = Vec::with_capacity(CHANNELED_HEADER_SIZE + payload.len());
     v.push(property_byte(PROP_CHANNELED, conn));
-    v.push(channel);
     v.extend_from_slice(&seq.to_le_bytes());
+    v.push(channel);
     v.extend_from_slice(payload);
     v
 }
 
-/// Build an Ack for one received Channeled sequence: `[Ack|conn][channelId][windowStart:u16 LE][8-byte bitfield]`,
+/// Build an Ack for one received Channeled sequence: `[Ack|conn][windowStart:u16 LE][channelId][8-byte bitfield]`,
 /// the bit `(seq - windowStart)` set (window of 64). We ACK with windowStart 0.
 pub fn build_ack(conn: u8, channel: u8, seq: u16) -> Vec<u8> {
     let mut v = Vec::with_capacity(CHANNELED_HEADER_SIZE + 8);
     v.push(property_byte(PROP_ACK, conn));
-    v.push(channel);
     v.extend_from_slice(&0u16.to_le_bytes());
+    v.push(channel);
     let mut field = [0u8; 8];
     let rel = seq as usize;
     if rel < 64 {
@@ -355,10 +356,10 @@ pub fn build_ack(conn: u8, channel: u8, seq: u16) -> Vec<u8> {
     v
 }
 
-/// The channel + sequence of a Channeled/Ack packet: the 3 bytes after the property byte (`[channelId][seq:u16 LE]`).
+/// The channel + sequence of a Channeled/Ack packet: the 3 bytes after the property byte (`[seq:u16 LE][channelId]`).
 pub fn parse_channel_header(after_property: &[u8]) -> Option<(u8, u16)> {
     let a = after_property;
-    (a.len() >= 3).then(|| (a[0], u16::from_le_bytes([a[1], a[2]])))
+    (a.len() >= 3).then(|| (a[2], u16::from_le_bytes([a[0], a[1]])))
 }
 
 /// The minimal valid LiteNetLib ConnectRequest datagram (ProtocolId 13, 16-byte sockaddr, empty connect data) with
@@ -599,6 +600,45 @@ mod tests {
 
         // 3. Inbound strips + decrypts back to the plaintext body.
         assert_eq!(cipher_inbound(&wire, &key), Some(body));
+    }
+
+    /// The server's full reproducible handshake vector (fixed X25519 privs 0x11../0x22..): validates X25519, the
+    /// Rabbit key derivation, the hello codecs, AND the decrypt path (Channeled {seq, channelId} + cipher + envelope
+    /// + input/frame decode) against the server's exact bytes — the whole stack, offline.
+    #[test]
+    fn server_reproducible_handshake_vector() {
+        use x25519_dalek::{PublicKey, StaticSecret};
+        let client_priv = StaticSecret::from([0x11u8; 32]);
+        let server_priv = StaticSecret::from([0x22u8; 32]);
+        let client_pub = PublicKey::from(&client_priv).to_bytes();
+        let server_pub = PublicKey::from(&server_priv).to_bytes();
+        assert_eq!(client_pub.to_vec(), hex("7b4e909bbe7ffe44c465a220037d608ee35897d31ef972f07f74892cb0f73f13"));
+        assert_eq!(server_pub.to_vec(), hex("0faa684ed28867b97f4a6a2dee5df8ce974e76b7018e3f22a1c4cf2678570f20"));
+        let shared = client_priv.diffie_hellman(&PublicKey::from(server_pub)).to_bytes();
+        assert_eq!(shared.to_vec(), hex("9e004098efc091d4ec2663b4e9f5cfd4d7064571690b4bea97ab146ab9f35056"));
+        let key = derive_rabbit_key(&shared);
+        assert_eq!(key.to_vec(), hex("3b6514b4ea550b747c9aa769fbafb64e"));
+
+        // ClientHello body (PC tier) + ServerHello decode.
+        assert_eq!(encode_client_hello(&client_pub, &DeviceProfile::PC),
+            hex("017b4e909bbe7ffe44c465a220037d608ee35897d31ef972f07f74892cb0f73f13fa001e00d00700"));
+        assert_eq!(decode_server_hello(&hex("020faa684ed28867b97f4a6a2dee5df8ce974e76b7018e3f22a1c4cf2678570f20")), Some(server_pub));
+
+        // INPUT_DGRAM → Channeled {seq 0, ch 2} + Input(1.5, -2.0, 3.25, yaw 1.0).
+        let inner = cipher_inbound(&hex("156cf02d84d36d1e7cfeff37d6020dff353cca060207070707070707072a"), &key).unwrap();
+        assert_eq!(parse_channel_header(&inner[1..]), Some((REPL_CHANNEL, 0)));
+        let (pos, yaw) = decode_input(&inner[CHANNELED_HEADER_SIZE..]).unwrap();
+        assert_eq!((pos, yaw), ([1.5, -2.0, 3.25], 1.0));
+
+        // FRAME_DGRAM → Channeled + Frame(tick 1, one entity id 2 Near pos~(3,0,0)).
+        let finner = cipher_inbound(&hex("2f396a6f118799aca883814b2aa09fc1cb878c8b49fe01d2b0d608080808080808082a"), &key).unwrap();
+        let fbody = &finner[CHANNELED_HEADER_SIZE..];
+        assert_eq!(fbody[0], msg::REPLICATION_FRAME);
+        let frame = ReplicationFrame::decode(&fbody[1..], POS_RANGE).unwrap();
+        assert_eq!((frame.server_tick, frame.entities.len()), (1, 1));
+        assert_eq!((frame.entities[0].id, frame.entities[0].lod), (2, Lod::Near));
+        let p = frame.entities[0].pos.unwrap();
+        assert!((p[0] - 3.0).abs() < 0.1 && p[1].abs() < 0.1 && p[2].abs() < 0.1, "{p:?}");
     }
 
     #[test]
