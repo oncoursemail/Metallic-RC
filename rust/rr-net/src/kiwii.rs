@@ -315,6 +315,175 @@ impl ReplicationFrame {
     }
 }
 
+// --- LiteNetLib framing (the realtime server's order) + the room client state machine ---------------------------
+
+/// The reliable-ordered channel app messages ride (userChannel 0, ReliableOrdered delivery 2 → `0*4+2`).
+pub const REPL_CHANNEL: u8 = 2;
+/// Channeled/Ack header size after the property byte is 1 (property) + 1 (channel) + 2 (seq) = 4.
+pub const CHANNELED_HEADER_SIZE: usize = 4;
+
+const PROP_CHANNELED: u8 = 1;
+const PROP_ACK: u8 = 2;
+
+fn property_byte(property: u8, conn: u8) -> u8 {
+    (property & 0x1F) | ((conn & 0x03) << 5)
+}
+
+/// Build a Channeled packet in the realtime server's order: `[prop|conn][channelId][seq:u16 LE][payload]`.
+pub fn build_channeled(conn: u8, seq: u16, channel: u8, payload: &[u8]) -> Vec<u8> {
+    let mut v = Vec::with_capacity(CHANNELED_HEADER_SIZE + payload.len());
+    v.push(property_byte(PROP_CHANNELED, conn));
+    v.push(channel);
+    v.extend_from_slice(&seq.to_le_bytes());
+    v.extend_from_slice(payload);
+    v
+}
+
+/// Build an Ack for one received Channeled sequence: `[Ack|conn][channelId][windowStart:u16 LE][8-byte bitfield]`,
+/// the bit `(seq - windowStart)` set (window of 64). We ACK with windowStart 0.
+pub fn build_ack(conn: u8, channel: u8, seq: u16) -> Vec<u8> {
+    let mut v = Vec::with_capacity(CHANNELED_HEADER_SIZE + 8);
+    v.push(property_byte(PROP_ACK, conn));
+    v.push(channel);
+    v.extend_from_slice(&0u16.to_le_bytes());
+    let mut field = [0u8; 8];
+    let rel = seq as usize;
+    if rel < 64 {
+        field[rel / 8] |= 1 << (rel % 8);
+    }
+    v.extend_from_slice(&field);
+    v
+}
+
+/// The channel + sequence of a Channeled/Ack packet: the 3 bytes after the property byte (`[channelId][seq:u16 LE]`).
+pub fn parse_channel_header(after_property: &[u8]) -> Option<(u8, u16)> {
+    let a = after_property;
+    (a.len() >= 3).then(|| (a[0], u16::from_le_bytes([a[1], a[2]])))
+}
+
+/// The minimal valid LiteNetLib ConnectRequest datagram (ProtocolId 13, 16-byte sockaddr, empty connect data) with
+/// the `0x11` plaintext trailer — the exact bytes the server's MockClient uses; the server keys a connection by the
+/// datagram's source address, so the fixed body is fine for any client socket.
+pub fn connect_request_datagram() -> Vec<u8> {
+    const HEX: &str = "050d00000034bdf9150b41df08000000001002001e617f00000100000000000000000011";
+    (0..HEX.len() / 2).map(|i| u8::from_str_radix(&HEX[2 * i..2 * i + 2], 16).unwrap()).collect()
+}
+
+/// Server-assigned avatar entity id for client `n` (1-based), matching the server's `avatar_id`.
+pub fn avatar_id(client: u32) -> u32 {
+    client
+}
+
+/// What [`Client::on_datagram`] decoded from one inbound datagram.
+#[derive(Debug)]
+pub enum Event {
+    /// The handshake completed: encryption is now on.
+    Connected,
+    /// A replication frame arrived — the remote-entity deltas to apply (your own id excluded by the caller).
+    Frame(ReplicationFrame),
+    /// A transport packet that carries no app payload (an Ack, a Pong, an unknown Channeled) — nothing to render.
+    Transport,
+}
+
+/// The client side of the Kiwii realtime protocol: the handshake + per-packet cipher + envelope state machine. Feed
+/// it inbound datagrams with [`on_datagram`](Client::on_datagram) and send the datagrams it hands back (plus
+/// [`input_datagram`](Client::input_datagram) each tick) over a single connected UDP socket. Transport-agnostic (no
+/// socket, no threads) so it unit-tests against the server's own codecs and drops into the client's net thread.
+pub struct Client {
+    conn: u8,
+    out_seq: u16,
+    iv: u64,
+    key: Option<[u8; 16]>,
+    eph: Option<EphemeralKeypair>,
+    profile: DeviceProfile,
+    /// Outbound datagrams the state machine wants sent (ACKs, the ClientHello).
+    pub outbox: Vec<Vec<u8>>,
+}
+
+impl Client {
+    /// A new client with the given device profile (derive it from the engine quality tier + platform).
+    pub fn new(profile: DeviceProfile) -> Client {
+        Client { conn: 0, out_seq: 0, iv: 1, key: None, eph: None, profile, outbox: Vec::new() }
+    }
+
+    /// Returns `true` once the Rabbit key is set (handshake done, encryption on).
+    pub fn is_connected(&self) -> bool {
+        self.key.is_some()
+    }
+
+    /// Wrap an app payload as a Channeled packet with the cipher trailer (plaintext pre-key, encrypted after).
+    /// Advances the reliable sequence and (when encrypting) the IV counter — mirrors the server's `Conn::wrap`.
+    fn wrap(&mut self, channel: u8, payload: &[u8]) -> Vec<u8> {
+        let seq = self.out_seq;
+        self.out_seq = self.out_seq.wrapping_add(1);
+        let pkt = build_channeled(self.conn, seq, channel, payload);
+        match self.key {
+            None => cipher_outbound_plain(&pkt),
+            Some(k) => {
+                self.iv = self.iv.wrapping_add(1);
+                cipher_outbound_encrypted(&pkt, &k, &self.iv.to_le_bytes())
+            }
+        }
+    }
+
+    /// Step 1: the ConnectRequest datagram to send first (plaintext).
+    pub fn connect_request(&self) -> Vec<u8> {
+        connect_request_datagram()
+    }
+
+    /// Step 2 (after ConnectAccept): the ClientHello datagram (generates our ephemeral X25519 keypair).
+    pub fn client_hello(&mut self) -> Vec<u8> {
+        let eph = new_ephemeral();
+        let hello = encode_client_hello(&eph.public, &self.profile);
+        self.eph = Some(eph);
+        self.wrap(REPL_CHANNEL, &hello)
+    }
+
+    /// The Input datagram for this tick (encrypted once connected): the local avatar's pos + yaw.
+    pub fn input_datagram(&mut self, pos: [f32; 3], yaw: f32) -> Vec<u8> {
+        self.wrap(REPL_CHANNEL, &encode_input(pos, yaw))
+    }
+
+    /// Feed one inbound datagram. Decrypts/parses it, pushes any ACK/response to [`outbox`](Client::outbox), and
+    /// returns what it was. On ServerHello it derives the Rabbit key (→ `Event::Connected`). On a ReplicationFrame
+    /// it returns the decoded deltas.
+    pub fn on_datagram(&mut self, datagram: &[u8]) -> Option<Event> {
+        let inner = cipher_inbound(datagram, self.key.as_ref().unwrap_or(&[0u8; 16]))?;
+        // (pre-key packets are plaintext; cipher_inbound ignores the key for the 0x11 marker.)
+        let prop = inner.first()? & 0x1F;
+        if prop == PROP_CHANNELED {
+            let (channel, seq) = parse_channel_header(inner.get(1..)?)?;
+            // ACK the reliable message so the server stops retransmitting.
+            self.outbox.push({
+                let ack = build_ack(self.conn, channel, seq);
+                match self.key {
+                    None => cipher_outbound_plain(&ack),
+                    Some(k) => {
+                        self.iv = self.iv.wrapping_add(1);
+                        cipher_outbound_encrypted(&ack, &k, &self.iv.to_le_bytes())
+                    }
+                }
+            });
+            let payload = inner.get(CHANNELED_HEADER_SIZE..)?;
+            match payload.first().copied() {
+                Some(msg::SERVER_HELLO) => {
+                    let spub = decode_server_hello(payload)?;
+                    let eph = self.eph.take()?;
+                    self.key = Some(derive_rabbit_key(&eph.shared(&spub)));
+                    Some(Event::Connected)
+                }
+                Some(msg::REPLICATION_FRAME) => {
+                    let frame = ReplicationFrame::decode(payload.get(1..)?, POS_RANGE)?;
+                    Some(Event::Frame(frame))
+                }
+                _ => Some(Event::Transport),
+            }
+        } else {
+            Some(Event::Transport)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
