@@ -235,6 +235,8 @@ fn main() {
         // dynamic-prop rigidbody physics foundation (bevy_rapier): mirrors the room's static colliders + lets games
         // spawn dynamic props (bowling pins, projectiles, karts) that a real solver simulates
         .add_plugins(metallic_rc_client::physics::RapierFoundationPlugin)
+        // reusable projectile-combat on the physics foundation (shared by the shooter games: Paintball/BR/Arena/Quest)
+        .add_plugins(metallic_rc_client::combat::CombatPlugin)
         // Dodgeball game mode: active when the Dodgeball arena is the loaded world (`--world dodgeball`)
         .add_plugins(metallic_rc_client::dodgeball::DodgeballPlugin)
         .insert_resource(metallic_rc_client::dodgeball::DodgeballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("dodgeball"))))
@@ -250,6 +252,8 @@ fn main() {
         .insert_resource(metallic_rc_client::charades::CharadesActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("charades"))))
         .add_plugins(metallic_rc_client::stuntrunner::StuntRunnerPlugin)
         .insert_resource(metallic_rc_client::stuntrunner::StuntRunnerActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("stuntrunner") || w.eq_ignore_ascii_case("level93") || w.eq_ignore_ascii_case("course1"))))
+        .add_plugins(metallic_rc_client::paintball::PaintballPlugin)
+        .insert_resource(metallic_rc_client::paintball::PaintballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("paintball") || matches!(w.to_ascii_lowercase().as_str(), "level14" | "level15" | "level16" | "level17" | "level18"))))
         .insert_resource(LocalLook(look))
         // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
         .insert_resource(avatar::Dressing::default())
