@@ -155,7 +155,8 @@ fn two_players_friend_party_join_and_survive_a_restart() {
     // Bob invites Ann: a notice arrives; Ann joins through the plugin and follows Bob into his private dorm
     let party = cb.invite_to_party(ann.account.id).unwrap().unwrap();
     run_until(&mut app, "the party invite", |a| a.world().resource::<Seen>().notices.iter().any(|n| n.kind == NoticeKind::PartyInvite { party_id: party.id }));
-    assert!(app.world().resource::<Notifications>().0.iter().any(|n| matches!(n.kind, NoticeKind::PartyInvite { .. })));
+    // the persistent Notifications resource is fed by the social worker, which may land a frame after the live notice
+    run_until(&mut app, "the party invite in notifications", |a| a.world().resource::<Notifications>().0.iter().any(|n| matches!(n.kind, NoticeKind::PartyInvite { .. })));
     app.world().resource::<social::Social>().join_party(party.id);
     run_until(&mut app, "following Bob", |a| !a.world().resource::<Seen>().follows.is_empty());
     assert_eq!(app.world().resource::<Seen>().follows[0].photon_room, bob.room.photon_room);

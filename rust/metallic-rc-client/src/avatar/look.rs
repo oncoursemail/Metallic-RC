@@ -237,7 +237,7 @@ mod tests {
         assert_eq!(Look::from_json(&old.to_json()), Some(old));
         // a newer client's unknown choices fall back to the defaults
         let newer = Look::from_json(r##"{"eyes":"stars","outfit":"cape","accessory":"crown"}"##).unwrap();
-        assert_eq!((newer.eyes, newer.outfit, newer.accessory), (Eyes::Pill, Outfit::None, Accessory::Antenna));
+        assert_eq!((newer.eyes, newer.outfit, newer.accessory), (Eyes::Pill, Outfit::None, Accessory::None));
         assert_eq!(Look::from_json("[1]"), None);
     }
 

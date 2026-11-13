@@ -247,14 +247,16 @@ mod tests {
     #[test]
     fn rows_step_round_their_choices() {
         let l = Look::default();
-        assert_eq!(change(l, 0, 1).skin, SKINS[1]);
-        assert_eq!(change(l, 1, -1).shirt, SHIRTS[7]);
+        // the default look is deliberately mid-palette (tan skin SKINS[1], off-white jersey SHIRTS[6], orange ACCENTS[3]),
+        // so a step lands one along from there (not from index 0)
+        assert_eq!(change(l, 0, 1).skin, SKINS[2]);
+        assert_eq!(change(l, 1, -1).shirt, SHIRTS[5]);
         assert_eq!(change(change(l, 4, 3), 4, -3), l);
         // a colour not on the palette (from --look) starts it again
         assert_eq!(change(Look { skin: [1, 2, 3], ..l }, 0, 1).skin, SKINS[0]);
         assert_eq!(change(l, 2, 1).pants, PANTS[1]);
         assert_eq!(change(l, 3, -1).visor, VISORS[7]);
-        assert_eq!(change(l, 4, 1).accent, ACCENTS[1]);
+        assert_eq!(change(l, 4, 1).accent, ACCENTS[4]);
         assert_eq!(change(l, 5, 2).eyes, Eyes::Happy);
         assert_eq!(change(Look { accessory: Accessory::Goggles, ..l }, 6, 1).accessory, Accessory::None);
         assert_eq!(change(l, 7, -1).outfit, Outfit::Bowtie);

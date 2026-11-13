@@ -48,14 +48,15 @@ fn write_strip(path: &str, c: &metallic_rc_client::levels::Cubemap) {
     let n = c.size as usize;
     let (w, h) = (n * 6, n);
     let mut rgb = vec![0u8; w * h * 3];
-    for (fi, (fw, fh, px)) in c.faces.iter().enumerate() {
-        let (fw, fh) = (*fw as usize, *fh as usize);
-        for y in 0..fh.min(n) {
-            for x in 0..fw.min(n) {
-                let s = (y * fw + x) * 4;
+    // each face is a flat n*n array of linear HDR RGB floats (levels::Cubemap); gamma-encode to 8-bit for the strip
+    for (fi, face) in c.faces.iter().enumerate() {
+        for y in 0..n {
+            for x in 0..n {
                 let d = (y * w + fi * n + x) * 3;
-                if let (Some(src), Some(dst)) = (px.get(s..s + 3), rgb.get_mut(d..d + 3)) {
-                    dst.copy_from_slice(src);
+                if let (Some(p), Some(dst)) = (face.get(y * n + x), rgb.get_mut(d..d + 3)) {
+                    for k in 0..3 {
+                        dst[k] = (p[k].clamp(0.0, 1.0).powf(1.0 / 2.2) * 255.0) as u8;
+                    }
                 }
             }
         }

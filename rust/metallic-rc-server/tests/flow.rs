@@ -111,13 +111,17 @@ async fn the_room_list_has_every_room_and_pages() {
     assert_eq!(st, 200);
     let v = json(&body);
     let names: Vec<&str> = v["Results"].as_array().unwrap().iter().map(|r| r["Name"].as_str().unwrap()).collect();
-    assert_eq!(names, ["DormRoom", "RecCenter"]);
-    assert_eq!(v["TotalResults"], 2);
+    // the two core rooms lead the list; the RR-Originals add the rest (Charades, DiscGolf, Dodgeball, Paintball*, Quest*, ...)
+    assert_eq!(&names[..2], &["DormRoom", "RecCenter"]);
+    let total = v["TotalResults"].as_u64().unwrap() as usize;
+    assert_eq!(total, names.len());
     assert_eq!(v["Results"][1]["RoomId"], 2);
     assert!(v["Results"][0]["Description"].is_string());
+    // paging: skip the dorm, take 5 → RecCenter leads the page, TotalResults stays the full count
     let (_, page) = http(addr, "GET", "/rooms/rooms/hot?skip=1&take=5", None, None).await;
     let page = json(&page);
-    assert_eq!((page["Results"].as_array().unwrap().len(), page["Results"][0]["Name"].as_str(), page["TotalResults"].as_i64()), (1, Some("RecCenter"), Some(2)));
+    let want = (total - 1).min(5);
+    assert_eq!((page["Results"].as_array().unwrap().len(), page["Results"][0]["Name"].as_str(), page["TotalResults"].as_u64()), (want, Some("RecCenter"), Some(total as u64)));
 }
 
 #[tokio::test]

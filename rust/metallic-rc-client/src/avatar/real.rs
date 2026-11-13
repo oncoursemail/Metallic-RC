@@ -834,10 +834,13 @@ fn logo_texture(rgb: [u8; 3]) -> Image {
 /// two (mirrored) eyes symmetric with no coincident-mesh z-fight. Centre-y and radius are env-tunable
 /// (`METALLIC_GLEAM_Y`, `_R`) for dialling against the real-client reference; x stays centred so L/R stay symmetric.
 fn add_eye_gleam(out: &mut [u8], w: usize, h: usize) {
-    // defaults dialled on the headless face render to land a symmetric catchlight clear of the hairline; the exact
-    // real-client numbers come from `_*EyeGleamPosScl` / the AvatarFace_FBA shader when we verify against a capture
-    let cy = envf("METALLIC_GLEAM_Y", 0.47);
-    let r = envf("METALLIC_GLEAM_R", 0.06);
+    // Real values (decompile: EyesFaceFeature + AvatarFace_FBA, "EYE-GLEAM EXACT VALUES"): the gleam is CENTERED on
+    // the eye — `_*EyeGleamPosScl` is identity (0,0,1,1) and there is no base gleam anchor, so NO offset; it only
+    // jitters (tiny: ±0.0005 offset / ±0.01 scale, symmetric L/R) around centre. Pure white, idx 0. Distance-fades
+    // between -20 and 3 (full at normal play distance). The exact pixel shape lives in the compiled fragment shader;
+    // a centred soft white dot ~10–15% of the eye reads 1:1. (Env-tunable for any final tweak.)
+    let cy = envf("METALLIC_GLEAM_Y", 0.5);
+    let r = envf("METALLIC_GLEAM_R", 0.055);
     let (cx, cyp, rr) = (0.5 * w as f32, cy * h as f32, (r * w.min(h) as f32).max(1.0));
     for y in 0..h {
         for x in 0..w {

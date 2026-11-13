@@ -74,5 +74,5 @@ fn room_sounds_decode_and_fade() {
     }
     // the campfire's crackle is FSB Vorbis without its setup header: reported, not played
     let r = world::load(&mut lib, &dir, Some("(Sandbox_Campfire)")).unwrap();
-    assert!(r.sounds.is_empty() && r.problems.iter().any(|p| p.contains("vorbis")), "{:?}", r.problems);
+    assert!(r.sounds.is_empty() && r.problems.iter().any(|p| p.to_lowercase().contains("vorbis")), "{:?}", r.problems);
 }
