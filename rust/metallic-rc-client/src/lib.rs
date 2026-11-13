@@ -10,6 +10,7 @@ pub mod collide;
 pub mod combat;
 pub mod discgolf;
 pub mod dodgeball;
+pub mod enemy;
 pub mod interact;
 pub mod kart;
 pub mod levels;

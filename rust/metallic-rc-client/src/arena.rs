@@ -19,6 +19,7 @@ use gamemodes::mode::{GameEvent, GameInput, GameMode, KillKind, RoundPhase};
 use rr_net::objects::RpcTarget;
 
 use crate::combat::{spawn_projectile, Combatant, CombatantDown, Health, ProjectileSpec};
+use crate::enemy::{EnemyClass, EnemyKilled};
 use crate::netobj::{NetObjects, NetRpc, RoomLink};
 use crate::world::RoomPiece;
 
@@ -57,7 +58,7 @@ pub struct ArenaPlugin;
 
 impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Arena>().add_systems(Update, (join_game, recv_rpcs, recv_downs, master_tick, ar_combat).chain());
+        app.init_resource::<Arena>().add_systems(Update, (join_game, recv_rpcs, recv_downs, recv_enemy_kills, master_tick, ar_combat).chain());
     }
 }
 
@@ -146,15 +147,34 @@ fn recv_rpcs(mut rpcs: MessageReader<NetRpc>, mut db: ResMut<Arena>) {
     }
 }
 
-/// A combat kill → the Arena kill-point input. The kind is read off the teams: a cross-team kill is an enemy player
-/// (+10), a same-team kill is friendly fire (−10). (PvE normal/elite + loot come with the horde/AI vertical.)
+/// A PLAYER kill → the Arena kill-point input (teams 0/1 = red/blue): cross-team = enemy player (+10), same-team =
+/// friendly fire (−10). Horde (NPC enemy) kills are skipped here — they come via [`recv_enemy_kills`], keyed off the
+/// enemy's class. (NPC enemies live on a non-player team, so a victim on team ≥ 2 is a horde kill, not PvP.)
 fn recv_downs(mut downs: MessageReader<CombatantDown>, mut db: ResMut<Arena>) {
     if db.rules.is_none() {
         return;
     }
     for d in downs.read() {
+        if d.victim_team >= 2 {
+            continue; // an NPC enemy died — scored by recv_enemy_kills, not as a player kill
+        }
         let kind = if d.killer_team == d.victim_team { KillKind::Teammate } else { KillKind::EnemyPlayer };
         db.pending.push(GameInput::Kill { team: d.killer_team, kind });
+    }
+}
+
+/// A horde (NPC) enemy kill → the Arena kill-point input by the enemy's class: NormalEnemy +2, EliteEnemy +10 (the real
+/// ArenaMode table). Both PvE and PvP accumulate to the same per-team pool.
+fn recv_enemy_kills(mut killed: MessageReader<EnemyKilled>, mut db: ResMut<Arena>) {
+    if db.rules.is_none() {
+        return;
+    }
+    for k in killed.read() {
+        let kind = match k.class {
+            EnemyClass::Elite => KillKind::EliteEnemy,
+            EnemyClass::Normal => KillKind::NormalEnemy,
+        };
+        db.pending.push(GameInput::Kill { team: k.killer_team, kind });
     }
 }
 

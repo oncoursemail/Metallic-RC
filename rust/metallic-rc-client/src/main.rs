@@ -239,6 +239,8 @@ fn main() {
         .add_plugins(metallic_rc_client::combat::CombatPlugin)
         // reusable kart (GroundVehicle) physics on the physics foundation (RecRally + any kart game)
         .add_plugins(metallic_rc_client::kart::KartPlugin)
+        // reusable enemy AI on the combat foundation (Quest PvE + the Arena horde)
+        .add_plugins(metallic_rc_client::enemy::EnemyPlugin)
         // Dodgeball game mode: active when the Dodgeball arena is the loaded world (`--world dodgeball`)
         .add_plugins(metallic_rc_client::dodgeball::DodgeballPlugin)
         .insert_resource(metallic_rc_client::dodgeball::DodgeballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("dodgeball"))))
