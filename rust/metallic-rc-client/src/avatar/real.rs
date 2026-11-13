@@ -151,10 +151,13 @@ pub struct RealWorn {
     /// the body's skin binding (joints + inverse bind poses) and point cloud, so swapped wardrobe meshes can be
     /// skin-wrapped and spawned skinned, deforming with the body like the defaults
     pub skin: Option<(SkinnedMesh, Arc<skin::SkinCloud>)>,
-    /// the three recolour/re-mesh clothing pieces (torso top, leggings, shoes)
+    /// the three recolour/re-mesh clothing pieces (torso top, leggings, shoes), plus two layered extras for suits
+    /// (a dress shirt under the top and a neck tie) — empty stem = none
     pub top: Worn,
     pub bottom: Worn,
     pub shoes: Worn,
+    pub undershirt: Worn,
+    pub tie: Worn,
     /// the accessory meshes: each one's entity and the stem it shows (empty = none)
     pub hat: Accessory,
     pub beard: Accessory,
@@ -188,6 +191,9 @@ pub struct Dressing {
     pub top: String,
     pub bottom: String,
     pub shoes: String,
+    /// layered suit extras: a dress shirt under the top and a neck tie (empty = none)
+    pub undershirt: String,
+    pub tie: String,
     pub hat: String,
     pub beard: String,
     pub glasses: String,
@@ -198,11 +204,14 @@ pub struct Dressing {
 impl Default for Dressing {
     fn default() -> Self {
         let hair_styles = scan_hair_styles();
-        let hair_style = std::env::var("METALLIC_HAIR").ok().filter(|s| hair_styles.contains(s)).unwrap_or_else(|| "CurlyHelmetHair".into());
+        // The owner's real Rec Room avatar (the title reference): the navy business suit, all real full-body meshes
+        // from the decompiled dump — navy blazer (solid-tinted, its region mask suppressed), a white dress shirt under
+        // it, a dark business tie, and the slicked GordonGekko hair. Overridable with METALLIC_HAIR.
+        let hair_style = std::env::var("METALLIC_HAIR").ok().filter(|s| hair_styles.contains(s)).unwrap_or_else(|| "Hair_GordonGekko".into());
         Dressing {
-            skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x8f, 0x4a, 0x27], shirt: [0xf3, 0xf1, 0xea], pants: [0x3a, 0x3f, 0x4b],
-            // these match the defaults `attach_real` spawns, so a fresh avatar never re-swaps on its first frame
-            top: "ShirtJersey".into(), bottom: "BasicLeggings_Leg".into(), shoes: "Sneakers_Shoe".into(),
+            skin: [0xf2, 0xc9, 0x9b], hair_style, hair_color: [0x5a, 0x37, 0x24], shirt: [0x20, 0x30, 0x58], pants: [0x1c, 0x1e, 0x26],
+            top: "Blazer_Shirt".into(), bottom: "BasicPants_Leg".into(), shoes: "Boots_Shoe".into(),
+            undershirt: "CollarShirt_Shirt".into(), tie: "Tie_Neck".into(),
             hat: String::new(), beard: String::new(), glasses: String::new(),
             hair_styles,
         }
@@ -302,6 +311,14 @@ pub fn scan_slot(body: BodyType, slot: Slot) -> Vec<String> {
 /// The real texture for a wardrobe stem (e.g. `HockeySet_Shirt` -> `HockeySet_Shirt_Tex.png`), trying the few naming
 /// conventions the export uses; `None` when the style ships no base texture (the mesh then shows its tint alone).
 fn wardrobe_tex_for(stem: &str) -> Option<Image> {
+    // the blazer's own texture is a region mask (navy/shirt/tie zones); the real suit tints it SOLID navy via the
+    // MidnightBlue combination, so skip the mask and let the base colour carry it. The tie uses the business-tie tex.
+    if stem == "Blazer_Shirt" {
+        return None;
+    }
+    if stem == "Tie_Neck" {
+        return load_texture(&wardrobe_dir().join("BusinessTie_Neck_tex.png"));
+    }
     let names = [format!("{stem}_Tex.png"), format!("FB_{stem}_Tex.png"), format!("{stem}_tex.png")];
     names.iter().find_map(|n| load_texture(&wardrobe_dir().join(n)))
 }
@@ -379,9 +396,10 @@ pub fn redress(
     mut images: ResMut<Assets<Image>>,
 ) {
     let (Some(dressing), Some(_)) = (dressing, roomie) else { return };
-    if !dressing.is_changed() {
-        return;
-    }
+    // Runs every frame (not just on Dressing change): avatars attach after the Dressing is set, so the gate used to
+    // leave newly-attached avatars in their spawn defaults. swap_piece/accessory short-circuit unchanged pieces and
+    // set() is a few cheap material writes, so this is light. (TODO: apply only to the local avatar; remotes carry
+    // their own look — until then redress dresses every RealWorn from the single local Dressing.)
     let set = |materials: &mut Assets<StandardMaterial>, h: &Handle<StandardMaterial>, c: [u8; 3]| {
         if let Some(mut m) = materials.get_mut(h) {
             m.base_color = Color::srgb_u8(c[0], c[1], c[2]);
@@ -397,13 +415,18 @@ pub fn redress(
         swap_piece(&mut commands, &mut meshes, &mut materials, &mut images, body, parent, &mut w.top, &dressing.top, dressing.shirt, 0.85, &skin);
         swap_piece(&mut commands, &mut meshes, &mut materials, &mut images, body, parent, &mut w.bottom, &dressing.bottom, dressing.pants, 0.8, &skin);
         swap_piece(&mut commands, &mut meshes, &mut materials, &mut images, body, parent, &mut w.shoes, &dressing.shoes, [0xff, 0xff, 0xff], 0.7, &skin);
-        // the hair mesh: swap when the style changed
+        // the layered suit extras: a white dress shirt under the top and a dark tie (empty stem = none)
+        swap_piece(&mut commands, &mut meshes, &mut materials, &mut images, body, parent, &mut w.undershirt, &dressing.undershirt, [0xff, 0xff, 0xff], 0.6, &skin);
+        swap_piece(&mut commands, &mut meshes, &mut materials, &mut images, body, parent, &mut w.tie, &dressing.tie, [0x1a, 0x1a, 0x1e], 0.5, &skin);
+        // the hair mesh: swap when the style changed. Most hair is FB_<style>_Hair, but a few (e.g. Hair_GordonGekko)
+        // carry the real file stem directly — use it as-is when it already starts with "Hair_".
         if w.hair_style != dressing.hair_style {
             if let Some(old) = w.hair.take() {
                 commands.entity(old).despawn();
             }
             let hair_mat = w.hair_mat.clone();
-            w.hair = spawn_worn_mesh(&mut commands, &mut meshes, body, &format!("{}_Hair", dressing.hair_style), hair_mat, &skin, parent);
+            let hair_stem = if dressing.hair_style.starts_with("Hair_") { dressing.hair_style.clone() } else { format!("{}_Hair", dressing.hair_style) };
+            w.hair = spawn_worn_mesh(&mut commands, &mut meshes, body, &hair_stem, hair_mat, &skin, parent);
             w.hair_style = dressing.hair_style.clone();
         }
         // the accessories: swap or remove each when its style changed
@@ -1048,10 +1071,13 @@ pub fn attach_real(
                 let top = piece(&mut commands, &mut materials, &roomie.jersey, look.shirt, &roomie.jersey_tex, 0.85, "ShirtJersey");
                 let bottom = piece(&mut commands, &mut materials, &roomie.legs, look.pants, &roomie.legs_tex, 0.8, "BasicLeggings_Leg");
                 let shoes = piece(&mut commands, &mut materials, &roomie.shoes, [0xff, 0xff, 0xff], &roomie.shoes_tex, 0.7, "Sneakers_Shoe");
+                // the two layered suit extras start empty; `redress` swaps the real meshes in from the Dressing
+                let undershirt = piece(&mut commands, &mut materials, &None, [0xff, 0xff, 0xff], &None, 0.6, "");
+                let tie = piece(&mut commands, &mut materials, &None, [0x1a, 0x1a, 0x1e], &None, 0.5, "");
                 let hair_style = std::env::var("METALLIC_HAIR").unwrap_or_else(|_| "CurlyHelmetHair".into());
                 // keep the skin binding + point cloud so `redress` can skin-wrap and spawn swapped wardrobe meshes
                 let skin = roomie.skin_cloud.as_ref().map(|c| (skin_bind.clone(), c.clone()));
-                commands.entity(root).insert(RealWorn { skeleton_node, visual, body: roomie.body, skin_mat, hair: hair_ent, hair_mat, hair_style, skin, top, bottom, shoes,
+                commands.entity(root).insert(RealWorn { skeleton_node, visual, body: roomie.body, skin_mat, hair: hair_ent, hair_mat, hair_style, skin, top, bottom, shoes, undershirt, tie,
                     hat: Accessory::default(), beard: Accessory::default(), glasses: Accessory::default() });
                 // a group under the head joint whose transform cancels the head's bind pose, so decals placed in the
                 // standing avatar frame (EYE_POS / MOUTH_POS) land on the face and then follow the head joint.
