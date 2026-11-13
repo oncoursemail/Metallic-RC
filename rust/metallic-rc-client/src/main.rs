@@ -378,10 +378,12 @@ fn title_backdrop(
     camera: Query<Entity, With<Camera3d>>,
     (mut mesh_assets, mut mats): (ResMut<Assets<Mesh>>, ResMut<Assets<StandardMaterial>>),
     wall: Res<TitleWallpaper>,
+    mut in_title: ResMut<player::InTitle>,
     mut backdrop: Local<Option<Entity>>,
     mut was_title: Local<bool>,
 ) {
     let title = menu.router.top() == Some(menu::TITLE_CACHED);
+    in_title.0 = title;
     if title {
         third.0 = true;
         for mut v in &mut meshes {
@@ -394,9 +396,14 @@ fn title_backdrop(
                 let mut mat = StandardMaterial { base_color_texture: Some(tex), unlit: true, ..default() };
                 mat.uv_transform = bevy::math::Affine2::from_scale(Vec2::new(6.0, 4.0));
                 let m = mats.add(mat);
-                let e = commands.spawn((Mesh3d(mesh), MeshMaterial3d(m), Transform::from_xyz(0.0, 0.0, -20.0), TitleBackdrop)).id();
-                commands.entity(cam).add_child(e);
-                *backdrop = Some(e);
+                // container under the camera: the wallpaper quad behind the avatar + a key light along the camera's
+                // view so the avatar's front is lit (the kept room lights are behind it from this angle)
+                let quad = commands.spawn((Mesh3d(mesh), MeshMaterial3d(m), Transform::from_xyz(0.0, 0.0, -20.0))).id();
+                let key = commands.spawn((DirectionalLight { illuminance: 9000.0, shadows_enabled: false, ..default() }, Transform::from_xyz(0.0, 0.5, 0.0).looking_at(Vec3::new(0.0, 0.0, -2.0), Vec3::Y))).id();
+                let container = commands.spawn((Transform::default(), Visibility::default(), TitleBackdrop)).id();
+                commands.entity(container).add_children(&[quad, key]);
+                commands.entity(cam).add_child(container);
+                *backdrop = Some(container);
             }
         }
         *was_title = true;

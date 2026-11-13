@@ -43,6 +43,11 @@ pub struct Controls {
 #[derive(Resource, Default)]
 pub struct ThirdPerson(pub bool);
 
+/// Set while the title screen is up: the camera swings in front of the avatar (so its face shows, like the real
+/// client's title), framed to the left with the panel on the right.
+#[derive(Resource, Default)]
+pub struct InTitle(pub bool);
+
 /// The camera, a child of the player (at the eyes): there in first person, behind the shoulder in third.
 #[derive(Component)]
 pub struct View;
@@ -108,6 +113,7 @@ impl Plugin for PlayerPlugin {
             .init_resource::<Solids>()
             .init_resource::<Controls>()
             .init_resource::<ThirdPerson>()
+            .init_resource::<InTitle>()
             .init_resource::<LookPanel>()
             .init_resource::<LocalHands>()
             .add_plugins(interact::InteractPlugin)
@@ -252,6 +258,7 @@ fn camera_view(
     mut player: Single<(&mut Player, &Transform), Without<View>>,
     mut view: Single<(&mut Transform, &mut Projection), With<View>>,
     rig: Query<&Rig, With<LocalAvatar>>,
+    in_title: Res<InTitle>,
 ) {
     let fov_setting = (controls.settings.get("fov") as f32).clamp(30.0, 120.0);
     if keys.just_pressed(KeyCode::KeyV) && !controls.typing {
@@ -265,7 +272,14 @@ fn camera_view(
     let goal = if p.motor.sprinting && moving_fast { 1.0 } else { 0.0 };
     p.sprint_view += (goal - p.sprint_view).clamp(-dt / tuning.sprint_camera_blend.max(1e-3), dt / tuning.sprint_camera_blend.max(1e-3));
     let to_local = |at: Transform| Transform::from_matrix(eye.to_matrix().inverse() * at.to_matrix());
-    let (want, fov) = if panel.open.is_some() {
+    let (want, fov) = if in_title.0 {
+        // the title screen: camera in front of the avatar and off to its right, looking back at its face, so the
+        // avatar frames to the left of screen with the panel clear on the right (the real client's title layout)
+        let body = Quat::from_rotation_y(p.yaw);
+        // camera dead in front (avatar faces us), pulled back; pan the look target hard so the avatar sits screen-left
+        let at = Transform::from_translation(feet + body * Vec3::new(0.0, 1.2, -3.2)).looking_at(feet + body * Vec3::new(-2.6, 0.0, 0.0) + Vec3::Y * 1.2, Vec3::Y);
+        (to_local(at), fov_setting)
+    } else if panel.open.is_some() {
         // world place first: 2.2 m in front, a little above the chest, looking back at the whole body
         let body = Quat::from_rotation_y(p.yaw);
         let at = Transform::from_translation(feet + body * Vec3::new(0.0, 1.3, -2.2)).looking_at(feet + Vec3::Y * 0.95, Vec3::Y);
