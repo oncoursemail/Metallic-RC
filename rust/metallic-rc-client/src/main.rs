@@ -180,8 +180,30 @@ struct StandIn;
 /// The camera's field of view before the settings apply (the game's camera component).
 const FOV: f32 = 60.0;
 
+/// Is the Steam client running? (Windows: the owner's Steam process.) When it is, the client lands already signed in,
+/// like the real client's cached-account title screen; the backend fake-auths the owner's account.
+fn steam_running() -> bool {
+    #[cfg(windows)]
+    {
+        std::process::Command::new("tasklist")
+            .args(["/FI", "IMAGENAME eq steam.exe", "/NH"])
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase().contains("steam.exe"))
+            .unwrap_or(false)
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
 fn main() {
-    let a = args();
+    let mut a = args();
+    // Steam auto-login: if Steam is open and no name was given, boot signed in as the owner's account (the handle the
+    // title screen shows). Without Steam the title still shows, with Switch Account / manual login as the way in.
+    if a.name == "Player" && steam_running() {
+        a.name = "alexbuz".into();
+    }
     if a.headless {
         match net::connect(&a.server, &Login::Name(a.name)) {
             Ok(s) => println!("logged in as {} (account {}), in {} instance {} (photon room {})",
@@ -197,7 +219,9 @@ fn main() {
     let slot = loading.0.clone();
     let game_dir = a.game_dir.clone().or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists()));
     let player = player::PlayerPlugin { game_dir: game_dir.clone() };
-    let menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), server: a.server.clone(), ..default() };
+    let mut menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), server: a.server.clone(), ..default() };
+    // Boot into the title screen (the real client's front door): the room loads behind it; Play dismisses it.
+    menu.router.open(menu::TITLE_CACHED);
     let loader = world::Loader::start(game_dir, a.world.clone(), slot);
 
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))), Arc::default());
@@ -554,10 +578,15 @@ fn use_menu(
     avatars: Query<Entity, With<Avatar>>,
     mut exit: MessageWriter<AppExit>,
     driven: Res<metallic_rc_client::drive::DrivenPointer>,
+    mut booted: Local<bool>,
 ) {
     let menu = &mut *menu;
     let page = menu.router.top().map(str::to_string);
     let mut repaint = false;
+    // paint the boot page (the title screen) once: nothing has been typed or clicked yet to trigger a repaint
+    if !*booted {
+        (*booted, repaint) = (true, menu.open());
+    }
     let mut act = None;
     for k in typing.read().filter(|k| menu.focused && k.state == ButtonState::Pressed) {
         match &k.logical_key {

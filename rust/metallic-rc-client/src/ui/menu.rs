@@ -662,6 +662,12 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
     if leaf == TITLE_CACHED {
         const HIDE: [&str; 3] = ["OnlineFriends", "(TermsOfServiceButton)", "[TextButton] Update"];
         page.each_mut(&mut |e| e.active &= !HIDE.iter().any(|n| e.name.starts_with(n)));
+        // the big Play button dismisses the title into the game (the room already loads behind it)
+        if let Some(id) = find(&page, &|e| e.active && e.name.starts_with("[TextButton] Play"))
+            .and_then(|p| p.walk().iter().find_map(|(_, k)| k.component("RRUI.MultiGraphicButton").map(|c| c.id)))
+        {
+            w.actions.insert(id, Action::Close);
+        }
     }
     // the watch shows no tutorial highlight (the root screen holds a sample one, shown only while a tutorial runs)
     if ctx.page.starts_with(routes::ROOT) {
