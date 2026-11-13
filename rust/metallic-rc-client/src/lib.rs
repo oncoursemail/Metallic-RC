@@ -10,6 +10,7 @@ pub mod dodgeball;
 pub mod drive;
 pub mod games;
 pub mod interact;
+pub mod kiwii_net;
 pub mod levels;
 pub mod maker;
 pub mod mirror;

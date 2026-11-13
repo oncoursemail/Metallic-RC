@@ -221,7 +221,10 @@ fn main() {
     let player = player::PlayerPlugin { game_dir: game_dir.clone() };
     let mut menu = Menu { painter: game_dir.as_ref().map(|g| Painter::start(room::bundle_dir(g))), server: a.server.clone(), ..default() };
     // Boot into the title screen (the real client's front door): the room loads behind it; Play dismisses it.
-    menu.router.open(menu::TITLE_CACHED);
+    // METALLIC_SKIP_TITLE goes straight to the Dorm (for the multiplayer capture / headless checks).
+    if std::env::var("METALLIC_SKIP_TITLE").is_err() {
+        menu.router.open(menu::TITLE_CACHED);
+    }
     let loader = world::Loader::start(game_dir, a.world.clone(), slot);
 
     let status = Status(Arc::new(Mutex::new(format!("Connecting to {} ...", a.server))), Arc::default());
@@ -258,6 +261,8 @@ fn main() {
         .insert_resource(Start(a.camera))
         .add_plugins(avatar::AvatarPlugin)
         .add_plugins(metallic_rc_client::social::SocialPlugin)
+        // Kiwii realtime: PLAY lands the player in the Dorm and the other players' avatars arrive over the net
+        .add_plugins(metallic_rc_client::kiwii_net::KiwiiPlugin)
         .add_plugins(metallic_rc_client::drive::DrivePlugin)
         // built-in game modes (Paintball), run by the room server
         .add_plugins(metallic_rc_client::games::GamesPlugin)
