@@ -197,6 +197,17 @@ fn shape_kit() -> ShapeKit {
 
 fn load_with(lib: &mut Library, kit: &mut ShapeKit, addresses: &mut Option<Addresses>, dir: &Path, world: Option<&str>) -> Result<RoomData, String> {
     let world = world.unwrap_or("dorm");
+    // The real decrypted 2026 scene first (the owner's "real rooms" bar): every non-group room, plus the Dorm (which is
+    // still listed as a prefab GROUP but should render from its real scene `dormroom2`), routes through the corpus scene
+    // loader. `load_scene` resolves the decrypted-scenes dir itself; `dir.ancestors().nth(3)` is the install's
+    // `RecRoom_Data` (for the out-of-line `.resS`/`.resource` mesh streams). It returns None when the corpus has no such
+    // scene, so game-specific groups (stuntrunner/sandbox) still fall through to their prefab path.
+    let is_group = GROUPS.iter().any(|g| g.name.eq_ignore_ascii_case(world));
+    if !is_group || world.eq_ignore_ascii_case("dorm") {
+        if let Some(r) = crate::levels::load_scene(dir.ancestors().nth(3), world) {
+            return r;
+        }
+    }
     // the old scene's layout and lights, when the reference install has this room (--ref-install)
     if let Some(r) = crate::levels::load(lib, kit, dir, world) {
         return r;
