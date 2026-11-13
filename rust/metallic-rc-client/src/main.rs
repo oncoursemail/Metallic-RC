@@ -290,7 +290,7 @@ fn main() {
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, (setup, load_title_wallpaper))
         .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), show_status, spawn_room,
-            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room, title_backdrop, auto_shot))
+            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room, title_backdrop, scroll_title_backdrop, auto_shot))
         .run();
 }
 
@@ -323,48 +323,50 @@ fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::
     }
 }
 
-/// The real client's title background: the Rec Room logo-tiling wallpaper (exported from the install), tinted to the
-/// orange the real title shows — the beige base becomes #E9A149 and the darker logos become a lighter orange outline,
-/// matching the reference.
-const WALLPAPER_PNG: &str = r"C:\Users\alexi\rr-capture\decomp-full\assets\AssetStudioExport\Graphic_RRLogoTilingBackground_16x9_Beige.png";
+/// The real [ScrollingBackground] (exact params traced from the title prefab): a #FF804D→#E99E4B orange gradient with
+/// the real RECface cup-smiley MARK sprite tiled on top at white/15% alpha, angle 350°, scrolling at -0.2.
+const GRADIENT_PNG: &str = r"C:\Users\alexi\rr-capture\decomp-full\assets\AssetStudioExport\TitleGradient.png";
+const MARK_PNG: &str = r"C:\Users\alexi\rr-capture\decomp-full\assets\AssetStudioExport\MenuIcon_Sprites_2_RECfaceSmall.png";
 
 #[derive(Resource, Default)]
-struct TitleWallpaper(Option<Handle<Image>>);
+struct TitleWallpaper {
+    gradient: Option<Handle<Image>>,
+    mark: Option<Handle<Image>>,
+}
 
 /// A full-screen quad (child of the camera) that shows the tiled wallpaper behind the title screen.
 #[derive(Component)]
 struct TitleBackdrop;
 
-/// Loads the exported wallpaper PNG and recolours it to the title orange: luminance maps the beige base to #E9A149 and
-/// the logos to a lighter #F0B87E outline, so the real tiled motif reads orange like the reference. Set to tile.
+/// The wallpaper quad itself, whose UV scrolls so the pattern drifts like the real title.
+#[derive(Component)]
+struct TitleBackdropQuad;
+
+/// Loads the two real background layers: the orange gradient (clamped) and the RECface mark sprite (set to Repeat so
+/// the tile layer can scroll).
 fn load_title_wallpaper(mut images: ResMut<Assets<Image>>, mut wall: ResMut<TitleWallpaper>) {
-    use bevy::image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
-    let Ok(src) = image::open(WALLPAPER_PNG) else { return };
-    let src = src.to_rgba8();
-    let (w, h) = src.dimensions();
-    let (base, logo) = ([233.0, 161.0, 73.0], [240.0, 184.0, 126.0]); // #E9A149 base, #F0B87E logo outline
-    let mut rgba = Vec::with_capacity((w * h * 4) as usize);
-    for px in src.pixels() {
-        let lum = 0.299 * px[0] as f32 + 0.587 * px[1] as f32 + 0.114 * px[2] as f32;
-        let t = ((lum - 140.0) / (205.0 - 140.0)).clamp(0.0, 1.0); // logo(dark)->0, base(light)->1
-        for c in 0..3 {
-            rgba.push((logo[c] + (base[c] - logo[c]) * t).round() as u8);
+    let load = |path: &str, repeat: bool| -> Option<Image> {
+        use bevy::image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
+        let src = image::open(path).ok()?.to_rgba8();
+        let (w, h) = src.dimensions();
+        let mut image = Image::new(
+            bevy::render::render_resource::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+            bevy::render::render_resource::TextureDimension::D2,
+            src.into_raw(),
+            bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+            bevy::asset::RenderAssetUsages::default(),
+        );
+        if repeat {
+            image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                address_mode_u: ImageAddressMode::Repeat,
+                address_mode_v: ImageAddressMode::Repeat,
+                ..default()
+            });
         }
-        rgba.push(255);
-    }
-    let mut image = Image::new(
-        bevy::render::render_resource::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
-        bevy::render::render_resource::TextureDimension::D2,
-        rgba,
-        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
-        bevy::asset::RenderAssetUsages::default(),
-    );
-    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-        address_mode_u: ImageAddressMode::Repeat,
-        address_mode_v: ImageAddressMode::Repeat,
-        ..default()
-    });
-    wall.0 = Some(images.add(image));
+        Some(image)
+    };
+    wall.gradient = load(GRADIENT_PNG, false).map(|i| images.add(i));
+    wall.mark = load(MARK_PNG, true).map(|i| images.add(i));
 }
 
 /// While the title screen is up, swap the scene behind it for the tiled orange wallpaper with the avatar standing
@@ -390,18 +392,20 @@ fn title_backdrop(
             *v = Visibility::Hidden;
         }
         if backdrop.is_none() {
-            if let (Ok(cam), Some(tex)) = (camera.single(), wall.0.clone()) {
-                // a big quad ~20 m in front of the camera (behind the avatar at ~3 m), tiled across its face
-                let mesh = mesh_assets.add(Mesh::from(Rectangle::new(90.0, 54.0)));
-                let mut mat = StandardMaterial { base_color_texture: Some(tex), unlit: true, ..default() };
-                mat.uv_transform = bevy::math::Affine2::from_scale(Vec2::new(6.0, 4.0));
-                let m = mats.add(mat);
-                // container under the camera: the wallpaper quad behind the avatar + a key light along the camera's
-                // view so the avatar's front is lit (the kept room lights are behind it from this angle)
-                let quad = commands.spawn((Mesh3d(mesh), MeshMaterial3d(m), Transform::from_xyz(0.0, 0.0, -20.0))).id();
-                let key = commands.spawn((DirectionalLight { illuminance: 9000.0, shadows_enabled: false, ..default() }, Transform::from_xyz(0.0, 0.5, 0.0).looking_at(Vec3::new(0.0, 0.0, -2.0), Vec3::Y))).id();
+            if let (Ok(cam), Some(grad), Some(mark)) = (camera.single(), wall.gradient.clone(), wall.mark.clone()) {
+                // two layers behind the avatar: the orange gradient (back) and the RECface mark tile (front), plus a
+                // key light along the camera's view so the avatar's front is lit (the kept room lights are behind it)
+                let grad_mesh = mesh_assets.add(Mesh::from(Rectangle::new(120.0, 72.0)));
+                let grad_mat = mats.add(StandardMaterial { base_color_texture: Some(grad), unlit: true, ..default() });
+                let grad_quad = commands.spawn((Mesh3d(grad_mesh), MeshMaterial3d(grad_mat), Transform::from_xyz(0.0, 0.0, -21.0))).id();
+                let tile_mesh = mesh_assets.add(Mesh::from(Rectangle::new(120.0, 72.0)));
+                let mut tile_mat = StandardMaterial { base_color: Color::srgba(1.0, 1.0, 1.0, 0.149), base_color_texture: Some(mark), unlit: true, alpha_mode: AlphaMode::Blend, ..default() };
+                tile_mat.uv_transform = title_tile_uv(0.0);
+                let tile_m = mats.add(tile_mat);
+                let tile_quad = commands.spawn((Mesh3d(tile_mesh), MeshMaterial3d(tile_m), Transform::from_xyz(0.0, 0.0, -20.9), TitleBackdropQuad)).id();
+                let key = commands.spawn((DirectionalLight { illuminance: 9000.0, ..default() }, Transform::from_xyz(0.0, 0.5, 0.0).looking_at(Vec3::new(0.0, 0.0, -2.0), Vec3::Y))).id();
                 let container = commands.spawn((Transform::default(), Visibility::default(), TitleBackdrop)).id();
-                commands.entity(container).add_children(&[quad, key]);
+                commands.entity(container).add_children(&[grad_quad, tile_quad, key]);
                 commands.entity(cam).add_child(container);
                 *backdrop = Some(container);
             }
@@ -415,6 +419,25 @@ fn title_backdrop(
             commands.entity(e).despawn();
         }
         *was_title = false;
+    }
+}
+
+/// The RECface tile layer's UV transform at time `t`: ~6.5 rows (16:9), tilted 350°, scrolling at the real
+/// primaryAnimationSpeed -0.2.
+fn title_tile_uv(t: f32) -> bevy::math::Affine2 {
+    use bevy::math::{Affine2, Vec2};
+    Affine2::from_angle(350.0_f32.to_radians())
+        * Affine2::from_scale(Vec2::new(6.5 * 16.0 / 9.0, 6.5))
+        * Affine2::from_translation(Vec2::new(0.0, -0.2 * t))
+}
+
+/// Scrolls the RECface tile layer so the mascot pattern drifts slowly, like the real [ScrollingBackground].
+fn scroll_title_backdrop(time: Res<Time>, mut mats: ResMut<Assets<StandardMaterial>>, q: Query<&MeshMaterial3d<StandardMaterial>, With<TitleBackdropQuad>>) {
+    let t = time.elapsed_secs();
+    for h in &q {
+        if let Some(mut m) = mats.get_mut(&h.0) {
+            m.uv_transform = title_tile_uv(t);
+        }
     }
 }
 
