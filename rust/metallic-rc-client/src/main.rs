@@ -254,6 +254,7 @@ fn main() {
         .insert_resource(prefs)
         .insert_resource(account)
         .init_resource::<view::Uploaded>()
+        .init_resource::<TitleWallpaper>()
         .insert_resource(Start(a.camera))
         .add_plugins(avatar::AvatarPlugin)
         .add_plugins(metallic_rc_client::social::SocialPlugin)
@@ -287,9 +288,9 @@ fn main() {
         // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
         .insert_resource(avatar::Dressing::default())
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, load_title_wallpaper))
         .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), show_status, spawn_room,
-            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room, auto_shot))
+            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room, title_backdrop, auto_shot))
         .run();
 }
 
@@ -319,6 +320,94 @@ fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::
     }
     if *shot && *elapsed >= at + 2.0 {
         exit.write(AppExit::Success);
+    }
+}
+
+/// The real client's title background: the Rec Room logo-tiling wallpaper (exported from the install), tinted to the
+/// orange the real title shows — the beige base becomes #E9A149 and the darker logos become a lighter orange outline,
+/// matching the reference.
+const WALLPAPER_PNG: &str = r"C:\Users\alexi\rr-capture\decomp-full\assets\AssetStudioExport\Graphic_RRLogoTilingBackground_16x9_Beige.png";
+
+#[derive(Resource, Default)]
+struct TitleWallpaper(Option<Handle<Image>>);
+
+/// A full-screen quad (child of the camera) that shows the tiled wallpaper behind the title screen.
+#[derive(Component)]
+struct TitleBackdrop;
+
+/// Loads the exported wallpaper PNG and recolours it to the title orange: luminance maps the beige base to #E9A149 and
+/// the logos to a lighter #F0B87E outline, so the real tiled motif reads orange like the reference. Set to tile.
+fn load_title_wallpaper(mut images: ResMut<Assets<Image>>, mut wall: ResMut<TitleWallpaper>) {
+    use bevy::image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
+    let Ok(src) = image::open(WALLPAPER_PNG) else { return };
+    let src = src.to_rgba8();
+    let (w, h) = src.dimensions();
+    let (base, logo) = ([233.0, 161.0, 73.0], [240.0, 184.0, 126.0]); // #E9A149 base, #F0B87E logo outline
+    let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+    for px in src.pixels() {
+        let lum = 0.299 * px[0] as f32 + 0.587 * px[1] as f32 + 0.114 * px[2] as f32;
+        let t = ((lum - 140.0) / (205.0 - 140.0)).clamp(0.0, 1.0); // logo(dark)->0, base(light)->1
+        for c in 0..3 {
+            rgba.push((logo[c] + (base[c] - logo[c]) * t).round() as u8);
+        }
+        rgba.push(255);
+    }
+    let mut image = Image::new(
+        bevy::render::render_resource::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        bevy::render::render_resource::TextureDimension::D2,
+        rgba,
+        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+        bevy::asset::RenderAssetUsages::default(),
+    );
+    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: ImageAddressMode::Repeat,
+        address_mode_v: ImageAddressMode::Repeat,
+        ..default()
+    });
+    wall.0 = Some(images.add(image));
+}
+
+/// While the title screen is up, swap the scene behind it for the tiled orange wallpaper with the avatar standing
+/// alone — the room's own meshes hidden, its lights kept so the avatar stays lit — so the front door reads like the
+/// real client's backdrop. The quad rides the camera and is torn down the moment Play closes the title.
+fn title_backdrop(
+    menu: Res<Menu>,
+    mut commands: Commands,
+    mut third: ResMut<player::ThirdPerson>,
+    mut meshes: Query<&mut Visibility, (Or<(With<world::RoomPiece>, With<StandIn>)>, Without<PointLight>, Without<DirectionalLight>, Without<SpotLight>)>,
+    camera: Query<Entity, With<Camera3d>>,
+    (mut mesh_assets, mut mats): (ResMut<Assets<Mesh>>, ResMut<Assets<StandardMaterial>>),
+    wall: Res<TitleWallpaper>,
+    mut backdrop: Local<Option<Entity>>,
+    mut was_title: Local<bool>,
+) {
+    let title = menu.router.top() == Some(menu::TITLE_CACHED);
+    if title {
+        third.0 = true;
+        for mut v in &mut meshes {
+            *v = Visibility::Hidden;
+        }
+        if backdrop.is_none() {
+            if let (Ok(cam), Some(tex)) = (camera.single(), wall.0.clone()) {
+                // a big quad ~20 m in front of the camera (behind the avatar at ~3 m), tiled across its face
+                let mesh = mesh_assets.add(Mesh::from(Rectangle::new(90.0, 54.0)));
+                let mut mat = StandardMaterial { base_color_texture: Some(tex), unlit: true, ..default() };
+                mat.uv_transform = bevy::math::Affine2::from_scale(Vec2::new(6.0, 4.0));
+                let m = mats.add(mat);
+                let e = commands.spawn((Mesh3d(mesh), MeshMaterial3d(m), Transform::from_xyz(0.0, 0.0, -20.0), TitleBackdrop)).id();
+                commands.entity(cam).add_child(e);
+                *backdrop = Some(e);
+            }
+        }
+        *was_title = true;
+    } else if *was_title {
+        for mut v in &mut meshes {
+            *v = Visibility::Inherited;
+        }
+        if let Some(e) = backdrop.take() {
+            commands.entity(e).despawn();
+        }
+        *was_title = false;
     }
 }
 
