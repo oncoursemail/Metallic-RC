@@ -623,7 +623,7 @@ fn load_bodies(dir: &Path) -> Option<[Mesh; 3]> {
 /// decal's alpha, so the white page goes transparent and the drawn feature opaque. The canvas is kept uncropped — every
 /// expression in a set is authored the same size with the feature in place, so one shared quad holds them all and each
 /// keeps its true relative size and offset (a talking mouth opens downward, a blink is a low flat line) when swapped.
-fn face_decal(t: &Texture2D) -> Option<Image> {
+fn face_decal(t: &Texture2D, gleam: bool) -> Option<Image> {
     let px = t.decode_rgba8().ok()?;
     let (w, h) = (t.width as usize, t.height as usize);
     if px.len() < w * h * 4 {
@@ -633,6 +633,10 @@ fn face_decal(t: &Texture2D) -> Option<Image> {
     for i in 0..w * h {
         let lum = (px[i * 4] as u32 + px[i * 4 + 1] as u32 + px[i * 4 + 2] as u32) / 3;
         out[i * 4 + 3] = ((255 - lum.min(255)) * px[i * 4 + 3] as u32 / 255) as u8;
+    }
+    // the open eye gets the real white catchlight baked in (the one thing the dark-sprite decal misses)
+    if gleam {
+        add_eye_gleam(&mut out, w, h);
     }
     Some(Image::new(
         Extent3d { width: w as u32, height: h as u32, depth_or_array_layers: 1 },
@@ -743,7 +747,9 @@ fn wardrobe_tex(names: &[&str]) -> Option<Image> {
 
 /// Loads every face sprite (`Texture2D`) in a bundle into a map `name -> decal material` (Eye_Default, Eye_Blink, ...;
 /// Mouth_Blank, Mouth_Talking_Open, ...). All share one quad (`animate_face` swaps only the material). Skips unreadable.
-fn load_face_set(dir: &Path, bundle: &str, images: &mut Assets<Image>, materials: &mut Assets<StandardMaterial>) -> HashMap<String, Handle<StandardMaterial>> {
+fn load_face_set(dir: &Path, bundle: &str, eyes: bool, images: &mut Assets<Image>, materials: &mut Assets<StandardMaterial>) -> HashMap<String, Handle<StandardMaterial>> {
+    // the catchlight goes only on OPEN eyes (not Blink/closed), and only when enabled (METALLIC_GLEAM=0 disables it)
+    let gleam_on = eyes && std::env::var("METALLIC_GLEAM").map_or(true, |v| v != "0");
     let mut set = HashMap::new();
     let path = room::bundle_dir(dir).join(bundle);
     let Ok(b) = Bundle::open(&path) else { return set };
@@ -756,7 +762,8 @@ fn load_face_set(dir: &Path, bundle: &str, images: &mut Assets<Image>, materials
             }
             let Ok(v) = sf.read_value(o) else { continue };
             let Ok(t) = Texture2D::from_value(&v, &b) else { continue };
-            if let Some(img) = face_decal(&t) {
+            let gleam = gleam_on && !name.to_ascii_lowercase().contains("blink");
+            if let Some(img) = face_decal(&t, gleam) {
                 set.insert(name, decal(materials, images.add(img)));
             }
         }
@@ -820,6 +827,34 @@ fn logo_texture(rgb: [u8; 3]) -> Image {
     )
 }
 
+/// Composites the real Rec Room eye "gleam" (catchlight) onto an eye decal buffer (RGBA, as `face_decal` builds it):
+/// a small soft WHITE dot over the black eye — the sparkle that makes the eyes read alive. No sprite ships for it in
+/// the install (the decompile session searched the whole catalog); the face shader draws it procedurally, placed by
+/// `_*EyeGleamPosScl` (identity = the default position for the default face). Baking it into the eye texture keeps the
+/// two (mirrored) eyes symmetric with no coincident-mesh z-fight. Centre-y and radius are env-tunable
+/// (`METALLIC_GLEAM_Y`, `_R`) for dialling against the real-client reference; x stays centred so L/R stay symmetric.
+fn add_eye_gleam(out: &mut [u8], w: usize, h: usize) {
+    // defaults dialled on the headless face render to land a symmetric catchlight clear of the hairline; the exact
+    // real-client numbers come from `_*EyeGleamPosScl` / the AvatarFace_FBA shader when we verify against a capture
+    let cy = envf("METALLIC_GLEAM_Y", 0.47);
+    let r = envf("METALLIC_GLEAM_R", 0.06);
+    let (cx, cyp, rr) = (0.5 * w as f32, cy * h as f32, (r * w.min(h) as f32).max(1.0));
+    for y in 0..h {
+        for x in 0..w {
+            // soft radial falloff: full white at the centre, feathering to nothing at radius `rr`
+            let d = ((Vec2::new(x as f32 + 0.5, y as f32 + 0.5) - Vec2::new(cx, cyp)).length() / rr).clamp(0.0, 1.0);
+            let a = (1.0 - d) * (1.0 - d);
+            if a > 0.0 {
+                let i = (y * w + x) * 4;
+                for c in 0..3 {
+                    out[i + c] = (out[i + c] as f32 * (1.0 - a) + 255.0 * a) as u8;
+                }
+                out[i + 3] = (out[i + 3] as f32 * (1.0 - a) + 255.0 * a).min(255.0) as u8;
+            }
+        }
+    }
+}
+
 /// Startup: find the install and load the real body, nose and face sprites; absent if the game files are not there.
 pub fn load_roomie(
     mut commands: Commands,
@@ -851,8 +886,8 @@ pub fn load_roomie(
     };
     let [skin, shirt, pants] = bodies;
     // the whole expression set for each (default/blink/happy/... eyes; blank/talking-visemes/... mouths)
-    let eyes = load_face_set(dir, EYE_BUNDLE, &mut images, &mut materials);
-    let mouths = load_face_set(dir, MOUTH_BUNDLE, &mut images, &mut materials);
+    let eyes = load_face_set(dir, EYE_BUNDLE, true, &mut images, &mut materials);
+    let mouths = load_face_set(dir, MOUTH_BUNDLE, false, &mut images, &mut materials);
     if !eyes.contains_key("Eye_Default") || !mouths.contains_key("Mouth_Blank") {
         info!("avatar: real body loaded, but the face sprites could not be read (eyes: {}, mouths: {})", eyes.len(), mouths.len());
         return;
