@@ -110,6 +110,52 @@ pub fn decode_input(payload: &[u8]) -> Option<([f32; 3], f32)> {
     Some(([f(0)?, f(4)?, f(8)?], f(12)?))
 }
 
+// --- Cipher layer: the per-datagram Rabbit trailer (marker = LAST byte), matching the server's litenetlib.rs -------
+
+/// Plaintext trailer marker (pre-key): the packet rides in the clear with `0x11` appended.
+pub const TRAILER_PLAIN: u8 = 0x11;
+/// Encrypted trailer marker: `[ciphertext][IV:8 in the clear][0x2a]`.
+pub const TRAILER_ENCRYPTED: u8 = 0x2a;
+
+/// Wrap a built LiteNetLib packet for the clear (pre-key) path: append the `0x11` trailer byte.
+pub fn cipher_outbound_plain(packet: &[u8]) -> Vec<u8> {
+    let mut v = packet.to_vec();
+    v.push(TRAILER_PLAIN);
+    v
+}
+
+/// Encrypt a built LiteNetLib packet with Rabbit (fresh per-packet 8-byte `iv`, random in real use) and append the
+/// `[IV:8 in the clear][0x2a]` trailer. Keystream is LITTLE-ENDIAN (`apply_keystream_le`); the IV seeds the cipher
+/// and is NOT itself keystreamed. Wire = `[ciphertext(packet.len())][IV:8][0x2a]`.
+pub fn cipher_outbound_encrypted(packet: &[u8], key: &[u8; 16], iv: &[u8; 8]) -> Vec<u8> {
+    let mut out = packet.to_vec();
+    let mut r = crate::rabbit::Rabbit::new(key);
+    r.set_iv(iv);
+    r.apply_keystream_le(&mut out);
+    out.extend_from_slice(iv);
+    out.push(TRAILER_ENCRYPTED);
+    out
+}
+
+/// Strip the cipher trailer from an inbound datagram, decrypting if needed. `0x11` → the leading bytes are the
+/// plaintext packet; `0x2a` → the last 9 bytes are `[IV:8][0x2a]`, Rabbit-decrypt the rest with a fresh cipher.
+/// Returns the plaintext LiteNetLib packet, or `None` on a bad/short/unknown-marker datagram.
+pub fn cipher_inbound(wire: &[u8], key: &[u8; 16]) -> Option<Vec<u8>> {
+    match *wire.last()? {
+        TRAILER_PLAIN => Some(wire.get(..wire.len() - 1)?.to_vec()),
+        TRAILER_ENCRYPTED => {
+            let payload_len = wire.len().checked_sub(9)?;
+            let iv: [u8; 8] = wire.get(payload_len..payload_len + 8)?.try_into().ok()?;
+            let mut out = wire.get(..payload_len)?.to_vec();
+            let mut r = crate::rabbit::Rabbit::new(key);
+            r.set_iv(&iv);
+            r.apply_keystream_le(&mut out);
+            Some(out)
+        }
+        _ => None,
+    }
+}
+
 /// Level of detail — drives position precision (Near=16-bit, Mid=12-bit, Far=8-bit per axis).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lod {
@@ -357,5 +403,46 @@ mod tests {
         assert_eq!(inp[0], msg::INPUT);
         assert_eq!(inp.len(), 17);
         assert_eq!(decode_input(&inp), Some(([1.0, -2.5, 3.0], 1.25)));
+    }
+
+    fn hex(s: &str) -> Vec<u8> {
+        (0..s.len() / 2).map(|i| u8::from_str_radix(&s[2 * i..2 * i + 2], 16).unwrap()).collect()
+    }
+
+    /// Byte-exact interop against the realtime server's `cipher_interop_vector` (its live code = source of truth).
+    #[test]
+    fn cipher_layer_matches_the_server_interop_vector() {
+        let key = [0x42u8; 16];
+        let iv = [0x01u8; 8];
+
+        // 1. The little-endian keystream (first 16 bytes) must match the server's.
+        let mut ks = [0u8; 16];
+        let mut r = crate::rabbit::Rabbit::new(&key);
+        r.set_iv(&iv);
+        r.apply_keystream_le(&mut ks);
+        assert_eq!(ks.to_vec(), hex("480a84ceb4778f0c3af93815b5545bfd"), "LE keystream drift");
+
+        // 2. The full encrypted datagram (ciphertext + [IV:8 clear][0x2a]) must match byte-for-byte.
+        let mut body = vec![0x01u8];
+        body.extend_from_slice(b"kiwii-interop");
+        let wire = cipher_outbound_encrypted(&body, &key, &iv);
+        assert_eq!(wire, hex("4961edb9dd1ea265548d5d67da2401010101010101012a"), "cipher wire drift");
+
+        // 3. Inbound strips + decrypts back to the plaintext body.
+        assert_eq!(cipher_inbound(&wire, &key), Some(body));
+    }
+
+    #[test]
+    fn cipher_plain_and_encrypted_round_trip() {
+        let key = [0x11u8; 16];
+        let pkt = b"a channeled packet body".to_vec();
+        // plaintext path
+        let p = cipher_outbound_plain(&pkt);
+        assert_eq!(*p.last().unwrap(), TRAILER_PLAIN);
+        assert_eq!(cipher_inbound(&p, &key), Some(pkt.clone()));
+        // encrypted path with a distinct IV
+        let e = cipher_outbound_encrypted(&pkt, &key, &[0x09; 8]);
+        assert_ne!(&e[..pkt.len()], &pkt[..]);
+        assert_eq!(cipher_inbound(&e, &key), Some(pkt));
     }
 }
