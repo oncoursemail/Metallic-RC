@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use gamemodes::mode::{GameEvent, GameInput, GameMode, RoundPhase};
 use gamemodes::paintball::{PaintballConfig, PaintballMode, PaintballVariant};
-use metallic_rc_client::combat::{spawn_projectile, CombatPlugin, Combatant, ProjectileHit};
+use metallic_rc_client::combat::{spawn_projectile, CombatPlugin, Combatant, ProjectileHit, ProjectileSpec};
 
 #[derive(Resource)]
 struct Rules(PaintballMode);
@@ -30,7 +30,7 @@ struct Outcome {
 }
 
 const SHOOTERS: u32 = 3;
-const SPEED: f32 = 40.0;
+const SPEED: f32 = 33.0; // real PaintballGun bulletFireSpeed
 
 fn main() {
     // the real TeamBattle rules, cap lowered to 8 for a quick headless run (50 is the real default; pipeline identical)
@@ -78,9 +78,10 @@ fn setup(mut commands: Commands) {
     }
 }
 
-/// Every 0.3 s each team-0 shooter fires a flat projectile at its matched team-1 target (CCD, no gravity).
-fn fire(mut commands: Commands, time: Res<Time>, mut f: ResMut<Fire>, combatants: Query<(&Combatant, &Transform)>) {
-    f.cd -= time.delta_secs();
+/// Every 0.3 s (SIM time) each team-0 shooter fires a flat projectile at its matched team-1 target (CCD, no gravity).
+/// Cadence is the FIXED sim step, not `Time::delta` — a tight headless loop barely advances real wall-clock.
+fn fire(mut commands: Commands, mut f: ResMut<Fire>, combatants: Query<(&Combatant, &Transform)>) {
+    f.cd -= 1.0 / 60.0; // TimestepMode::Fixed { dt: 1/60 }
     if f.cd > 0.0 || f.shots > 600 {
         return;
     }
@@ -95,7 +96,8 @@ fn fire(mut commands: Commands, time: Res<Time>, mut f: ResMut<Fire>, combatants
         if dir == Vec3::ZERO {
             continue;
         }
-        spawn_projectile(&mut commands, *from + dir * 1.0, dir * SPEED, *id, 0, 0.03, 0.01, 0.0, 2.0);
+        // real PaintballGun Bullet: r0.02, full-gravity ARC, airDrag 0, 4 s life (damage unused — tag game)
+        spawn_projectile(&mut commands, *from + dir * 1.0, dir * SPEED, *id, 0, ProjectileSpec { radius: 0.02, mass: 0.01, gravity_scale: 1.0, air_drag: 0.0, life: 4.0, damage: 1.0 });
         f.shots += 1;
     }
 }

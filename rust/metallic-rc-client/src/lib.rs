@@ -1,5 +1,6 @@
 //! Metallic-RC client library: the network side and the room loader, shared by the game binary and its tests.
 pub mod audio;
+pub mod battleroyale;
 pub mod bowling;
 pub mod cache;
 pub mod charades;

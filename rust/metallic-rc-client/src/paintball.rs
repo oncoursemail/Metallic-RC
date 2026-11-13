@@ -5,13 +5,15 @@
 //! rules (round running, both in, different teams, not self) and scores it (+1 the shooter's team, to the TeamBattle
 //! cap of 50), then broadcasts the running team scores and the win.
 //!
-//! WHAT'S REAL vs PENDING (to the 1:1 bar): the SCORING is the real body-verified `PaintballMode` (sweet-galileo
-//! paintball-recon — defaults 50/600s/respawn). The HIT MECHANISM is the real rapier projectile→collision→tag
-//! pipeline (de-risked, examples/projectile_hit.rs). The projectile DYNAMICS (speed/mass/radius/lifetime/gravity/fire
-//! rate) are the only pending piece — they live in `WeaponSetPaintballModBase` + the paintball projectile prefab,
-//! requested from the decompile lane (sweet-galileo_paintball-weapon-recon.md). They're isolated as the `PB_*`
-//! constants below and flagged `// 1:1:`; the self-test uses placeholders to prove the pipeline and they reconcile in
-//! one place when the dump values land. Keep the client muted (owner's standing request): run with `METALLIC_NO_MIC=1`.
+//! ALL REAL (to the 1:1 bar): the SCORING is the body-verified `PaintballMode` (sweet-galileo paintball-recon —
+//! defaults 50/600s/respawn). The HIT MECHANISM is the real rapier projectile→collision→tag pipeline (de-risked,
+//! examples/projectile_hit.rs). The projectile DYNAMICS are now the REAL PaintballGun values
+//! (sweet-galileo_paintball-weapon-recon): weapons are `RangedWeapon` subclasses firing a custom-integrated `Bullet`
+//! (not a rigidbody — massless), so our rapier proxy is a ball collider + gravity + drag (see `PB_SPEC`). The
+//! paintball ARCS (full gravity), speed 33, radius 0.02, 4 s life, 5 shots/s. Damage is MODE-driven (classic = 1 hit
+//! down), which is exactly this TAG model (combatants carry no Health; one hit = one tag). Remaining nuance: the real
+//! bullet bounces once (restitution 1.0, >30° surfaces) — a later foundation refinement; despawn-on-impact is correct
+//! for hit detection. Keep the client muted (owner's standing request): run with `METALLIC_NO_MIC=1`.
 
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -19,7 +21,7 @@ use gamemodes::mode::{GameEvent, GameInput, GameMode, RoundPhase};
 use gamemodes::paintball::{PaintballConfig, PaintballMode as PaintballRules};
 use rr_net::objects::RpcTarget;
 
-use crate::combat::{spawn_projectile, Combatant, ProjectileHit};
+use crate::combat::{spawn_projectile, Combatant, ProjectileHit, ProjectileSpec};
 use crate::netobj::{NetObjects, NetRpc, RoomLink};
 use crate::world::RoomPiece;
 
@@ -28,15 +30,13 @@ const RPC_TAG: &str = "PbTag"; // guest → master: a projectile tag (thrower, v
 const RPC_SCORE: &str = "PbScore"; // master → others: a team's running score (team, score)
 const RPC_WIN: &str = "PbWin"; // master → others: match over (winner team, or draw)
 
-// 1:1: PENDING `WeaponSetPaintballModBase` + the paintball projectile prefab (requested from the decompile lane,
-// sweet-galileo_paintball-weapon-recon.md). These are PLACEHOLDER projectile dynamics so the self-test can prove the
-// fire→fly→hit→tag→score pipeline; they are NOT claimed 1:1. Reconcile every one to the real dump value when it lands.
-const PB_SPEED: f32 = 40.0; // launch speed along the aim ray (m/s)
-const PB_RADIUS: f32 = 0.03; // projectile collider radius (m)
-const PB_MASS: f32 = 0.01; // projectile mass (kg)
-const PB_GRAVITY: f32 = 0.0; // gravity scale (0 = flat; the real paintball may arc slightly)
-const PB_LIFE: f32 = 2.0; // seconds before despawn
-const PB_FIRE_COOLDOWN: f32 = 0.3; // s between shots per shooter (self-test cadence)
+// REAL PaintballGun (pistol) — sweet-galileo_paintball-weapon-recon. bulletFireSpeed 33 m/s, fire rate 5 shots/s.
+const PB_SPEED: f32 = 33.0; // PaintballGun bulletFireSpeed (m/s)
+const PB_FIRE_COOLDOWN: f32 = 0.2; // 5 shots/s
+// REAL PaintballGun Bullet: radius 0.02, applyGravity ON at gravityRatio 1.0 (full -9.81 → the paintball ARCS),
+// airDrag 0, lifetime 4 s. The Bullet is custom-integrated/massless; the rapier `mass` is nominal (trajectory is
+// gravity+drag-driven, both mass-independent). Paintball is a TAG game → `damage` unused by scoring (1 hit = 1 tag).
+const PB_SPEC: ProjectileSpec = ProjectileSpec { radius: 0.02, mass: 0.01, gravity_scale: 1.0, air_drag: 0.0, life: 4.0, damage: 1.0 };
 
 #[derive(Resource, Clone, Copy)]
 pub struct PaintballActive(pub bool);
@@ -288,7 +288,7 @@ fn pb_combat(mut commands: Commands, time: Res<Time>, mut db: ResMut<Paintball>,
         }
         // spawn at the muzzle (1 m ahead) so the projectile doesn't collide with its own shooter on frame one
         let origin = *from + dir * 1.0;
-        spawn_projectile(&mut commands, origin, dir * PB_SPEED, *id, 0, PB_RADIUS, PB_MASS, PB_GRAVITY, PB_LIFE);
+        spawn_projectile(&mut commands, origin, dir * PB_SPEED, *id, 0, PB_SPEC);
         db.shots += 1;
     }
 }
