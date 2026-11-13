@@ -1,0 +1,15 @@
+[package]
+name = "unity-assets"
+version = "0.1.0"
+edition = "2021"
+description = "Reads Unity 6 asset bundles and serialized files from a local Rec Room install"
+publish = false
+
+[dependencies]
+bcdec_rs = "0.2.1"
+lz4_flex = { version = "0.14", default-features = false, features = ["std", "safe-decode"] }
+lzma-rs = "0.3"
+texture2ddecoder = "0.1.2"
+
+[dev-dependencies]
+png = "0.18"

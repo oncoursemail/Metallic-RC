@@ -1,0 +1,23 @@
+test_cleanup_remains_executable_after_publication_failure (__main__.StoreTests.test_cleanup_remains_executable_after_publication_failure) ... ok
+test_concurrent_reader_process_1000_updates (__main__.StoreTests.test_concurrent_reader_process_1000_updates) ... ok
+test_corrupted_digest_is_rejected_not_reported_success (__main__.StoreTests.test_corrupted_digest_is_rejected_not_reported_success) ... ok
+test_existing_database_is_never_adopted_or_erased (__main__.StoreTests.test_existing_database_is_never_adopted_or_erased) ... ok
+test_final_json_is_create_only_not_a_live_replacement (__main__.StoreTests.test_final_json_is_create_only_not_a_live_replacement) ... ok
+test_generation_cap_is_fail_closed (__main__.StoreTests.test_generation_cap_is_fail_closed) ... ok
+test_incomplete_transaction_is_not_visible (__main__.StoreTests.test_incomplete_transaction_is_not_visible) ... ok
+test_initializing_database_is_pending_not_corruption (__main__.StoreTests.test_initializing_database_is_pending_not_corruption) ... ok
+test_invalid_payload_keeps_previous_committed_state (__main__.StoreTests.test_invalid_payload_keeps_previous_committed_state) ... ok
+test_killed_writer_retains_last_committed_snapshot (__main__.StoreTests.test_killed_writer_retains_last_committed_snapshot) ... ok
+test_long_lived_reader_transaction_does_not_block_commits (__main__.StoreTests.test_long_lived_reader_transaction_does_not_block_commits) ... ok
+test_open_legacy_json_does_not_block_progress (__main__.StoreTests.test_open_legacy_json_does_not_block_progress) ... ok
+test_reader_is_readonly (__main__.StoreTests.test_reader_is_readonly) ... ok
+test_real_supervisor_observes_1000_commits (__main__.StoreTests.test_real_supervisor_observes_1000_commits) ... ok
+test_roundtrip_and_generation (__main__.StoreTests.test_roundtrip_and_generation) ... ok
+test_schema_transaction_is_pending_until_committed (__main__.StoreTests.test_schema_transaction_is_pending_until_committed) ... ok
+test_unrelated_schema_rejected (__main__.StoreTests.test_unrelated_schema_rejected) ... ok
+test_wal_bound_does_not_erase_last_snapshot (__main__.StoreTests.test_wal_bound_does_not_erase_last_snapshot) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 3.372s
+
+OK

@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from update_progress import issue_phase, render_progress, clean_md
 
 
-REPO = "oncoursemail/Metallic"
+REPO = "oncoursemail/Metallic-RC"
 
 
 def issue(number, title, state="open", labels=None, pr=False):

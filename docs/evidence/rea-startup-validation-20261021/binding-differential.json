@@ -1,0 +1,48 @@
+{
+  "status": "native_dispatch_sequence_differential_passed",
+  "recordedUtc": "2026-10-21T01:01:50.358890+00:00",
+  "cases": 2048,
+  "mismatches": 0,
+  "completedCases": 64,
+  "stoppedCallbackCases": 1984,
+  "sortedOrderMutantRejectedCases": 448,
+  "guestInstructions": 210560,
+  "callbackInvocations": 33728,
+  "sourceMethodIndex": 148260,
+  "helperMethodIndex": 148123,
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "sliceStartRva": "0x9495e9d",
+  "sliceEndExclusiveRva": "0x9496173",
+  "sourceInstructionBytes": 726,
+  "sliceSha256": "458d9e742e3036b25f965d9ea046dea611943d88e5518abfdd1ed849ef35070a",
+  "reaEvidenceId": "ev_3240650d079e5e63f4ca35ac67282c5e6290b2f5167c7c69bbbb476c5ec36973",
+  "modelSha256": "ad2669ed811983bf245fea9a7aa39ef3fb76bf388e0f227a01cc48ff9fb786ec",
+  "artifacts": [
+    {
+      "file": "cases.jsonl",
+      "sha256": "d771d8e2fdf273493abcb71da454628e0180a7ba4e4570d0117586ef70bfa37e"
+    },
+    {
+      "file": "native-emulated.jsonl",
+      "sha256": "339464953ef22f6fa65677d2b559f11abafec1686aa5b791db0108d4c84e2e9d"
+    },
+    {
+      "file": "managed.jsonl",
+      "sha256": "e2e306d5078ebdef2f84f287fcdf349bdae0d7e907d060be5d9bc4e6d4f042d0"
+    },
+    {
+      "file": "sorted-mutant.jsonl",
+      "sha256": "098058b911e38275a931aa47d285273946a686533238bf44ebc268eb557ad81d"
+    }
+  ],
+  "seconds": 1.8865719000023091,
+  "originalGameLaunched": false,
+  "exactSourceInstructionsEmulated": true,
+  "fullMethodEquivalent": false,
+  "limitations": [
+    "Starts at the observed dispatch slice after earlier async/status checks, with synthetic initialized runtime state.",
+    "The service-update helper is a recording callback that returns or stops; its mutation and exception internals are not emulated here.",
+    "No proof of original JSON wire schema, account authentication, complete async/error paths, or a functioning backend.",
+    "This verifies argument values and ordering under modeled callback outcomes, not game performance or platform portability."
+  ]
+}

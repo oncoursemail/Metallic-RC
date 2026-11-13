@@ -1,0 +1,22 @@
+{
+  "status": "service_helper_model_checks_passed",
+  "cases": 2037,
+  "checks": 6045,
+  "sourceMethods": [
+    148123,
+    367496
+  ],
+  "cachedFlagFields": [
+    92806,
+    92807
+  ],
+  "serviceDictionaryField": 92689,
+  "nativeDifferentialExecuted": false,
+  "gameExecuted": false,
+  "networkRequests": 0,
+  "limits": [
+    "Tests validate the newly authored C# model against the observed branch/field mapping, NOT the original Unity runtime or original BCL.",
+    "Original exception message, runtime initialization and full async name-server processing remain unresolved.",
+    "Numeric service mapping is not a confirmed HTTP or JSON wire schema."
+  ]
+}

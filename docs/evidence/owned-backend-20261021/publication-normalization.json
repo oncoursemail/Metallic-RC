@@ -1,0 +1,24 @@
+{
+  "status": "newline_only_normalization",
+  "changes": [
+    {
+      "path": "src/Metallic.RC.Backend/packages.lock.json",
+      "beforeSha256": "1b42cfde27100c964c8126658af5205545298984eaaaec93da05d75bff2dad1e",
+      "afterSha256": "1b42cfde27100c964c8126658af5205545298984eaaaec93da05d75bff2dad1e",
+      "jsonSemanticsUnchanged": true
+    },
+    {
+      "path": "tests/Metallic.RC.Backend.Tests/packages.lock.json",
+      "beforeSha256": "4874acf15abde17bd6e3ab3f61142f78e33852dbec92d5fb9e56a1d9e3cb2217",
+      "afterSha256": "4874acf15abde17bd6e3ab3f61142f78e33852dbec92d5fb9e56a1d9e3cb2217",
+      "jsonSemanticsUnchanged": true
+    },
+    {
+      "path": "docs/evidence/owned-backend-20261021/regression-tails.json",
+      "beforeSha256": "3515abeb3097a8951bd39c0c12bc843ed0fda897770eb43b92c1d96a83f556e5",
+      "afterSha256": "3515abeb3097a8951bd39c0c12bc843ed0fda897770eb43b92c1d96a83f556e5",
+      "jsonSemanticsUnchanged": true
+    }
+  ],
+  "runtimeCodeChanged": false
+}

@@ -1,0 +1,33 @@
+10.0.402
+PASS IL2CPP inventory, opaque metadata, and zero source writes
+PASS Release layout and source-project markers
+PASS Managed assembly evidence remains a caveat
+PASS Catalog import, literal launch arguments, and duplicate replacement
+PASS Missing and modified launch files invalidate verification
+PASS New nested plugin binaries invalidate verification
+PASS Asset total changes are disclosed without inventing asset hashes
+PASS External launcher requires explicit path and receives no arguments
+PASS NexaNet markers block direct client launch
+PASS Direct guard and injector entrypoints are rejected
+PASS Malformed, duplicate-key, unknown-field, and missing-schema catalogs fail closed
+PASS Manifest path traversal and alternate command targets are rejected
+PASS State inside source installation is rejected before any write
+PASS Reparse-link roots, children, and state directories are rejected
+PASS Concurrent imports preserve both registrations
+PASS Canceled inspection cannot produce an import
+PASS A previously planned executable is reverified before launch
+PASS A reviewed plan cannot be redirected by changing the catalog root
+18/18 acceptance checks passed. Fixture PE headers are synthetic; no game, external launcher, guard, or injector was executed.
+PASS: 101 assertions; typed CV3, bounded preview, real loopback HTTP, authentication, ETags and restart persistence.
+  Determining projects to restore...
+  Restored C:\Users\alexi\AppData\Local\Metallic-RC\rework-20261020\git-recovery\src\Metallic.RC.Launcher\Metallic.RC.Launcher.csproj (in 1.14 sec).
+  1 of 2 projects are up-to-date for restore.
+  Metallic.RC.Core -> C:\Users\alexi\AppData\Local\Metallic-RC\rework-20261020\git-recovery\src\Metallic.RC.Core\bin\Release\net10.0\win-x64\Metallic.RC.Core.dll
+  Metallic.RC.Launcher -> C:\Users\alexi\AppData\Local\Metallic-RC\rework-20261020\git-recovery\src\Metallic.RC.Launcher\bin\Release\net10.0\win-x64\Metallic.RC.Launcher.dll
+  Metallic.RC.Launcher -> C:\Users\alexi\AppData\Local\Metallic-RC\rework-20261020\desktop-win-x64\
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Metallic.RC.Creator -> C:\Users\alexi\AppData\Local\Metallic-RC\rework-20261020\git-recovery\src\Metallic.RC.Creator\bin\Release\net10.0\win-x64\Metallic.RC.Creator.dll
+  Metallic.RC.Platform -> C:\Users\alexi\AppData\Local\Metallic-RC\rework-20261020\git-recovery\src\Metallic.RC.Platform\bin\Release\net10.0\win-x64\Metallic.RC.Platform.dll
+  Metallic.RC.Platform -> C:\Users\alexi\AppData\Local\Metallic-RC\rework-20261020\desktop-win-x64\platform\
+Desktop bundle: C:\Users\alexi\AppData\Local\Metallic-RC\rework-20261020\desktop-win-x64

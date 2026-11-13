@@ -1,0 +1,14 @@
+{
+  "status": "client_attempt_failed",
+  "startedUtc": "2026-10-21T17:24:21.190313+00:00",
+  "finishedUtc": "2026-10-21T17:27:42.006401+00:00",
+  "elapsedSeconds": 200.816088,
+  "requestedObservationSeconds": 90,
+  "sourceReceiptSha256": "8da39b3c41ed6f5f7a992ee29f31dee8e7b0061804cd47328f4b4f8592e8a904",
+  "errorType": "ProcessNotRespondingError",
+  "errorMessage": "process with pid 7524 either refused to load frida-agent, or terminated during injection",
+  "agentEvents": 0,
+  "sharedSectionClosed": true,
+  "originalHashesMatch": true,
+  "interpretation": "The former runtimeRoutingHookUsed=true was requested intent, not observed hook installation. Attachment failed before agent load or process resume. Root cause not established."
+}

@@ -1,0 +1,23 @@
+[package]
+name = "metallic-rc-server"
+version = "0.1.0"
+edition = "2021"
+description = "Metallic-RC backend in Rust: RecNet name server, auth, accounts, rooms, matchmaking and the notifications hub"
+publish = false
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+# preserve_order: JSON fields go out in the order they are written (the client's formatters were captured that way)
+serde_json = { version = "1", features = ["preserve_order"] }
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+serde_urlencoded = "0.7"
+rr-net = { path = "../rr-net" }
+
+[dev-dependencies]
+tokio-tungstenite = "0.29"
+futures-util = "0.3"

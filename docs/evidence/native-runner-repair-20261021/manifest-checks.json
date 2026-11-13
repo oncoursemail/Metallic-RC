@@ -1,0 +1,53 @@
+{
+  "status": "manifest_admission_checks_passed",
+  "checks": 9,
+  "results": [
+    {
+      "case": "reviewed_v2_profile",
+      "passed": true
+    },
+    {
+      "case": "old_schema",
+      "passed": true,
+      "rejectionType": "ValueError"
+    },
+    {
+      "case": "wrong_backend_port",
+      "passed": true,
+      "rejectionType": "ValueError"
+    },
+    {
+      "case": "wrong_game_root",
+      "passed": true,
+      "rejectionType": "ValueError"
+    },
+    {
+      "case": "missing_supervisor_input",
+      "passed": true,
+      "rejectionType": "ValueError"
+    },
+    {
+      "case": "duplicate_path",
+      "passed": true,
+      "rejectionType": "ValueError"
+    },
+    {
+      "case": "changed_original_hash",
+      "passed": true,
+      "rejectionType": "ValueError"
+    },
+    {
+      "case": "changed_runner_identity",
+      "passed": true,
+      "rejectionType": "ValueError"
+    },
+    {
+      "case": "unpinned_agent_path",
+      "passed": true,
+      "rejectionType": "ValueError"
+    }
+  ],
+  "manifestUnchanged": true,
+  "fridaImported": false,
+  "gameLaunched": false
+}

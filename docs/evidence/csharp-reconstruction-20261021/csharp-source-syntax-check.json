@@ -1,0 +1,2945 @@
+{
+  "status": "syntax_parse_passed",
+  "generatedFiles": 419,
+  "syntaxErrors": 0,
+  "parserVersion": "5.9.0.0",
+  "languageVersion": "Preview",
+  "semanticCompilationPerformed": false,
+  "targetCodeExecuted": false,
+  "limit": "Syntax acceptance is not type checking, a successful Unity build, or gameplay equivalence.",
+  "files": [
+    {
+      "file": "AVProVideo.Extensions.UnityUI.dll.partial.cs",
+      "bytes": 18207,
+      "sha256": "6d355f1bcaab400be4b67f6cb874df6641d0144da6aa4934969724861fc116a4",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "AVProVideo.Runtime.dll.partial.cs",
+      "bytes": 369576,
+      "sha256": "03d9a5f187bc8642fc5870e960d6a2ef5340edbf5dd28f130e39fe9f566f71e6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Appboy.dll.partial.cs",
+      "bytes": 136611,
+      "sha256": "516097163f248ca88b1849a75cda7d7a00a981d60bb5c3314fba308240c35c0b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Assembly-CSharp.dll.partial.cs",
+      "bytes": 44788178,
+      "sha256": "5c75328d4adc2334186bc5268b9d16d9972b60bec0dacf63b0749efd6e6c20c6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "AstarPathfindingProject.dll.partial.cs",
+      "bytes": 848510,
+      "sha256": "a11083412f81ad9015e3d37457698b6b1ef6f438b6803692264eaf6878f4fc46",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Backtrace.Unity.dll.partial.cs",
+      "bytes": 255091,
+      "sha256": "2858ce9632791bd94e889bac73b3b4690ff2a56a748381aa08d3853242904f07",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "CSCore.dll.partial.cs",
+      "bytes": 110413,
+      "sha256": "82006fa723efa0f4f2aaa1fa3d1945f9a9ad7e4c3b547ec5be53d286cf7ddd93",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.All.Api.dll.partial.cs",
+      "bytes": 8152,
+      "sha256": "d72d9521733f268f4a1a11b060cf73cc0162fad09e6fb43640d61a0b75742e32",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.All.Injection.Debugging.dll.partial.cs",
+      "bytes": 5129,
+      "sha256": "7709d80374ce8cc5fe9c784bf6c6d20e5f7eea1528b5657c203ede6c1d9d0738",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.All.Injection.PhotonNetSystem.dll.partial.cs",
+      "bytes": 22767,
+      "sha256": "f3f02d04e6b2219e9bd358cbafe5816dba72b641999fdcb23c7270e688939cc3",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.All.Injection.UnityEngine.dll.partial.cs",
+      "bytes": 41847,
+      "sha256": "f94349fb885bf0607a6c8f9d19027beb4c443d5ed34945acd3d34c510a9ab4f0",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.All.Injection.V2.dll.partial.cs",
+      "bytes": 36606,
+      "sha256": "2cdedcddf1da41219c1056d07a6a0db2436c794d88da1254e8ece7aaf185b34d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.All.Mock.dll.partial.cs",
+      "bytes": 661125,
+      "sha256": "33efc07eb2e5d63c36334004d5d40dd2f11fd2b1576cb56fdf5954c763979575",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.All.RecRoom.dll.partial.cs",
+      "bytes": 709449,
+      "sha256": "1f3628f13a1f6a800bac5cb6f13b20d6ce65527d36ca6f6f45316da755df0f62",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Dynamic.Api.dll.partial.cs",
+      "bytes": 34425,
+      "sha256": "bb96b6dc1d4a66d0a7b9a914c213c3f0e6f739ea21a046629735ecc6bc6f8f59",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Dynamic.EV.dll.partial.cs",
+      "bytes": 6457,
+      "sha256": "1ecbb4160458fc7a7b2165d22f39ee3326a566ba49dbb7702f81c0dcf4dbbf5f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Dynamic.Mock.dll.partial.cs",
+      "bytes": 4048,
+      "sha256": "38fcf36d001a075cb579ce8fb896cb4a3a9df31c631db21b3eb56baae27b74d1",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Dynamic.RecRoom.Api.dll.partial.cs",
+      "bytes": 8324,
+      "sha256": "a45918787d7d2d01893896c19c54778ea8a1cb9afd43cb64a826b857784c24ec",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Shared.Api.dll.partial.cs",
+      "bytes": 62097,
+      "sha256": "a00ce0abebc1fc0a85894775ecd043830c0be0e88c41f935021fcc4908e05f0a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Shared.Core.ByteCode.dll.partial.cs",
+      "bytes": 88316,
+      "sha256": "8c2fb55e9799594926b8e80afc366a624da0aec566f0fbccac69bbafe5c5d39d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Shared.RecRoom.Api.dll.partial.cs",
+      "bytes": 12555,
+      "sha256": "717e667962dfe490949410b696ae48af7344401c6179bdeceebcb41f75fade4c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Shared.RecRoom.dll.partial.cs",
+      "bytes": 41345,
+      "sha256": "2c36e09239b64665645a2684a2a3f22d05d0ad1e401cefa50bed50b92dde2e74",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Shared.Utilities.dll.partial.cs",
+      "bytes": 78633,
+      "sha256": "e5ba1d166493775848e4a161e277ce42031c65f07a13c5b6ab3f75255a62c77e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Api.dll.partial.cs",
+      "bytes": 174035,
+      "sha256": "1ed49e8389705712e1517e82b72e4f1cf60ce3a097028217d77301967b79925c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Core.CompileSystem.dll.partial.cs",
+      "bytes": 128929,
+      "sha256": "e0bb2af0d2dc99884279d9dbd08f700f837f66acefb834fdda6cf99db4de994d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Core.GraphSystem.dll.partial.cs",
+      "bytes": 39620,
+      "sha256": "fa365acac2ac9654eaeb3eedba77afe9364f9baa805c515ad115d8b44381ecc3",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Core.NetSystem.dll.partial.cs",
+      "bytes": 32577,
+      "sha256": "95df85da87860f7a062796d3603c452c4b46cfbd2beaee22eecd91207916eeb5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Core.RequestReduce.dll.partial.cs",
+      "bytes": 16057,
+      "sha256": "45c74f56f107030934df017ecdf71c224bf41590fc2a0b21e76dc6f143132067",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Core.TreeSystem.dll.partial.cs",
+      "bytes": 11890,
+      "sha256": "f65877092804366b05ca1608e962faed52e69e265909704988ed37eb8f3b7624",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Core.TypeCheckSystem.dll.partial.cs",
+      "bytes": 30078,
+      "sha256": "168c2f82f5a45fa21c8ce0e69d41d91f20b131507d96bdcb4c4f7a88da8fa66b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Core.TypeSystem.dll.partial.cs",
+      "bytes": 111886,
+      "sha256": "7cf949dcb1794bf926814a6f85fe408cafe7c9041f5367476331f2325a483007",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Core.UnificationSystem.dll.partial.cs",
+      "bytes": 25352,
+      "sha256": "008cbd03c4c3b79ae708e18ffc5acda9ba2729044ed28f805b4151e07a370fa1",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.EV.dll.partial.cs",
+      "bytes": 10481,
+      "sha256": "540aef6baa8aa032e918e5c154d0365db7250e8b716b31ffc931cf832585d4d7",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Mock.dll.partial.cs",
+      "bytes": 22955,
+      "sha256": "252d79599f21eda0442b5854ecfc045b118ba414e0248636f1571e8bd3231863",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.RecRoom.Api.dll.partial.cs",
+      "bytes": 75565,
+      "sha256": "a02e0fb06f613d5cf77c0fc937c0fa3aece566e81c0e9400595ced7b70f03b4f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.RecRoom.dll.partial.cs",
+      "bytes": 219183,
+      "sha256": "01648a35469eb5b526a559acd95d8148e34d83589b3cd6c11025fbdab61e0bd3",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.Static.Utilities.dll.partial.cs",
+      "bytes": 2683,
+      "sha256": "98e9e4bc8881eefbdbfcc72e59f582e8ea9fed443f920cbb13c00c22ac80abf6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Circuits.V2.dll.partial.cs",
+      "bytes": 9759009,
+      "sha256": "43a80ee94b0fd167c261a606052a8e10ecc1e908dd5ab159872a8cd09a408c44",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Codestage.Anticheattoolkit.Runtime.dll.partial.cs",
+      "bytes": 133642,
+      "sha256": "3434e8ac07f7e7b2d15575ae4c5cd64a5ebad3bef2ae73a60c56db1f4c4f7c35",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "DissonanceNFGO.dll.partial.cs",
+      "bytes": 13559,
+      "sha256": "e981e81bd233b1565f0dd02c1f11e374776e20ebe140f1532773b1c027cafec2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "DissonanceVoip.dll.partial.cs",
+      "bytes": 662331,
+      "sha256": "e827f1416d9ef268ec82a71ca4a421369aa1941fb2efa2f0166737567c4432ac",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "GLTFSerialization.dll.partial.cs",
+      "bytes": 259339,
+      "sha256": "9a86aaa8fb77e4039873868095207e010ee83c8453252ab0cb94e3899e3c94c2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Google.Protobuf.dll.partial.cs",
+      "bytes": 990726,
+      "sha256": "decb94b8f1cea53597ec231b1e0bb3f874d80d0c12fd805234776fd6cf59a64a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "ICSharpCode.SharpZipLib.dll.partial.cs",
+      "bytes": 61383,
+      "sha256": "ecc6e1cb669bfa00f546e951c7e5e3393029ad8e06f6eeb4f119b8e29462d498",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "K4os.Compression.LZ4.dll.partial.cs",
+      "bytes": 66247,
+      "sha256": "5a27c9909d6a4990694cdb1900e2bca0b5fdd0a65fc9745548fe04eed6196b55",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Kyub.EmojiSearch.dll.partial.cs",
+      "bytes": 1559,
+      "sha256": "e190196bc8027abf1f5b8dfc057b90e512b83b39ba89c7266e6ae63f9150babd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Logger.Runtime.dll.partial.cs",
+      "bytes": 1004,
+      "sha256": "7dd18c39ae294aa169c18e6e282be301650be3e49017cb2a60d404e08b2e188b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "MVVM-Databinding.dll.partial.cs",
+      "bytes": 208817,
+      "sha256": "10cbcd3216b6162e3db01e2a2043adea12b1a40ce4948dc56f43f30ec5d7b8ae",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Microsoft.Bcl.AsyncInterfaces.dll.partial.cs",
+      "bytes": 8430,
+      "sha256": "8424d0293675178f73c65c8c6119241d6bff3a44914945cf9d881c68f3689188",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Microsoft.Bcl.HashCode.dll.partial.cs",
+      "bytes": 11753,
+      "sha256": "de59bb0b10dff3268ac6310a7c5524a894638a170be6c20843387dca22017581",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Microsoft.Toolkit.HighPerformance.dll.partial.cs",
+      "bytes": 37541,
+      "sha256": "9e9191719c5327e673643a2e934016615ec72bcf2c0baf78c44381da3370b889",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Microsoft.Win32.Registry.dll.partial.cs",
+      "bytes": 31912,
+      "sha256": "a1f36522637baca8edeec6914d5acb320f7294d5f49646d326a52b99f53d7992",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Mono.Security.dll.partial.cs",
+      "bytes": 230026,
+      "sha256": "49543f41caa0b81560c9accb196c980d0825d13d512292a0091ca857f86a3155",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Netcode.Transports.LiteNetLib.dll.partial.cs",
+      "bytes": 203345,
+      "sha256": "d8a485fbbcb48220ced7ec605ccd4cfac6524454c44985be3e62f35c27929510",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Newtonsoft.Json.dll.partial.cs",
+      "bytes": 791440,
+      "sha256": "41ef5692d7e9954cfa7d7d4b64d41e05f0cbfb3ed14372c350e4d8809f03d184",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Nito.Collections.Deque.dll.partial.cs",
+      "bytes": 18618,
+      "sha256": "39efbd96f0f98f576e3a686cc8e3ba2af8f5e0dc2620d51073a69b591732d96e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "OPS.Obfuscator.dll.partial.cs",
+      "bytes": 996,
+      "sha256": "b3a34e23c3075718a1bd1f0a4179c2eb5c7a4e444fb3e3a6a65a065a7a71ccb9",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "OSA.dll.partial.cs",
+      "bytes": 317796,
+      "sha256": "b725390ae52bde12933c3103fc55dbd5fd5dc35c190c4a8165c9558936d225cf",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Oculus.Platform.dll.partial.cs",
+      "bytes": 246377,
+      "sha256": "4743ec030ad7c683df4e0a2cb25aa0281b83f35ec4d0e01b041211b0deb3cb8a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Oculus.VR.dll.partial.cs",
+      "bytes": 1072168,
+      "sha256": "74b0195e0ed905c482aae8b8f4ed3debf5d817f8c0623b7f9d552599956b5031",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Pathfinding.ClipperLib.dll.partial.cs",
+      "bytes": 52823,
+      "sha256": "20399b1c51df0adf594047215b48c6bf0a34d6d436d263d6c892ecc6ca0eaefe",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Pathfinding.Ionic.Zip.Reduced.dll.partial.cs",
+      "bytes": 247460,
+      "sha256": "d098f8b53530d3e4ea95c1a0be4e44bbf6d41268da57f705fb6863067d514936",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Pathfinding.Poly2Tri.dll.partial.cs",
+      "bytes": 62355,
+      "sha256": "966d9f74f586946b1816511034b3492e5d98131be56103ec018db25278a0f6e0",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Pngcs.dll.partial.cs",
+      "bytes": 94746,
+      "sha256": "ee5ce54a241c5c710d20826d92ab90e068d29114f804314bd5c0d7ff68c5d064",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RRUI.Framework.Runtime.dll.partial.cs",
+      "bytes": 262469,
+      "sha256": "5db7b42ea575a803744e9287a8b3c48213c065257ce0a10ab7128fdad20bbb87",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RRUI.Profiling.Runtime.dll.partial.cs",
+      "bytes": 2139,
+      "sha256": "36861f459a2ed46f45f72a5dbd7192a316ca24bcfd37ecc3037f2f3b71d59736",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecNet.DataCollection.Interfaces.dll.partial.cs",
+      "bytes": 831,
+      "sha256": "518d5f9f54588e97b9e931a101b41d277cbc298dfe2f444503a6247a511c1888",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecNet.DataCollection.dll.partial.cs",
+      "bytes": 77609,
+      "sha256": "b58131d392e1ee3823cbfbe50e757f9eb615c090d6b51b7b5165e7cccdfacc3d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecNet.DataExport.Runtime.dll.partial.cs",
+      "bytes": 371079,
+      "sha256": "ddb57a3b40c44b36746fbe21d482affd29a7fa324bb48d9b2d9ceb7bfed39725",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecNet.Images.dll.partial.cs",
+      "bytes": 23749,
+      "sha256": "0f266faa297402a2325d00bdcdb0da4e047e898a7aa9f90f09a497eb3e93a829",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecNet.Interfaces.dll.partial.cs",
+      "bytes": 1023067,
+      "sha256": "25d58464074c9cf9d77c1c141105281da05a1818c613f7752a9477d7f0f7c6f7",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecNet.Runtime.dll.partial.cs",
+      "bytes": 11164892,
+      "sha256": "ac444192324ed7a92d39d3e3cb987021fdff7b20d3d2295637bf2fdc5f4f1ed5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecNet.Utilities.dll.partial.cs",
+      "bytes": 23004,
+      "sha256": "502da06e326e71d3c4e484e18c1b7c117f4eca5f091b6efef1f993a8a4d2d90c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AI.Providers.dll.partial.cs",
+      "bytes": 291371,
+      "sha256": "17e39867ac83950045cf5c67ee5ad6c7785fbfdf66a591fb5b4d80e119624aee",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AI.Runtime.dll.partial.cs",
+      "bytes": 229549,
+      "sha256": "71c036d0baf74415c2efbd021d5166eafa8270d5467c24a1b7e9fc38fa9f5ac0",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AgInitialization.Interfaces.dll.partial.cs",
+      "bytes": 8775,
+      "sha256": "475000c8daed0f92436eb870a2da1244f9387d98536b2043dcc54b210524e5db",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AgInitialization.Runtime.dll.partial.cs",
+      "bytes": 14054,
+      "sha256": "6aa82c52d857426706e09550447bc2020835578679a5c7055078e2c3f173a5ef",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Agdxgidisplays.Runtime.dll.partial.cs",
+      "bytes": 3931,
+      "sha256": "d1ef83db5974ef6e9088a049329ccf99486e13b98f38240ea6f3c94b634f2feb",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Analytics.Interfaces.dll.partial.cs",
+      "bytes": 7715,
+      "sha256": "24a1f85ff7dbe3de3d5af7e3d11c4abbeffac1b0e9fbf22707109afb26415aee",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Analytics.Runtime.dll.partial.cs",
+      "bytes": 150317,
+      "sha256": "15b308505985f4df361dfed983b53e591d47c32361436bbc2d6240841065a62a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AppUI.Data.Interfaces.dll.partial.cs",
+      "bytes": 88812,
+      "sha256": "4c9d69707e45da6c1312c449afc4094dedafb80f6d4c89137e8556030c6d788d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AppUI.Data.Runtime.dll.partial.cs",
+      "bytes": 194549,
+      "sha256": "1f29f469769827bedae226ac6f3d2b36e3c59eb4dca577a573b983f18561f0ae",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AppUI.Runtime.dll.partial.cs",
+      "bytes": 1303820,
+      "sha256": "ff89029bd68595b10867b05d021e2f710d3ee11774cf2f180f1f91eaf3741bea",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ApplicationLifecycle.Runtime.dll.partial.cs",
+      "bytes": 6460,
+      "sha256": "58ed7a84540fd0c4fa20585e75a21bfe21b2b124f77f73f1bbe0325e9655d174",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Assetbundles.Runtime.dll.partial.cs",
+      "bytes": 23279,
+      "sha256": "c57f1be2eb0d6f5a25760c5b11ccc79ea8fffa6512117fd32004b4460411be94",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Async.dll.partial.cs",
+      "bytes": 18933,
+      "sha256": "25d1e68356651ba5bf06523858773a89f6846296e3ba2cebc3f2077f7c00009d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Attributes.Runtime.dll.partial.cs",
+      "bytes": 9190,
+      "sha256": "5b8dba9838539dd6df88999147ee8ebcd873a2b1bc95b52b90ea202374b23e6e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Audio.Runtime.dll.partial.cs",
+      "bytes": 36660,
+      "sha256": "02da2629044c13d2b2f48e1ed9ba48cb365345a78d8483fa65875f9ff7f0fa00",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Audio.SFXTracks.dll.partial.cs",
+      "bytes": 3034,
+      "sha256": "dfe9d058947ba4c622ee71725cf07549891b46c83fe37e64804ee088274e63fd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Audio.Utilties.dll.partial.cs",
+      "bytes": 22509,
+      "sha256": "61e807c5c9fb618332d8d4057590dbae0156a10cb8c21e94983f4f3d15882bad",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AutomationTests.Runtime.dll.partial.cs",
+      "bytes": 2385,
+      "sha256": "4baddbdf45bbc072ec4f303b58bb9e0712be934179f701412a11c093e922b1a5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarRenderingSystems.Interfaces.dll.partial.cs",
+      "bytes": 13490,
+      "sha256": "8a7a0dace51ea100308d09163b05820ea17fdd3c22d3b5a8b68b2193b44b7c54",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarRenderingSystems.Internal.dll.partial.cs",
+      "bytes": 6819,
+      "sha256": "3f6dd4d99cce416c227ce03d556b588c753d32c9b4f90c724ac50e2e8d01e410",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarRenderingSystems.Runtime.dll.partial.cs",
+      "bytes": 458386,
+      "sha256": "d9b497305ebbd0d12c3a3a7515d90d7f8933e47a5bb892ced8cf3cc652c2ab86",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarRenderingSystems.Serialization.dll.partial.cs",
+      "bytes": 62025,
+      "sha256": "14b06782625d90ab42429d4ceda99e6b7fcdea22c2acd2171d74cb1615cf7994",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarRenderingSystems.SharedData.dll.partial.cs",
+      "bytes": 93675,
+      "sha256": "63c505a6255f0196e2207d739a6c5304311ca5455c0b8502bb0082b78c68202c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarRenderingSystems.SharedInternal.dll.partial.cs",
+      "bytes": 185201,
+      "sha256": "b67669241ec16c6aa8966cdfca8a50f14087d82e725c182f54b37cba4469dc07",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarSystems.Interfaces.dll.partial.cs",
+      "bytes": 12772,
+      "sha256": "2ccd3b92b71c9fbb8565b4ca931b91432e62985f4ebe45ca5ca313448046b833",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarSystems.Runtime.dll.partial.cs",
+      "bytes": 190866,
+      "sha256": "70526d5691790fd7a00a9471abc57ee0b29754da2f7512c06d8ff4fd56c8758a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.AvatarSystems.SharedData.dll.partial.cs",
+      "bytes": 48052,
+      "sha256": "166a700564b8c6d0ea0a618333172c14722a5a6fda36cbcfdd9eae739467f204",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.BattlePass.Data.Runtime.dll.partial.cs",
+      "bytes": 16566,
+      "sha256": "c345ea122a2081592188ca6b035831558caa0bc8d006286df85bbff019964d00",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.BitPacker.Runtime.dll.partial.cs",
+      "bytes": 33153,
+      "sha256": "93f90e028bd68e203fc1f792a182fe5a8092669de63e47f23a01f25aa71544e2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Build.Runtime.dll.partial.cs",
+      "bytes": 3867,
+      "sha256": "b55f9a2d5410fae4d48f7009521e506746454c15a1b784eb2be49d272fdc137a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Cameras.Interfaces.dll.partial.cs",
+      "bytes": 5663,
+      "sha256": "b7cb77e15d28114ac6dc233c0cdc801d0b26ba34b16786a04f40f1663d6f7946",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Cameras.Runtime.dll.partial.cs",
+      "bytes": 38757,
+      "sha256": "499b149351466a67d46ad0736e68c1817523a46beae47cb001bea75fdb8e181d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Chat.Runtime.dll.partial.cs",
+      "bytes": 76019,
+      "sha256": "c4cbcfcc71f2d350a2b9af24d0d3dea9c2a3cb2139d8f03ef22eef6ea037cfe4",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.CircuitsV1.Runtime.dll.partial.cs",
+      "bytes": 247302,
+      "sha256": "61b2d133694ba58f673d5961f5fdf1d15390bc95d019e2f61143ab7d4c5b62cd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.CircuitsV2.ChipCulling.Data.dll.partial.cs",
+      "bytes": 8255,
+      "sha256": "3d31fbd679e1a67d69833b28773424124bbac4feb4f8fd66578f53c0795df8a3",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.CircuitsV2.ChipCulling.Jobs.Runtime.dll.partial.cs",
+      "bytes": 8839,
+      "sha256": "b72e700bbd025b63a952220e9ce7475844d25ca52367ec1bca6c490cd386f512",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ClusterLods.Runtime.dll.partial.cs",
+      "bytes": 118368,
+      "sha256": "7b2ceecbb939a2302bd0428d9fde5c9f9ff523d4cf35472365fd627f7f7ee4ba",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Commandline.Runtime.dll.partial.cs",
+      "bytes": 5117,
+      "sha256": "92487993d027b3e943f91ed223537ed50700c3531f274bfb9a45be649af6db36",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.CommonDataTypes.Runtime.dll.partial.cs",
+      "bytes": 16308,
+      "sha256": "014910fc847116441843251eb313f0f27d0f76edcb404ca47d53cc35063ecb66",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Configloader.Runtime.dll.partial.cs",
+      "bytes": 4315,
+      "sha256": "cb8a9b7cbb5c34a7f1a88ade64c6c48bf46fb6ff4ac4cc1441b638c54749c794",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Connectables.Runtime.dll.partial.cs",
+      "bytes": 141859,
+      "sha256": "f4057b7170455f787cb3d7ff555c2e2d5965271ad25fe17944e85ed21ac42339",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Content.Authoring.Runtime.dll.partial.cs",
+      "bytes": 78640,
+      "sha256": "0fa11dc179aff8f69a5fcd82cb5ef3d55dd4ca937b51b34ce616a378a0f81f1b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.CoordinateBeacons.Runtime.dll.partial.cs",
+      "bytes": 85383,
+      "sha256": "9e02019e814dc99b14becf98a8f005a6c3e094cd880c0af87ea00f1cf7e8e5cf",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Creation.Interfaces.UX.Runtime.dll.partial.cs",
+      "bytes": 18544,
+      "sha256": "56f518dfc5236a5044375468debb19060d1e902a2ef70da591597614f34056b7",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Creation.Runtime.dll.partial.cs",
+      "bytes": 223493,
+      "sha256": "f8b6f46460bc3f1a75a5dced28df9e71180916938793763cb70987c7571f0884",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Crm.Interfaces.dll.partial.cs",
+      "bytes": 1612,
+      "sha256": "959715f827dd6f63be3a3b13932ebd6e910cff4f24c1d4cc52ee2b64cf23714e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Crm.Runtime.dll.partial.cs",
+      "bytes": 16114,
+      "sha256": "1d95ff70dfa67f29d4d16f48ea22f1b975da02acd027388b171a74b2027d1234",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.CultureUtil.Runtime.dll.partial.cs",
+      "bytes": 1591,
+      "sha256": "76a0f8fa6a628c4fe118dd5ce8b8db60b1e34bd0d006f95e02610c3bd17efb82",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.DataLayer.Attributes.Runtime.dll.partial.cs",
+      "bytes": 42318,
+      "sha256": "8765e0531cdd8035fc1209d6594b9cf15223927856809432cfce57653098626b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.DataLayer.Common.Runtime.dll.partial.cs",
+      "bytes": 22421,
+      "sha256": "10253788ee78555339cc83bfcc771181130a89a8870942cfe2ed486d982b543b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.DataLayer.Interfaces.Generated.Runtime.dll.partial.cs",
+      "bytes": 118701,
+      "sha256": "06cd3cfb8bbbb0a6f717809c3eff5be0ec6b431e219e409dda4aa8bfe0ab00d4",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.DataLayer.Interfaces.Runtime.dll.partial.cs",
+      "bytes": 182007,
+      "sha256": "9f10c4ea872addc2bdc42240086fbdd0180ff32b1d85f23df470ac791152587c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.DataLayer.Upgraders.Generated.Runtime.dll.partial.cs",
+      "bytes": 47818,
+      "sha256": "4cdb3a0291de0e5734e5bc74dc2e8dd1a845c4d962939dbfc643377465890dad",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.DataLayer.Upgraders.Runtime.dll.partial.cs",
+      "bytes": 9185,
+      "sha256": "04b7d8c3b5dc9d3354ca35c3407cd03d397730f11a0b729e5d37a719e72c6561",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Datastructures.CollisionMesh.Runtime.dll.partial.cs",
+      "bytes": 16859,
+      "sha256": "2f9c4c4eaa98f4a291b1b6158ac0a8a1bf85196af6600ef7105ea072f5d48ae3",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Datastructures.CullingGroupManager.Runtime.dll.partial.cs",
+      "bytes": 29756,
+      "sha256": "b7525f4a5f35276c937d52eb6641621de63f4c29a11889387b17201c4f7b4ec7",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Datastructures.OverridableFields.Runtime.dll.partial.cs",
+      "bytes": 25472,
+      "sha256": "07a53f2a8b0caba7091a003dbc3121d65f76600d94cf3aeb20fc579811e31b4a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Datastructures.Runtime.dll.partial.cs",
+      "bytes": 183452,
+      "sha256": "3f52f59151efc2923bab785a561072d54f97f4bd5ebc77f199f435ae2f99ec35",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Datastructures.Singletons.Runtime.dll.partial.cs",
+      "bytes": 7699,
+      "sha256": "0872966feb0db1f9aac472613624234af593ba6336d612b6a9572143bf056880",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Debugging.Runtime.dll.partial.cs",
+      "bytes": 149384,
+      "sha256": "2b279f7f79423553efb0d987486aa6c9128f8d465211c97eec76b28c0528b2c2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Econ.Abstractions.dll.partial.cs",
+      "bytes": 6910,
+      "sha256": "bfb96efa7d7bd1279f8ca21e242a871b013b448b215e8e093c727e3ad8a1982b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Econ.Impl.dll.partial.cs",
+      "bytes": 12590,
+      "sha256": "3e484d0f0bf88c13bf25a36669490fb6d3968177eb3d614eef560b91ebe55ef5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.EditorHelpers.Runtime.dll.partial.cs",
+      "bytes": 1620,
+      "sha256": "212391d5b5b60b36633eeb6280ae1dd48479de957b71afad08f4e3b26384e8ea",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Encoding.Runtime.dll.partial.cs",
+      "bytes": 15022,
+      "sha256": "5d3cef18877797ef7112d7b45d195e288dc74597336358a0257591f7d0a41c05",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.EnvironmentGen.Runtime.dll.partial.cs",
+      "bytes": 45389,
+      "sha256": "567b921d7097cf8d5c2e0da43312fb629b567160f37e8ebfd8f672c8398c1003",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Experiments.Interfaces.dll.partial.cs",
+      "bytes": 2983,
+      "sha256": "a4b4027c8492afcb475ab8c2418ec916723ab8c1bdd3ecdb9a72dd4aef5c451d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Experiments.Runtime.dll.partial.cs",
+      "bytes": 9070,
+      "sha256": "619c9de17fcc28d6a6ad81c64a58138585cfc7e17e5e17690ecfd3a17692abcd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ExportTools.Runtime.dll.partial.cs",
+      "bytes": 76248,
+      "sha256": "51e3b0bdcfb35c7dfc40be679ab5ff0b25b5db4c57e3e6d89009f0bae2375f56",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.FastLines.Runtime.dll.partial.cs",
+      "bytes": 61944,
+      "sha256": "995586c2c2fc13965b5054f7bd93460663c4f8dea39a077e9fe13a93a2c29c68",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.FastMeshTools.Core.dll.partial.cs",
+      "bytes": 24327,
+      "sha256": "7e15b8ae982fd43f0d81633ff5368c2aed4e4e9b07a971a335af56f858332261",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.FastMeshTools.Runtime.dll.partial.cs",
+      "bytes": 59197,
+      "sha256": "ff1b6cc06633d41854a98cd7bd88fa1edbd47f1e2487b726d977c226ee736141",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.FastText.Runtime.dll.partial.cs",
+      "bytes": 59711,
+      "sha256": "668eb4c4b299ef13be08dd289e9bdaeb85e2fd2abcb9979f4224297ccdb19b1f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.FileSystem.Runtime.dll.partial.cs",
+      "bytes": 4479,
+      "sha256": "1f0010adb8cf5a539bdd74d6f28b47b77966281277e33753ca3c557964cb4487",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Attributes.Runtime.dll.partial.cs",
+      "bytes": 4349,
+      "sha256": "0f5a5e0a07d6d7b14c8d555a88d170b1ed247f864b2dc492ffab66649608b06d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Bitstream.Runtime.dll.partial.cs",
+      "bytes": 15404,
+      "sha256": "39e67e058c48d9e2323a04790ed9e3dbe9aec17df8e9c58afd1617e88ca00014",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Collections.Runtime.dll.partial.cs",
+      "bytes": 90426,
+      "sha256": "c4e949db7b45d2be49241419e6e74e35ceffebcce32b4efa29fb5d8319ed6344",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.ComponentSystems.Runtime.dll.partial.cs",
+      "bytes": 22613,
+      "sha256": "133b91e91879e181bfd9c2d01593ef58a0fbe50a3bfd35e469800bbf4bff63c6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Entities.Runtime.dll.partial.cs",
+      "bytes": 184504,
+      "sha256": "b60a532c0568ff8f59f79d212017693a3e40940620f3494d4d21ba3cfafec666",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Identifiers.Runtime.dll.partial.cs",
+      "bytes": 34049,
+      "sha256": "873a4b8b84f7b6f0d05c47c4f0930523c6f38eaa86470b876481e93b1e47533d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.LocalId.Runtime.dll.partial.cs",
+      "bytes": 4182,
+      "sha256": "aecb27fc2b9a67c411a2faec91dde3b30f09d10be7502921b514a71f14aa74a2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Logging.Implementation.Runtime.dll.partial.cs",
+      "bytes": 31532,
+      "sha256": "9f1f89aa6f2daf5d3f2de74ced27b659769ff36aa1b5134a1caed105fe6f3789",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Logging.Interfaces.Runtime.dll.partial.cs",
+      "bytes": 15821,
+      "sha256": "9ec86d91ceea34ed6a20acc025d7774ad1dc65b7acedc06e96fdef5c041d39bd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Logging.Runtime.dll.partial.cs",
+      "bytes": 2079,
+      "sha256": "b1494b23fcc0ba0a6f0b032138d70aba83364a683055541a9aefa698d740b039",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Mathematics.Runtime.dll.partial.cs",
+      "bytes": 35864,
+      "sha256": "a82ae051695905d9adca3e7c13cd278e16399e6e790a04576c0b0197c437a28c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Netcode.Runtime.dll.partial.cs",
+      "bytes": 21488,
+      "sha256": "aa622a6dd05cd0c39316390a2291fb0e844abf4965dfb85d737face380919ff8",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.PlayerLoop.Runtime.dll.partial.cs",
+      "bytes": 18149,
+      "sha256": "e7ad188e0c0f210b8472cc18b1c5da147ef8737c86335be0976a8772ce711442",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Registry.Runtime.dll.partial.cs",
+      "bytes": 30405,
+      "sha256": "78921ce167e555da61583850a346966c66cb7b2a55b6910bb31c42d8aa5159c0",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Service.Runtime.dll.partial.cs",
+      "bytes": 42117,
+      "sha256": "6e7b54fe5f42dfbc4a41b92a369e14055b99c2e7650a7891bbff16cbe8f10845",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.Transforms.Runtime.dll.partial.cs",
+      "bytes": 20706,
+      "sha256": "43668fbec7a33bda7f5c5b929f9fddd291a40d88f6620d37b5fe95066cb10a2b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Foundation.UnityEngineExtensions.Runtime.dll.partial.cs",
+      "bytes": 1949,
+      "sha256": "73e67669c0d6d950e0c2cc92b495adf46e60bc774f5d24f1903763d3d63d67f7",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.FuzzySearch.Runtime.dll.partial.cs",
+      "bytes": 37910,
+      "sha256": "6f929df6bd3d4262f1212519fed2d33bca0d42220d0af57856f401a17a0f4201",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.GameDataWrappers.Runtime.dll.partial.cs",
+      "bytes": 20227,
+      "sha256": "35abe3f5248d848494efd79a02727fc0e9f4880db5da1961ef6c375c6ffcc353",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.GameSystems.Interfaces.dll.partial.cs",
+      "bytes": 34159,
+      "sha256": "4c33e160c2718736f9c0c1f15eaa263d74dc534b26117378ef9a0503b709b2d1",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Imageutils.Interfaces.dll.partial.cs",
+      "bytes": 4857,
+      "sha256": "743c5f70a05a89d0ac4c3ac64a9f9caf61b8a3c0885bae80d4ab39cffed5d1dd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Imageutils.Runtime.dll.partial.cs",
+      "bytes": 47829,
+      "sha256": "eaa255714c87db2ac0e721d6d4dfb5a6b18c55930319dddbb8f8cb98b035998c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Imposters.Runtime.dll.partial.cs",
+      "bytes": 58278,
+      "sha256": "a889acaaaf09ac1771182070a6906d6465b938c3bb81af44f6536f51b1327655",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.InGameNotifications.Runtime.dll.partial.cs",
+      "bytes": 11745,
+      "sha256": "07adab658db5dc7bdc4e3f38e7b56cbd6d515cc1724195a89a5ba1446b047dce",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Instantiation.Runtime.dll.partial.cs",
+      "bytes": 4266,
+      "sha256": "da83627f55c0ddb356c0cdf435e4de5339192693ef8a13021b623cd349658e58",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.JsonSerialization.Interfaces.dll.partial.cs",
+      "bytes": 804,
+      "sha256": "de9d0740f5d8a775c66ac07ce8f2e91c83232c51b37749c561db48fa7181553c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.JsonSerialization.Newtonsoft.Runtime.dll.partial.cs",
+      "bytes": 1444,
+      "sha256": "e1e7585fde7482a30384cca80d932eb6617acd15b084e964b188dc27cd937d79",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.JsonSerialization.System.Runtime.dll.partial.cs",
+      "bytes": 10579,
+      "sha256": "184eaca1ce95eaf42a227f3b505250d6e4c5b9afd69ca62346efa4315f119904",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.JsonSerialization.Unity.Runtime.dll.partial.cs",
+      "bytes": 1429,
+      "sha256": "64be5171681df49c9a10908c2ae03012a31690e35456c1f85d23cde225864e1e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.JuniorAccountVisibility.Runtime.dll.partial.cs",
+      "bytes": 14654,
+      "sha256": "bd82956f61b552c6efb6ccca61c2d38aa544ca3cd34c25c63163e15458581a2e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Keepsakes.Interfaces.dll.partial.cs",
+      "bytes": 5518,
+      "sha256": "adc2405ed03c7148adb21c28f84f051b7376e9848a9d5a896c4f0510d12d16a2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Keepsakes.Runtime.dll.partial.cs",
+      "bytes": 92075,
+      "sha256": "14a4e5b2833ba10e1cf0599bb56bdb6a7d41c565e86a18c81875a12eb99d0e6b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Keepsakes.UnityExtensions.dll.partial.cs",
+      "bytes": 2260,
+      "sha256": "c3e11b7f81360f22b7146ddb211f77d1e105ed5a5ceac96bb5a1379d9b98615e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Localization.Runtime.dll.partial.cs",
+      "bytes": 51435,
+      "sha256": "645277e47bbb40dc26e6102b41cb32ff8c9ff75498e07ff214b750f591ded637",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Localization.Service.dll.partial.cs",
+      "bytes": 3201,
+      "sha256": "724355f896a3c7cfffebc3ee31159338ff0576c83053aaf2abd44ef937a30d7b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.MCluster.Runtime.dll.partial.cs",
+      "bytes": 118794,
+      "sha256": "ac9fdd9ae1ff9b0cd8068819d9f453f18815163ced1fc5e420898e4383ba3a29",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Maker.Core.Runtime.dll.partial.cs",
+      "bytes": 100742,
+      "sha256": "eaf4ca6b09d9434caaefa4e9027121db599110e2027279438e890072a7053054",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Maker.Runtime.dll.partial.cs",
+      "bytes": 62376,
+      "sha256": "16ca3da4b9d01fe517a26d3a80bca39641713b083527014edfb9e6f35761c014",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.MemoryStats.Runtime.dll.partial.cs",
+      "bytes": 1202,
+      "sha256": "58d5c9b477679f01b4f004565985cb57fdc106f04f35daf5d639450603d15dee",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.MetricsPipeline.Bootstrapper.dll.partial.cs",
+      "bytes": 8038,
+      "sha256": "6ecdb1d14f6de249eb18dac18bfbd4301fa70c8de5801f0d8b78cc9c7430f054",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.MetricsPipeline.Interfaces.dll.partial.cs",
+      "bytes": 30702,
+      "sha256": "5498fc1e9aac78362c6f6d37d2194e4ef3854527e42ba81a2b4f3bf42a77a26c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.MetricsPipeline.Runtime.dll.partial.cs",
+      "bytes": 28443,
+      "sha256": "63bcdbf3cba9dc54ac07f63df32b7e5003bc7e7a28e2f6619bc81ee1636e7bee",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Minijson.Runtime.dll.partial.cs",
+      "bytes": 10141,
+      "sha256": "8cb1950fdc78f4f7da5eba47a9c8648a7c2896fee83b8777b5d798e2df106ad4",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.NativeMesh.Runtime.dll.partial.cs",
+      "bytes": 346866,
+      "sha256": "6357703b48617a53802288b58849edd8a1680d92e8b7c862e0babf3ac259f012",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.CreationOps.Runtime.dll.partial.cs",
+      "bytes": 23477,
+      "sha256": "e53d36c126af8408979bf9cfa02aa00caeb41db77e8a14f2c800a85ca4c16043",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.DataTypes.Runtime.dll.partial.cs",
+      "bytes": 5275,
+      "sha256": "0936873ab231b8421928f05863fda0d7c0c91b4831e4f129e43129273383cbdf",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.Experiment.Runtime.dll.partial.cs",
+      "bytes": 2395,
+      "sha256": "bbbd0ae0d8a5b32a969714bd2c0139e86083c621bc53cc70683562ff10aa7216",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.Instantiation.Runtime.dll.partial.cs",
+      "bytes": 30632,
+      "sha256": "d6a30091e966e5b905a9c1cbf077d2bc6a675db8d6aabdb888a5e939fd683074",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.NetcodeImpl.Runtime.dll.partial.cs",
+      "bytes": 81945,
+      "sha256": "dcb070937e97e8caabbefa14677af472ed9e9fa98f9fe11c4339f4de83f3736f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.NetworkedObjects.Runtime.dll.partial.cs",
+      "bytes": 40490,
+      "sha256": "6f058d70d4338a90370c1633e83591e8dc79e8235c0b47b66caea72cb8377b7d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.PhotonImpl.Runtime.dll.partial.cs",
+      "bytes": 47926,
+      "sha256": "44f2e67b1986e011b5d3d734dfc9f7108d8a608731b1d664997cf7a1b1c3d39c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.R1NetworkData.Generated.Runtime.dll.partial.cs",
+      "bytes": 15934,
+      "sha256": "f0a79771ede13063f70c70cf897bc086f22d33733341650360703dc1240914bf",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.RPC.Runtime.dll.partial.cs",
+      "bytes": 9192,
+      "sha256": "23e79368ef4703918217e64175f3776ab74a653d1b4b6663b9285c4c06c6fc81",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.RRNetworkLayer.dll.partial.cs",
+      "bytes": 218816,
+      "sha256": "6a3bc4755d8dd433d5821587be8fbf228ebd14c0b1ec9c3ebafa073a8c80d6e2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.RoomLoading.Runtime.dll.partial.cs",
+      "bytes": 82087,
+      "sha256": "376450d2892dfd761e52843f055ccd87ebfb5df2b608e2b63757fb091ddf503d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.SharedDataTypes.Runtime.dll.partial.cs",
+      "bytes": 36441,
+      "sha256": "1e7ed7475c838ca177c91ff81de0a6ee0056d5f8832677049a15f15c063de64c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Networking.SynchronizedFields.Runtime.dll.partial.cs",
+      "bytes": 90162,
+      "sha256": "159b7d6f7ea72fc54f2ef8a8b7642c7f15a8dce6d5ed62af836817bdcb5c701b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.NoEngine.Algorithms.Runtime.dll.partial.cs",
+      "bytes": 120365,
+      "sha256": "9e2071ba10bffb388af7dc3a3ed7effd5b7b9ed74f8bc11649eb2f2d001e12f9",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.NoEngine.Common.Runtime.dll.partial.cs",
+      "bytes": 164137,
+      "sha256": "eb5969c4f1cab5a5e098d485ad6365e060b076f72b74f9c099154aacb8c234aa",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.NoEngine.DataStructures.Performance.Runtime.dll.partial.cs",
+      "bytes": 38666,
+      "sha256": "84a3c6aa5847c474656d1465b1a2690303c68cb91a58e8c68260bfedebac7785",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.NoEngine.DataStructures.Runtime.dll.partial.cs",
+      "bytes": 232113,
+      "sha256": "d2a927edb5e0c5e5402b4fe94a2ec3ba65561367379693bf8ab7eacaafe0cd90",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.NoEngine.Debugging.Runtime.dll.partial.cs",
+      "bytes": 10564,
+      "sha256": "dd107c01e5e173ec672a6689f7db02a0a6c6bb1bf8e6e28d967ef5ac2570c62b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.NoEngine.JetBrains.Annotations.dll.partial.cs",
+      "bytes": 4582,
+      "sha256": "f89461b79846bcdc5e27bda97ae0a15872aea9fee178945e2c85f2bbf3b9552b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.NoEngine.Logging.Runtime.dll.partial.cs",
+      "bytes": 96657,
+      "sha256": "a77de7061eaa9a112143652bfffcdedd9ff3d09c5cd2937afdb4d5e237d1440b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectConfigs.dll.partial.cs",
+      "bytes": 375917,
+      "sha256": "c8deedd0f30fccb311245546e9811e767be72f838d4e7395bb4594f1d626a452",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Attributes.Runtime.dll.partial.cs",
+      "bytes": 4258,
+      "sha256": "9fc4bceb82219b6f037ae92b39fb2763f3375155ffa66ce0ece0b3910923b26b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.ComponentData.Runtime.dll.partial.cs",
+      "bytes": 84801,
+      "sha256": "72c4d4f34f6431deb5e66ff2074e97fe551ff42124c2efd3a52701d681f7f40c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.ConfigUI.Runtime.dll.partial.cs",
+      "bytes": 59489,
+      "sha256": "14f0837d09f2576ecc61885a993dd0e7a386a7682fddc106ec3fdc95a594058e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Dependencies.Runtime.dll.partial.cs",
+      "bytes": 28776,
+      "sha256": "ec31fc200ab3450ba431c06f5b36c15ba259f05d511504b2e2bf6b95e96c4d43",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Entities.Runtime.dll.partial.cs",
+      "bytes": 76757,
+      "sha256": "8351c3786d40e1faaf07c83eda2cd2103893385ece8a8b0b813e3a208cb9c87e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Interfaces.ConfigUI.Runtime.dll.partial.cs",
+      "bytes": 8419,
+      "sha256": "5377ef3f80b6b6530f0d569139f79f941c4eba69c04bfc3c59c0f627cf652368",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Interfaces.Prefabs.Runtime.dll.partial.cs",
+      "bytes": 4016,
+      "sha256": "0d93316a48e1f7a1b09d063b31b79743f37b193b6b0476dd0303643bc783f528",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Interfaces.RendererV1.Runtime.dll.partial.cs",
+      "bytes": 68560,
+      "sha256": "6610d3340cb4aace512e230acaff54cd1d087676ccad9ad7246e3eb8bc8d3e3d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Interfaces.Runtime.dll.partial.cs",
+      "bytes": 441094,
+      "sha256": "60d3b66557eb87c2c3cc9ef42442640c1c33cb56f70ce5551401873226e35d20",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Prefabs.Runtime.dll.partial.cs",
+      "bytes": 15883,
+      "sha256": "2634f9e3f251049614a9dd6c306ede851f2307e730f1240752711598f5dfa11f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Protobufs.Runtime.dll.partial.cs",
+      "bytes": 44994,
+      "sha256": "f0cbd888cac63cb0a1f54f25c2524a9c3b3d61a378d59b56836f0c57339e271a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.RendererV1.Runtime.dll.partial.cs",
+      "bytes": 177153,
+      "sha256": "0155771fa8b4636716b1bfc4a31dc8dd1a06b5b137439730ce1ed4b71e184ff2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Serialization.Runtime.dll.partial.cs",
+      "bytes": 12800,
+      "sha256": "6eb70a7992ab61a7230af73dcf02c633b54dc3d282bfe68bc44c20b6e6284401",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectModel.Systems.Runtime.dll.partial.cs",
+      "bytes": 2369201,
+      "sha256": "620f83680f33ba4ced80f171fd4fad0d125296c28559097e563729684b3b2a65",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ObjectPool.Runtime.dll.partial.cs",
+      "bytes": 51075,
+      "sha256": "4ec57a937df927fa01d32fffb7b6c794311fcaf31cab1ae4097f5f248dec420e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.OnlineRestrictions.Interfaces.dll.partial.cs",
+      "bytes": 21033,
+      "sha256": "ce61059a556769195a77d7d0ddc1d544531ef9525efbcddf4f3f00d5afd9d797",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.OnlineRestrictions.Runtime.dll.partial.cs",
+      "bytes": 18323,
+      "sha256": "77b06e2a5c3f7a6e53a857aac910f4b0426b31180b05d44710802ad80aa402db",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.PerformanceVisualization.Runtime.MetricGraph.Core.dll.partial.cs",
+      "bytes": 27234,
+      "sha256": "83355fad88968a36c74556154ebeda526130b535e96537320962f967df906746",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.PerformanceVisualization.Runtime.PerformanceHud.dll.partial.cs",
+      "bytes": 42803,
+      "sha256": "f156dff194afe289d65f9f81fb756781d18f336c6217d71b0c067620f74ff191",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Persistence.Runtime.dll.partial.cs",
+      "bytes": 50493,
+      "sha256": "bd3c73e49b28685dc5f6bb784df145e8e28e71929d5ecef1a564c5d8bd5a5eda",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.PlatformNotifications.Runtime.dll.partial.cs",
+      "bytes": 45814,
+      "sha256": "26f9f52128f48c0586ba870c0a5b49c88faf3ac1fffe99d57011f329a5b72bbc",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.PlayerProgression.Interfaces.dll.partial.cs",
+      "bytes": 6113,
+      "sha256": "116f574b4129ebd3964da6d32fbdac75de2f723d062e257c4d90101e9a58ffdc",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.PlayerProgression.Runtime.dll.partial.cs",
+      "bytes": 21231,
+      "sha256": "142eac494fcf3a066179b0489bce4477542124beef8a698ee7a44a8b12adb514",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.PrefParsers.Runtime.dll.partial.cs",
+      "bytes": 33066,
+      "sha256": "58afa653ab516091b2ddf52f1b636b9317b975a545c0e37da06889b6b22c40ec",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Preferences.Runtime.dll.partial.cs",
+      "bytes": 105711,
+      "sha256": "2bee351268475542b0cd271c66a0f87b52003220d06a885a49178c5b4f85c88f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ProgressionEvents.Interfaces.dll.partial.cs",
+      "bytes": 6382,
+      "sha256": "3790e4d4348f1ccefcd9c7216db33af1eb46bd4b2a187436045c400cb0170bf0",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ProgressionEvents.Runtime.dll.partial.cs",
+      "bytes": 20366,
+      "sha256": "52c5a50f2dad6d890f3f5595442deb744b06038039b6ebd6e8f32612fe5a3289",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Promises.Runtime.dll.partial.cs",
+      "bytes": 78455,
+      "sha256": "084e3c0fc1ca6e4205867c840a8313b041a8e2b71ba09818b2843dc112a8606c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Protobuf.Debugging.Runtime.dll.partial.cs",
+      "bytes": 3028,
+      "sha256": "e3b757bd813f99ff016471556612ba55b503a0a01f1bc3d7926869a7d9f73607",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Protobuf.Extensions.Runtime.dll.partial.cs",
+      "bytes": 11659,
+      "sha256": "247da9a3549c2aba3632c47a21c010e632c681aadeeaf54e7f1cadaf66ce657e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Protobuf.Runtime.dll.partial.cs",
+      "bytes": 8273539,
+      "sha256": "37595a5c6533b46d15b2fbece59ad7d087ad66542bcd7e593a8b8fafc163b422",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Protobuf.UnityExtensions.Runtime.dll.partial.cs",
+      "bytes": 5376,
+      "sha256": "73b851949ed6b003cf5c3d640c37253109f0869cb739775bf54fb201ef706589",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RRAssetRemapping.Interfaces.dll.partial.cs",
+      "bytes": 39304,
+      "sha256": "0026b375c89bfbee59a395ab37a7ba45c69d3e3fe2dfdef33c4efa0f6e3b351e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RRAssetRemapping.Runtime.dll.partial.cs",
+      "bytes": 53689,
+      "sha256": "486490b956017e1ccacc52dcda11ff90aaf28c211d2fc44b92e81f8a57103c1a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RRUI.Core.Runtime.dll.partial.cs",
+      "bytes": 77034,
+      "sha256": "b4bf8f550892e45e41eaed5329094a88821592bc1dfe32781d708d25f5c4f2e6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RRUI.Data.Runtime.dll.partial.cs",
+      "bytes": 1899019,
+      "sha256": "9e1dd3907c63207473fd0f77b4a420351f4186eb5776824a19fa46eb4fc2e26d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RRUI.Navigation.Runtime.dll.partial.cs",
+      "bytes": 29132,
+      "sha256": "76b73190f7d37b127d74f465309238f0337bc1f8f3ed2daf6ea7caa26c106d3f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RRUI.Theme.Runtime.dll.partial.cs",
+      "bytes": 189307,
+      "sha256": "ac1042410284a9182defc1a6c142215fecfe74547270b132d04a2e7ff40386ae",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Rbex.Runtime.dll.partial.cs",
+      "bytes": 231306,
+      "sha256": "8d38bdc9ce58dbce96f5313103f2bc366df6c41d3669c174ead06de6591db67f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ReactionCustomization.Interfaces.dll.partial.cs",
+      "bytes": 1520,
+      "sha256": "be199a73542f20c6ae58cfeb8ae9ba63ee472095193e475be23f0e4bdc421e6d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ReactionCustomization.Runtime.dll.partial.cs",
+      "bytes": 10008,
+      "sha256": "364885456b5582931ac5f999dc73087b8ad1a32f62b9999cf1623071858fc8b2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RemoteCommands.Interfaces.dll.partial.cs",
+      "bytes": 3748,
+      "sha256": "319ff556736e8a8cba8c8d02e4b14d1ac037c407c7986135083fe25b2b5209ae",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Rendering.Core.Runtime.dll.partial.cs",
+      "bytes": 64631,
+      "sha256": "06a3fba1925c2d2506054391b7669623136b2f318c02d9133ff5a5d019972bd4",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Rendering.Player.Runtime.dll.partial.cs",
+      "bytes": 21526,
+      "sha256": "f822d52df6fb9569949b383cb67d1d5ae2dd79b98f011c6f5566ad84177d75df",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ResourceManagement.Runtime.dll.partial.cs",
+      "bytes": 17803,
+      "sha256": "c01a621d2488efd217f9b8d9966f468ab534065a37ace3e73209d179e0788b87",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomConfig.Interfaces.dll.partial.cs",
+      "bytes": 4795,
+      "sha256": "e1ccb61f948b04659b14d1b46ddb80c9b6eabca5ecca0a53e7991bbf4455a529",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomConfig.Runtime.dll.partial.cs",
+      "bytes": 14829,
+      "sha256": "8c4d62c353bc2cf41674db7f491ac3f04531d36b93225500fc44e9a05d42ee42",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomEconomy.Core.Interfaces.dll.partial.cs",
+      "bytes": 1430,
+      "sha256": "7dcdf1b1bfee4385dbb1bb098721080588157e6257b14e55b6582eaf0ff43a1b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomEconomy.Core.Runtime.dll.partial.cs",
+      "bytes": 41679,
+      "sha256": "b4842b2e40322fe8e7da8bb247b77af06dd21915859de0feb8efdb9cacb0abbe",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomEconomy.RoomInventory.Interfaces.dll.partial.cs",
+      "bytes": 36821,
+      "sha256": "24ba37732815589c14db23deba78aa1a391b7d42cdaff05a1f22c90901a56d45",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomEconomy.RoomInventory.Runtime.dll.partial.cs",
+      "bytes": 88757,
+      "sha256": "158fa5105e4c70ad2600688760f47e26c954376953d7838b620267cb9e600e53",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomEconomy.RoomOffer.Interfaces.dll.partial.cs",
+      "bytes": 4127,
+      "sha256": "f330bba11f32d19cc5bc98049c04b791fb8150254701723a7d14396df2d779de",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomEconomy.RoomOffer.Runtime.dll.partial.cs",
+      "bytes": 54074,
+      "sha256": "5f8de855871dbbcd8dbc0ea73537f04ecba97c1f8b0445a5733e5102c4005ade",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomEconomy.Store.Interfaces.dll.partial.cs",
+      "bytes": 7145,
+      "sha256": "b72506e026d4d9c7049016d6067fb7ee516adda59cd63048b75aaf0c074f1ff8",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomEconomy.Store.Runtime.dll.partial.cs",
+      "bytes": 57932,
+      "sha256": "3252b1601665572e3d039d6202ebe58ac516312cad29dae8b38f04bf43f784d6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomLoading.Runtime.Interfaces.Fallbacks.dll.partial.cs",
+      "bytes": 2617,
+      "sha256": "53b060ba53503a3d1dce73fee14200f8bfd2a4c90309316e3ab2eda3bbc59cab",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomLoading.Runtime.dll.partial.cs",
+      "bytes": 803291,
+      "sha256": "4c5766bd0fb9afb99be30c3f102a7ea653b62e354c8d9c3c9f1df275a8b722d9",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomPermissions.Runtime.dll.partial.cs",
+      "bytes": 73833,
+      "sha256": "e36144719190e827866d625dd753df95a02a42d339ca3db0ed6e9655c1eaa609",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RoomWideContent.Runtime.dll.partial.cs",
+      "bytes": 8252,
+      "sha256": "0fb6f0971db1370a764f7e06e4e922435a98d3ff63dd7edc8dd33f36130e35eb",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Roomie.Interfaces.dll.partial.cs",
+      "bytes": 7841,
+      "sha256": "b2a6fd3d5c24c1ce931a08a017678e857abd7c3382fdca985c47edb0e639ff17",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Roomie.Runtime.dll.partial.cs",
+      "bytes": 3073,
+      "sha256": "85571676a9b2f20d464ecfcf5f2005b11bb5ce6d68b949ae06b1b2a695e3acab",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.RuntimeProfiling.Runtime.dll.partial.cs",
+      "bytes": 9209,
+      "sha256": "3a202f5ab5138e0735f890a5df84702c24d1eac5765523fb731418907a1729de",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.SceneManagement.Interfaces.dll.partial.cs",
+      "bytes": 1895,
+      "sha256": "2922a6e8f5dd0de5bdbc157afaaa63a0b0b473ccbedbc66a2e7305f625b5ef51",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.SceneManagement.Runtime.dll.partial.cs",
+      "bytes": 49555,
+      "sha256": "c6293844087abcb72e30b7c0ca718049fee256926d2ed05676e2c14fd24de32e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.SceneManagement.Utils.dll.partial.cs",
+      "bytes": 3499,
+      "sha256": "9151a2df858592f3541dd0077af63ad31cbf805dd6dff5013fa3ee91b02b7ed2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Scheduling.Interface.Runtime.dll.partial.cs",
+      "bytes": 13627,
+      "sha256": "4c049cdc6a1055ac3ecf45996819337594a78d5da03b145af961ceab5612349d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Scheduling.Scheduler.Runtime.dll.partial.cs",
+      "bytes": 167461,
+      "sha256": "de3f0127266a290d73fecbdfcd4c77445d27f4c2594e208a3147b7032347ca5f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Scheduling.Schedules.Runtime.dll.partial.cs",
+      "bytes": 14668,
+      "sha256": "8ba8cf9a6d499bd2ea89aa962aa568efaa1749f2ba9a4ae71b7d39c1ada1d41e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ShapeConfig.Runtime.dll.partial.cs",
+      "bytes": 64131,
+      "sha256": "072175fe3ed3bde3428edc8f514f5f56e308e2af350ea4d74604d602df4d2f8f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.ShapeRendering.Runtime.dll.partial.cs",
+      "bytes": 107882,
+      "sha256": "d9fee6bbb03146eb9e8ff7d777ce9db0e5544cab6c14ef0ad2f69807af2c8be7",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Streamingaudio.Runtime.dll.partial.cs",
+      "bytes": 4185,
+      "sha256": "d64fa4a8fdea06c5d7385f6fed9bccb0561bbbaa731c0ff8501fa88441341d8f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Studio.Common.Base.Runtime.dll.partial.cs",
+      "bytes": 354140,
+      "sha256": "71e1913574e459803daca514724fa0d9af7430c24eb67d35e25bd06ebd5ecc9a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Studio.Common.GameOnly.dll.partial.cs",
+      "bytes": 17605,
+      "sha256": "2ceef94a657392dd19e4fcc60e364231d0d16de21aaa0aae96627b3b84b25ad2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Studio.Common.LocalTesting.dll.partial.cs",
+      "bytes": 13603,
+      "sha256": "caa326f61a7c4ece2a8ffafae5e633ef9a36e45c7d83a5b8fac0e6a7dd8170d5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Studio.Common.Runtime.dll.partial.cs",
+      "bytes": 23348,
+      "sha256": "a33a6acfc943b4127772c1eea5d76e6cee9f1981a77424bcf470b967c7523a25",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.TagsAndLayers.Runtime.dll.partial.cs",
+      "bytes": 8711,
+      "sha256": "2f477130e4da92516abc47e370c19e1a1bd127a71c7f3e0d5ea091c2da21cc7a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Time.Interfaces.dll.partial.cs",
+      "bytes": 869,
+      "sha256": "f89725a8aa64f19e7659a22bd285504c1d072287d1ec27664d413153c9a024f0",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Time.Runtime.dll.partial.cs",
+      "bytes": 1616,
+      "sha256": "a927424b4abc65a100b1245b2f476763312a85ec263ad6c1a9eb01ff98bb0841",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.TimeLimitedActivity.Interfaces.dll.partial.cs",
+      "bytes": 24167,
+      "sha256": "01d95893917dbb7388138cbdccbb7672767efc3604d0f5e3cdec9d0235cd2c3f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.TimeLimitedActivity.Runtime.dll.partial.cs",
+      "bytes": 16413,
+      "sha256": "d70be36d3fca144d3bd86a217d6297d37ec740170d6e69e96a607c796cfafbf5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Tweening.Runtime.dll.partial.cs",
+      "bytes": 57733,
+      "sha256": "2925775c8856f7ae38e0317074badf569f0df70900e8dbf7815f58e25524f6e5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.UIInteraction.Runtime.dll.partial.cs",
+      "bytes": 56550,
+      "sha256": "da55e4bdea7ff132fb0dc3c2f1437aa5bad917fea0a527a6edecc63d2f2a67dd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.UnityContainer.Interfaces.dll.partial.cs",
+      "bytes": 3046,
+      "sha256": "8d3eff806237c989d90a34ebc0a5d5677bf80b5e75588811cf76d831f784ee92",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.UnityContainer.Runtime.dll.partial.cs",
+      "bytes": 9878,
+      "sha256": "af3bc1e302b5a2b886dab6b8899d1f16531eacb76603c7033ded90f02a4ce100",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Unityextensions.Runtime.dll.partial.cs",
+      "bytes": 185805,
+      "sha256": "c8afac0619a16ca97ac7fd4c7a570578fb44b3dad0d91b08d20e98540c511db5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Utf8json.Interfaces.dll.partial.cs",
+      "bytes": 2107,
+      "sha256": "a5e015d0710a3a2624ce8b30a9c6ee6cf5a49b30a41adce98b14cf43c946a7a2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Utf8json.Runtime.dll.partial.cs",
+      "bytes": 354219,
+      "sha256": "83ed3209cdb0e7ac723b5bf70aabd7d0e2a1df83c164b47d53b89b057dcb7a1f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.Versioning.Runtime.dll.partial.cs",
+      "bytes": 295140,
+      "sha256": "a2b344052480a0704d94d09081d1dc65a1b6c19a3c8908b95c0391e60f517212",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RecRoom.iOSNative.Runtime.dll.partial.cs",
+      "bytes": 6703,
+      "sha256": "ebb3592c083993e55affb86a1fa763154e677515a9bf80a2cd5b96cc0bcd3214",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RenderHeads.AVProMovieCapture.Runtime.dll.partial.cs",
+      "bytes": 285064,
+      "sha256": "cdaa3c573b6531838a88375cf818d4ea42a64869fc77ac69a133e8e384d465e6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RoomEconomy.Store.SharedData.dll.partial.cs",
+      "bytes": 12462,
+      "sha256": "89b609b4b4cd25ee505ff1831441ebcf36cec223f3a2d33b68cc1b1f48ac8c21",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "RootMotion.FinalIK.Runtime.dll.partial.cs",
+      "bytes": 610975,
+      "sha256": "82906ba736fdbc36e8c92c220ab1cdca86f719c4e9d24a4357caf08c28db6406",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "SA.Foundation.dll.partial.cs",
+      "bytes": 23752,
+      "sha256": "a13b0df580a9b9e3fdc147531dc5df1fc9adedf34eece142d21339626d3d73d0",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "SA.iOS.XCode.dll.partial.cs",
+      "bytes": 44853,
+      "sha256": "2eab7a51c7388bd561aa3dd84817e9a9afdc8e9342a6f5eb1276689c06957047",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "SA.iOS.dll.partial.cs",
+      "bytes": 84086,
+      "sha256": "7d038254771e199a56068da62e94612914db2b38dcec42cea5fc1b1d92689381",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "SharpGLTF.Core.dll.partial.cs",
+      "bytes": 1210252,
+      "sha256": "406f22d43257b6b464d14b5b3eef500938412217088c347793a5d579aec4eb61",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "SharpGLTF.Runtime.dll.partial.cs",
+      "bytes": 160538,
+      "sha256": "1d3a91066383cc752c06cf2a40cff9398a36966fb0bf6d78b9628b41c28f6e79",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "SharpGLTF.Toolkit.dll.partial.cs",
+      "bytes": 781201,
+      "sha256": "c4ec2a0545b1d43eb4c373f70ba0165c854b56434723c29e7623f3832212260e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Singular.dll.partial.cs",
+      "bytes": 28577,
+      "sha256": "630864d14a34c248df2d85924f0c2971401abd5aec26a566994795506743cfb8",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "StansAssets.Foundation.dll.partial.cs",
+      "bytes": 6395,
+      "sha256": "9fb2c10339d24556d34858c937c77cc232c47f4680323fcd984171a65941bb86",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "StatsigUnity.Runtime.dll.partial.cs",
+      "bytes": 81000,
+      "sha256": "28e160d4cf6ade5f8912c6031bca6046f76aeecd2a43773ebcb8bb82041f146a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "SteamVR.dll.partial.cs",
+      "bytes": 690581,
+      "sha256": "6faae12df5e8beb2f9537b428eae178f5cc3531cc2c2863d7878c6dd5c4fe4a3",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "SteamVR_Actions.dll.partial.cs",
+      "bytes": 23120,
+      "sha256": "fe0adde498569d691049e2b2b0de14dc631811fd8bc0d779803e1ee0adb31da4",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Core.dll.partial.cs",
+      "bytes": 1258843,
+      "sha256": "ed27eaa55fef81b76d6c454044592e809e7826d82583a65521c628657dea1b75",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Data.dll.partial.cs",
+      "bytes": 1103226,
+      "sha256": "0a9d680128bd56c5f5e5902ccc30179bb537246b002a7ee1fd653c7a6774df8d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Drawing.Common.dll.partial.cs",
+      "bytes": 23032,
+      "sha256": "2fa11773c417fd592914bdc0383c1739ed6425af5f7cb4a7e20a74cc9652b5dd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Drawing.dll.partial.cs",
+      "bytes": 32618,
+      "sha256": "ee6ff9bdcde001e03784f898c412c8f7a2416bd2bf9c35439107f209b31fb14d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.IO.Compression.FileSystem.dll.partial.cs",
+      "bytes": 1335,
+      "sha256": "a3bd60ebf2262b26f1315dbb53c765ad55b4e7d41cfde770e8e4d3c21a97f37b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.IO.Compression.dll.partial.cs",
+      "bytes": 142971,
+      "sha256": "221dd686b9bbb2441c1b0ebab22ca06b29a0ca3ec8ab333a96fbbf1dd1e1dacf",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Net.Http.dll.partial.cs",
+      "bytes": 186241,
+      "sha256": "afc8b2cd8460a897e4f1fefda6dfb87eb28370b1711574b0ace8432bc2689e94",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Numerics.dll.partial.cs",
+      "bytes": 103674,
+      "sha256": "77077927b967f6d86ff4a0299eacb5db35c96e5d57353dbea6705fb59a829fff",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Runtime.CompilerServices.Unsafe.dll.partial.cs",
+      "bytes": 6134,
+      "sha256": "33b01d19fe090cc091874ffe15dd5007d05c05e93c81886021afc4a402333247",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Runtime.Serialization.dll.partial.cs",
+      "bytes": 4694,
+      "sha256": "e011e0d7f754426775e67b36e6482aa0b4ee421936bbde85a247466459dee1fd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Text.Encodings.Web.dll.partial.cs",
+      "bytes": 52315,
+      "sha256": "226be4a9038ddca5773d6e52bf72ed875352c096d55ec77e7637e0728bb7bd48",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Text.Json.dll.partial.cs",
+      "bytes": 918375,
+      "sha256": "2c973414a5da678c33d9950435be80642efeadb5da519ed8ee5b22c2d052364d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Xml.Linq.dll.partial.cs",
+      "bytes": 82469,
+      "sha256": "dc4538f52b43a6c90264fa5b4f086ce15ae911250f5de7d5250e0e4dc488b764",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.Xml.dll.partial.cs",
+      "bytes": 2373038,
+      "sha256": "031996a01c0430fabc2d7220237d618688eabaa5896a9920b37024ab5e8a9b29",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "System.dll.partial.cs",
+      "bytes": 2407588,
+      "sha256": "5189abf34bb18c91325f82c19fc0a7bb9eed9c92acd97ca1801d8adaa822cfb6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UJect.Runtime.dll.partial.cs",
+      "bytes": 46406,
+      "sha256": "a795787ac03dff23c5489a3d5c40d90b7549ba78adb66860b4198e30e0426b67",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UJect.UnityExtensions.dll.partial.cs",
+      "bytes": 3050,
+      "sha256": "7e304f60c0628193f7e12ce4d61afabaae64013084e799475c66fe33f8106840",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Addressables.dll.partial.cs",
+      "bytes": 208935,
+      "sha256": "9c532752a2685729a3f0ffc6fd7263d03b28a77cf371ba543f13192903db3659",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Burst.Unsafe.dll.partial.cs",
+      "bytes": 1982,
+      "sha256": "7b8c57352af0845b752827f2020567a91f7d41cc14c661046e74a6c57f2f8988",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Burst.dll.partial.cs",
+      "bytes": 1248540,
+      "sha256": "0a4c6822786ddbd64008197c23c3609dfcbe4a281b2cc3e86bb484fa6bdea05b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Collections.LowLevel.ILSupport.dll.partial.cs",
+      "bytes": 1271,
+      "sha256": "81dc81efca4670f219cf113207c3052f0cb6ddbfb06a0e01f5f82a6379253ad0",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Collections.dll.partial.cs",
+      "bytes": 564604,
+      "sha256": "76fa98abc0dcb903c4efa7c70617ac96cfebae929e2693c183bc326d18ae4e0e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Entities.UI.dll.partial.cs",
+      "bytes": 1725,
+      "sha256": "20b1e4c97176c776edad583c199120408baf8fd96f47a5b1f9f1472669bcecc3",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Entities.dll.partial.cs",
+      "bytes": 1441681,
+      "sha256": "f3e464ba44b6bb9c8d3ffe98f7f88c2ff376e7782878ac4d1d80f3ee7e399af7",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.InputSystem.ForUI.dll.partial.cs",
+      "bytes": 14814,
+      "sha256": "2799543aa1c81a6b982e7ce1ce3859c3489ad02fc46a79895fa6d68421468625",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.InputSystem.dll.partial.cs",
+      "bytes": 1488651,
+      "sha256": "f3f0e17152cf4506e08abaf76246a3e36fab5d4b45fe2043131a90877c1c3083",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Localization.dll.partial.cs",
+      "bytes": 430576,
+      "sha256": "3fa33a73a0e0e408509ec8ed9be50e55e615e20dbac4c27cc73dccdbec80f6a2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Mathematics.Extensions.dll.partial.cs",
+      "bytes": 2389,
+      "sha256": "e88e9642eaac63e387bd27bfdcc8b4e7a04eb03ad67e571ebdcbe499e0922efe",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Mathematics.dll.partial.cs",
+      "bytes": 243265,
+      "sha256": "b0c07f46ca891f56e2902177731a02023569e249166a4cac38b02674f213b71d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Netcode.Runtime.dll.partial.cs",
+      "bytes": 210070,
+      "sha256": "278106325007e1c4965ba57dad87dfc5f6b0bab57b2f999b0c1e892ce41d6ca5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.ProBuilder.dll.partial.cs",
+      "bytes": 144872,
+      "sha256": "09bbe8d61dcfa50bf8ef01e9477086a4edf3fcad0b194a0319c5bb639e1c6a9a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Profiling.Core.dll.partial.cs",
+      "bytes": 3081,
+      "sha256": "633cc9ae41c5ecda1d2b7e5c480d3aa2b0ed3912311ba8d05c1945a2b1e59719",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.RenderPipeline.Universal.ShaderLibrary.dll.partial.cs",
+      "bytes": 9320,
+      "sha256": "657239d1310dcfa00e38547d5a57e481243ae9f40445170386012c4efb410412",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.RenderPipelines.Core.Runtime.Shared.dll.partial.cs",
+      "bytes": 1168,
+      "sha256": "794e2f82e3ca2c9a0a2cd5e754c099fd283e969fd3f733ad3fa288bb02f49829",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.RenderPipelines.Core.Runtime.dll.partial.cs",
+      "bytes": 1037381,
+      "sha256": "4ebac08e1774c82febcfd59e07fe252969269b90d8e3b11526d4c614f15ce1b2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.RenderPipelines.GPUDriven.Runtime.dll.partial.cs",
+      "bytes": 339545,
+      "sha256": "951f5e88b6edc50a9ffc5be0053fe904a58b4a8914b98e21010beffce84fa888",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.RenderPipelines.Universal.Runtime.dll.partial.cs",
+      "bytes": 1066961,
+      "sha256": "815fa1f70d3061b5c610ccee5e57e09f2dbe5ba46e27b1caf719baf87804092e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.ResourceManager.dll.partial.cs",
+      "bytes": 289010,
+      "sha256": "90e947b4d6dbddf209c8acb32519f2902790bec4f8abff385916e568d46f9fcb",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Scenes.dll.partial.cs",
+      "bytes": 108055,
+      "sha256": "9742fb5028c9eb6b6f404eb5ddb862e8fb03ef1cf7105dd23ac7e93bae0d2e2e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Serialization.dll.partial.cs",
+      "bytes": 155054,
+      "sha256": "47d84c0c004fc97c58e610bd01b8263bfd74f6666232e0050e3cdfe18f6e811d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.TextMeshPro.dll.partial.cs",
+      "bytes": 612215,
+      "sha256": "06f47f403080084fd5a2d8be48671c038d328f627f271e848336c45d1017e095",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Timeline.dll.partial.cs",
+      "bytes": 189350,
+      "sha256": "8a6c4429bfbb18fc98811e5b0d1a25d1aa645416539c24c961b6d9723ff60493",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.Transforms.dll.partial.cs",
+      "bytes": 32997,
+      "sha256": "e034639e76849aa7170951b9cebb36f1fa60f3de96c19a4cd157e26c29809d64",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.WebRTC.dll.partial.cs",
+      "bytes": 137945,
+      "sha256": "cbdfc85f4ac5c3f7b9f86e85833e7a7c03cd75dad4d2470d57ae7e90ba0973dc",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.XR.Management.dll.partial.cs",
+      "bytes": 23011,
+      "sha256": "5d94d5769f4f1513597ae0de4ab548b748d9bc53ecdedeaa2a6639497a8666d4",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Unity.XR.OpenVR.dll.partial.cs",
+      "bytes": 367970,
+      "sha256": "d48d7fd2e195e532226067d4c5c2619a2d0969abea5489a012f6c61c5a299465",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.AIModule.dll.partial.cs",
+      "bytes": 1934,
+      "sha256": "2fa9a900743595ed82114e18c4727578ae72f8cc0ffe205d5b60cf898c9c4555",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.AccessibilityModule.dll.partial.cs",
+      "bytes": 52626,
+      "sha256": "a8e2da258a26cd5b8669e2225504828a9fed3da4ec93d1f723856abfede89c61",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.AndroidJNIModule.dll.partial.cs",
+      "bytes": 129751,
+      "sha256": "4972a1e30f94358a048bc2ca50020040f4bbabca5d5dd20de4dfa49f315db96d",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.AnimationModule.dll.partial.cs",
+      "bytes": 373922,
+      "sha256": "389c74526b7c6053d482a6ad93abcf5440e6733914dc5c6f2c77e7d032b67337",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.AssetBundleModule.dll.partial.cs",
+      "bytes": 20787,
+      "sha256": "e1c1d1a20ca85242bd5cb0563b390b55cfbd7b1050a4ea36c52ee58a75624271",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.AudioModule.dll.partial.cs",
+      "bytes": 137757,
+      "sha256": "f9e4a586db2f88d8845108c2215fd3f14a45bfdb12d4775b13a24b078a4475d1",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.ClothModule.dll.partial.cs",
+      "bytes": 33861,
+      "sha256": "21fac986f2dac5d01bb1b1de9d3ec22945a3eb584f3e0d332bf4e17b3ab0ac4f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.ContentLoadModule.dll.partial.cs",
+      "bytes": 10728,
+      "sha256": "5e1db7800f168a0687dbf9efe2a0b62fd30997114c99f691ceaf01fef64e1dee",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.CoreModule.dll.partial.cs",
+      "bytes": 2966901,
+      "sha256": "f998c88324384ea515d677fd84093d5af727721ef642089ec38f134bd98a03e5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.CrashReportingModule.dll.partial.cs",
+      "bytes": 1887,
+      "sha256": "d5ebd7789cc28ac8b53d412c61f640c667aa6e3af232da0ea0c4631a85c96842",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.DirectorModule.dll.partial.cs",
+      "bytes": 34233,
+      "sha256": "94368d946574ed2d63a5bd54be1db2cba74e216f5edc2ffc44512b7510246197",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.GridModule.dll.partial.cs",
+      "bytes": 12298,
+      "sha256": "723c2b4f19b1bb63e31c72755391830917dac5d9ab225df3057a634bc62185da",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.HierarchyCoreModule.dll.partial.cs",
+      "bytes": 107579,
+      "sha256": "fa7432c9760ac909fb1e16924ebf02b2159fddab883719dcec567e2b1a2cefef",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.IMGUIModule.dll.partial.cs",
+      "bytes": 297901,
+      "sha256": "1f0e2399f439ab6df096d74a2c5691827618cc0f3cf39f9bb515ad5518ff2b2f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.ImageConversionModule.dll.partial.cs",
+      "bytes": 4580,
+      "sha256": "132bac953a04bad7c4b5a4706b027c56616fe600a7d1c89d9fd3dd83e742c587",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.InputForUIModule.dll.partial.cs",
+      "bytes": 84916,
+      "sha256": "d025527612f2954b626bbe2568c28f87170ba35ca49bd41a16147730734956fb",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.InputLegacyModule.dll.partial.cs",
+      "bytes": 36490,
+      "sha256": "81e7918b8b751d08cf05bf15206fee6bb2a406ed039480069b0a0673e6d6e80a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.InputModule.dll.partial.cs",
+      "bytes": 8014,
+      "sha256": "37557c60db80258cb404bad5b7878826558caed5292fde68e855ca563c984f9b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.JSONSerializeModule.dll.partial.cs",
+      "bytes": 3651,
+      "sha256": "6fa6b7175b3079ac9620fa07aa5c1b262bb11526d7c7abd993de057da0ac812e",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.ParticleSystemModule.dll.partial.cs",
+      "bytes": 218835,
+      "sha256": "b6ab003cf551f26e252e93d6890b3c91b4d25b3e9098e2ce44eb6a6b7922b640",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.Physics2DModule.dll.partial.cs",
+      "bytes": 211126,
+      "sha256": "e7dc43d675873792e6c01e4c7c08a75889b5f1fb44b4416d076be8780e8cbfdc",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.PhysicsModule.dll.partial.cs",
+      "bytes": 278620,
+      "sha256": "83124a904e00b521ad463ffa337e816967a1e773c96c967a5282d6e08940d932",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.PropertiesModule.dll.partial.cs",
+      "bytes": 226032,
+      "sha256": "a00263e6594dabdb5e568c82e0c27eabeb92e87b97d844b53c9fb4cc3c1fda4b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.RecRoomModule.dll.partial.cs",
+      "bytes": 1427,
+      "sha256": "5662d959bc69788dd0e4c213685d033e8f4cc627a8f995c288b04ba7ffcdcda9",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.ScreenCaptureModule.dll.partial.cs",
+      "bytes": 1396,
+      "sha256": "b4bcbdcf6a6c6d33a954ae47f65c53468ade54d816708a59156639d3a568350f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.SharedInternalsModule.dll.partial.cs",
+      "bytes": 27296,
+      "sha256": "87306e13eafb4abd3761d05a0debc51aba3457f1f771070e1d8941ae503d1f91",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.SpatialTracking.dll.partial.cs",
+      "bytes": 15166,
+      "sha256": "1c1e9b19a40e942ada200fa7a1cb14f439f199503ba523e3547aa005e85c9c3a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.SpriteShapeModule.dll.partial.cs",
+      "bytes": 14132,
+      "sha256": "dcca21a9e29b25d59bc96ffdcd11c7c4f3b4e2e3a258a06ad43369dc11e66c40",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.StreamingModule.dll.partial.cs",
+      "bytes": 3909,
+      "sha256": "ed4de1b4e3834549c2e2ea094ee971621e51132437fe19f041f2e6f9fece0b93",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.SubsystemsModule.dll.partial.cs",
+      "bytes": 24416,
+      "sha256": "8a8f6b3282c5a805a82cc67f7436762d29b927aabf78f031175d30f0fe0d47a1",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.TerrainModule.dll.partial.cs",
+      "bytes": 98663,
+      "sha256": "e9f7f6424b565a44599c306c01160bbb259f5f04e4f96c8ce157b7df39ae77c1",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.TerrainPhysicsModule.dll.partial.cs",
+      "bytes": 3172,
+      "sha256": "638007b60485585003e81e04e319a04278bef7faf383284bb83bc23a2ee89991",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.TextCoreFontEngineModule.dll.partial.cs",
+      "bytes": 84907,
+      "sha256": "a18201602abc36cb8550f08756385a4973c25ebf53d3ff2f32a29829a66651da",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.TextCoreTextEngineModule.dll.partial.cs",
+      "bytes": 359431,
+      "sha256": "25a695d3987cf5cdd3c591e835057de9a933a230d8d7416925bbc9fca3f32180",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.TextRenderingModule.dll.partial.cs",
+      "bytes": 52321,
+      "sha256": "d01d5117480921dc4afb4ca3de3698149e81b84f2455391eb1b1d723a57cedd2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.TilemapModule.dll.partial.cs",
+      "bytes": 84473,
+      "sha256": "8f61a1ef055f28c930bac7d6ffbff9384feb3ab3358c0ed80bd59a0547103872",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.UI.dll.partial.cs",
+      "bytes": 663989,
+      "sha256": "247bd1fd976cde60f548782e077215937faa1328a8e19a141c41ecba177f66a8",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.UIElementsModule.dll.partial.cs",
+      "bytes": 3510830,
+      "sha256": "9ea68285b8db6a191ebbcef1120d623d32b87d5ae9d72dcf175c306e463a230a",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.UIModule.dll.partial.cs",
+      "bytes": 67994,
+      "sha256": "96570540e7631bf0cbcbfc85b761b215271c43684dcd6c86bc13f3b677936cfd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.UnityAnalyticsCommonModule.dll.partial.cs",
+      "bytes": 40011,
+      "sha256": "3471885d56d59131eca982cb4b3f45948e5a92756eb0c30c57e1e5bef1f1b0fc",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.UnityAnalyticsModule.dll.partial.cs",
+      "bytes": 7266,
+      "sha256": "8c098d27367eb61d5c214cf8a1aea58526c2918159c17c829a4495e84aa80021",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.UnityWebRequestAssetBundleModule.dll.partial.cs",
+      "bytes": 8320,
+      "sha256": "c4f4c349ac04381ae80a5c52d32c386c9033883fdd302bdaf1635d06b215b3cd",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.UnityWebRequestAudioModule.dll.partial.cs",
+      "bytes": 4880,
+      "sha256": "8cf567748e95d9ce613ce67f03d121a01a3cb37d00d6b5bd46f4cccac733b07f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.UnityWebRequestModule.dll.partial.cs",
+      "bytes": 70802,
+      "sha256": "9af225fd4d7fd665dd1a18c0cbd1fd89cfcebc1f08c4fa7b31777ed721de5afc",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.VFXModule.dll.partial.cs",
+      "bytes": 15864,
+      "sha256": "d80cb7ede23be3d62fb49bdb777b809daad82e6ef01cee1f8ff4a1a2c8d94c90",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.VRModule.dll.partial.cs",
+      "bytes": 8153,
+      "sha256": "13e3d0cb44ed584334dc43ab8f6d10148fea2c3ae98921ff523881473cd247b6",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.VideoModule.dll.partial.cs",
+      "bytes": 63776,
+      "sha256": "bf0f7e3f5ef23f8450be98fc6ee13ff6c11fc4974b8830e1cafc1e669ef6b31f",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.WindModule.dll.partial.cs",
+      "bytes": 7288,
+      "sha256": "c83c226b0e07a1757fe886351ed10acfee00467ce2cb6f7f2efae4b3879f529c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.XRModule.dll.partial.cs",
+      "bytes": 83680,
+      "sha256": "897d2faf7516b20f64392b0562146f6958421925dfc90293ecac4be79e33cea5",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityEngine.dll.partial.cs",
+      "bytes": 526,
+      "sha256": "8b24ea981c128eca80902a3c9072fb1dd7465148276bf95c2fd941b137f5d828",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityGLTF.Helpers.dll.partial.cs",
+      "bytes": 3706,
+      "sha256": "ea1c665040863727a919fbb073cdf1585b03b50d35d706eba0ba69462ffb208b",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityGLTF.Interactivity.VisualScripting.ExportPlugin.dll.partial.cs",
+      "bytes": 3304,
+      "sha256": "d7b71b9a23883380a86c80a6ae652a0d963247f5cfe014c25c8abba4ed6e9ac1",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityGLTF.Plugins.dll.partial.cs",
+      "bytes": 30784,
+      "sha256": "35999a03008e01d0c00e02bd35977df3fc6b15289a26d148571a2a92ff35cb21",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "UnityGLTFScripts.dll.partial.cs",
+      "bytes": 479677,
+      "sha256": "50217ebd7cfe995bd9a5fb3d63c4c5f962e44d5bd00f04949ea33f3c6d7ac54c",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "Valve.Newtonsoft.Json.dll.partial.cs",
+      "bytes": 551215,
+      "sha256": "b1b64bf351dcd394052db6c3b1b816feb6406720005766f66353c7bdec9e0637",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "__Generated.partial.cs",
+      "bytes": 1673,
+      "sha256": "dfa75fe24b12f66853748f5af022b7b42c027da529e4e125daaab8ffa90dfcaf",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "lostromb.concentus.dll.partial.cs",
+      "bytes": 64934,
+      "sha256": "e2b462bb58befa784bae2fe09acc0e297e639c292d102f7e4705d0dd1a3d65f2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "lostromb.concentus.oggfile.dll.partial.cs",
+      "bytes": 49634,
+      "sha256": "8bed06e9cf950de6e0008d6b346bd7d361eb1e8daa3260f864414723c0638710",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    },
+    {
+      "file": "mscorlib.dll.partial.cs",
+      "bytes": 5110200,
+      "sha256": "83e4e56cca5c308394cc2a29a940e28d670386f898e491bc09d87e4dc79f66e2",
+      "syntaxErrors": 0,
+      "firstErrors": []
+    }
+  ]
+}

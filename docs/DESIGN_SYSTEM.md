@@ -1,4 +1,4 @@
-# Metallic Studios — Original Visual Identity, Interface System, Motion & Anti-Generic Design QA
+# Metallic-RC — Original Visual Identity, Interface System, Motion & Anti-Generic Design QA
 
 **Research baseline:** October 15, 2026 · **Design direction:** *Obsidian Alloy* · **Status:** proposed brand system, prototype/experimentation required.
 

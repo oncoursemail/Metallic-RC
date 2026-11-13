@@ -1,0 +1,10 @@
+{
+    "RequestedAtUtc":  "2026-10-20T18:06:36.9815928Z",
+    "Executable":  "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom\\RecRoom.exe",
+    "Arguments":  [
+                      "+forcemode:screen"
+                  ],
+    "Pid":  31268,
+    "CaptureOutput":  "capture-02-game",
+    "ElevationRequested":  false
+}

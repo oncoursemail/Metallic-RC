@@ -1,0 +1,19 @@
+{
+  "status": "worker_returned",
+  "deadlineReason": null,
+  "workerExitCode": 0,
+  "workerPhase": null,
+  "jobBeforeCleanup": {
+    "totalProcesses": 3,
+    "activeProcesses": 0,
+    "terminatedByLimit": 0
+  },
+  "jobAfterCleanup": {
+    "totalProcesses": 3,
+    "activeProcesses": 0,
+    "terminatedByLimit": 0
+  },
+  "jobEmpty": true,
+  "elapsedSeconds": 0.914,
+  "resultCode": 0
+}

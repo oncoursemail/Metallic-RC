@@ -1,5 +1,5 @@
 /**
- * Metallic Studios — trusted production player-count aggregator (core logic).
+ * Metallic-RC — trusted production player-count aggregator (core logic).
  *
  * This is the SERVER-SIDE component that turns authenticated room-server
  * heartbeats into the aggregate consumed by the Discord bot and future status

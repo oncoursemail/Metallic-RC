@@ -1,0 +1,38 @@
+{
+  "description": "ILLUSTRATIVE ONLY: not measured Metallic metrics, benchmark output, committed capacity, or provider pricing.",
+  "regions": [
+    {
+      "name": "us-central",
+      "peak_ccu": 3000
+    },
+    {
+      "name": "us-east",
+      "peak_ccu": 1500
+    },
+    {
+      "name": "eu-west",
+      "peak_ccu": 3000
+    },
+    {
+      "name": "ap-southeast",
+      "peak_ccu": 2500
+    }
+  ],
+  "assumptions": {
+    "players_per_session": 24,
+    "cpu_cores_per_session": 1.6,
+    "ram_gib_per_session": 1.5,
+    "cpu_cores_per_host": 24,
+    "ram_gib_per_host": 64,
+    "reserved_cpu_cores_per_host": 4,
+    "reserved_ram_gib_per_host": 8,
+    "capacity_headroom_fraction": 0.3,
+    "spare_hosts_per_active_region": 1,
+    "server_to_client_game_kbps": 96,
+    "server_to_client_voice_kbps": 32,
+    "egress_overhead_fraction": 0.15,
+    "average_to_peak_ccu_fraction": 0.35,
+    "hours_in_month": 730,
+    "egress_usd_per_gib": null
+  }
+}

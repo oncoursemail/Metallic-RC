@@ -1,0 +1,290 @@
+{
+  "status": "native_registration_structural_validation_passed",
+  "sourceSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "metadataSha256": "d675ea92bfb0086c0238e56702e91413fcc663c81fce364253749edbf6fcec9f",
+  "analysisImageSha256": "18cde7f27d379bfce05b3daba3df5a9b5b02334a99d634ae9d46d6989b1c9663",
+  "analysisImageBytes": 287907840,
+  "output": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\csharp-reconstruction\\verified-native\\GameAssembly.registrations.analysis.dll",
+  "metadataRegistration": "0x18ebf7c10",
+  "canonicalCodeRegistration": "0x19158f000",
+  "originalMetadataRegistration": {
+    "genericClasses": {
+      "count": 78758,
+      "pointer": "0x18c06dd80"
+    },
+    "genericInsts": {
+      "count": 113837,
+      "pointer": "0x18c297850"
+    },
+    "genericMethodTable": {
+      "count": 1124806,
+      "pointer": "0x18dacdfb0"
+    },
+    "types": {
+      "count": 201385,
+      "pointer": "0x18ece7fa0"
+    },
+    "methodSpecs": {
+      "count": 1275652,
+      "pointer": "0x18c3a2af0"
+    },
+    "fieldOffsets": {
+      "count": 63648,
+      "pointer": "0x18f787000"
+    },
+    "typeDefinitionsSizes": {
+      "count": 63648,
+      "pointer": "0x18f803500"
+    },
+    "metadataUsages": {
+      "count": 0,
+      "pointer": "0x0"
+    }
+  },
+  "canonicalCodeRegistrationWords": [
+    240,
+    "0x18bcd17e0",
+    1123345,
+    "0x18d23bf20",
+    "0x18bf1c5d0",
+    124746,
+    "0x18bbddd90",
+    37309,
+    "0x18bcd1f60",
+    "0x18bd1ad50",
+    "0x18bd63b40",
+    4889,
+    "0x18f8807a0",
+    0,
+    0,
+    419,
+    "0x19158f100"
+  ],
+  "sortedModuleCount": 419,
+  "allNativeTypes": 201385,
+  "genericClassCount": 78758,
+  "genericInstanceCount": 113837,
+  "genericArgumentCount": 235870,
+  "genericMethodSpecs": 1275652,
+  "genericMethodTableRows": 1124806,
+  "fieldOffsetStates": {
+    "concrete": 252884,
+    "sentinel": 44
+  },
+  "checks": [
+    {
+      "check": "Type and field-offset counts equal metadata definitions",
+      "passed": true,
+      "count": 63648
+    },
+    {
+      "check": "All type pointers are distinct",
+      "passed": true,
+      "count": 201385
+    },
+    {
+      "check": "All native type unions bounded",
+      "passed": true,
+      "count": 201385,
+      "kindCounts": {
+        "30": 9424,
+        "19": 7594,
+        "21": 81344,
+        "15": 539,
+        "29": 4450,
+        "17": 29398,
+        "18": 68267,
+        "2": 36,
+        "5": 21,
+        "3": 19,
+        "13": 17,
+        "6": 14,
+        "8": 34,
+        "10": 24,
+        "24": 19,
+        "28": 21,
+        "4": 9,
+        "12": 29,
+        "14": 32,
+        "7": 18,
+        "9": 25,
+        "11": 20,
+        "25": 7,
+        "20": 22,
+        "22": 1,
+        "1": 1
+      }
+    },
+    {
+      "check": "Every type definition has reciprocal native byval descriptor",
+      "passed": true,
+      "count": 63648
+    },
+    {
+      "check": "fields native type indices valid",
+      "passed": true,
+      "count": 252928
+    },
+    {
+      "check": "parameters native type indices valid",
+      "passed": true,
+      "count": 373383
+    },
+    {
+      "check": "returnTypes native type indices valid",
+      "passed": true,
+      "count": 409503
+    },
+    {
+      "check": "Every generic instantiation and argument pointer valid",
+      "passed": true,
+      "instances": 113837,
+      "arguments": 235870
+    },
+    {
+      "check": "Every generic class context bounded",
+      "passed": true,
+      "count": 78758
+    },
+    {
+      "check": "All generic-instance type unions reference known generic classes",
+      "passed": true
+    },
+    {
+      "check": "Every generic method specification references existing definition/instances",
+      "passed": true,
+      "count": 1275652
+    },
+    {
+      "check": "Every generic method table row bounded",
+      "passed": true,
+      "count": 1124806,
+      "maxima": [
+        1274584,
+        1123344,
+        124691,
+        172789
+      ]
+    },
+    {
+      "check": "reversePInvoke all nonnull pointers in code",
+      "passed": true,
+      "count": 240,
+      "nulls": 0
+    },
+    {
+      "check": "genericMethods all nonnull pointers in code",
+      "passed": true,
+      "count": 1123345,
+      "nulls": 1
+    },
+    {
+      "check": "genericAdjustors all nonnull pointers in code",
+      "passed": true,
+      "count": 172790,
+      "nulls": 0
+    },
+    {
+      "check": "invokers all nonnull pointers in code",
+      "passed": true,
+      "count": 124746,
+      "nulls": 0
+    },
+    {
+      "check": "unresolvedVirtual all nonnull pointers in code",
+      "passed": true,
+      "count": 37309,
+      "nulls": 4063
+    },
+    {
+      "check": "unresolvedInstance all nonnull pointers in code",
+      "passed": true,
+      "count": 37309,
+      "nulls": 36108
+    },
+    {
+      "check": "unresolvedStatic all nonnull pointers in code",
+      "passed": true,
+      "count": 37309,
+      "nulls": 10938
+    },
+    {
+      "check": "Invoker exact adjacent boundary",
+      "passed": true
+    },
+    {
+      "check": "Reverse wrapper exact adjacent boundary",
+      "passed": true
+    },
+    {
+      "check": "Adjustor exact adjacent boundary",
+      "passed": true
+    },
+    {
+      "check": "Generic methods ends with alignment before method table",
+      "passed": true
+    },
+    {
+      "check": "419 unique modules match metadata by name/count",
+      "passed": true
+    },
+    {
+      "check": "Field offset entries accounted for",
+      "passed": true,
+      "states": {
+        "concrete": 252884,
+        "sentinel": 44
+      }
+    },
+    {
+      "check": "Room for one new section header",
+      "passed": true
+    }
+  ],
+  "codeArrays": [
+    {
+      "role": "reversePInvoke",
+      "count": 240,
+      "pointer": "0x18bcd17e0"
+    },
+    {
+      "role": "genericMethods",
+      "count": 1123345,
+      "pointer": "0x18d23bf20"
+    },
+    {
+      "role": "genericAdjustors",
+      "count": 172790,
+      "pointer": "0x18bf1c5d0"
+    },
+    {
+      "role": "invokers",
+      "count": 124746,
+      "pointer": "0x18bbddd90"
+    },
+    {
+      "role": "unresolvedVirtual",
+      "count": 37309,
+      "pointer": "0x18bcd1f60"
+    },
+    {
+      "role": "unresolvedInstance",
+      "count": 37309,
+      "pointer": "0x18bd1ad50"
+    },
+    {
+      "role": "unresolvedStatic",
+      "count": 37309,
+      "pointer": "0x18bd63b40"
+    }
+  ],
+  "patch": {
+    "newSectionRva": "0x1158f000",
+    "newSectionRawOffset": 287903744,
+    "originalDataSectionsUnmodified": true,
+    "purpose": "Offline analysis compatibility only; never execute or replace original game",
+    "interopRoleEvidence": "Count 4889 and seven-qword entries at original pointer; retained for parser. This struct is not used for invoking code."
+  },
+  "fullGameRebuild": false,
+  "createdUtc": "2026-10-20T23:31:34.605537+00:00"
+}

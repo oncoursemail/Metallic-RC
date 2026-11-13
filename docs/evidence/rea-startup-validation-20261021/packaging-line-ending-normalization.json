@@ -1,0 +1,36 @@
+{
+  "recordedUtc": "2026-10-21T01:20:56.546136+00:00",
+  "scope": "Formatting of authored ignore file and dependency-free generated package locks after successful exact-source test runs. No .cs, .csproj, native byte, fixture, executable or parser source changed.",
+  "files": [
+    {
+      "file": "tools/rea/startup-validation/.gitignore",
+      "beforeSha256": "ca449d7324db3d0b81c9f68632276c4584cf090e32c341c5ebc85e7f502ac717",
+      "afterSha256": "0d501a752fa3a5458e7a4652fdddcb1b6b1a40b4285f2cbb8d7fd8d7567a75c6",
+      "onlyCrlfToLf": true,
+      "jsonValuesUnchanged": null
+    },
+    {
+      "file": "tools/rea/startup-validation/BindingProbe/packages.lock.json",
+      "beforeSha256": "865f22cdea4c197d3756a069bf389ff60be708d309c6e540576d68c5b9314c05",
+      "afterSha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792",
+      "onlyCrlfToLf": true,
+      "jsonValuesUnchanged": true
+    },
+    {
+      "file": "tools/rea/startup-validation/ManagedProbe/packages.lock.json",
+      "beforeSha256": "865f22cdea4c197d3756a069bf389ff60be708d309c6e540576d68c5b9314c05",
+      "afterSha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792",
+      "onlyCrlfToLf": true,
+      "jsonValuesUnchanged": true
+    },
+    {
+      "file": "tools/rea/startup-validation/ObservedServices/packages.lock.json",
+      "beforeSha256": "865f22cdea4c197d3756a069bf389ff60be708d309c6e540576d68c5b9314c05",
+      "afterSha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792",
+      "onlyCrlfToLf": true,
+      "jsonValuesUnchanged": true
+    }
+  ],
+  "validationHashesRemainAsExecuted": true,
+  "finalHashesInPublicationToolManifest": true
+}

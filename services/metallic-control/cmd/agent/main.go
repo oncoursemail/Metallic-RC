@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/oncoursemail/Metallic/services/metallic-control/internal/control"
+	"github.com/oncoursemail/Metallic-RC/services/metallic-control/internal/control"
 )
 
 func readMem() (map[string]int, error) {

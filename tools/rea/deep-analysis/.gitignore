@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/__pycache__/
+*.sqlite*
+*.zip
+*.dll
+*.dat
+*.bin
+*.jsonl
+scoped-targets/
+followup-targets/
+rea-dossiers/
+followup-dossiers/
+publication-source/

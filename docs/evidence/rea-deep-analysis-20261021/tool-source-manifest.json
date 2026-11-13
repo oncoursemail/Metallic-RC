@@ -1,0 +1,97 @@
+[
+  {
+    "path": ".gitignore",
+    "bytes": 161,
+    "sha256": "af6f7898927075530ad9b87284c1e5ac3736f5dca538bae566008bb1e15a5009"
+  },
+  {
+    "path": "README.md",
+    "bytes": 3186,
+    "sha256": "c909a104454628d83558017578cfbdb4d8de925f0367ba92b04d2d6a3097c492"
+  },
+  {
+    "path": "RecoveredCodec/Program.cs",
+    "bytes": 4197,
+    "sha256": "f614be465dd33c11a55010a0822c0e72a51d3cfbb8d2b1f72a95b27c3b50df29"
+  },
+  {
+    "path": "RecoveredCodec/RecoveredCodec.cs",
+    "bytes": 1309,
+    "sha256": "b2f244ef17d1c756ee3197d4c8d3ccc2568ad741b7ca9bf4d7da83a2be7723a2"
+  },
+  {
+    "path": "RecoveredCodec/RecoveredCodec.csproj",
+    "bytes": 306,
+    "sha256": "8ca72cd7a8b3cf428f781bd94c1775e62ebcc983dc621f55001e15de499fa19d"
+  },
+  {
+    "path": "RecoveredCodec/packages.lock.json",
+    "bytes": 117,
+    "sha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792"
+  },
+  {
+    "path": "SelectedInstructionAudit/Program.cs",
+    "bytes": 5970,
+    "sha256": "bd6fe8aa6e36ebf0d24a09fa3a0e398c8e559b56783cb445abee9ccfd10504ef"
+  },
+  {
+    "path": "SelectedInstructionAudit/SelectedInstructionAudit.csproj",
+    "bytes": 348,
+    "sha256": "d2b7ef06d0b43de90b979143aa9f3096139853aa278bccbe650327f08759ebbd"
+  },
+  {
+    "path": "SelectedInstructionAudit/packages.lock.json",
+    "bytes": 295,
+    "sha256": "c2c0522eb054e3805b78b8bdecb6a26369d0fc745e4b55c1e576b73273e234f8"
+  },
+  {
+    "path": "build_atlas.py",
+    "bytes": 7284,
+    "sha256": "3110444bcbd9af1db222604dad196a3ad518f742c63a62ce9572b19a23839356"
+  },
+  {
+    "path": "build_scoped_targets.py",
+    "bytes": 8032,
+    "sha256": "24efbfdba7704d37c7da14bee845d879d567d91f2592a7553f68ee6aff6cdd14"
+  },
+  {
+    "path": "extract_service_bindings.py",
+    "bytes": 5029,
+    "sha256": "7f437b5960f6239bfae039ab59933982f96f8ac45d93aec1e054a51e7c5f6ee0"
+  },
+  {
+    "path": "global.json",
+    "bytes": 59,
+    "sha256": "8abaad26584f555d7581405cc5e45e5bf4866a2c8b1fa64b937a42cf0c81d0ad"
+  },
+  {
+    "path": "prepare_followup.py",
+    "bytes": 1079,
+    "sha256": "668caccccf64e6b215cd5c46922f1a1424d691d6d40f2abb15664b749ac1c69e"
+  },
+  {
+    "path": "query_atlas.py",
+    "bytes": 4470,
+    "sha256": "d19969e61a4a2c9fc6767f34f8390ee7db2867e91e5010044907417c5cde4176"
+  },
+  {
+    "path": "rea_session.py",
+    "bytes": 4223,
+    "sha256": "3f17a1c0889c001b165a89fc2064f958f461c8caeb71962c031a60d1afc8dcbf"
+  },
+  {
+    "path": "reconcile_selected_ranges.py",
+    "bytes": 2733,
+    "sha256": "5172aae4e383e53bcfb849350a70a65212d8b4cfdfa8595f019877ae7389a7d0"
+  },
+  {
+    "path": "run_deep_rea.py",
+    "bytes": 5403,
+    "sha256": "464f9b47f2615abe81f532799a2e2269138614c9bcd9f8d955aba33a735dbf1b"
+  },
+  {
+    "path": "test_query_atlas.py",
+    "bytes": 3211,
+    "sha256": "bfe1c56435ba84e130d403363fc396fa3a52e2e07229146d9ebcc2ef92b277b9"
+  }
+]

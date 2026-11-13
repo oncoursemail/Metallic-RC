@@ -1,4 +1,4 @@
-# Metallic Studios — Staff, Volunteer Moderator, Developer Titles, In-Game Tools & Discord Operations
+# Metallic-RC — Staff, Volunteer Moderator, Developer Titles, In-Game Tools & Discord Operations
 
 **Research baseline:** 2026-10-15 · **Status:** Design specification, not implemented.
 **Goal:** a coordinated, auditable operations system available *in game*, through a secure web console, and through carefully permissioned Discord commands. Rec Room-style Volunteer Moderator / Developer identity display is a requested reference, **not** a claim that Metallic has recreated original code.

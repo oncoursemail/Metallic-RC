@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+node_modules/
+.godot/
+artifacts/
+*.log
+
+# C# build outputs and private local workspaces
+**/bin/
+**/obj/
+local-state/
+*.user
+*.suo

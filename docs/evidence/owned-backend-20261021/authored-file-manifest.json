@@ -1,0 +1,144 @@
+{
+  "files": [
+    {
+      "path": "src/Metallic.RC.Backend/BackendApplication.cs",
+      "sha256": "d677c31d40ff46d21bce8d65ac7ae719e040adb3074f50c85ac1c8ca67c326dc",
+      "bytes": 12576
+    },
+    {
+      "path": "src/Metallic.RC.Backend/BackendFiles.cs",
+      "sha256": "36e15c00c28becf46d3c9f90f250253ece18d304536904c09327180da38ed065",
+      "bytes": 3167
+    },
+    {
+      "path": "src/Metallic.RC.Backend/BackendJson.cs",
+      "sha256": "7c600656789ab1033cfa5e288f8386334543d2d61c43aacea49c9c5111e2bc54",
+      "bytes": 2424
+    },
+    {
+      "path": "src/Metallic.RC.Backend/BackendOptions.cs",
+      "sha256": "988b367a30b4530729349df7e1cee2c51a9b2eb5773fae5d7e28bbcad038078e",
+      "bytes": 2061
+    },
+    {
+      "path": "src/Metallic.RC.Backend/BackendStore.cs",
+      "sha256": "4055a4eab50642ebb29e417962d27520319520ec07ad6fd3e10e1dcec1bc6aee",
+      "bytes": 13566
+    },
+    {
+      "path": "src/Metallic.RC.Backend/Metallic.RC.Backend.csproj",
+      "sha256": "94d26ad8cc0a828bdc002482fa3779427b38ff697f35d64c3129d7258fe9e1d6",
+      "bytes": 377
+    },
+    {
+      "path": "src/Metallic.RC.Backend/packages.lock.json",
+      "sha256": "1b42cfde27100c964c8126658af5205545298984eaaaec93da05d75bff2dad1e",
+      "bytes": 2473
+    },
+    {
+      "path": "src/Metallic.RC.Backend/Program.cs",
+      "sha256": "97d6817f6a8cc7fdad2f8a7b2961f81808fea9b0d1f74cfc6ec67166e2eaf0bb",
+      "bytes": 148
+    },
+    {
+      "path": "src/Metallic.RC.Backend/README.md",
+      "sha256": "cf68989734526b4f72a3f74aa72e5e599355c170e2778aaffd3a8565778670c2",
+      "bytes": 6934
+    },
+    {
+      "path": "src/Metallic.RC.Backend/RoomHub.cs",
+      "sha256": "0c4d94d6413b841fc9b3dfd38fea84a4eb6dfa6b679d7940c51790c6f77115ca",
+      "bytes": 7646
+    },
+    {
+      "path": "tests/Metallic.RC.Backend.Tests/Metallic.RC.Backend.Tests.csproj",
+      "sha256": "d813e5f3fdbd0f1d7abe1f00e24a2dd40aeb58876e5ff04c3c908238e644cdd5",
+      "bytes": 370
+    },
+    {
+      "path": "tests/Metallic.RC.Backend.Tests/packages.lock.json",
+      "sha256": "4874acf15abde17bd6e3ab3f61142f78e33852dbec92d5fb9e56a1d9e3cb2217",
+      "bytes": 2645
+    },
+    {
+      "path": "tests/Metallic.RC.Backend.Tests/Program.cs",
+      "sha256": "60a52147ddac1f52950760097cd0124cc751e97189e7e6f646c38143592156b5",
+      "bytes": 16027
+    },
+    {
+      "path": "ops/backend/Get-LocalBackendStatus.ps1",
+      "sha256": "ad6f392a1077ba13265c139c7dc4485cd0196938577382b61d28804cbfee2f10",
+      "bytes": 1543
+    },
+    {
+      "path": "ops/backend/install_local_backend.py",
+      "sha256": "c6a359b23021f81f8f0416884a24a1517e557077ba07133b6a9f79ba9a61287a",
+      "bytes": 7625
+    },
+    {
+      "path": "ops/backend/New-LocalAccount.ps1",
+      "sha256": "cbacc287570ddb5e93e5a5d7261a027568615f8d02fa72aba1714c4dc9c0e5a1",
+      "bytes": 1771
+    },
+    {
+      "path": "ops/backend/README.md",
+      "sha256": "ccd4b9d5310e39ee2e65811eeab026481ed72c80830c7c6b83a6da8f3eab1e91",
+      "bytes": 5629
+    },
+    {
+      "path": "ops/backend/Start-LocalBackend.ps1",
+      "sha256": "62579b53843e940cdbe461dc6739319c57becc1175064474e28045ade30f4e14",
+      "bytes": 4905
+    },
+    {
+      "path": "ops/backend/Stop-LocalBackend.ps1",
+      "sha256": "4eef578dbdeca1d8465d7eb25e4e7335efb80c6dcd36e5ca80cce82600a92736",
+      "bytes": 1408
+    },
+    {
+      "path": "ops/backend/test_deployment_recovery.py",
+      "sha256": "9bda8b61aff5969734a7833ad6b0be955e3f6360e2d8009c04790ac1c7b497a4",
+      "bytes": 6309
+    },
+    {
+      "path": "ops/backend/verify_backend.py",
+      "sha256": "93b85e95ad8ba746b878e0633d747c9cd878ae1c507a00e03f6a348487c3f566",
+      "bytes": 2579
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/BackendProbe.cs",
+      "sha256": "b788496d23f7e50d7b986f33c4be27229f592bd375f0c3c608199d195587c6fd",
+      "bytes": 3907
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/Program.cs",
+      "sha256": "df13dfdd3f77c28acd1788d130ec6eb4655be0ce147575aa6079aefb15f3bcf1",
+      "bytes": 8325
+    },
+    {
+      "path": ".github/workflows/backend-ci.yml",
+      "sha256": "a92687ecc625f1021f8b75e3a9abfed3d3a029a3d0620d4e7005a0e542ede4d5",
+      "bytes": 2407
+    },
+    {
+      "path": "tools/rea/live_backend_probe.py",
+      "sha256": "d016882755b7b2d0a018dbab47defecba9017ba2b17126f0f78ca7a9902e59e5",
+      "bytes": 4232
+    },
+    {
+      "path": "Metallic.RC.slnx",
+      "sha256": "7f8401f9ed9eaf45312e6fd56382954c46cf18ff4c77417688606fedb13a8561",
+      "bytes": 817
+    },
+    {
+      "path": "README.md",
+      "sha256": "f4f545999b48c4305e86cc7e0cf0ea74911807d5187d5cc21f39a0b568a36c68",
+      "bytes": 6263
+    },
+    {
+      "path": "docs/evidence/OWNED_BACKEND_2026-10-21.md",
+      "sha256": "e7fe20ba51c6b9ba9d1acb8249c60ca02e0dfdb278d5ce12444d068fc91b4c31",
+      "bytes": 10993
+    }
+  ]
+}

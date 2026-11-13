@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "cases": 35,
+  "requiresGameFiles": false,
+  "matcherSha256": "9f732869db76088303c66719a985c82587cca1ca52ad4f03105981f6a7fbf701",
+  "matchesExecutedAnalysisSource": true
+}

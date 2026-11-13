@@ -1,0 +1,21 @@
+{
+  "variant": "fast-capture-v4",
+  "wrapperSha256": "90c02537045d112bddceb93538a50caf1b2642741215cef2c67122db479dd6a2",
+  "helperSha256": "674a8832f053eb5a55e18b2abf285715161cc0c7b604514822740066d1e36637",
+  "inspectorSha256": "322faa803a5bd1c65d25be2de89ca45e388563607d7868650f6bacc12b17bc8a",
+  "passedChecks": 10,
+  "change": [
+    "Cache exact qualified metadata allocation to avoid another whole-address-space scan.",
+    "Save first structurally plausible metadata read as provisional before the repeat-hash requirement.",
+    "Keep stable full-metadata check and 32 spread code windows before accepted candidates."
+  ],
+  "bounds": [
+    "Existing hash-pinned originals",
+    "Exact wrapper-owned PID",
+    "Read-only process query/memory",
+    "60 second observation",
+    "No DNS, registry, security, game-file changes or code injection",
+    "Existing process/section refusal and retained-handle cleanup"
+  ],
+  "gameLogObservation": "Name-server DNS failure followed by PreparingToExit, ReadyForExit and Application.quit; not proof of payload corruption."
+}

@@ -1,0 +1,89 @@
+# Maker Pen palette from the ShapeConfig asset, written by examples/shape_palette.rs.
+# color <ShapeColor id> <baseColor sRGB r g b> <name>
+# material <ShapeMaterial id> <DefaultTextureSize> <material _BaseTextureSize> <_Smoothness> <_BaseMap texture> <_SpecGlossMap texture> <name>
+color 28 0.894118 0.313726 0.313726 Salmon
+color 0 0.827451 0.090196 0.094118 Red
+color 20 0.462745 0.027451 0.027451 Garnet
+color 34 0.486275 0.184314 0.184314 Venetian
+color 29 0.941176 0.498039 0.309804 Cantaloupe
+color 1 0.960784 0.360784 0.101961 Orange
+color 21 0.756863 0.215686 0.035294 Topaz
+color 35 0.494118 0.258824 0.180392 Sienna
+color 30 0.968627 0.843137 0.411765 Pineapple
+color 2 0.960784 0.772549 0.121569 Yellow
+color 22 0.705882 0.388235 0.000000 Amber
+color 36 0.509804 0.380392 0.219608 Ochre
+color 3 0.537255 0.694118 0.317647 Sage
+color 45 0.411765 0.635294 0.094118 Chartreuse
+color 46 0.184314 0.301961 0.027451 Peridot
+color 37 0.258824 0.321569 0.168627 Terre Verte
+color 47 0.403922 0.741176 0.478431 Mint
+color 7 0.062745 0.396078 0.133333 Green
+color 23 0.019608 0.231373 0.066667 Emerald
+color 38 0.196000 0.300000 0.220000 Veridian
+color 31 0.401804 0.854902 0.802041 Hydrangea
+color 6 0.000000 0.607843 0.537255 Teal
+color 24 0.000000 0.313726 0.282353 Turquoise
+color 39 0.202353 0.337255 0.324706 Aegean
+color 48 0.396275 0.780143 0.921569 Cornflower
+color 5 0.003922 0.670588 0.913726 Cyan
+color 49 0.019608 0.341176 0.458824 Sapphire
+color 40 0.196078 0.356863 0.415686 Prussian
+color 50 0.396078 0.627451 0.952941 Periwinkle
+color 4 0.094118 0.419608 0.866667 Blue
+color 25 0.019608 0.223529 0.501961 Lapis
+color 41 0.192157 0.309804 0.474510 Ultramarine
+color 51 0.645490 0.521961 0.949020 Lilac
+color 52 0.313726 0.094118 0.866667 Violet
+color 53 0.184314 0.070588 0.470588 Tanzanite
+color 42 0.336134 0.282353 0.470588 Indigo
+color 32 0.882353 0.580392 0.945098 Lavender
+color 8 0.470588 0.258824 0.513726 Purple
+color 26 0.254902 0.094118 0.286275 Amethyst
+color 43 0.345098 0.239216 0.364706 Mauve
+color 9 0.929412 0.470588 0.698039 Rose
+color 10 0.917647 0.180392 0.313726 Pink
+color 27 0.509804 0.031373 0.250980 Ruby
+color 44 0.403922 0.219608 0.305882 Alizarin
+color 17 0.490196 0.250980 0.098039 Caramel
+color 55 0.270000 0.156977 0.087907 Chocolate
+color 16 0.239216 0.113725 0.050980 Mocha
+color 56 0.145098 0.062745 0.023529 Espresso
+color 12 0.772549 0.517647 0.360784 Tawny
+color 54 0.560784 0.388235 0.278431 Leather
+color 11 0.352941 0.247059 0.192157 Brown
+color 57 0.149020 0.109804 0.086275 Burnt Umber
+color 13 0.964706 0.933333 0.909804 White
+color 18 0.749020 0.737255 0.729412 Mist
+color 58 0.600000 0.584314 0.576471 Fog
+color 14 0.486275 0.470588 0.466667 Gray
+color 59 0.384314 0.392157 0.400000 Slate
+color 60 0.286275 0.290196 0.301961 Smoke
+color 15 0.172549 0.180392 0.196078 Charcoal
+color 19 0.098039 0.090196 0.090196 Black
+material 0 2 1 1 UGC_Cardboard_Tex UGC_Cardboard_Spec Cardboard
+material 12 4 1 0.323 UGC_WoodGrain_Tex UGC_WoodGrain_Spec Wood Grain
+material 9 3 0.5 0.988 UGC_Plaster_Tex UGC_Plaster_Spec Painted Wall
+material 19 3 1 1 UGC_Brick_Painted_Tex UGC_Brick_Painted_Spec Painted Brick
+material 3 5 0.5 0.182 UGC_Carpet_Berber_tex Carpet_Burber_Spec Carpet
+material 13 7 3 0.835 UGC_WoodFloor_Tex UGC_WoodFloor_Spec Wood Floor
+material 4 6 1 0.752 UGC_Dirt_Tex UGC_Dirt_Spec Dirt
+material 8 2 0.5 0.771 UGC_Linoleum_Flecked_Tex UGC_Linoleum_Flecked_Spec Linoleum Tiles
+material 16 8 1 0.685 UGC_Cloth_Tex UGC_Cloth_Spec Cloth
+material 6 4 1 0.847 UGC_Metal_Tex UGC_Metal_Reflective_Spec Shiny Metal
+material 14 8 0.67 0.61 UGC_Sand_Tex UGC_Sand_Spec Sand
+material 15 4 1 0.904 UGC_Plastic_Tex UGC_Glossy_Spec Glossy Plastic
+material 1 4 1 0.174 UGC_Default_tex UGC_Default_tex Neon
+material 17 4 2 0.64 Rubber_FloorMat_tex Rubber_FloorMat_spec Rubber Floor
+material 18 4 1 1 Metal_FloorTread_Shiny_Tex Metal_FloorTread_Shiny_Spec Metal Floor Tread
+material 20 8 1 0.906 Plastic_CrashPads_Tex Plastic_CrashPads_UGC_Spec Crashpad
+material 21 2 0.2 1 wood_painted_horizontal_grain_Tex wood_painted_horizontal_grain_Spec Painted Wood
+material 22 8 1 0.919 Rubber_GripTape_tex Rubber_GripTape_spec Grip Tape
+material 23 4 1 0.847 UGC_Metal_Tex UGC_Metal_Reflective_Spec Galvanized Metal
+material 24 4 0.5 0.55 Wood_ParticleBoard_Desat_tex Wood_ParticleBoard_spec Particle Board
+material 25 2 1 0.891 UGC_Linoleum_Checkered_Tex UGC_Linoleum_Checkered_Spec Checkered Linoleum
+material 26 4 1 0.931 UGC_Vinyl_Tex UGC_Vinyl_Spec Sparkly Vinyl
+material 27 3 0.5 0.296 UGC_Gravel_Tex UGC_Gravel_Spec Gravel
+material 5 2 2 1 UGC_GrassBlades_Tex UGC_Grass_Near_Spec Grass
+material 28 4 4 1 UGC_Rock_Tex UGC_Rock_Spec Rock
+material 29 4 3 0.835 Wood_Worn_Boards_Tex Wood_Worn_Board_Spec Worn Wood

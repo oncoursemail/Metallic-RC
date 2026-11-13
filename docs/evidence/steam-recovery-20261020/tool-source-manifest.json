@@ -1,0 +1,122 @@
+[
+  {
+    "file": ".gitignore",
+    "bytes": 64,
+    "sha256": "48dfd14e4d8f84cac7fe1008a72d6eb63ecc87f63c286f37e1a0f20e6b08fc5f"
+  },
+  {
+    "file": "build_rea_function_capsule.py",
+    "bytes": 4259,
+    "sha256": "1dcd0152518483d9575e03e1fc6e350b74e3b0c0d79844eb663258c4c345c16f"
+  },
+  {
+    "file": "build_rea_tail_capsule.py",
+    "bytes": 1157,
+    "sha256": "5d471669d69e6e8be9683051483abd0abc251ae8e083c6d05efbec9c999183f4"
+  },
+  {
+    "file": "fast-capture-v4/capture_steam_recroom.py",
+    "bytes": 32858,
+    "sha256": "674a8832f053eb5a55e18b2abf285715161cc0c7b604514822740066d1e36637"
+  },
+  {
+    "file": "fast-capture-v4/inspect_metadata_candidate.py",
+    "bytes": 12015,
+    "sha256": "322faa803a5bd1c65d25be2de89ca45e388563607d7868650f6bacc12b17bc8a"
+  },
+  {
+    "file": "fast-capture-v4/review.json",
+    "bytes": 1070,
+    "sha256": "54a804f4ef60dbb39f56b732ee0d7669da336959ff2a05aab3d99c0b75288836"
+  },
+  {
+    "file": "fast-capture-v4/run_steam_recovery.py",
+    "bytes": 17557,
+    "sha256": "90c02537045d112bddceb93538a50caf1b2642741215cef2c67122db479dd6a2"
+  },
+  {
+    "file": "independent-parser/ArrayLengthAttribute.cs",
+    "bytes": 185,
+    "sha256": "e33a7ad3d5bc00a28346d3448b739c657d4c8d80e58a74b34e05d83ff0903ac4"
+  },
+  {
+    "file": "independent-parser/BinaryReaderExtensions.cs",
+    "bytes": 3198,
+    "sha256": "7a01fd286d5fc3eb1a7ddef4fc85da255719b647e0f2fa676b59fabc7346894d"
+  },
+  {
+    "file": "independent-parser/BinaryStream.cs",
+    "bytes": 8209,
+    "sha256": "ce5f97946dd45621fb41ec2bf42364f9293fcd64645f90a0fe9552886db7b684"
+  },
+  {
+    "file": "independent-parser/LICENSE",
+    "bytes": 1064,
+    "sha256": "373bd2ed813eaa8245d1290138985c6fb025d588db254602720697455ae36c6c"
+  },
+  {
+    "file": "independent-parser/Metadata.cs",
+    "bytes": 13383,
+    "sha256": "aabb0ef28ea25509aee460df2863bcce1ca3b3f246f7dff6538c350b3a240334"
+  },
+  {
+    "file": "independent-parser/MetadataClass.cs",
+    "bytes": 13636,
+    "sha256": "d66c9f867e66bf7709a2789b708c846517241e6aa54e8a6480271720b5fcc3cd"
+  },
+  {
+    "file": "independent-parser/Program.cs",
+    "bytes": 5056,
+    "sha256": "eb216a9e53ef88ad441950102cd35985154f53be0b2f1e0c4f77ea661cc33565"
+  },
+  {
+    "file": "independent-parser/source-provenance.json",
+    "bytes": 2618,
+    "sha256": "24002818180f4424788606e14a2e5d40dc79a378096307b2eb13f84416a00266"
+  },
+  {
+    "file": "independent-parser/VerifyMetadata.csproj",
+    "bytes": 332,
+    "sha256": "7e876798c1c4358f26209d3b927fc638aa19fa933a8d96bb300081b85a4996b4"
+  },
+  {
+    "file": "independent-parser/VersionAttribute.cs",
+    "bytes": 254,
+    "sha256": "606c6b183531759235860f25773f28f46c00134c35464be1c13ac090b7bbfcdf"
+  },
+  {
+    "file": "map_native_methods.py",
+    "bytes": 5241,
+    "sha256": "3a3cb021aae60d03517748b54ac2f295f86420ffa25908cb83c09b31d616d1ef"
+  },
+  {
+    "file": "normalize_metadata_23191908.py",
+    "bytes": 14357,
+    "sha256": "39cc7be63f0e0cb7b279c47c4101ac2f4538325c0fb0cb4ded674d077b813884"
+  },
+  {
+    "file": "README.md",
+    "bytes": 2341,
+    "sha256": "bc9da89b165787ff5855c99191bc6f22678ce232c1a1376428d4380296b39411"
+  },
+  {
+    "file": "reconstruct_native_analysis.py",
+    "bytes": 4941,
+    "sha256": "06cf64de8a725dda8fd923a17c506394ef654d6750fc01875452aa5e98f08319"
+  },
+  {
+    "file": "run_rea_code_pages.py",
+    "bytes": 1666,
+    "sha256": "8ab90eb7fd84f0a9acd7152541a610ad0faa6692746ae42ce38584413913b8b9"
+  },
+  {
+    "file": "run_rea_restored_function.py",
+    "bytes": 1999,
+    "sha256": "3e510868a0e2935ae7db5b6f7cdf8eabd871d44044c0113ba827adc6e8b070d2"
+  },
+  {
+    "file": "test_metadata_recovery.py",
+    "bytes": 1627,
+    "sha256": "0047a7c7f07b10c0a108d7bbe73b08f90ea1fa48f757df5989624812ebe9e60d"
+  }
+]

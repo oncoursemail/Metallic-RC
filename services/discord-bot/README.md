@@ -23,7 +23,7 @@ Player-specific Discord Rich Presence is **another future game client feature**;
 METALLIC_DISCORD_TOKEN=<secret_bot_token>
 METALLIC_DISCORD_APP_ID=<application_id>
 METALLIC_DISCORD_GUILD_ID=<authorized_test_guild_id>
-METALLIC_ROADMAP_URL=https://github.com/oncoursemail/Metallic/blob/main/docs/ROADMAP.md
+METALLIC_ROADMAP_URL=https://github.com/oncoursemail/Metallic-RC/blob/main/docs/ROADMAP.md
 METALLIC_STATUS_URL=<future_production_status_api_https_url>
 METALLIC_STATUS_BEARER=<optional_private_server_to_server_token>
 \`\`\`

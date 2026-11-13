@@ -1,0 +1,27 @@
+{
+  "status": "live_http_discovery_matches_captured_formatter_profile",
+  "createdUtc": "2026-10-21T05:12:25.948932+00:00",
+  "steamBuildId": "23191908",
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "httpResponseSha256": "0d0ad4f18dbb2ff63b59bf9bb7704a6480b7edf8a5d0714b9a501ddb23bb1dd9",
+  "httpBytes": 1613,
+  "fields": 32,
+  "serviceAddresses": 31,
+  "nativeConstructorInstructions": 1393,
+  "nativeReadInstructions": 1701,
+  "nativeWriteInstructions": 716,
+  "orderedFieldValuesMatched": true,
+  "wrongTypeNegativeControlRejected": true,
+  "nativeFormatterInstructionBytesEmulated": true,
+  "actualOriginalGameExecuted": false,
+  "originalClientLoginVerified": false,
+  "modeledBoundaries": [
+    "JSON tokenization",
+    "metadata resolution",
+    "allocation",
+    "dictionary lookup",
+    "garbage collection barriers",
+    "string encoding"
+  ],
+  "interpretation": "The live backend response satisfies the captured generated formatter profile. This is not original-client network, login, or gameplay acceptance."
+}

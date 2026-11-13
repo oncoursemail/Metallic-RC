@@ -1,0 +1,200 @@
+{
+  "schema": "self-account-default-nullable-prefix-sanitized-v3",
+  "build": "23191908",
+  "candidateOnly": true,
+  "defaultResolverProfileOnly": true,
+  "originalReadPrimitiveFields": 12,
+  "explicitProfilePrimitiveFields": 15,
+  "remainingNestedFields": 5,
+  "native": {
+    "cases": 1768,
+    "sourceHash": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+    "v2InputHash": "83b9d92ddb438e9c6be7ba9b143ff53bcaa18e3de2c346a6557ef37088291489",
+    "caseHash": "d9b01af4a4fdcb8f73664eb42c2cd5d673a505115a3d98a3d37d3443db9ce190",
+    "statuses": {
+      "root_null": 1,
+      "root_empty_object_null": 1,
+      "prefix_complete": 924,
+      "known_value_type_error": 604,
+      "nested_value_outside_profile": 238
+    },
+    "nativeGuestSteps": 537141,
+    "readerVisits": {
+      "0xa52a770": 1036,
+      "0xa527cb0": 2130
+    },
+    "constructorVisits": {
+      "0x73ec960": 790,
+      "0x73eccc0": 1297
+    },
+    "modeled": [
+      "JSON token callbacks",
+      "metadata/allocation/GC",
+      "default-resolver selection based on static trace",
+      "interface delegation"
+    ],
+    "actual": [
+      "SelfAccount constructor aliases",
+      "SelfAccount property dispatch/presence/local stores",
+      "NullableInt/NullableBool Deserialize instructions",
+      "typed NullableInt/NullableBool constructor instructions"
+    ],
+    "stoppedBefore": "SelfAccount allocation/construction"
+  },
+  "compiled": {
+    "schema": "compiled-self-account-nullable-prefix-v3-comparison",
+    "comparisons": [
+      {
+        "variant": "actual",
+        "cases": 1768,
+        "mismatches": 0,
+        "firstIds": []
+      },
+      {
+        "variant": "reject-null",
+        "cases": 1768,
+        "mismatches": 312,
+        "firstIds": [
+          156,
+          173,
+          190,
+          207,
+          224,
+          241,
+          921,
+          938,
+          955,
+          1292,
+          1306,
+          1320,
+          1334,
+          1348,
+          1362,
+          1376
+        ]
+      },
+      {
+        "variant": "bool-as-int",
+        "cases": 1768,
+        "mismatches": 60,
+        "firstIds": [
+          214,
+          215,
+          216,
+          221,
+          222,
+          231,
+          232,
+          233,
+          238,
+          239,
+          248,
+          249,
+          250,
+          255,
+          256,
+          928
+        ]
+      },
+      {
+        "variant": "omit-null",
+        "cases": 1768,
+        "mismatches": 219,
+        "firstIds": [
+          156,
+          173,
+          190,
+          207,
+          224,
+          241,
+          921,
+          938,
+          955,
+          1292,
+          1306,
+          1320,
+          1334,
+          1348,
+          1362,
+          1376
+        ]
+      },
+      {
+        "variant": "first-wins",
+        "cases": 1768,
+        "mismatches": 506,
+        "firstIds": [
+          992,
+          993,
+          994,
+          995,
+          996,
+          997,
+          998,
+          999,
+          1000,
+          1001,
+          1002,
+          1003,
+          1006,
+          1007,
+          1009,
+          1011
+        ]
+      }
+    ],
+    "originalV2Cases": 1292,
+    "originalV2Mismatches": 0,
+    "newBoundaryChecks": 70,
+    "originalBoundaryChecks": 79,
+    "strictJsonTypeComparison": true,
+    "coreSha256": "449bd47981987705d75e40769a88e714e3b451bc4ed222241f748a746619693f",
+    "newHarnessSha256": "e15fc4385df805d2d5921dbc0aa30407822341462439cb7711a245e70833f650",
+    "fixtureSha256": "d9b01af4a4fdcb8f73664eb42c2cd5d673a505115a3d98a3d37d3443db9ce190",
+    "v2FixtureSha256": "83b9d92ddb438e9c6be7ba9b143ff53bcaa18e3de2c346a6557ef37088291489",
+    "originalGameExecuted": false,
+    "accountConstructed": false,
+    "nativeLoginVerified": false
+  },
+  "nativeReaderRanges": [
+    {
+      "method": 347800,
+      "rva": "0xa52a770",
+      "length": 108,
+      "sha256": "9844b19dc3abab6f776f525e598f90acab968b8aeb23e992dcd952607f15d3e6"
+    },
+    {
+      "method": 347924,
+      "rva": "0xa527cb0",
+      "length": 110,
+      "sha256": "ba2ceac341e3f179527dfda447e3398965418d73be8aba0e6131b5ebfe77e08a"
+    }
+  ],
+  "typedConstructorLeaves": [
+    {
+      "type": "Nullable<Int32>",
+      "rva": "0x73ec960",
+      "lengthThroughRet": 7,
+      "sha256": "7632f4d5587f2ff2d6bc750ad5716b540c4ffbaeae75a05af67004afbaf391ef"
+    },
+    {
+      "type": "Nullable<Boolean>",
+      "rva": "0x73eccc0",
+      "lengthThroughRet": 7,
+      "sha256": "2b328a23eed4a3ce1007a10db2b51f53f6fd37ec82168857449121490230f5d8"
+    }
+  ],
+  "regressions": {
+    "lockedReleaseBuild": {
+      "warnings": 0,
+      "errors": 0
+    },
+    "compatibilityCases": 570,
+    "compatibilityChecks": 4996,
+    "loginChecks": 106
+  },
+  "accountConstructed": false,
+  "nativeLoginVerified": false,
+  "originalGameExecuted": false,
+  "deploymentChanged": false
+}

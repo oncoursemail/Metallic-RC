@@ -1,0 +1,80 @@
+{
+  "recordedAtUtc": "2026-10-20T11:34:36.855810+00:00",
+  "sourceCommit": "70c32244d17bdaef815749b5582306955f2187cb",
+  "sourceTreeDirty": false,
+  "sdk": "10.0.402",
+  "package": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\desktop-win-x64",
+  "manifestSha256": "9292c3799d772902ff4ddd883bdd3c009b045075e104bb70feba00f75db8d71a",
+  "verifiedPayloadFiles": 575,
+  "peSubsystem": 2,
+  "coreChecks": 18,
+  "platformAssertions": 101,
+  "cliChecks": [
+    {
+      "name": "list",
+      "exitCode": 0,
+      "stdoutCaptured": true,
+      "stderrCaptured": false,
+      "profileCount": 2
+    },
+    {
+      "name": "steam-verify",
+      "exitCode": 0,
+      "stdoutCaptured": true,
+      "stderrCaptured": false,
+      "isValid": true,
+      "warnings": null
+    },
+    {
+      "name": "campus-verify",
+      "exitCode": 0,
+      "stdoutCaptured": true,
+      "stderrCaptured": false,
+      "isValid": true,
+      "warnings": null
+    },
+    {
+      "name": "steam-plan",
+      "exitCode": 0,
+      "stdoutCaptured": true,
+      "stderrCaptured": false,
+      "plan": {
+        "installationId": "58536515790d496092589f6735bc898e",
+        "installRoot": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom",
+        "mode": "screen",
+        "target": "client",
+        "executablePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom\\RecRoom.exe",
+        "workingDirectory": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom",
+        "arguments": [
+          "+forcemode:screen"
+        ],
+        "canExecuteOnCurrentPlatform": true,
+        "blockReason": null
+      }
+    },
+    {
+      "name": "campus-plan",
+      "exitCode": 0,
+      "stdoutCaptured": true,
+      "stderrCaptured": false,
+      "plan": {
+        "installationId": "fbcdceaee00e48bfade7e3d125485b98",
+        "installRoot": "C:\\Users\\alexi\\OneDrive\\Documents\\Campus\\Campus2025",
+        "mode": "screen",
+        "target": "externalLauncher",
+        "executablePath": "C:\\Users\\alexi\\OneDrive\\Desktop\\Campus.exe",
+        "workingDirectory": "C:\\Users\\alexi\\OneDrive\\Desktop",
+        "arguments": [],
+        "canExecuteOnCurrentPlatform": true,
+        "blockReason": null
+      }
+    },
+    {
+      "name": "invalid-command",
+      "exitCode": 1,
+      "stdoutCaptured": false,
+      "stderrCaptured": true
+    }
+  ],
+  "gameOrExternalLauncherExecuted": false
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "file": "capture_steam_recroom.py",
+    "sha256": "37ace729f9ee7ce45b4189c6bc54e4f21a1b9f3063b6ee56a1570f4e4ddb5179",
+    "matches": true
+  },
+  {
+    "file": "run_steam_recovery.py",
+    "sha256": "ce5f715474db5c0f5aa021ba3aaba9fa9384764bb5a86e7b6ab6e3a85c785856",
+    "matches": true
+  },
+  {
+    "check": "capture-helper-final-selftest",
+    "exitCode": 0,
+    "log": "capture-helper-final-selftest.log"
+  },
+  {
+    "check": "metadata-inspector-final-selftest",
+    "exitCode": 0,
+    "log": "metadata-inspector-final-selftest.log"
+  },
+  {
+    "check": "recovery-preflight",
+    "exitCode": 0,
+    "log": "recovery-preflight.log"
+  }
+]

@@ -1,0 +1,89 @@
+{
+  "status": "installed_source_matches_tested_worktree",
+  "port": 4187,
+  "boundAddress": "127.0.0.1",
+  "baseCommit": "54764a8c409382a40675bde6ec33eb63f1e2c08f",
+  "sourceContentSha256": "a15fa5f2f394613fbb8e0ebd381227d48513cd37c71d8756422fb5632669595a",
+  "backendAssemblySha256": "5d0f94ab9f10936e42a607a383740672c2ff6462bfb89c1f39e2299e533638be",
+  "runnerSha256": "62579b53843e940cdbe461dc6739319c57becc1175064474e28045ade30f4e14",
+  "publishedFiles": [
+    {
+      "name": "e_sqlite3.dll",
+      "sha256": "b7385d722c83fb52142a00477a726723745916d22a555711ee89834c1111fb2e",
+      "bytes": 1978880
+    },
+    {
+      "name": "Metallic.RC.Backend.deps.json",
+      "sha256": "5d347498123bbfe5e1e4a95575f7d9bb8bb1db2ee7e3985a69630b63b87714bf",
+      "bytes": 4771
+    },
+    {
+      "name": "Metallic.RC.Backend.dll",
+      "sha256": "5d0f94ab9f10936e42a607a383740672c2ff6462bfb89c1f39e2299e533638be",
+      "bytes": 106496
+    },
+    {
+      "name": "Metallic.RC.Backend.exe",
+      "sha256": "da7714de4637ef0e6de51aef0f90a9ee3e10bb23469f4917b0c3bb91611fb033",
+      "bytes": 162816
+    },
+    {
+      "name": "Metallic.RC.Backend.pdb",
+      "sha256": "1545b262a39d79e9e21ba3959d4c581c84e7f335efb549036ae7eb1192fb9a69",
+      "bytes": 36628
+    },
+    {
+      "name": "Metallic.RC.Backend.runtimeconfig.json",
+      "sha256": "41442586a8262bc96a1c80f82f4d9384c03bfd465d221cbf01fb3563170f9e65",
+      "bytes": 491
+    },
+    {
+      "name": "Metallic.RC.Backend.staticwebassets.endpoints.json",
+      "sha256": "c1686417e8d5c31bba969f12b6f3d2b35e6609adb5ca42f212261a3a02771aac",
+      "bytes": 53
+    },
+    {
+      "name": "Metallic.RC.Compatibility.dll",
+      "sha256": "d2425c3bce1cb64d48b07362bf0773174f33e9485b78e3cc2d62f84ddba617fa",
+      "bytes": 12800
+    },
+    {
+      "name": "Metallic.RC.Compatibility.pdb",
+      "sha256": "84f8990a474259386ad124b0391c1199a30cd61388c482e61f6017d8e233c602",
+      "bytes": 13348
+    },
+    {
+      "name": "Microsoft.Data.Sqlite.dll",
+      "sha256": "9f1fe804321767b6cc8db751ecedd56ab308e5f15492a7f40d7093bb61ab7638",
+      "bytes": 177464
+    },
+    {
+      "name": "SQLitePCLRaw.batteries_v2.dll",
+      "sha256": "bc69777001eb4db81c580f62835396f67e74aaa381eef446193a904499d5310b",
+      "bytes": 5120
+    },
+    {
+      "name": "SQLitePCLRaw.core.dll",
+      "sha256": "50c999a1ab2afeacc93bce5ac2948d3bb630d99d23efc3cfcbd8bc11d3426eb7",
+      "bytes": 51200
+    },
+    {
+      "name": "SQLitePCLRaw.provider.e_sqlite3.dll",
+      "sha256": "02ad639f45a26de1919ffbb6696bdb399ad01afc149970a163c3867162f310b3",
+      "bytes": 36864
+    },
+    {
+      "name": "web.config",
+      "sha256": "39dd7ac465932b7c7f6b19b5aacbc1247498f90448f14b04faaa3877abad638c",
+      "bytes": 486
+    }
+  ],
+  "taskName": "Metallic-RC-Backend",
+  "userLogonTrigger": true,
+  "privilege": "Limited",
+  "schedulerRestartCount": 0,
+  "childRecovery": "explicit supervisor with five retries in a ten-minute failure window, 2-30 second backoff",
+  "zeroExitStops": true,
+  "startBeforeUserLogon": false,
+  "nativeClientVerified": false
+}

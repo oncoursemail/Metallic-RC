@@ -1,0 +1,117 @@
+[
+  {
+    "file": "prepare_scope.py",
+    "executedWorkspaceSha256": "debde761447ffb435a1c06a36b3f3de485c1844f9a012f0cd881d32c3016ab4e",
+    "publicationSha256": "debde761447ffb435a1c06a36b3f3de485c1844f9a012f0cd881d32c3016ab4e"
+  },
+  {
+    "file": "build_targets.py",
+    "executedWorkspaceSha256": "f8e83230814f0e5da5f8ef33188ea0f7eb4bb814d502d86585e8deaafd226503",
+    "publicationSha256": "f8e83230814f0e5da5f8ef33188ea0f7eb4bb814d502d86585e8deaafd226503"
+  },
+  {
+    "file": "run_startup_rea.py",
+    "executedWorkspaceSha256": "464f9b47f2615abe81f532799a2e2269138614c9bcd9f8d955aba33a735dbf1b",
+    "publicationSha256": "464f9b47f2615abe81f532799a2e2269138614c9bcd9f8d955aba33a735dbf1b"
+  },
+  {
+    "file": "rea_session.py",
+    "executedWorkspaceSha256": "3f17a1c0889c001b165a89fc2064f958f461c8caeb71962c031a60d1afc8dcbf",
+    "publicationSha256": "3f17a1c0889c001b165a89fc2064f958f461c8caeb71962c031a60d1afc8dcbf"
+  },
+  {
+    "file": "prepare_binding_probe.py",
+    "executedWorkspaceSha256": "303d05794cefcfc11bd9b9f3ae4ff51a0947a71a5bfe60a8e026fea298949ca2",
+    "publicationSha256": "303d05794cefcfc11bd9b9f3ae4ff51a0947a71a5bfe60a8e026fea298949ca2"
+  },
+  {
+    "file": "verify_binding_sequence.py",
+    "executedWorkspaceSha256": "b2a5771c2602cdf1ac67183430ec45fabfc17b864ad8ec0542a89c4b1d75a35a",
+    "publicationSha256": "b2a5771c2602cdf1ac67183430ec45fabfc17b864ad8ec0542a89c4b1d75a35a"
+  },
+  {
+    "file": "resolve_cache_evidence.py",
+    "executedWorkspaceSha256": "37c6c5f3e1053f327620d4491e5af14a44423c80b99fdf7d95fe945efd25c6f3",
+    "publicationSha256": "37c6c5f3e1053f327620d4491e5af14a44423c80b99fdf7d95fe945efd25c6f3"
+  },
+  {
+    "file": "resolve_callsite_metadata.py",
+    "executedWorkspaceSha256": "aed4d9b0c442d4e74708a83fb617e6f38371841b183febd63a59d4a6cdcf18cc",
+    "publicationSha256": "aed4d9b0c442d4e74708a83fb617e6f38371841b183febd63a59d4a6cdcf18cc"
+  },
+  {
+    "file": "audit_startup_ranges.py",
+    "executedWorkspaceSha256": "db58d6687450b429dfd18f0d986737bf129b6fe583ac475a17fdc07367c0835d",
+    "publicationSha256": "db58d6687450b429dfd18f0d986737bf129b6fe583ac475a17fdc07367c0835d"
+  },
+  {
+    "file": "recheck_previous_verification.py",
+    "executedWorkspaceSha256": "5260e745878f88fbf0a8989e08c6a489255397a7e847cfabf8cec92413babf10",
+    "publicationSha256": "5260e745878f88fbf0a8989e08c6a489255397a7e847cfabf8cec92413babf10"
+  },
+  {
+    "file": "BindingProbe/BindingProbe.csproj",
+    "executedWorkspaceSha256": "dfbfbe65368533b7cc56cc34bbe9379e648c20908b228b6bc4638eb11cba9ab9",
+    "publicationSha256": "f54621e1086d1f2deada1b3356a94998820056818b511d6f1cc802c7233a2bfa"
+  },
+  {
+    "file": "BindingProbe/ObservedServiceBindingSequence.cs",
+    "executedWorkspaceSha256": "ad2669ed811983bf245fea9a7aa39ef3fb76bf388e0f227a01cc48ff9fb786ec",
+    "publicationSha256": "ad2669ed811983bf245fea9a7aa39ef3fb76bf388e0f227a01cc48ff9fb786ec"
+  },
+  {
+    "file": "BindingProbe/Program.cs",
+    "executedWorkspaceSha256": "a62a6944e7b106035717fe977f01104c68ff2ab740a74c5ce82059a4178d851f",
+    "publicationSha256": "a62a6944e7b106035717fe977f01104c68ff2ab740a74c5ce82059a4178d851f"
+  },
+  {
+    "file": "ObservedServices/ObservedServices.csproj",
+    "executedWorkspaceSha256": "dfbfbe65368533b7cc56cc34bbe9379e648c20908b228b6bc4638eb11cba9ab9",
+    "publicationSha256": "f54621e1086d1f2deada1b3356a94998820056818b511d6f1cc802c7233a2bfa"
+  },
+  {
+    "file": "ObservedServices/Program.cs",
+    "executedWorkspaceSha256": "808480d85e51c5e093ec5540e5c28498b3b211808de9319809c9b69df8e0b764",
+    "publicationSha256": "808480d85e51c5e093ec5540e5c28498b3b211808de9319809c9b69df8e0b764"
+  },
+  {
+    "file": "ObservedServices/ServiceAddressUpdate.cs",
+    "executedWorkspaceSha256": "1a18d951479c0a120e3e31ea4008b58174154a710c322b8fff7840747a12e88a",
+    "publicationSha256": "1a18d951479c0a120e3e31ea4008b58174154a710c322b8fff7840747a12e88a"
+  },
+  {
+    "file": "ManagedProbe/ManagedProbe.csproj",
+    "executedWorkspaceSha256": "76eb863056e91a3fa9822ee4127beb9f4c5fd7b8049919efd37be7c418f00d1d",
+    "publicationSha256": "8ca72cd7a8b3cf428f781bd94c1775e62ebcc983dc621f55001e15de499fa19d"
+  },
+  {
+    "file": "ManagedProbe/ObservedByteCodec.cs",
+    "executedWorkspaceSha256": "b2f244ef17d1c756ee3197d4c8d3ccc2568ad741b7ca9bf4d7da83a2be7723a2",
+    "publicationSha256": "b2f244ef17d1c756ee3197d4c8d3ccc2568ad741b7ca9bf4d7da83a2be7723a2"
+  },
+  {
+    "file": "ManagedProbe/Program.cs",
+    "executedWorkspaceSha256": "a8782b5f384466730a70f1d09baf97c8cebeddfd0f6421449c476b4ffaf39bb3",
+    "publicationSha256": "a8782b5f384466730a70f1d09baf97c8cebeddfd0f6421449c476b4ffaf39bb3"
+  },
+  {
+    "file": "codec-verification/differential_codec.py",
+    "executedWorkspaceSha256": "bf94a43467bef3541986693d49e1af95dd0cc54fcc6d74984ee2e136f3b6d20a",
+    "publicationSha256": "bf94a43467bef3541986693d49e1af95dd0cc54fcc6d74984ee2e136f3b6d20a"
+  },
+  {
+    "file": "codec-verification/prepare_emulator.py",
+    "executedWorkspaceSha256": "3d474fc4101cf15f99691024bb1ada32885ddb09cf68feba7d3106152e890f9f",
+    "publicationSha256": "3d474fc4101cf15f99691024bb1ada32885ddb09cf68feba7d3106152e890f9f"
+  },
+  {
+    "file": "codec-verification/prepare_managed_probe.py",
+    "executedWorkspaceSha256": "c64d805534116139155e35c66e1d60e83586d369ed7245ea6a90cad7dd9ca47b",
+    "publicationSha256": "c64d805534116139155e35c66e1d60e83586d369ed7245ea6a90cad7dd9ca47b"
+  },
+  {
+    "file": "codec-verification/prepare_service_reconstruction.py",
+    "executedWorkspaceSha256": "01c51ea65454fbc089e6bbe090b4081943b00db06ad6e7f09b28df90d7ae7741",
+    "publicationSha256": "01c51ea65454fbc089e6bbe090b4081943b00db06ad6e7f09b28df90d7ae7741"
+  }
+]

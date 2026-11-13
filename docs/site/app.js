@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Metallic Studios public development view.
+ * Metallic-RC public development view.
  * Only generated aggregate GitHub issue completion; no fabricated player counts.
  */
 (() => {

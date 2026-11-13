@@ -1,0 +1,92 @@
+{
+  "status": "startup_binding_and_codec_verification_checkpoint",
+  "recordedUtc": "2026-10-21T01:13:00.053592+00:00",
+  "steamBuildId": "23191908",
+  "newReaDossiers": 4,
+  "newSelectedSourceBytes": 5269,
+  "newSelectedInstructions": 1104,
+  "newSelectedInvalidInstructions": 0,
+  "bindingDifferential": {
+    "cases": 2048,
+    "mismatches": 0,
+    "completedCases": 64,
+    "stoppedCallbackCases": 1984,
+    "sortedOrderMutantRejectedCases": 448,
+    "guestInstructions": 210560,
+    "callbackInvocations": 33728,
+    "sourceInstructionBytes": 726
+  },
+  "codecDifferential": {
+    "cases": 5912,
+    "mismatches": 0,
+    "partialWriteFailures": 657,
+    "wrongUpfrontCheckRewriteRejectedCases": 657,
+    "executedGuestInstructionCount": 159391
+  },
+  "serviceModel": {
+    "cases": 2037,
+    "checks": 6045,
+    "nativeDifferentialExecuted": false
+  },
+  "reverseServiceBindings": 31,
+  "exactTaggedContexts": 5,
+  "taggedContextsLackingDirectConcreteRegistrationRows": 3,
+  "remainingDecompilerOmissions": [
+    {
+      "methodIndex": 148090,
+      "bytes": 1,
+      "nonCCBytes": 0
+    },
+    {
+      "methodIndex": 148091,
+      "bytes": 1,
+      "nonCCBytes": 0
+    },
+    {
+      "methodIndex": 148096,
+      "bytes": 35,
+      "nonCCBytes": 33
+    }
+  ],
+  "originalHashes": [
+    {
+      "copy": "installed",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "matchesOriginalBaseline": true
+    },
+    {
+      "copy": "installed",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "matchesOriginalBaseline": true
+    },
+    {
+      "copy": "fresh",
+      "file": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "matchesOriginalBaseline": true
+    },
+    {
+      "copy": "fresh",
+      "file": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "matchesOriginalBaseline": true
+    }
+  ],
+  "gameLaunched": false,
+  "originalGameAssemblyLoadedByOs": false,
+  "originalInstructionsEvaluatedInBoundedCpuEmulator": true,
+  "dnsOrSecurityChanges": false,
+  "newWholeGameBuild": false,
+  "previousLeafCountUnchanged": 27302,
+  "priorUnknownConcreteMethodsUnchanged": 354441,
+  "baseCommit": "1607980ccc18e2c66f0cb15650382491f84d72ad",
+  "limitations": [
+    "Native dispatch tests cover a 726-byte slice with modeled callbacks, not the whole async method.",
+    "Codec tests stop at native error-helper entries; native exception classes/unwinding and concurrency remain untested.",
+    "Service-model tests run authored managed code; original BCL/runtime behavior is not independently executed.",
+    "Read-only tags resolve concrete contexts; generic shared-code definition agreement does not supply missing specialization table rows.",
+    "No complete startup wire schema, original Unity project, server login, room join, VR acceptance or released game is established."
+  ]
+}

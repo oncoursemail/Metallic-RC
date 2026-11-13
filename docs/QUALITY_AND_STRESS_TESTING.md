@@ -1,4 +1,4 @@
-# Metallic Studios — Performance, Synthetic Players and Continuous Quality Laboratory
+# Metallic-RC — Performance, Synthetic Players and Continuous Quality Laboratory
 
 **Research baseline:** 2026-10-15 · **Status:** IMPLEMENTATION PLAN, not a demonstrated player capacity.
 **Goal:** reproducibly prove backend robustness, responsive VR and desktop graphics, creator-scene correctness, moderation resilience and excellent player experience before release.

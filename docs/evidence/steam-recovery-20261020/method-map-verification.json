@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "allMetadataMethodsAccounted": 409503,
+  "nonNullMethodEntries": 367865,
+  "nullMethodEntries": 41638,
+  "uniqueNativeAddresses": 270148,
+  "uniqueNonemptyModules": 417,
+  "zeroMethodImages": [
+    {
+      "index": 73,
+      "name": "UnityEngine.dll",
+      "maxMethodTokenRid": 0
+    },
+    {
+      "index": 342,
+      "name": "Unity.RenderPipeline.Universal.ShaderLibrary.dll",
+      "maxMethodTokenRid": 0
+    }
+  ],
+  "allMethodPointerCountsEqualExactMaxTokenRid": true,
+  "sourceMapSha256": "11a98e828ef21f7689e968f77ba14e27ee96aa69851c6970ccee9db9e7b8d800",
+  "finishedUtc": "2026-10-20T21:45:25.887815+00:00"
+}

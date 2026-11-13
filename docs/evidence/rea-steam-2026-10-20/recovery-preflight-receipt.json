@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "startedUtc": "2026-10-20T18:13:00.435401+00:00",
+  "checkOnly": true,
+  "status": "preflight_passed_elevation_required",
+  "wrapperPath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\run_steam_recovery.py",
+  "wrapperSha256": "ce5f715474db5c0f5aa021ba3aaba9fa9384764bb5a86e7b6ab6e3a85c785856",
+  "pythonPath": "C:\\Python315\\python.exe",
+  "steamRoot": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom",
+  "outputDirectory": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\runs\\preflight-\\20261020T181300.434643Z",
+  "observationSeconds": 45.0,
+  "decoded": false,
+  "selfElevationImplemented": false,
+  "scriptWritesToGameFiles": false,
+  "registryModified": false,
+  "securitySettingsModified": false,
+  "privilegesAdjusted": false,
+  "persistenceCreated": false,
+  "section": {
+    "name": "Global\\KjMpQrStUvWxYzAb",
+    "bytes": 66060456,
+    "created": false,
+    "wrapperHandleClosed": false,
+    "initialContents": "zero initialized by Windows if newly created"
+  },
+  "spawnedProcesses": [],
+  "cleanup": [],
+  "logFiles": [],
+  "errors": [],
+  "limitations": [
+    "Build-specific shared-section hypothesis; not a verified decoder.",
+    "Capture heuristics can miss metadata or code; candidate outputs require offline validation.",
+    "The original game can create its ordinary logs or child processes during startup.",
+    "Cleanup only affects the two Popen handles created here, not unrelated processes or services.",
+    "Closing this section handle does not prove no game-held section references remain."
+  ],
+  "isElevated": false,
+  "preflightFiles": {
+    "GameAssembly.dll": {
+      "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom\\GameAssembly.dll",
+      "expectedSha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "exists": true,
+      "bytes": 287903264,
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "matches": true
+    },
+    "RecRoom.exe": {
+      "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom\\RecRoom.exe",
+      "expectedSha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "exists": true,
+      "bytes": 672800,
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "matches": true
+    },
+    "capture_steam_recroom.py": {
+      "path": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\rea-steam-decoding\\capture_steam_recroom.py",
+      "expectedSha256": "37ace729f9ee7ce45b4189c6bc54e4f21a1b9f3063b6ee56a1570f4e4ddb5179",
+      "exists": true,
+      "bytes": 28193,
+      "sha256": "37ace729f9ee7ce45b4189c6bc54e4f21a1b9f3063b6ee56a1570f4e4ddb5179",
+      "matches": true
+    }
+  },
+  "existingRecRoomPids": [],
+  "preflightPassed": true,
+  "finishedUtc": "2026-10-20T18:13:00.672237+00:00",
+  "postOperationFiles": {
+    "GameAssembly.dll": {
+      "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom\\GameAssembly.dll",
+      "expectedSha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "exists": true,
+      "bytes": 287903264,
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "matches": true
+    },
+    "RecRoom.exe": {
+      "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom\\RecRoom.exe",
+      "expectedSha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "exists": true,
+      "bytes": 672800,
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "matches": true
+    }
+  },
+  "originalFileHashesMatchAfter": true,
+  "originalFileHashScope": [
+    "GameAssembly.dll",
+    "RecRoom.exe"
+  ],
+  "logDigests": [],
+  "wrapperSha256After": "ce5f715474db5c0f5aa021ba3aaba9fa9384764bb5a86e7b6ab6e3a85c785856",
+  "captureHelperSha256After": "37ace729f9ee7ce45b4189c6bc54e4f21a1b9f3063b6ee56a1570f4e4ddb5179"
+}

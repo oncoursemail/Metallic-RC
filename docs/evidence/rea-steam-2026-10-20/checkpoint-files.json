@@ -1,0 +1,152 @@
+[
+  {
+    "path": "tools/rea/.gitignore",
+    "bytes": 57,
+    "sha256": "c1e142b807ff97d58e49da74894862d180a23f52c43f833025cdadb62b343616"
+  },
+  {
+    "path": "tools/rea/capture_steam_recroom.py",
+    "bytes": 28193,
+    "sha256": "37ace729f9ee7ce45b4189c6bc54e4f21a1b9f3063b6ee56a1570f4e4ddb5179"
+  },
+  {
+    "path": "tools/rea/inspect_metadata_candidate.py",
+    "bytes": 12015,
+    "sha256": "322faa803a5bd1c65d25be2de89ca45e388563607d7868650f6bacc12b17bc8a"
+  },
+  {
+    "path": "tools/rea/metadata-primary-sources.json",
+    "bytes": 990,
+    "sha256": "3b205817ca7943edec9967766011873a14c2a36176ef8eea3271be7320a7355b"
+  },
+  {
+    "path": "tools/rea/README.md",
+    "bytes": 7997,
+    "sha256": "aa91fa3fa7699d5f2c3c42f9390ca4123476431ddf43b3d57bd6374c958bd719"
+  },
+  {
+    "path": "tools/rea/Run-REA-Steam-Capture.cmd",
+    "bytes": 1555,
+    "sha256": "6895851bf0fd34d8c9796b1e4932a2c3a6fc155431e689d150664f56ab88b0fa"
+  },
+  {
+    "path": "tools/rea/run_steam_recovery.py",
+    "bytes": 17557,
+    "sha256": "ce5f715474db5c0f5aa021ba3aaba9fa9384764bb5a86e7b6ab6e3a85c785856"
+  },
+  {
+    "path": "tools/rea/test_inspect_metadata_candidate.py",
+    "bytes": 2395,
+    "sha256": "32733489f1f52634f3990e4ec49ea83bcc8d3135789e4ba155a89f54b9ce022c"
+  },
+  {
+    "path": "tools/rea/WRAPPER_REVIEW.md",
+    "bytes": 3725,
+    "sha256": "297c9687a05d157fdde1c8eedd24276fbaaf9b4e8398cd3234a98f1580c318ec"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/capture-01-steam.json",
+    "bytes": 2981,
+    "sha256": "7d03dbb5b70348773fab4b1db3a303cd1e4b85a0144a58ca7f74a110de9c247b"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/capture-02-game.json",
+    "bytes": 3445,
+    "sha256": "f7590420e01a6cf11ecff3455f1ea11a5172928bc421bb97508c316781886805"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/capture-helper-final-selftest.log",
+    "bytes": 713,
+    "sha256": "6129ae97a41097243e5ed27f7628ac9370a68be1664fa689cbb02423e5b726db"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/desktop-capture-shortcut.json",
+    "bytes": 327,
+    "sha256": "a7bcf1410837e9ce379e20b46b58a358c26d0180c522546c65f20360f6cce9e1"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/disk-metadata-negative-control.json",
+    "bytes": 630,
+    "sha256": "b2f86b137e9118c64e93c4c09a96562101208b7e8074874197ea03cf6d1558f4"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/GameAssembly.dll.rea-resources.json",
+    "bytes": 2057,
+    "sha256": "3d2fe990f4346f0da497ee622331a0be8a1e24240ee2a3acfe87e25b98d6ce04"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/launch-01-steam.json",
+    "bytes": 384,
+    "sha256": "26c181f5823b9486a22fe733efded00cb4560fff393f64c1321bf665dd977cd1"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/launch-02-game-exit.json",
+    "bytes": 106,
+    "sha256": "b1efe435208ca9775ea43a2582f58d09c2f686617928daa6f568f72aed902c7b"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/launch-02-game.json",
+    "bytes": 329,
+    "sha256": "9e9994d8e75cc6b91ae809f32885abc305eaba6db30e4de160ab0856cbc03e95"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/metadata-inspector-final-selftest.log",
+    "bytes": 961,
+    "sha256": "cee2e11032ce1a8ba0a92f0930e267895dd8a8f93ae5dcbe63af10c76d09017e"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/post-attempt-validation.json",
+    "bytes": 1191,
+    "sha256": "ed7085a6f455741eb4ff480de86066797fdca859c29a018efdcdb2722106f92d"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/rea-ghidra-readiness.json",
+    "bytes": 5751,
+    "sha256": "192f9df2bd5271c3aa006f80a938ff89243f8da8313eb6a3fb132f539663f7cb"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/recovery-preflight-receipt.json",
+    "bytes": 4035,
+    "sha256": "6a7aec05007f766d67cc50d34ef6974a30b45000967a9c23076a9f81d20f85d7"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/recovery-preflight-validation.json",
+    "bytes": 650,
+    "sha256": "e27788f7ad8c8bd4fa907b27a659a3d0a2fed6e74710a16672886f37c516ad5c"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/RecRoom.exe.entry-function.json",
+    "bytes": 80943,
+    "sha256": "7f378addf3a120a018fd1715bbb6148176a2280a6ffc1c66a2d29c607f8cf2bf"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/RecRoom.exe.ghidra.json",
+    "bytes": 6325,
+    "sha256": "22802b5f8cb7b177217c0152b9ca071972bcf0eb292c128f8f67c0b8e7572b89"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/RecRoom.exe.rea-resources.json",
+    "bytes": 11915,
+    "sha256": "fd6dc512832e9d92e69743d3b1993bcbe37dfd1326e8706cb614755dc279b36e"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/RecRoom.exe.startup-strings.json",
+    "bytes": 7873,
+    "sha256": "c3cf7fcf31798ef16d10b5408a258c3bad3c1ea91fff19409afd90a0fbf3f85a"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/startup-log-observations.json",
+    "bytes": 2937,
+    "sha256": "535f31ab63f0fea4bb4fd2aa0ed99a5e33d16528fa5d51e0f97f629ec72dabac"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/steam-target-identity.json",
+    "bytes": 9278,
+    "sha256": "ebc689bd46088032ee6c5a92d75a91e6d179f11904d870581bae7ae200faf5bb"
+  },
+  {
+    "path": "docs/evidence/rea-steam-2026-10-20/verified-provider-releases.json",
+    "bytes": 935,
+    "sha256": "d7fd2105e412d12f6e10368aa013dc4bcb00011738b080020505c6cad4a5f651"
+  }
+]

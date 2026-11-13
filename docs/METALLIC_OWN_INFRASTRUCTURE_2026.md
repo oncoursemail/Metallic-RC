@@ -1,3 +1,5 @@
+> **Direction update — 20 October 2026:** use the owner's actual compiled client as the starting point. The [compiled-client rework](COMPILED_CLIENT_REWORK.md) supersedes earlier replacement-engine/hub proposals below. These plans do not establish shipped gameplay.
+
 # Metallic — Owned Hardware, Original Backend and Advanced Server Systems
 
 **Research / hardware observation:** 2026-10-18. **State:** engineering plan + first locally testable control-plane prototype. **No actual Metallic multiplayer session, public API deployment, 10k CCU stress result, platform superiority, or secure production rollout has been demonstrated.** This document is not permission to alter existing Star AI workloads, network settings, partitions, panels or services.
@@ -30,7 +32,7 @@ One connected platform with explicit internal ownership:
 | **Atlas Control** | node inventory, health, placement, reservations, draining, regions, capacity | **Go lab API now implemented in PR**, loopback only; no process runner | transactional leader/fencing, Agones/Nomad/cloud adapters, autoscaling controllers and operator approval |
 | **Beacon Agent** | read-only node heartbeats, OS pressure signals | **Go Linux unprivileged agent now implemented in PR** | cgroup/PSI, CPU topology, crash telemetry, signed deploy acknowledgements, mTLS and secret rotation |
 | **Nexus Runtime** | actual rooms, replicated world simulation, VR poses, physics, circuits and hit validation | NOT built; choose measured Unity/Godot Linux dedicated-server prototype | proprietary optimized server/serialization/AOI layers, later independent native sim only when correctness+performance proven |
-| **Sentinel Defense** | server-side checks, anti-cheat telemetry, player protection & appeals | input-gate reference in separate [PR #65](https://github.com/oncoursemail/Metallic/pull/65), NOT integrated | fuzzed authoritative physics, anti-economy fraud, segmented privacy preserving behavioral analyses |
+| **Sentinel Defense** | server-side checks, anti-cheat telemetry, player protection & appeals | input-gate reference in separate [PR #65](https://github.com/oncoursemail/Metallic-RC/pull/65), NOT integrated | fuzzed authoritative physics, anti-economy fraud, segmented privacy preserving behavioral analyses |
 | **Aegis Identity** | own player accounts, access tickets, device linking, MFA, trust policy | proposed | OAuth/OIDC with protected staff API, signed scoped one-time room ticket, audit trail |
 | **Studio / Forge** | creator worlds, asset compilation, safety scanner, signed distribution | proposed | content-addressed, versioned room packages with deterministic migrations and creator-budget limits |
 | **Vault** | source-of-truth data: profiles, inventory, permissions, ledger | proposed Postgres transactions/backups | region-scoped replicas, outbox, failover drills, careful eventual vs strict consistency rules |
@@ -133,7 +135,7 @@ A two-machine cluster sharing one building, ISP, router and power circuit is **o
 
 For a **hypothetical** 10,000 simultaneously connected players receiving 96 kb/s average *game-world* downstream, aggregate game egress is **960 Mb/s**, before UDP overhead, voice, asset delivery and redundancy. At steady 24/7 load for a 730-hour month, this alone is about **315 TB decimal/month**. It is not a live Metallic traffic measurement; reduce bytes/player with interest management and regional partitioning before shopping for servers. A nominal 1 Gb/s NIC is not proof of 1 Gb/s *usable external* upload; peak voice/creator CDN costs can dwarf simulation CPU.
 
-The previous [global design PR #65](https://github.com/oncoursemail/Metallic/pull/65) includes a configurable **hypothetical** capacity model; this new PR builds runnable lab control-plane infrastructure. For real capacity, collect resource traces per 2/16/32-player room on CPU-bound and bandwidth-bound hardware, then formulate a conservative region-by-region safe number. Capacity is `min(cpu headroom, memory headroom, network bandwidth, disk/IO, room quotas, legal/staffing constraints)`.
+The previous [global design PR #65](https://github.com/oncoursemail/Metallic-RC/pull/65) includes a configurable **hypothetical** capacity model; this new PR builds runnable lab control-plane infrastructure. For real capacity, collect resource traces per 2/16/32-player room on CPU-bound and bandwidth-bound hardware, then formulate a conservative region-by-region safe number. Capacity is `min(cpu headroom, memory headroom, network bandwidth, disk/IO, room quotas, legal/staffing constraints)`.
 
 ## 9. Operational security and reliability plan
 

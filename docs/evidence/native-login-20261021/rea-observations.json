@@ -1,0 +1,330 @@
+{
+  "successfulDossiers": [
+    {
+      "methodIndex": 149600,
+      "method": "RecNet.Login.<ConstructLoginRequest>d__91::MoveNext",
+      "address": "0x189504a30",
+      "status": "dossier_retained",
+      "evidenceId": "ev_05d0c4def97341c997e57fa3b12f5240d40df20aa48df806c7dad05af5ead9ca",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 604,
+      "sourceUnwindBodyBytes": 3104,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 149616,
+      "method": "RecNet.Login.<SendLoginRequest>d__97::MoveNext",
+      "address": "0x18950dac0",
+      "status": "dossier_retained",
+      "evidenceId": "ev_0ec4e0a148569bdc276f84fe59eba534ff523c6730674ba157b69c8589309cd3",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 89,
+      "sourceUnwindBodyBytes": 919,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 149614,
+      "method": "RecNet.Login.<ParseLoginResponse>d__98::MoveNext",
+      "address": "0x18950c1c0",
+      "status": "dossier_retained",
+      "evidenceId": "ev_10ad373182e7bf0fac4c881d18685f99b189606e3f8ba736eb5e0f05f0be3206",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 262,
+      "sourceUnwindBodyBytes": 1667,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 149610,
+      "method": "RecNet.Login.<HandleLoginResponse>d__99::MoveNext",
+      "address": "0x189509590",
+      "status": "dossier_retained",
+      "evidenceId": "ev_b33bda3afb541640fa871d109ab5e031b5996088b13da9864f32b1c982f4cd36",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 619,
+      "sourceUnwindBodyBytes": 3691,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 126718,
+      "method": "Utf8Json.Formatters.RecNet.KKMVTPWPBIG::.ctor",
+      "address": "0x189606eb0",
+      "status": "dossier_retained",
+      "evidenceId": "ev_eb54ae782f7c9438d693c82fcec874a363a4f173bfe147d0ab1a01a008177b62",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 279,
+      "sourceUnwindBodyBytes": 1255,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Control flow encountered bad instruction data */",
+        "/* WARNING: Possible PIC construction at 0x00018960721b: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189607260: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189607288: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x0001896072b0: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x0001896072d8: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189607300: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189607324: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189607348: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x00018960736c: Changing call to branch */",
+        "/* WARNING: Removing unreachable block (ram,0x00018960734d) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607361) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607329) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018960733d) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607305) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607319) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001896072dd) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001896072f5) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001896072b5) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001896072cd) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018960728d) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001896072a5) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607265) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018960727d) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607220) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018960724b) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607391) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607255) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189607371) */",
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Bad instruction - Truncating control flow here */",
+        "halt_baddata();",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 126720,
+      "method": "Utf8Json.Formatters.RecNet.KKMVTPWPBIG::Deserialize",
+      "address": "0x189606580",
+      "status": "dossier_retained",
+      "evidenceId": "ev_bfcdf08458c7e4d00aba46bd8d284891b3eb4788aaa90749e7e0483631477c46",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 262,
+      "sourceUnwindBodyBytes": 140,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 149439,
+      "method": "RecNet.Login::WOQLZFVQMLV",
+      "address": "0x1894e2340",
+      "status": "dossier_retained",
+      "evidenceId": "ev_b107673c0f6738a7dc67cfdbad6c950b288255973bb719840f5592be014b14f0",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 594,
+      "sourceUnwindBodyBytes": 3514,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 149491,
+      "method": "RecNet.Login::AWUFMYCEVDB",
+      "address": "0x1894dae10",
+      "status": "dossier_retained",
+      "evidenceId": "ev_f06004198ea78c30b60950b6d970aa8616ed96fd5eea78d6d41eac3aa78c5bdf",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 242,
+      "sourceUnwindBodyBytes": 1091,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 149472,
+      "method": "RecNet.Login::HVQCCSJLKST",
+      "address": "0x1894de560",
+      "status": "dossier_retained",
+      "evidenceId": "ev_89d0884cfa3fe4197dbb8b895832379828a5156a3c8fde53f66772ef8bb72119",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 117,
+      "sourceUnwindBodyBytes": 580,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    },
+    {
+      "methodIndex": 126719,
+      "method": "Utf8Json.Formatters.RecNet.KKMVTPWPBIG::Serialize",
+      "address": "0x1896069e0",
+      "status": "dossier_retained",
+      "evidenceId": "ev_155bcb84597ae6da8e49eda4d403f5b63187d5a38f1be69038b3bad4e9cf4654",
+      "provider": {
+        "id": "ghidra",
+        "name": "Ghidra",
+        "version": "12.1.4"
+      },
+      "assemblyInstructions": 282,
+      "sourceUnwindBodyBytes": 86,
+      "bodyByteCountMatchesUnwind": false,
+      "warnings": [
+        "/* WARNING: Control flow encountered bad instruction data */",
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Bad instruction - Truncating control flow here */",
+        "halt_baddata();",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ]
+    }
+  ],
+  "unsuccessfulInitialSelections": [
+    {
+      "methodIndex": 126719,
+      "method": "Utf8Json.Formatters.RecNet.KKMVTPWPBIG::Serialize",
+      "address": "0x1896069e0",
+      "status": "no_inline_dossier",
+      "evidenceId": null,
+      "provider": null,
+      "assemblyInstructions": null,
+      "sourceUnwindBodyBytes": null,
+      "bodyByteCountMatchesUnwind": null,
+      "warnings": null
+    },
+    {
+      "methodIndex": 146099,
+      "method": "RecNet.Accounts::DJASNBTJCBU",
+      "address": "0x18941cd40",
+      "status": "no_inline_dossier",
+      "evidenceId": null,
+      "provider": null,
+      "assemblyInstructions": null,
+      "sourceUnwindBodyBytes": null,
+      "bodyByteCountMatchesUnwind": null,
+      "warnings": null
+    }
+  ],
+  "initialGroupedSerializeFailureResolvedByFocusedCarrier": true,
+  "accountFetcherSelectionStillUnresolved": true,
+  "fullOriginalGameDecompiled": false,
+  "canonicalGameCodeNotPublished": true,
+  "limits": [
+    "Synthetic carrier PE headers preserve exact copied source pages but omit dependencies/globals.",
+    "Native async/state-machine pseudocode warnings and omitted regions remain explicit.",
+    "A method dossier is not an original-source or live-backend compatibility proof."
+  ]
+}

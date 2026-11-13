@@ -1,0 +1,25 @@
+//! Metallic-RC client library: the network side and the room loader, shared by the game binary and its tests.
+pub mod audio;
+pub mod cache;
+pub mod avatar;
+pub mod collide;
+pub mod interact;
+pub mod levels;
+pub mod mirror;
+pub mod net;
+pub mod netobj;
+pub mod particles;
+pub mod perf;
+pub mod platform;
+pub mod player;
+pub mod quality;
+pub mod realtime;
+pub mod render;
+pub mod room;
+pub mod settings;
+pub mod shapes;
+pub mod social;
+pub mod texprep;
+pub mod ui;
+pub mod voice;
+pub mod world;

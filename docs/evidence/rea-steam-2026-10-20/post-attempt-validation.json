@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-10-20T18:09:12.651516+00:00",
+  "gameLogPath": "C:\\ProgramData\\Referee\\Referee.Game.log",
+  "gameLogRelevantLines": [
+    "[2026-10-20 13:06:41] [Game] Started game.",
+    "[2026-10-20 13:06:41] [ERROR] [Game] Unable to initialize session with status -99903. Last error code is 0 (0x0)."
+  ],
+  "staticEntryEvidence": "ev_b4a0359aa2296b0c0a3d256e063415990abaaa69528771fe72dbebab531d4461",
+  "staticEntryUsable": false,
+  "staticEntryReason": "Ghidra reports bad instruction data and overlapping instructions for protected at-rest entrypoint.",
+  "captureSelfTestExitCode": 0,
+  "metadataNegativeControlExitCode": 0,
+  "sourceFileChecks": [
+    {
+      "relativePath": "RecRoom.exe",
+      "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70",
+      "bytes": 672800
+    },
+    {
+      "relativePath": "GameAssembly.dll",
+      "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+      "bytes": 287903264
+    },
+    {
+      "relativePath": "RecRoom_Data/il2cpp_data/Metadata/global-metadata.dat",
+      "sha256": "01ab66ca50a00960c555abe9a646401b7f37838c67bb654f9831f7bdc34ec62e",
+      "bytes": 52403096
+    }
+  ]
+}

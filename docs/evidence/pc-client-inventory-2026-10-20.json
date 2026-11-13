@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "recordedDateUtc": "2026-10-20",
+  "device": "Main",
+  "method": "Read-only installed-file inspection, hashes, selected launch/config text and recovered preservation evidence. No game, guard, injector or third-party launcher was executed for inventory.",
+  "sourceProjectEstablished": false,
+  "gameDateVersion": {
+    "independentlyConfirmed": false,
+    "priorAssistantClaim": "20260323.14",
+    "confirmedSteamBuildId": "23191908"
+  },
+  "clients": [
+    {
+      "name": "Steam Rec Room",
+      "root": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom",
+      "files": 3298,
+      "bytes": 6781713784,
+      "unityVersion": "6000.0.27f1",
+      "unityRevision": "9f66c1164388",
+      "scriptingBackend": "IL2CPP",
+      "steam": {
+        "appId": "471710",
+        "depotId": "471711",
+        "buildId": "23191908",
+        "manifestId": "8867414017562658247",
+        "lastUpdatedEpoch": 1791391748
+      },
+      "filesInspected": [
+        {"path": "RecRoom.exe", "bytes": 672800, "sha256": "3bfddbd82167a7fd3042abaddd39b6ecaf2b7149407df606eb6af0e798a57a70"},
+        {"path": "Recroom_Release.exe", "bytes": 1055776, "sha256": "0e5b80fd7483c00001fbc899b5c3dce3f3102d0b8c2b9a8f5bd04d052a7bda39"},
+        {"path": "UnityPlayer.dll", "bytes": 32858656, "sha256": "30f4a99c49566b2c5045469b5a39572dd2298adc31f7fe2bc39d8bb8fc9d75bb"},
+        {"path": "GameAssembly.dll", "bytes": 287903264, "sha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84"},
+        {"path": "RecRoom_Data/il2cpp_data/Metadata/global-metadata.dat", "bytes": 52403096, "sha256": "01ab66ca50a00960c555abe9a646401b7f37838c67bb654f9831f7bdc34ec62e", "allBytesHex": "52", "wholeFileChecked": true}
+      ],
+      "otherObservations": {
+        "globalgamemanagersPrefixHex": "0000525200005252",
+        "scriptingAssembliesPrefixHex": "0000525200005252",
+        "vrAndVoicePluginNamesPresent": ["Dissonance", "opus-recroom", "webrtc", "openvr_api", "XRSDKOpenVR"],
+        "pluginPresenceProvesRuntimeAcceptance": false,
+        "completeUnitySourceProjectFound": false,
+        "solutionProjectOrAssemblyCSharpDllFoundInClientRoot": false
+      },
+      "metallicRegistration": {"id": "58536515790d496092589f6735bc898e", "name": "Rec Room 2026 - Steam baseline", "criticalHashes": 31, "stateWrittenOutsideClient": true}
+    },
+    {
+      "name": "Installed NexaNet copy",
+      "root": "C:\\Users\\alexi\\Downloads\\NexaNet\\NexaNet",
+      "files": 3310,
+      "bytes": 6784356614,
+      "unityVersion": "6000.0.27f1",
+      "scriptingBackend": "IL2CPP",
+      "coreHashesMatchSteam": ["RecRoom.exe", "Recroom_Release.exe", "UnityPlayer.dll", "GameAssembly.dll"],
+      "screenLaunchScript": {"path": "RecScreen.bat", "requiresGuard": true, "wrapper": "nexanet.exe", "clientArgument": "+forcemode:screen"},
+      "vrLaunchScript": {"path": "RecVR.bat", "requiresMissingFile": "Injector.exe", "exitsBeforeLaunchWhenMissing": true},
+      "guardOrInjectorModified": false,
+      "metallicRegistrationCreated": false,
+      "otherCheckedPath": {"path": "C:\\Nexa.Net\\2026", "empty": true}
+    },
+    {
+      "name": "Campus2025",
+      "root": "C:\\Users\\alexi\\OneDrive\\Documents\\Campus\\Campus2025",
+      "files": 3272,
+      "bytes": 6721315947,
+      "unityVersion": "2021.3.41f1",
+      "unityRevision": "6c5a9e20c022",
+      "scriptingBackend": "IL2CPP",
+      "filesInspected": [
+        {"path": "Recroom_Release.exe", "bytes": 653824, "sha256": "878bc199a09fa8713c6d0a5a58915f8bbbf3b5275ea69624063e8f448121c3fd"},
+        {"path": "UnityPlayer.dll", "sha256": "21d0d0ecb545af73c4fc68f2c5b61856807bf81597e979b290e884c8788955a9"},
+        {"path": "GameAssembly.dll", "sha256": "6c9e535abc0a27e07da0ba5823ea713a4fae80ab91ccc5517c4fbadcf519419c"},
+        {"path": "Recroom_Release_Data/il2cpp_data/Metadata/global-metadata.dat", "bytes": 47962260}
+      ],
+      "launcher": {"path": "C:\\Users\\alexi\\OneDrive\\Desktop\\Campus.exe", "version": "1.22", "bytes": 4613120, "sha256": "da83d929e7c3df02b7619d4b1f606446eb260f8d3c03a6050699a7ab1b06e9c8"},
+      "discoveryConfig": "C:\\Users\\alexi\\AppData\\Local\\CampusLauncher\\settings.json",
+      "sessionJsonRead": false,
+      "metallicRegistration": {"id": "fbcdceaee00e48bfade7e3d125485b98", "name": "Campus2025 - existing launcher", "criticalHashes": 40, "externalLauncherRegistered": true, "stateWrittenOutsideClient": true}
+    }
+  ],
+  "otherInstalledEvidence": [
+    {"path": "C:\\Users\\alexi\\Downloads\\RecLauncher.exe", "version": "2.5.0.0", "bytes": 989184, "sha256": "4c3ddd40a11da2a98aa1287a393c9c864cea94f0786dcfc5d6f093a8ade7c808", "upstreamIdentityConfirmed": false, "executed": false},
+    {"path": "C:\\Meow.Net", "exists": true, "observed": ["BepInEx", "NineLives.dll", "GameAssembly.dll"], "fullInventoryPerformed": false, "executed": false}
+  ],
+  "limitations": [
+    "This is an evidence inventory, not a binary redistribution or a recovered full source project.",
+    "The exact folder called Recroom (newish) has not been identified as a full Unity source tree.",
+    "File hashes establish an observed baseline, not publisher authentication or working online services.",
+    "Imported Windows clients have not been accepted on Linux, Android, Quest or a VR headset.",
+    "No original client files, third-party authentication state, guards or injectors were changed."
+  ]
+}

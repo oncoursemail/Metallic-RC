@@ -1,0 +1,10 @@
+# Metallic-RC Stunt Runner arena hull, in client (Bevy) space. INFERRED: the game places these pieces from room data
+# we do not have; here the floor and ceiling stay where their own roots put them and the walls stand on the floor's
+# edges (bounds from examples/world_inventory.rs: floor x -49.73..48.63, z -60.72..53.75, top y 0.20).
+# name                         x        y        z      yaw
+(StuntRunner_Floor)            0.00     0.00     0.00     0
+(StuntRunner_Ceiling)          0.00     0.00     0.00     0
+(StuntRunner_Wall_Long)      -48.98    17.21     3.57     0
+(StuntRunner_Wall_Long)       47.88    17.21   -10.54   180
+(StuntRunner_Wall_Short)      -0.55    17.21   -59.97     0
+(StuntRunner_Wall_Short)      -0.55    17.21    53.00   180

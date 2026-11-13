@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "startedUtc": "2026-10-20T18:06:32.408612+00:00",
+  "tool": "capture_steam_recroom.py",
+  "toolSha256": "4bccbb1286cc6c5dd17212648c7cd794d260d704e0ae3fb9190e213d06c082f7",
+  "status": "deadline_reached",
+  "steamRoot": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom",
+  "expectedMetadataBytes": 52403096,
+  "gameAssemblyDiskSha256": "a6d90770cdfda4043eadb278a16198ed0907c3ba2ac09bc37d06cd4dd22a1d84",
+  "gameAssemblyDiskLayout": {
+    "machine": "AMD64",
+    "imageBase": 6442450944,
+    "imageSize": 291041280,
+    "headerSize": 1024,
+    "sections": [
+      {
+        "name": ".text",
+        "rva": 4096,
+        "virtualSize": 13661364,
+        "rawSize": 13661696,
+        "rawOffset": 1024,
+        "characteristics": 3221225504
+      },
+      {
+        "name": "il2cpp",
+        "rva": 13668352,
+        "virtualSize": 181182620,
+        "rawSize": 181182976,
+        "rawOffset": 13662720,
+        "characteristics": 3221225504
+      },
+      {
+        "name": ".rdata",
+        "rva": 194854912,
+        "virtualSize": 64694218,
+        "rawSize": 64694272,
+        "rawOffset": 194845696,
+        "characteristics": 1073741888
+      },
+      {
+        "name": ".data",
+        "rva": 259551232,
+        "virtualSize": 16124880,
+        "rawSize": 12994560,
+        "rawOffset": 259539968,
+        "characteristics": 3221225536
+      },
+      {
+        "name": ".pdata",
+        "rva": 275677184,
+        "virtualSize": 9258672,
+        "rawSize": 9259008,
+        "rawOffset": 272534528,
+        "characteristics": 1073741888
+      },
+      {
+        "name": ".reloc",
+        "rva": 284938240,
+        "virtualSize": 6099588,
+        "rawSize": 6099968,
+        "rawOffset": 281793536,
+        "characteristics": 1107296320
+      }
+    ]
+  },
+  "access": "PROCESS_QUERY_INFORMATION | PROCESS_VM_READ",
+  "mutatedTarget": false,
+  "launchedTarget": false,
+  "decoded": false,
+  "candidateValidation": "heuristic only; offline table validation still required",
+  "artifacts": [],
+  "processes": [
+    {
+      "pid": 31268,
+      "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RecRoom\\RecRoom.exe",
+      "verifiedUtc": "2026-10-20T18:06:37.166263+00:00"
+    }
+  ],
+  "events": [
+    {
+      "utc": "2026-10-20T18:06:41.933177+00:00",
+      "kind": "process_unavailable_or_rejected",
+      "pid": 20364,
+      "detail": "[WinError 5] Access is denied."
+    },
+    {
+      "utc": "2026-10-20T18:06:42.902801+00:00",
+      "kind": "process_unavailable_or_rejected",
+      "pid": 25352,
+      "detail": "[WinError 5] Access is denied."
+    },
+    {
+      "utc": "2026-10-20T18:06:44.472704+00:00",
+      "kind": "process_unavailable_or_rejected",
+      "pid": 31268,
+      "detail": "[WinError 5] Access is denied."
+    }
+  ],
+  "observedModules": {},
+  "allocationDiagnostics": {
+    "31268": {
+      "observedUtc": "2026-10-20T18:06:44.355222+00:00",
+      "privateAllocations": 17,
+      "qualifyingSizeAllocations": 0,
+      "nearestAllocationSizes": [
+        {
+          "bytes": 33558528,
+          "count": 1
+        },
+        {
+          "bytes": 2097152,
+          "count": 5
+        },
+        {
+          "bytes": 1048576,
+          "count": 1
+        }
+      ],
+      "note": "Sizes only; contents of unrelated-size allocations were not read."
+    }
+  },
+  "finishedUtc": "2026-10-20T18:06:57.412330+00:00",
+  "completeMetadataCandidates": 0,
+  "completeMappedImages": 0
+}

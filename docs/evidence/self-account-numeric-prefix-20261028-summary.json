@@ -1,0 +1,232 @@
+{
+  "schema": "sanitized-self-account-explicit-numeric-prefix-v4",
+  "build": "23191908",
+  "candidateOnly": true,
+  "defaultResolverProfileOnly": true,
+  "liveResolverVerified": false,
+  "numericOnly": true,
+  "native": {
+    "schema": "self-account-explicit-numeric-default-v4",
+    "cases": 2445,
+    "statuses": {
+      "root_null": 1,
+      "root_empty_object_null": 1,
+      "prefix_complete": 1505,
+      "known_value_type_error": 740,
+      "nested_value_outside_profile": 158,
+      "known_value_range_error": 40
+    },
+    "caseSha256": "dee5415db58b603b5a218903e976f84bd2853d829085aea859e113a4f4e722d6",
+    "v3InputSha256": "d9b01af4a4fdcb8f73664eb42c2cd5d673a505115a3d98a3d37d3443db9ce190",
+    "sourceHash": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+    "prefixGuestStepsIncludingInitialization": 770521,
+    "scalarCalls": {
+      "2": 562,
+      "3": 836,
+      "15": 792,
+      "16": 848,
+      "17": 870
+    },
+    "enumNativeVisits": {
+      "0xa52f450": 1,
+      "0x6799f90": 1,
+      "0x679b410": 2476,
+      "0x51909a0": 2314,
+      "0xa533c10": 2314
+    },
+    "dateRuntimeVisits": {
+      "0x8ae7e40": 810,
+      "0x8ae88b0": 786,
+      "0x8ae56c0": 786,
+      "0x8ae8540": 786
+    },
+    "birthdayWrapperVisits": 562,
+    "birthdayCtorVisits": 348,
+    "models": "Private v4 diagnostic numeric-default profile. Actual SelfAccount dispatch/local stores.\nNullable primitive instructions run in its guest; enum/date readers execute in separate bounded guests.\nCross-guest interface delegation, token callbacks and runtime metadata services are declared models.\n",
+    "accountConstructed": false,
+    "originalGameExecuted": false
+  },
+  "compiled": {
+    "schema": "compiled-self-account-default-numeric-v4",
+    "comparisons": [
+      {
+        "variant": "actual",
+        "cases": 2445,
+        "mismatches": 0,
+        "firstIds": []
+      },
+      {
+        "variant": "unix-seconds",
+        "cases": 2445,
+        "mismatches": 399,
+        "firstIds": [
+          78,
+          79,
+          86,
+          87,
+          95,
+          96,
+          103,
+          104,
+          826,
+          827,
+          834,
+          835,
+          843,
+          844,
+          851,
+          852
+        ]
+      },
+      {
+        "variant": "unspecified-kind",
+        "cases": 2445,
+        "mismatches": 399,
+        "firstIds": [
+          78,
+          79,
+          86,
+          87,
+          95,
+          96,
+          103,
+          104,
+          826,
+          827,
+          834,
+          835,
+          843,
+          844,
+          851,
+          852
+        ]
+      },
+      {
+        "variant": "declared-enums-only",
+        "cases": 2445,
+        "mismatches": 459,
+        "firstIds": [
+          113,
+          114,
+          119,
+          120,
+          130,
+          131,
+          136,
+          137,
+          147,
+          148,
+          153,
+          154,
+          725,
+          726,
+          731,
+          732
+        ]
+      },
+      {
+        "variant": "omit-birthday-null",
+        "cases": 2445,
+        "mismatches": 88,
+        "firstIds": [
+          71,
+          88,
+          1768,
+          1791,
+          2049,
+          2051,
+          2056,
+          2069,
+          2083,
+          2088,
+          2089,
+          2094,
+          2095,
+          2114,
+          2115,
+          2126
+        ]
+      },
+      {
+        "variant": "first-wins",
+        "cases": 2445,
+        "mismatches": 827,
+        "firstIds": [
+          992,
+          993,
+          994,
+          995,
+          996,
+          997,
+          998,
+          999,
+          1000,
+          1001,
+          1002,
+          1003,
+          1006,
+          1007,
+          1009,
+          1011
+        ]
+      }
+    ],
+    "preservedProfiles": [
+      {
+        "profile": "v2",
+        "cases": 1292,
+        "mismatches": 0,
+        "boundaryChecks": 79,
+        "fixtureHash": "83b9d92ddb438e9c6be7ba9b143ff53bcaa18e3de2c346a6557ef37088291489"
+      },
+      {
+        "profile": "v3",
+        "cases": 1768,
+        "mismatches": 0,
+        "boundaryChecks": 70,
+        "fixtureHash": "d9b01af4a4fdcb8f73664eb42c2cd5d673a505115a3d98a3d37d3443db9ce190"
+      }
+    ],
+    "newBoundaryChecks": 102,
+    "strictJsonTypeComparison": true,
+    "coreSha256": "2d917317c11e8ecad8d5224a0698e21a9813eaf88c7fc9e14761e18ab085c7eb",
+    "harnessSha256": "10f6803d48ad5227d8dcbc2497a0bc0bb389e80653df1d48048ffc7e40c85ea1",
+    "fixtureSha256": "dee5415db58b603b5a218903e976f84bd2853d829085aea859e113a4f4e722d6",
+    "originalGameExecuted": false,
+    "accountConstructed": false,
+    "nativeLoginVerified": false
+  },
+  "regressions": {
+    "lockedReleaseBuild": {
+      "warnings": 0,
+      "errors": 0
+    },
+    "compatibilityCases": 570,
+    "compatibilityChecks": 4996,
+    "loginChecks": 106
+  },
+  "models": [
+    "token callbacks and strict lexical scalar admission",
+    "runtime generic context",
+    "type handles, underlying-type reflection and equality",
+    "delegate construction",
+    "boxing/unboxing",
+    "metadata, allocator and GC",
+    "cross-guest date/enum interface delegation"
+  ],
+  "nativeStaticInitializerFullyExecuted": false,
+  "dateStringParserVerified": false,
+  "enumStringParserVerified": false,
+  "accountConstructed": false,
+  "nativeLoginVerified": false,
+  "originalGameExecuted": false,
+  "deploymentChanged": false,
+  "probeHashes": {
+    "enum_numeric_probe.py": "83f36bd2187665c3909d9ba6d10d8da301b41d0e0db68514205adb99b79535b6",
+    "datetime_numeric_probe.py": "2f115c87ec8dc2761ebda8c031ccb61427bf756785cd1ac9f26157aac5bc9052",
+    "birthday_numeric_probe.py": "f43d7a86905bea805ef664bc476977ec8e9d24884236f2028649bb5cd225c16e",
+    "numeric_prefix_probe_v4.py": "474840b4442e94dd40f756b55dc1f210f3f5e410f7a0b607fd6ee95dab8a094e",
+    "compare_numeric_reference_v4.py": "e649c7ffd8dce6ccb15b091ca6e14d988da244331669ebd5f7e760d5777b2add",
+    "compare_compiled_numeric_v4.py": "2c9042362f5e46d5370325b9515105c17174b0582412a94200c1fd51fbdd1e91"
+  }
+}

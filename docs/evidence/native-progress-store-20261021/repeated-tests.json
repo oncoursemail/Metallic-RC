@@ -1,0 +1,124 @@
+{
+  "status": "repeated_progress_and_controller_tests_passed",
+  "createdUtc": "2026-10-21T20:56:39.147086+00:00",
+  "runs": [
+    {
+      "name": "progress-repeat-1",
+      "exitCode": 0,
+      "seconds": 3.867,
+      "logSha256": "5109266c396998b00bee07510696ee2b9e88a14d242a5bdcc429d1aa561f4a4b"
+    },
+    {
+      "name": "progress-repeat-2",
+      "exitCode": 0,
+      "seconds": 4.391,
+      "logSha256": "7336c678dea5d46437e024ec34d84c93811f7e3b2da93bd7ce58c9abdac4583e"
+    },
+    {
+      "name": "progress-repeat-3",
+      "exitCode": 0,
+      "seconds": 3.751,
+      "logSha256": "038d174a495e2636e0dc907f86986ec006958fd1f70956f4874e535f6788173b"
+    },
+    {
+      "name": "progress-repeat-4",
+      "exitCode": 0,
+      "seconds": 4.026,
+      "logSha256": "d7d3f553fc96f9bedcb9d3cd5436d5aba6adf0b7b894b761299db0c3a8413e09"
+    },
+    {
+      "name": "progress-repeat-5",
+      "exitCode": 0,
+      "seconds": 4.625,
+      "logSha256": "a7a861442640d76ffa3806b0f4b0f0652b473e9abe5a9e41e54e163550494c2a"
+    },
+    {
+      "name": "supervision",
+      "exitCode": 0,
+      "seconds": 18.426,
+      "logSha256": "ff109fd1caa08ecbed649206bbc0570a9659f0e5fe0e3066d24c7793f0ab5fe9"
+    },
+    {
+      "name": "javascript",
+      "exitCode": 0,
+      "seconds": 0.219,
+      "logSha256": "0ac2ce87c0278613d45750b7922a4f5e3946b322b5031ebf10ba8fba67a7c92f"
+    },
+    {
+      "name": "real-instrumentation-fixture",
+      "exitCode": 0,
+      "seconds": 1.359,
+      "logSha256": "752891f483360252ea57c404e069f25af86a01e0bc9fbc410ad7c166461baa8a"
+    }
+  ],
+  "sourceIdentities": [
+    {
+      "name": "Launch-NativeClientTest.ps1",
+      "sha256": "d66a2779fa8516076fa094fa2cd9bd3f61f08902dfbbcffd147d66bb02422806"
+    },
+    {
+      "name": "prepare-manifest.py",
+      "sha256": "f6b248547472e3f7d6662f41029c005e433ff398a7619306fc78ab9f1a389fe0"
+    },
+    {
+      "name": "progress_store.py",
+      "sha256": "913185ce50bc8ae2c79a2c834171bb53d7c9b51322e315e0f05c04c3399b298c"
+    },
+    {
+      "name": "README.md",
+      "sha256": "97ff42668d5d169a611bfb0540ca815394bd3710462858bd9d0c87626cbfe536"
+    },
+    {
+      "name": "route-policy.js",
+      "sha256": "8c5483385580455289240854beb63649ad324848ea5ac03e7c6a275eb5a34a2a"
+    },
+    {
+      "name": "route-policy.test.js",
+      "sha256": "5347ca15587f16d44e22b62aade9b9f28b49f02b658388c28d63979527cfad9e"
+    },
+    {
+      "name": "run-native-client.py",
+      "sha256": "459604d53ff3a6ca38511118123b89fadb30c3a281faf15b1e4e628b371463a5"
+    },
+    {
+      "name": "runtime-agent.js",
+      "sha256": "5be105ac790bb1df46e32b3a1a422b0c65cfaf25dae91971e0e996d425dee320"
+    },
+    {
+      "name": "runtime-agent.test.js",
+      "sha256": "06f54b12eb41eb47d6b58f27a5202543f0ab4af3517781fffbaec1d653a8656d"
+    },
+    {
+      "name": "supervision.py",
+      "sha256": "d95313ea379979f1f400c76a67d2a3a0a96bbb397b12b3a6cf0df934ea8c5aa8"
+    },
+    {
+      "name": "test_frida_control.py",
+      "sha256": "aeecf05329f92dbe186d05c438084af53c42fa429accfc36b3f027d6bcd2c90e"
+    },
+    {
+      "name": "test_manifest_profile.py",
+      "sha256": "2b7c1c634468e590b4d5f719497ada3133f9041ddbfe3b8739b9eba25119537c"
+    },
+    {
+      "name": "test_progress_store.py",
+      "sha256": "2c7cd6b067fdeabfba45eca9fc263e5515559e3fd07923432118317d62e81e20"
+    },
+    {
+      "name": "test_supervision.py",
+      "sha256": "7731b82ed1850455e8259ccd0d8dc4f940b2f203f6c96e95f4ec42ae1b5fccba"
+    },
+    {
+      "name": "winjob.py",
+      "sha256": "876d8a0f036144e5cec2c315c237d1d7327dbffccfb09ff98fd9267f1a81da4c"
+    }
+  ],
+  "progressTestsPerSuite": 18,
+  "progressSuites": 5,
+  "concurrentReaderSnapshotUpdates": 5000,
+  "supervisedWorkerSnapshotUpdates": 5000,
+  "supervisionTests": 20,
+  "javascriptTests": 10,
+  "nativeGameExecuted": false,
+  "userApprovalRequested": false
+}

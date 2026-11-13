@@ -1,0 +1,196 @@
+{
+  "observedAtUtc": "2026-10-20T10:02:55.266357+00:00",
+  "scope": "Desktop build inputs: src excluding bin/obj, Core/Platform acceptance sources, root build configs, package scripts and bundled README",
+  "algorithm": "SHA256(UTF8(concat(sorted relative path + NUL + lowercase file SHA256 + LF)))",
+  "sha256": "7d652604d8488e8740891dced3fd0787cc4ef5917e221772ba3353c0b8407608",
+  "files": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "706a1228662629b42858d62f66741ffd8487587c64ce9da1af7574f142ba436b"
+    },
+    {
+      "path": "Metallic.RC.slnx",
+      "sha256": "03cc479b35c53400e1b69629b0dd54142e113550df4013e497fce86dc3bfd9be"
+    },
+    {
+      "path": "NuGet.Config",
+      "sha256": "f545a7e2ea14ac53cdfb91217cae67b8ff14275313f6298f9a3331d205b6c948"
+    },
+    {
+      "path": "docs/DESKTOP_README.txt",
+      "sha256": "6e6a33235fdea598c61214a1c713b7792afcaf86a43e62e72458c2790ff64522"
+    },
+    {
+      "path": "global.json",
+      "sha256": "ea832b7db9570fb51750ec78ee59f5980f6c7a3b49d7e681fea6aa3533de794b"
+    },
+    {
+      "path": "scripts/build-desktop.ps1",
+      "sha256": "b2c8f3e1e43b1ddeeaceb9246d2d8e921aef2d4a00a4dba888dfe098c750298b"
+    },
+    {
+      "path": "scripts/build-desktop.sh",
+      "sha256": "e3991ff6c178b8782b95b84034873403bc6252dd5cb88ffd47c98cab00492e90"
+    },
+    {
+      "path": "scripts/build_manifest.py",
+      "sha256": "83bdeb3bf8aeffa22fb75cf434ef28120a2da0ff4b72cbdf60fe57f381c4b428"
+    },
+    {
+      "path": "src/Metallic.RC.Core/ClientInspector.cs",
+      "sha256": "0626da2e104015b94cd9eb1aac255e995f9e66c52ab7fbfc17368c49618cacf3"
+    },
+    {
+      "path": "src/Metallic.RC.Core/LauncherCatalog.cs",
+      "sha256": "9247669f004206ab4b74b7d622566a798393ea706e928e5dcac222ebe37375df"
+    },
+    {
+      "path": "src/Metallic.RC.Core/Metallic.RC.Core.csproj",
+      "sha256": "4037413b2594bd452147abe625084a271162a7acd8556e93702efecfddbc1563"
+    },
+    {
+      "path": "src/Metallic.RC.Core/Models.cs",
+      "sha256": "5c0eb29e248d188d0cede6121da55d65108438d43b65ad0f89d7a451d9db9a05"
+    },
+    {
+      "path": "src/Metallic.RC.Core/PathRules.cs",
+      "sha256": "9ec598eeb2ac789804822af438e9c4f20dc34fdf6b83b39870acef30b76d825e"
+    },
+    {
+      "path": "src/Metallic.RC.Core/README.md",
+      "sha256": "902152ce98bcf4c21920f77a1f8fa9d38d24c09284c01d8fae9bedadf3ca5426"
+    },
+    {
+      "path": "src/Metallic.RC.Core/packages.lock.json",
+      "sha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792"
+    },
+    {
+      "path": "src/Metallic.RC.Creator/CircuitCompiler.cs",
+      "sha256": "d1a129ca519174a36b1ad9500de1f20019162b10a7b22b22978cefe6aecbdeaf"
+    },
+    {
+      "path": "src/Metallic.RC.Creator/CircuitPreview.cs",
+      "sha256": "29f020c2bdabc7c4b325af5afb6d9c380603343a7e5b65badf99c1a5daedfeb9"
+    },
+    {
+      "path": "src/Metallic.RC.Creator/Metallic.RC.Creator.csproj",
+      "sha256": "9b8458580be4e786dd73ed606f80627ab81a4545fbe8834e205dc430a56e7544"
+    },
+    {
+      "path": "src/Metallic.RC.Creator/Models.cs",
+      "sha256": "83b08995a8c6520fee9c5b7af59c131e9df318ee2719cea050ff9461595a75db"
+    },
+    {
+      "path": "src/Metallic.RC.Creator/NodeCatalog.cs",
+      "sha256": "91d0fc3eb731574dfa07efd0d3ff9e66187e3e753761d79791089e8afcb9560e"
+    },
+    {
+      "path": "src/Metallic.RC.Creator/packages.lock.json",
+      "sha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792"
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/App.cs",
+      "sha256": "6a6c60b77e2852653ae1a9f15e17fb92f3ad8f4be28c56e8b93cfdaec3620a60"
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/Discovery.cs",
+      "sha256": "837346e884d0d1195ed8b20610e6d4482bdfc71a4e25b5479e3f6fadcf71c3d8"
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/MainWindow.cs",
+      "sha256": "828cfdc71c0b0cde541868bd443642b8a352f4d89d17ff89262dad762eb9c9f0"
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/Metallic.RC.Launcher.csproj",
+      "sha256": "3a72d74f85374adab825f65c94c2ddd71dd5296faf147d1222548d70488c7f66"
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/Program.cs",
+      "sha256": "212d5fdb3c313a5f95e1386b7896a8fd18772fa0a1967e83965cf88879094a14"
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/app.manifest",
+      "sha256": "12cf389fcc5fa658682f80587ba416bfbd7f446c1f5a476275528677bda3ae0c"
+    },
+    {
+      "path": "src/Metallic.RC.Launcher/packages.lock.json",
+      "sha256": "4d0e6d65ae7a9a9f5c2af4a0befb3acbc2337b4f45e7266f0142874d5c85120b"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/LocalSecurity.cs",
+      "sha256": "ea0076d237a2b6079082704ecc54d2c848a67244b73703236708d82372ece56f"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/Metallic.RC.Platform.csproj",
+      "sha256": "febdf3fd9ffba9ae74100c03a70c42a69e8975c1c67310de122fc4004b11e47f"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/PlatformApplication.cs",
+      "sha256": "896b463524bfc326edeee8a41e9a3f2f6e8eb99b574acdfacc19f2c3235a907e"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/PlatformJson.cs",
+      "sha256": "7ee309f5dcbc5c560d9a5d212e9b8b983b880f4d503aea778911df948cc0ce8d"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/PlatformOptions.cs",
+      "sha256": "c1a61c2d76e40d1bd435a7b60ec97566484828a9c58b00cf7b05c53b4df76244"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/Program.cs",
+      "sha256": "e7b5ca551535df205a6f8fde5d27976bd7a1b92670c6d8903f5efdb06384a6ac"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/README.md",
+      "sha256": "5e04370692d57607aa43c17d29caf825aa333edff24eabea31bf8d2d05957ab2"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/RoomStore.cs",
+      "sha256": "9244e0f2960bff2fa26475c47a1c059136ded889caaf296538766b5d019f30b0"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/packages.lock.json",
+      "sha256": "d9b0cef88bc7ac85308c1fed18a2708452f7b38fe722283a26c98f632740777b"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/wwwroot/app.js",
+      "sha256": "2b9138a831c2930fb55c2682321f52a38e94b4d0e2d6934ee6d2d14f9e9e3d28"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/wwwroot/favicon.svg",
+      "sha256": "d9aa68fcfba7455b19c177abb86df904e7e266631b6c71762e90ecf57c378fd5"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/wwwroot/index.html",
+      "sha256": "0e9785026d647c69f3078f576f40d7c30caa10b33ca026dfe052616a1c903d81"
+    },
+    {
+      "path": "src/Metallic.RC.Platform/wwwroot/styles.css",
+      "sha256": "46c7212b89fc55ac5750d1fed52d4d610189a69f1908989ca767bd884bbeb9a1"
+    },
+    {
+      "path": "tests/Metallic.RC.Core.Tests/Metallic.RC.Core.Tests.csproj",
+      "sha256": "a4aca26e53cfcd20eac6091043a7e9518fa51e4f8ebcd9e98249cbe6685a6c18"
+    },
+    {
+      "path": "tests/Metallic.RC.Core.Tests/Program.cs",
+      "sha256": "ab5eb8a9891f6a097a526e3e18ea6ce8bab2ba971bc8a524f3bb69888331cb6e"
+    },
+    {
+      "path": "tests/Metallic.RC.Core.Tests/packages.lock.json",
+      "sha256": "10844ad3eaedea4b138981bb82faa8fd7e9154cfa4d91c5ae47ee9ba1a243aa0"
+    },
+    {
+      "path": "tests/Metallic.RC.Platform.Tests/Metallic.RC.Platform.Tests.csproj",
+      "sha256": "51a6539bb7689b5175c749e171184650c69d3f9c21a11d06ba5093bf2fbb7ff3"
+    },
+    {
+      "path": "tests/Metallic.RC.Platform.Tests/Program.cs",
+      "sha256": "dacd2c5f30a23946d5f8519958d1034dd2f764e0716e99be020cb1f8c9c2bbbb"
+    },
+    {
+      "path": "tests/Metallic.RC.Platform.Tests/packages.lock.json",
+      "sha256": "aa62ec62343a34f83ee51e2d491e6519d089d4e5ceb5cc7fbb2fdb4da4907b7e"
+    }
+  ]
+}

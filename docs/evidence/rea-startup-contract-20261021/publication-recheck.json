@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "formatterCases": 2474,
+  "mismatches": 0,
+  "selfTests": {
+    "status": "startup_contract_and_loopback_tests_passed",
+    "cases": 570,
+    "checks": 4996,
+    "httpRequests": 4,
+    "listenerAddress": "127.0.0.1",
+    "ephemeralPort": 50722,
+    "externalRequests": 0,
+    "listenerStopped": true,
+    "actualGameConnected": false,
+    "completeOriginalAsyncReconstruction": false,
+    "scope": "Compiled authored compatibility component and its loopback HTTP fixture; not original client/backend acceptance."
+  },
+  "launcherValidatorPassed": true,
+  "negativeControlProbeBuildPassed": true,
+  "dependencyLockChange": "Only the new metallic.rc.compatibility project reference; dependency versions/hashes unchanged.",
+  "lockFrameworksWithNewReference": [
+    "net10.0"
+  ],
+  "sourceManifest": "published-source-manifest.json"
+}

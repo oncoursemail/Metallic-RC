@@ -1,0 +1,81 @@
+//! The client's start-up against a real metallic-rc-server on a free local port.
+use metallic_rc_client::net::{connect, Login};
+
+fn start_server() -> String {
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("mrc-client-test-{}-{nanos}", std::process::id()));
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new().unwrap().block_on(async move {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let app = metallic_rc_server::App::open(&dir, &url).unwrap();
+            tx.send(url).unwrap();
+            axum::serve(listener, metallic_rc_server::router(app)).await.unwrap();
+        })
+    });
+    rx.recv().unwrap()
+}
+
+#[test]
+fn starts_up_into_a_private_dorm_and_opens_the_hub() {
+    let url = start_server();
+    let mut s = connect(&url, &Login::Name("Alex".into())).unwrap();
+    assert_eq!(s.account.username, "Alex");
+    assert_eq!(s.room.name, "DormRoom");
+    assert!(s.room.private);
+    assert_eq!(s.room.photon_room, format!("dorm-{}", s.account.id));
+    assert!(!s.motd.is_empty());
+
+    let mut hub = s.open_hub().unwrap();
+    assert_eq!(hub.invoke("SubscribeToPlayers", serde_json::json!([[s.account.id]])).unwrap(), serde_json::Value::Null);
+    hub.close();
+
+    let rc = s.goto("RecCenter").unwrap();
+    assert_eq!((rc.room_id, rc.private), (2, false));
+    assert!(s.goto("NoSuchRoom").is_err());
+}
+
+#[test]
+fn the_same_device_gets_the_same_account() {
+    let url = start_server();
+    let a = connect(&url, &Login::Device("dev-1".into())).unwrap();
+    let b = connect(&url, &Login::Device("dev-1".into())).unwrap();
+    assert_eq!(a.account.id, b.account.id);
+}
+
+/// The room server checks the login token; the HTTP room list shows the room once the player is in.
+#[test]
+fn joins_the_room_with_the_login_token_and_lists_it() {
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("mrc-client-rooms-{}-{nanos}", std::process::id()));
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new().unwrap().block_on(async move {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let app = metallic_rc_server::App::open(&dir, &url).unwrap();
+            let check = app.clone();
+            let auth: metallic_rc_server::room::Auth = std::sync::Arc::new(move |t: &str| {
+                metallic_rc_server::auth::verify(&check, t, "access").map(|a| (a.account_id, a.display_name))
+            });
+            let (room, live) = metallic_rc_server::room::start("127.0.0.1:0", Some(auth)).unwrap();
+            tx.send((url, room)).unwrap();
+            axum::serve(listener, metallic_rc_server::router(app.clone()).merge(metallic_rc_server::room::routes(app, live))).await.unwrap();
+        })
+    });
+    let (url, room) = rx.recv().unwrap();
+    let s = connect(&url, &Login::Name("Rhea".into())).unwrap();
+    assert!(s.live_rooms().unwrap().is_empty());
+    let rt = metallic_rc_client::realtime::start(&room.to_string(), "lobby-1", &s.access_token, "Rhea", [0.0; 3], 0.0).unwrap();
+    let forged = metallic_rc_client::realtime::start(&room.to_string(), "lobby-1", "not-a-token", "Mallory", [0.0; 3], 0.0).unwrap();
+    let t = std::time::Instant::now();
+    while t.elapsed().as_secs_f64() < 5.0 && !(rt.room.lock().unwrap().is_spawned() && forged.room.lock().unwrap().is_closed()) {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert!(rt.room.lock().unwrap().is_spawned());
+    assert!(forged.room.lock().unwrap().actor().is_none());
+    let rooms = s.live_rooms().unwrap();
+    assert_eq!(rooms, vec![metallic_rc_client::net::LiveRoom { room: "lobby-1".into(), players: 1 }]);
+    rt.room.lock().unwrap().leave(rt.now());
+}

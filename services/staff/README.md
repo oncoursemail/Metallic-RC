@@ -1,4 +1,4 @@
-# Metallic Studios — Staff Role Policy Kernel
+# Metallic-RC — Staff Role Policy Kernel
 
 **Implementation status:** server-side pure permission logic and unit tests committed. This is NOT a deployed staff API or a working in-game UI.
 
@@ -29,7 +29,7 @@ Only a game renderer can display a real overhead avatar title. That is not avail
 4. Connect in-game, web and Discord mod actions to one trusted server-side command handler.
 5. Verify permissions, private session behavior, staff impersonation defense and responsive VR UI.
 
-Additional specification: [Moderation, Discord and Staff](../../docs/MODERATION_DISCORD_STAFF.md), task [#43](https://github.com/oncoursemail/Metallic/issues/43) and [#44](https://github.com/oncoursemail/Metallic/issues/44).
+Additional specification: [Moderation, Discord and Staff](../../docs/MODERATION_DISCORD_STAFF.md), task [#43](https://github.com/oncoursemail/Metallic-RC/issues/43) and [#44](https://github.com/oncoursemail/Metallic-RC/issues/44).
 
 ## Example title preference
 

@@ -1,4 +1,6 @@
-# Metallic Studios — Meta Quest / Horizon Store, PC Distribution & QA Roadmap
+> **Direction update — 20 October 2026:** use the owner's actual compiled client as the starting point. The [compiled-client rework](COMPILED_CLIENT_REWORK.md) supersedes earlier replacement-engine/hub proposals below. These plans do not establish shipped gameplay.
+
+# Metallic-RC — Meta Quest / Horizon Store, PC Distribution & QA Roadmap
 
 **Research baseline:** October 15, 2026 · **Status:** release process design; no game APK or Meta submission exists in this repository.
 

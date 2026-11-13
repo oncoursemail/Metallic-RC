@@ -1,0 +1,431 @@
+{
+  "records": [
+    {
+      "pass": "rea-analysis-summary.json",
+      "methodIndex": 126409,
+      "status": "dossier_retained",
+      "evidenceId": "ev_d723681733694adf784d283361ac11fa648e62934d3312a22984666e237b1a10",
+      "warnings": [
+        "/* WARNING: Control flow encountered bad instruction data */",
+        "/* WARNING: Possible PIC construction at 0x000189128bf0: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128c35: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128c5d: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128c85: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128cad: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128cd5: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128cfd: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128d25: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128d4d: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128d75: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128d9d: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128dc5: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128ded: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128e1b: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128e49: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128e77: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128ea5: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128ed3: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128f01: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128f2f: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128f5d: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128f8b: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128fb9: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189128fe7: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189129015: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189129043: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189129071: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x00018912909f: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x0001891290cd: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x0001891290fb: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189129129: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x000189129153: Changing call to branch */",
+        "/* WARNING: Possible PIC construction at 0x00018912917d: Changing call to branch */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129158) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018912916c) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018912912e) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129142) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129100) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129118) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001891290d2) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001891290ea) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001891290a4) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001891290bc) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129076) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018912908e) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129048) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129060) */",
+        "/* WARNING: Removing unreachable block (ram,0x00018912901a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129032) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128fec) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129004) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128fbe) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128fd6) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128f90) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128fa8) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128f62) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128f7a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128f34) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128f4c) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128f06) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128f1e) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128ed8) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128ef0) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128eaa) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128ec2) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128e7c) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128e94) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128e4e) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128e66) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128e20) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128e38) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128df2) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128e0a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128dca) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128de2) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128da2) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128dba) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128d7a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128d92) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128d52) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128d6a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128d2a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128d42) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128d02) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128d1a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128cda) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128cf2) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128cb2) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128cca) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128c8a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128ca2) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128c62) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128c7a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128c3a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128c52) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128bf5) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128c20) */",
+        "/* WARNING: Removing unreachable block (ram,0x0001891291a2) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189128c2a) */",
+        "/* WARNING: Removing unreachable block (ram,0x000189129182) */",
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Bad instruction - Truncating control flow here */",
+        "halt_baddata();",
+        "/* WARNING: Subroutine does not return */"
+      ],
+      "sourceBytes": 5096,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x189127dc0",
+            "end": "0x1891291a0"
+          },
+          {
+            "start": "0x1891291a2",
+            "end": "0x1891291a6"
+          }
+        ],
+        "total_bytes": 5094,
+        "span_bytes": 5095,
+        "non_contiguous": true,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "rea-analysis-summary.json",
+      "methodIndex": 126410,
+      "status": "no_inline_dossier",
+      "evidenceId": null,
+      "warnings": [],
+      "sourceBytes": null,
+      "representedBody": null
+    },
+    {
+      "pass": "rea-analysis-summary.json",
+      "methodIndex": 126411,
+      "status": "dossier_retained",
+      "evidenceId": "ev_94bd32e6182e63a30c504fcbd9a6ece06c73c38a009841eccdda263adcfbaf2a",
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */"
+      ],
+      "sourceBytes": 118,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x189126210",
+            "end": "0x189126ecd"
+          }
+        ],
+        "total_bytes": 3262,
+        "span_bytes": 3262,
+        "non_contiguous": false,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "rea-analysis-summary.json",
+      "methodIndex": 152754,
+      "status": "dossier_retained",
+      "evidenceId": "ev_ba3fc785e689687a74f1884f991acbcc603fa2cf8602a26cbe2e2ff0c3281929",
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ],
+      "sourceBytes": 256,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x189552470",
+            "end": "0x189552950"
+          },
+          {
+            "start": "0x189552952",
+            "end": "0x189552960"
+          },
+          {
+            "start": "0x189552962",
+            "end": "0x189552966"
+          }
+        ],
+        "total_bytes": 1269,
+        "span_bytes": 1271,
+        "non_contiguous": true,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "rea-analysis-summary.json",
+      "methodIndex": 148089,
+      "status": "dossier_retained",
+      "evidenceId": "ev_82cfe0bc28a643b7aca8abcdd082b53fff7df76a1a14f3a9e1a57ba03367665b",
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "sourceBytes": 170,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x189481990",
+            "end": "0x189481a39"
+          }
+        ],
+        "total_bytes": 170,
+        "span_bytes": 170,
+        "non_contiguous": false,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "rea-analysis-summary.json",
+      "methodIndex": 148240,
+      "status": "dossier_retained",
+      "evidenceId": "ev_90b035abf480aa35b18824522e72eea99b024a3c5f60cb0005402c5b2b20c21f",
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */",
+        "/* WARNING: Subroutine does not return */"
+      ],
+      "sourceBytes": 4837,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x18948c450",
+            "end": "0x18948d2ad"
+          },
+          {
+            "start": "0x18948d3de",
+            "end": "0x18948d42a"
+          },
+          {
+            "start": "0x18948d42c",
+            "end": "0x18948d43f"
+          },
+          {
+            "start": "0x18948d441",
+            "end": "0x18948d726"
+          }
+        ],
+        "total_bytes": 4517,
+        "span_bytes": 4823,
+        "non_contiguous": true,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "isolated-pe-summary.json",
+      "methodIndex": 126410,
+      "status": "retained",
+      "evidenceId": "ev_4ecfdd6bb0b35f87896f51b40af1c712232d27fd047a5266fc2684a13f9051c5",
+      "warnings": [
+        "/* WARNING: Control flow encountered bad instruction data */",
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */",
+        "                    /* WARNING: Bad instruction - Truncating control flow here */",
+        "    halt_baddata();"
+      ],
+      "sourceBytes": 3688,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x189126f50",
+            "end": "0x189127db7"
+          }
+        ],
+        "total_bytes": 3688,
+        "span_bytes": 3688,
+        "non_contiguous": false,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "isolated-pe-summary.json",
+      "methodIndex": 347046,
+      "status": "retained",
+      "evidenceId": "ev_a8e359fa7dc640b575253173d578199bec47826a498a1fa70de46f0adc00cd8c",
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "sourceBytes": 182,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x18a513620",
+            "end": "0x18a5136d5"
+          }
+        ],
+        "total_bytes": 182,
+        "span_bytes": 182,
+        "non_contiguous": false,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "isolated-pe-summary.json",
+      "methodIndex": 347050,
+      "status": "retained",
+      "evidenceId": "ev_b464890c0cf6bda87b106078a5a63507c0f7ffd8ac2386e36d7dbbb759174baa",
+      "warnings": [
+        "/* WARNING: Control flow encountered bad instruction data */",
+        "                    /* WARNING: Bad instruction - Truncating control flow here */",
+        "  halt_baddata();"
+      ],
+      "sourceBytes": 16,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x18a5132c0",
+            "end": "0x18a5132c9"
+          }
+        ],
+        "total_bytes": 10,
+        "span_bytes": 10,
+        "non_contiguous": false,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "isolated-pe-summary.json",
+      "methodIndex": 347051,
+      "status": "retained",
+      "evidenceId": "ev_18e7fe9685d3afbaf9835c088d5caa60635f114f70544c77584f0f1b05796ff9",
+      "warnings": [
+        "/* WARNING: Control flow encountered bad instruction data */",
+        "                    /* WARNING: Bad instruction - Truncating control flow here */",
+        "  halt_baddata();"
+      ],
+      "sourceBytes": 72,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x18a5136e0",
+            "end": "0x18a513727"
+          }
+        ],
+        "total_bytes": 72,
+        "span_bytes": 72,
+        "non_contiguous": false,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "isolated-pe-summary.json",
+      "methodIndex": 347119,
+      "status": "retained",
+      "evidenceId": "ev_ab2328c0b11c37157839e726b3ae2e3667c6ee0e1c6e38fcfa5c3a4c64e8de12",
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "sourceBytes": 285,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x18a5159a0",
+            "end": "0x18a515abc"
+          }
+        ],
+        "total_bytes": 285,
+        "span_bytes": 285,
+        "non_contiguous": false,
+        "contains_entry": true
+      }
+    },
+    {
+      "pass": "isolated-pe-summary.json",
+      "methodIndex": 347121,
+      "status": "retained",
+      "evidenceId": "ev_4c421bfa326e3922b7514eb51c434677bc0051a95bd4d69337d28e515b32d253",
+      "warnings": [
+        "/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */"
+      ],
+      "sourceBytes": 374,
+      "representedBody": {
+        "available": true,
+        "provenance": "ghidra-function-body-address-set",
+        "ranges": [
+          {
+            "start": "0x18a515ad0",
+            "end": "0x18a515c45"
+          }
+        ],
+        "total_bytes": 374,
+        "span_bytes": 374,
+        "non_contiguous": false,
+        "contains_entry": true
+      }
+    }
+  ],
+  "scope": "Exact source instructions inside documented analysis PE carriers; external dependencies and decompiler warnings remain explicit.",
+  "failedRawFollowup": "Windows REA 6.5 Ghidra P0 did not admit raw x64; raw attempts were not counted as successful analysis.",
+  "canonicalEvidenceRemainsOnMain": true
+}

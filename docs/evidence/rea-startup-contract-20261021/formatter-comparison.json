@@ -1,0 +1,49 @@
+{
+  "status": "formatter_control_flow_differential_passed",
+  "createdUtc": "2026-10-21T02:24:52.898590+00:00",
+  "cases": 2474,
+  "readCases": 2222,
+  "writeCases": 252,
+  "mismatches": 0,
+  "originalFormatterMethods": [
+    126409,
+    126410,
+    126411
+  ],
+  "exactCanonicalFields": 32,
+  "exactInputAliases": 76,
+  "outcomes": {
+    "ok": 1402,
+    "known_value_type_error": 1072
+  },
+  "guestInstructions": 1249734,
+  "negativeControls": {
+    "managed-empty-object": {
+      "cases": 2474,
+      "mismatches": 1
+    },
+    "managed-casefold": {
+      "cases": 2474,
+      "mismatches": 305
+    },
+    "managed-first-wins": {
+      "cases": 2474,
+      "mismatches": 320
+    }
+  },
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "inputSha256": "a57a0aaca1aef29a10b4facfa7384b681284bfebbc4a8c5a9b18b693a226e78a",
+  "nativeOutputSha256": "6584720fcd7381d60b367d3051ac26f38b5855d8e821c776263c2c4c01b1a6b3",
+  "managedOutputSha256": "eb4aa139d558982b86c7bca595712b14d5555f74dfc07f50632fe52ef013c213",
+  "emulatorVersion": "2.1.4",
+  "seconds": 10.917592099998728,
+  "originalGameExecuted": false,
+  "originalFormatterInstructionBytesEmulated": true,
+  "nativeParserAndAllocatorCallbacksModeled": true,
+  "stringEncodingComparedAsOrderedJsonValuesNotNativeByteEquivalence": true,
+  "limits": [
+    "Plain ASCII property names; arbitrary escaped keys and malformed UTF-8 are outside this differential profile.",
+    "Native token/parser, dictionary lookup, allocation, metadata, garbage collection and error helpers are declared modeled boundaries.",
+    "Tests establish generated-formatter control flow for these fixtures, not complete Utf8Json, Unity, HTTP, authentication or gameplay compatibility."
+  ]
+}

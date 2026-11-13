@@ -1,0 +1,22 @@
+{
+  "applicationWindow": {
+    "windowUtc": "2026-10-21T17:23:00Z/17:29:00Z",
+    "matchingCrashRecords": 0,
+    "records": [],
+    "absenceDoesNotEstablishCause": true
+  },
+  "additionalWindowsLogs": [
+    {
+      "changedSettings": false,
+      "status": "no_readable_matching_window_events",
+      "log": "Microsoft-Windows-CodeIntegrity/Operational"
+    },
+    {
+      "changedSettings": false,
+      "status": "no_readable_matching_window_events",
+      "log": "Microsoft-Windows-Windows Defender/Operational"
+    }
+  ],
+  "causeEstablished": false,
+  "securitySettingsChanged": false
+}

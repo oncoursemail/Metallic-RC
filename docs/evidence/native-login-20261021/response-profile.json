@@ -1,0 +1,107 @@
+{
+  "buildId": "23191908",
+  "canonicalNames": [
+    "Error",
+    "error_description",
+    "access_token",
+    "refresh_token",
+    "Key",
+    "code_hint",
+    "login_context",
+    "hcc"
+  ],
+  "aliases": [
+    {
+      "name": "Error",
+      "ordinal": 0
+    },
+    {
+      "name": "error",
+      "ordinal": 0
+    },
+    {
+      "name": "Error_description",
+      "ordinal": 1
+    },
+    {
+      "name": "error_description",
+      "ordinal": 1
+    },
+    {
+      "name": "Access_token",
+      "ordinal": 2
+    },
+    {
+      "name": "access_token",
+      "ordinal": 2
+    },
+    {
+      "name": "Refresh_token",
+      "ordinal": 3
+    },
+    {
+      "name": "refresh_token",
+      "ordinal": 3
+    },
+    {
+      "name": "Key",
+      "ordinal": 4
+    },
+    {
+      "name": "key",
+      "ordinal": 4
+    },
+    {
+      "name": "Code_hint",
+      "ordinal": 5
+    },
+    {
+      "name": "code_hint",
+      "ordinal": 5
+    },
+    {
+      "name": "Login_context",
+      "ordinal": 6
+    },
+    {
+      "name": "login_context",
+      "ordinal": 6
+    },
+    {
+      "name": "Hcc",
+      "ordinal": 7
+    },
+    {
+      "name": "hcc",
+      "ordinal": 7
+    }
+  ],
+  "nativeMethods": {
+    "126718": [
+      157314736,
+      157315991
+    ],
+    "126719": [
+      157313504,
+      157314736
+    ],
+    "126720": [
+      157312384,
+      157313504
+    ]
+  },
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "constructorInstructions": 349,
+  "profile": "root null/object; exact raw ASCII aliases; seven string/null fields; null or absent code_hint only; populated nested hint stops outside profile",
+  "modeledBoundaries": [
+    "metadata",
+    "allocation",
+    "GC barrier",
+    "JSON token reading",
+    "exact alias dictionary",
+    "string encoding",
+    "null-only nested formatter interface dispatch"
+  ],
+  "originalGameExecuted": false,
+  "productionCredentialConstantsIncluded": false
+}

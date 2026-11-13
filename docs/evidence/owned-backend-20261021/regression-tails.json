@@ -1,0 +1,20 @@
+{
+  "core": [
+    "PASS Canceled inspection cannot produce an import",
+    "PASS A previously planned executable is reverified before launch",
+    "PASS A reviewed plan cannot be redirected by changing the catalog root",
+    "18/18 acceptance checks passed. Fixture PE headers are synthetic; no game, external launcher, guard, or injector was executed."
+  ],
+  "platform": [
+    "PASS: 101 assertions; typed CV3, bounded preview, real loopback HTTP, authentication, ETags and restart persistence."
+  ],
+  "lockedBuild": [
+    "  Metallic.RC.Backend.Tests -> C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\backend-work-20261021\\tests\\Metallic.RC.Backend.Tests\\bin\\Release\\net10.0\\Metallic.RC.Backend.Tests.dll",
+    "",
+    "Build succeeded.",
+    "    0 Warning(s)",
+    "    0 Error(s)",
+    "",
+    "Time Elapsed 00:00:09.26"
+  ]
+}

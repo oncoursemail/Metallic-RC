@@ -1,0 +1,31 @@
+{
+  "status": "independent_upstream_metadata_parse_passed",
+  "upstream": "Perfare/Il2CppDumper",
+  "upstreamCommit": "4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a",
+  "metadataVersion": 31,
+  "inputSha256": "d675ea92bfb0086c0238e56702e91413fcc663c81fce364253749edbf6fcec9f",
+  "sourceFilesModified": false,
+  "inputMemoryUnchanged": true,
+  "counts": {
+    "images": 419,
+    "assemblies": 419,
+    "types": 63648,
+    "methods": 409503,
+    "fields": 252928,
+    "parameters": 373383,
+    "properties": 80911,
+    "events": 1802,
+    "genericContainers": 8922,
+    "genericParameters": 14086,
+    "stringLiterals": 83658,
+    "attributeRanges": 201468,
+    "modulePlaceholders": 418
+  },
+  "identifierLookups": 1260747,
+  "nativeMethodBodiesRecovered": false,
+  "originalSourceRecovered": false,
+  "limits": [
+    "The independent upstream metadata parser validates parseability; this is not a native registration or original-source recovery result.",
+    "JSON indices describe metadata, not rebuilt game assemblies."
+  ]
+}

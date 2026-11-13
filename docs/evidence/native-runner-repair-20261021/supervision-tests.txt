@@ -1,0 +1,24 @@
+test_complete_discovery_proof_and_clean_state (__main__.AcceptanceTests.test_complete_discovery_proof_and_clean_state) ... ok
+test_failure_not_hidden_by_event_limit (__main__.AcceptanceTests.test_failure_not_hidden_by_event_limit) ... ok
+test_timeout_exit_code_survives (__main__.AcceptanceTests.test_timeout_exit_code_survives) ... ok
+test_zero_exit_without_proof_is_not_success (__main__.AcceptanceTests.test_zero_exit_without_proof_is_not_success) ... ok
+test_bounded_event_size_and_count (__main__.ControlTests.test_bounded_event_size_and_count) ... ok
+test_cancellation_stops_a_wait (__main__.ControlTests.test_cancellation_stops_a_wait) ... ok
+test_facts_are_not_intent (__main__.ControlTests.test_facts_are_not_intent) ... ok
+test_late_timer_is_not_reset_by_phase (__main__.ControlTests.test_late_timer_is_not_reset_by_phase) ... ok
+test_normal_result (__main__.ControlTests.test_normal_result) ... ok
+test_original_error_preserved (__main__.ControlTests.test_original_error_preserved) ... ok
+test_phase_receipt_identifies_block (__main__.ControlTests.test_phase_receipt_identifies_block) ... ok
+test_zero_budget_never_calls (__main__.ControlTests.test_zero_budget_never_calls) ... ok
+test_assign_before_run_and_successful_exit (__main__.WindowsJobTests.test_assign_before_run_and_successful_exit) ... ok
+test_attach_phase_watchdog_handles_uncancellable_wait (__main__.WindowsJobTests.test_attach_phase_watchdog_handles_uncancellable_wait) ... ok
+test_last_parent_handle_close_kills_owned_child (__main__.WindowsJobTests.test_last_parent_handle_close_kills_owned_child) ... ok
+test_normal_worker_exit_does_not_leave_child (__main__.WindowsJobTests.test_normal_worker_exit_does_not_leave_child) ... ok
+test_startup_deadline_precedes_total_budget (__main__.WindowsJobTests.test_startup_deadline_precedes_total_budget) ... ok
+test_struct_layouts_match_x64_win32 (__main__.WindowsJobTests.test_struct_layouts_match_x64_win32) ... ok
+test_timeout_reaps_worker_and_grandchild (__main__.WindowsJobTests.test_timeout_reaps_worker_and_grandchild) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 17.959s
+
+OK

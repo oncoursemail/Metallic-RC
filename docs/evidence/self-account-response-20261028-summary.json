@@ -1,0 +1,187 @@
+{
+  "schema": "sanitized-self-account-authored-response-native-prefix-v5",
+  "build": "23191908",
+  "candidateOnly": true,
+  "allModelArgumentsRequired": 20,
+  "canonicalKeysWritten": 20,
+  "maxStringUtf8Bytes": 16384,
+  "maxOutputBytes": 65536,
+  "compiledWriterComparison": {
+    "schema": "self-account-authored-response-native-prefix-v5",
+    "models": 512,
+    "modelFixtureSha256": "cbe7e06074cf325962c918c7fc582f77207becedb96c2d130e26b1427b17926e",
+    "comparisons": [
+      {
+        "variant": "actual",
+        "cases": 512,
+        "nativeProjectionMismatches": 0,
+        "canonicalOrderMismatches": 0,
+        "firstDifferingIds": [],
+        "minWrittenBytes": 438,
+        "maxWrittenBytes": 649,
+        "prefixGuestStepsIncludingInitialization": 520901,
+        "enumReaderVisits": {
+          "0xa52f450": 1,
+          "0x6799f90": 1,
+          "0x679b410": 1536,
+          "0x51909a0": 1536,
+          "0xa533c10": 1536
+        },
+        "birthdayWrapperVisits": 512,
+        "sourceOutputSha256": "48afc8718341ffac1cc662f0a1d97f6b766b70ccd8aa15fc5b47c0add0ccc797",
+        "nativeReceiptSha256": "eff5a3164d3741507b9d813b37bd402e4842e6b239cf0adc7c815991b4143c38"
+      },
+      {
+        "variant": "drop-field",
+        "cases": 512,
+        "nativeProjectionMismatches": 512,
+        "canonicalOrderMismatches": 512,
+        "firstDifferingIds": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "minWrittenBytes": 412,
+        "maxWrittenBytes": 630,
+        "prefixGuestStepsIncludingInitialization": 496837,
+        "enumReaderVisits": {
+          "0xa52f450": 1,
+          "0x6799f90": 1,
+          "0x679b410": 1024,
+          "0x51909a0": 1024,
+          "0xa533c10": 1024
+        },
+        "birthdayWrapperVisits": 512,
+        "sourceOutputSha256": "d37f73517e0cfd880dc273262828a4c398230177e44d10e85fe7381337158f81",
+        "nativeReceiptSha256": "ba670d02e29a7e63154160fbfccdfa4bfb93492a4ec8a7fbbffe437115ef016e"
+      },
+      {
+        "variant": "swap-ids",
+        "cases": 512,
+        "nativeProjectionMismatches": 512,
+        "canonicalOrderMismatches": 0,
+        "firstDifferingIds": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "minWrittenBytes": 438,
+        "maxWrittenBytes": 649,
+        "prefixGuestStepsIncludingInitialization": 520901,
+        "enumReaderVisits": {
+          "0xa52f450": 1,
+          "0x6799f90": 1,
+          "0x679b410": 1536,
+          "0x51909a0": 1536,
+          "0xa533c10": 1536
+        },
+        "birthdayWrapperVisits": 512,
+        "sourceOutputSha256": "271b6064d3f2b9b8d12c1bbfe81de8c80563d0913b2f0818ecb6dad238e15107",
+        "nativeReceiptSha256": "d48b6475fcb8ee06a7084b5cf6aa959a905dd70cbf82494ecbb3a76a922d0e30"
+      },
+      {
+        "variant": "unix-seconds",
+        "cases": 512,
+        "nativeProjectionMismatches": 453,
+        "canonicalOrderMismatches": 0,
+        "firstDifferingIds": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7,
+          9,
+          10,
+          11,
+          12,
+          13
+        ],
+        "minWrittenBytes": 438,
+        "maxWrittenBytes": 635,
+        "prefixGuestStepsIncludingInitialization": 520901,
+        "enumReaderVisits": {
+          "0xa52f450": 1,
+          "0x6799f90": 1,
+          "0x679b410": 1536,
+          "0x51909a0": 1536,
+          "0xa533c10": 1536
+        },
+        "birthdayWrapperVisits": 512,
+        "sourceOutputSha256": "e939c3eca94f42c6d83523c42cbf8f18fea4f2c23db520a54bf06a52b649089a",
+        "nativeReceiptSha256": "c27f4de110d4822a51ce40ea4bee6eb00a0e9d8535017cb80783f39880ead425"
+      }
+    ],
+    "boundaryChecks": 64,
+    "coreSha256": "0120298a1653a5680636ebdcf6f763a57a2fbbf1a232949b49f8b9c4c803e1d2",
+    "harnessSha256": "339f71546f64b536b1dab790601fc40265b45f77b8d94cbd3220b4b05abce65b",
+    "strictJsonTypeComparison": true,
+    "actualWriterUtf8FedToNativePrefix": true,
+    "fullNativeLexicalReaderExecuted": false,
+    "originalClientSerializerReconstructed": false,
+    "accountConstructed": false,
+    "originalGameExecuted": false,
+    "nativeLoginVerified": false,
+    "limits": "Private v5: authored C# response bytes -> synthetic-token callbacks -> actual native reader prefix.\nAll20 explicit model values are compared externally; no C# reader roundtrip or account constructor.\nUses prior declared runtime/token/cross-guest models; never starts the original client.\n"
+  },
+  "preservedProfiles": [
+    {
+      "profile": "v2",
+      "cases": 1292,
+      "mismatches": 0,
+      "boundaryChecks": 79,
+      "fixtureSha256": "83b9d92ddb438e9c6be7ba9b143ff53bcaa18e3de2c346a6557ef37088291489"
+    },
+    {
+      "profile": "v3",
+      "cases": 1768,
+      "mismatches": 0,
+      "boundaryChecks": 70,
+      "fixtureSha256": "d9b01af4a4fdcb8f73664eb42c2cd5d673a505115a3d98a3d37d3443db9ce190"
+    },
+    {
+      "profile": "v4",
+      "cases": 2445,
+      "mismatches": 0,
+      "boundaryChecks": 102,
+      "fixtureSha256": "dee5415db58b603b5a218903e976f84bd2853d829085aea859e113a4f4e722d6"
+    }
+  ],
+  "regressions": {
+    "lockedReleaseBuild": {
+      "warnings": 0,
+      "errors": 0
+    },
+    "compatibilityCases": 570,
+    "compatibilityChecks": 4996,
+    "loginChecks": 106
+  },
+  "comparisonScriptSha256": "f0a87b6e6ea26440eb95eb22e04a08daa150a7aca3ab8a5ad4e77a9d9821716d",
+  "nativeLexicalReaderExecuted": false,
+  "originalClientSerializerReconstructed": false,
+  "nativeAccountConstructed": false,
+  "nativeLoginVerified": false,
+  "originalGameExecuted": false,
+  "storeMappingAdded": false,
+  "routesOrAuthenticationChanged": false,
+  "deploymentChanged": false
+}

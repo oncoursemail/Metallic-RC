@@ -1,0 +1,158 @@
+name: Metallic owned-backend contracts
+
+on:
+  pull_request:
+    paths:
+      - 'src/Metallic.RC.Backend/**'
+      - 'src/Metallic.RC.Compatibility/**'
+      - 'tests/Metallic.RC.Backend.Tests/**'
+      - 'tests/Metallic.RC.PoseContract.Tests/**'
+      - 'tests/Metallic.RC.RoomCleanup.Tests/**'
+      - 'tests/Metallic.RC.LoginContract.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountPrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountNullablePrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountNumericPrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountResponse.Tests/**'
+      - 'tests/Metallic.RC.NativeIdentity.Tests/**'
+      - 'tests/Metallic.RC.CredentialCheck.Tests/**'
+      - 'tests/Metallic.RC.NativeSessions.Tests/**'
+      - 'tests/Metallic.RC.NativeAccountProfiles.Tests/**'
+      - 'tests/Metallic.RC.NativeGateway.Tests/**'
+      - 'tools/client-lab/**'
+      - 'ops/backend/**'
+      - 'Directory.Build.props'
+      - 'NuGet.Config'
+      - 'global.json'
+      - '.github/workflows/backend-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/Metallic.RC.Backend/**'
+      - 'src/Metallic.RC.Compatibility/**'
+      - 'tests/Metallic.RC.Backend.Tests/**'
+      - 'tests/Metallic.RC.PoseContract.Tests/**'
+      - 'tests/Metallic.RC.RoomCleanup.Tests/**'
+      - 'tests/Metallic.RC.LoginContract.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountPrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountNullablePrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountNumericPrefix.Tests/**'
+      - 'tests/Metallic.RC.SelfAccountResponse.Tests/**'
+      - 'tests/Metallic.RC.NativeIdentity.Tests/**'
+      - 'tests/Metallic.RC.CredentialCheck.Tests/**'
+      - 'tests/Metallic.RC.NativeSessions.Tests/**'
+      - 'tests/Metallic.RC.NativeAccountProfiles.Tests/**'
+      - 'tests/Metallic.RC.NativeGateway.Tests/**'
+      - 'tools/client-lab/**'
+      - 'ops/backend/**'
+      - 'Directory.Build.props'
+      - 'NuGet.Config'
+      - 'global.json'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owned-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
+
+jobs:
+  transport:
+    name: Owned HTTP and WebSocket contracts (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Restore locked dependencies
+        run: dotnet restore tests/Metallic.RC.Backend.Tests/Metallic.RC.Backend.Tests.csproj --locked-mode
+      - name: Compile the actual server and integration tests
+        run: dotnet build tests/Metallic.RC.Backend.Tests/Metallic.RC.Backend.Tests.csproj -c Release --no-restore
+      - name: Test real local connections, persistence, access controls and backup restore
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path artifacts/backend -Force | Out-Null
+          & dotnet tests/Metallic.RC.Backend.Tests/bin/Release/net10.0/Metallic.RC.Backend.Tests.dll artifacts/backend/results.json 2>&1 |
+              Tee-Object -FilePath artifacts/backend/transport.log
+          if ($LASTEXITCODE -ne 0) { throw 'Owned-backend integration tests failed.' }
+      - name: Build the missing-field pose regression with locked dependencies
+        run: dotnet build tests/Metallic.RC.PoseContract.Tests/Metallic.RC.PoseContract.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify rejected poses do not mutate or broadcast room state
+        run: dotnet tests/Metallic.RC.PoseContract.Tests/bin/Release/net10.0/Metallic.RC.PoseContract.Tests.dll artifacts/backend/pose-contract.json
+      - name: Build the room-cleanup regression with locked dependencies
+        run: dotnet build tests/Metallic.RC.RoomCleanup.Tests/Metallic.RC.RoomCleanup.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify storage faults release room membership and allow reconnect
+        run: dotnet tests/Metallic.RC.RoomCleanup.Tests/bin/Release/net10.0/Metallic.RC.RoomCleanup.Tests.dll artifacts/backend/room-cleanup.json
+      - name: Restore and build the authored login response profile tests
+        run: dotnet build tests/Metallic.RC.LoginContract.Tests/Metallic.RC.LoginContract.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify login profile decisions without game inputs
+        run: dotnet tests/Metallic.RC.LoginContract.Tests/bin/Release/net10.0/Metallic.RC.LoginContract.Tests.dll --self-test artifacts/backend/login-profile.json
+      - name: Build the bounded SelfAccount reader-prefix checks
+        run: dotnet build tests/Metallic.RC.SelfAccountPrefix.Tests/Metallic.RC.SelfAccountPrefix.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify presence, primitive types and outside-profile decisions without game inputs
+        run: dotnet tests/Metallic.RC.SelfAccountPrefix.Tests/bin/Release/net10.0/Metallic.RC.SelfAccountPrefix.Tests.dll --self-test artifacts/backend/self-account-prefix.json
+      - name: Build the explicit default-resolver nullable prefix checks
+        run: dotnet build tests/Metallic.RC.SelfAccountNullablePrefix.Tests/Metallic.RC.SelfAccountNullablePrefix.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify nullable presence and type boundaries without game inputs
+        run: dotnet tests/Metallic.RC.SelfAccountNullablePrefix.Tests/bin/Release/net10.0/Metallic.RC.SelfAccountNullablePrefix.Tests.dll --self-test artifacts/backend/self-account-nullable-prefix.json
+      - name: Build the explicit numeric scalar prefix checks
+        run: dotnet build tests/Metallic.RC.SelfAccountNumericPrefix.Tests/Metallic.RC.SelfAccountNumericPrefix.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify numeric enum and UTC-tick profile boundaries without game inputs
+        run: dotnet tests/Metallic.RC.SelfAccountNumericPrefix.Tests/bin/Release/net10.0/Metallic.RC.SelfAccountNumericPrefix.Tests.dll --self-test artifacts/backend/self-account-numeric-prefix.json
+      - name: Build the explicit SelfAccount response writer checks
+        run: dotnet build tests/Metallic.RC.SelfAccountResponse.Tests/Metallic.RC.SelfAccountResponse.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify required response inputs, Unicode admission and output bounds
+        run: dotnet tests/Metallic.RC.SelfAccountResponse.Tests/bin/Release/net10.0/Metallic.RC.SelfAccountResponse.Tests.dll --self-test artifacts/backend/self-account-response.json
+      - name: Build the default-off durable native identity checks
+        run: dotnet build tests/Metallic.RC.NativeIdentity.Tests/Metallic.RC.NativeIdentity.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify opt-in migration, identity consistency and fail-closed corruption handling
+        run: dotnet tests/Metallic.RC.NativeIdentity.Tests/bin/Release/net10.0/Metallic.RC.NativeIdentity.Tests.dll --self-test artifacts/backend/native-identity.json
+      - name: Build the credential-only verification checks
+        run: dotnet build tests/Metallic.RC.CredentialCheck.Tests/Metallic.RC.CredentialCheck.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify credential checking without session or native identity issuance
+        run: dotnet tests/Metallic.RC.CredentialCheck.Tests/bin/Release/net10.0/Metallic.RC.CredentialCheck.Tests.dll --self-test artifacts/backend/credential-check.json
+      - name: Build the default-off durable native session checks
+        run: dotnet build tests/Metallic.RC.NativeSessions.Tests/Metallic.RC.NativeSessions.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify exact binding, refresh replay, expiry and backup without native routes
+        run: dotnet tests/Metallic.RC.NativeSessions.Tests/bin/Release/net10.0/Metallic.RC.NativeSessions.Tests.dll --self-test artifacts/backend/native-sessions.json
+      - name: Build the explicit native account profile persistence checks
+        run: dotnet build tests/Metallic.RC.NativeAccountProfiles.Tests/Metallic.RC.NativeAccountProfiles.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify profile authority, canonical storage, stale refusal and backup without native routes
+        run: dotnet tests/Metallic.RC.NativeAccountProfiles.Tests/bin/Release/net10.0/Metallic.RC.NativeAccountProfiles.Tests.dll --self-test artifacts/backend/native-account-profiles.json
+      - name: Build the default-off localhost native gateway integration checks
+        run: dotnet build tests/Metallic.RC.NativeGateway.Tests/Metallic.RC.NativeGateway.Tests.csproj -c Release -p:RestoreLockedMode=true
+      - name: Verify issued-token signing, raw HTTP admission and atomic state without original clients
+        run: dotnet tests/Metallic.RC.NativeGateway.Tests/bin/Release/net10.0/Metallic.RC.NativeGateway.Tests.dll --self-test artifacts/backend/native-gateway.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify pure temporary-route policy
+        run: node --test tools/client-lab/route-policy.test.js tools/client-lab/runtime-agent.test.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Test startup deadlines, result reporting and process cleanup
+        run: python -B tools/client-lab/test_supervision.py
+      - name: Test transactional progress and interrupted writers
+        run: python -B tools/client-lab/test_progress_store.py
+      - name: Retain authored-service evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metallic-owned-backend-${{ matrix.os }}
+          path: artifacts/backend/
+          retention-days: 7
+          if-no-files-found: warn

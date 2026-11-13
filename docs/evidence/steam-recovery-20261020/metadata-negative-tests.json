@@ -1,0 +1,45 @@
+{
+  "status": "passed",
+  "negativeCases": 7,
+  "cases": [
+    {
+      "case": "bad_method_token",
+      "rejected": true,
+      "reason": "methods all token tags: {'records': 409503, 'unnamedZeroRowTokens': 0}"
+    },
+    {
+      "case": "out_of_range_method_name",
+      "rejected": true,
+      "reason": "String index out of bounds: 4294967295"
+    },
+    {
+      "case": "wrong_method_owner",
+      "rejected": true,
+      "reason": "Method declaring type mismatch"
+    },
+    {
+      "case": "literal_overlap",
+      "rejected": true,
+      "reason": "Literal data not exact concatenation"
+    },
+    {
+      "case": "bad_attribute_sentinel",
+      "rejected": true,
+      "reason": "Attribute sentinel plus alignment: {'meaningfulBytes': 4294967295, 'paddingBytes': -4291504791}"
+    },
+    {
+      "case": "bad_image_assembly_link",
+      "rejected": true,
+      "reason": "Image/assembly reciprocal indices: None"
+    },
+    {
+      "case": "bad_module_generic_shape",
+      "rejected": true,
+      "reason": "Corrupt module shape 0: None"
+    }
+  ],
+  "decoderSha256": "39cc7be63f0e0cb7b279c47c4101ac2f4538325c0fb0cb4ded674d077b813884",
+  "sourceSha256": "5af86c2e051811bf84f56461af8757bc767855645aa4ef8985487a3333ac71e4",
+  "sourceUnchanged": true,
+  "finishedUtc": "2026-10-20T21:38:37.271767+00:00"
+}

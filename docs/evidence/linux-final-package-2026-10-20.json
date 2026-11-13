@@ -1,0 +1,40 @@
+{
+  "observedAtUtc": "2026-10-20T10:03:50.879110+00:00",
+  "package": "/workspace/scratch/d2113000e285/Metallic-RC/artifacts/desktop/final-linux-x64",
+  "sdk": "10.0.402",
+  "sourceCommit": null,
+  "sourceTreeDirty": null,
+  "sourceFingerprint": {
+    "sha256": "7d652604d8488e8740891dced3fd0787cc4ef5917e221772ba3353c0b8407608",
+    "fileCount": 47,
+    "algorithm": "SHA256(UTF8(concat(sorted relative path + NUL + lowercase file SHA256 + LF)))",
+    "scope": "Desktop build inputs: src excluding bin/obj, Core/Platform acceptance sources, root build configs, package scripts and bundled README",
+    "unchangedAcrossBuildAndSmoke": true
+  },
+  "manifestSha256": "c5323be275866432dab0ef5f1a5c8f59ff557469606dfe0bcc87932e3f5580d3",
+  "verifiedPackageFileCount": 571,
+  "scriptRuns": 1,
+  "scriptAcceptance": {
+    "coreChecks": 18,
+    "platformCreatorAssertions": 103
+  },
+  "launcherCli": {
+    "command": "list with isolated state directory",
+    "exitCode": 0,
+    "stdout": "[]",
+    "stderr": ""
+  },
+  "packagedServiceSmoke": [
+    "/healthz returns healthy local authoring service",
+    "/ and /app.js deliver the packaged editor and script",
+    "Capabilities identify the exact workspace and implemented/pending feature boundaries"
+  ],
+  "ownedServiceStopped": true,
+  "guiRerunPerformed": false,
+  "browserRerunPerformed": false,
+  "notes": [
+    "Built from frozen final launcher source including the Windows GUI subsystem change.",
+    "No local git commit was available; the explicit build-input fingerprint identifies this source snapshot.",
+    "This receipt does not replace earlier GUI/browser acceptance evidence or claim game-client integration."
+  ]
+}

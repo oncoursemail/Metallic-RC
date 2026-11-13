@@ -1,5 +1,5 @@
 /**
- * Metallic Studios — player-count aggregator entry point.
+ * Metallic-RC — player-count aggregator entry point.
  *
  * Starts the local/self-hosted aggregator HTTP service. Real deployment needs a
  * protected HTTPS edge in front of it and an authenticated room-server fleet

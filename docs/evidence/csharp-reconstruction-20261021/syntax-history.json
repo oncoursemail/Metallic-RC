@@ -1,0 +1,1687 @@
+{
+  "originalRawExport": {
+    "files": 419,
+    "errors": 210579,
+    "perFile": [
+      {
+        "file": "AVProVideo.Extensions.UnityUI.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "AVProVideo.Runtime.dll.partial.cs",
+        "syntaxErrors": 137
+      },
+      {
+        "file": "Appboy.dll.partial.cs",
+        "syntaxErrors": 564
+      },
+      {
+        "file": "Assembly-CSharp.dll.partial.cs",
+        "syntaxErrors": 91108
+      },
+      {
+        "file": "AstarPathfindingProject.dll.partial.cs",
+        "syntaxErrors": 1403
+      },
+      {
+        "file": "Backtrace.Unity.dll.partial.cs",
+        "syntaxErrors": 332
+      },
+      {
+        "file": "CSCore.dll.partial.cs",
+        "syntaxErrors": 15
+      },
+      {
+        "file": "Circuits.All.Api.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.All.Injection.Debugging.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.All.Injection.PhotonNetSystem.dll.partial.cs",
+        "syntaxErrors": 136
+      },
+      {
+        "file": "Circuits.All.Injection.UnityEngine.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.All.Injection.V2.dll.partial.cs",
+        "syntaxErrors": 34
+      },
+      {
+        "file": "Circuits.All.Mock.dll.partial.cs",
+        "syntaxErrors": 871
+      },
+      {
+        "file": "Circuits.All.RecRoom.dll.partial.cs",
+        "syntaxErrors": 4499
+      },
+      {
+        "file": "Circuits.Dynamic.Api.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Dynamic.EV.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Dynamic.Mock.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Dynamic.RecRoom.Api.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Shared.Api.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Shared.Core.ByteCode.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Shared.RecRoom.Api.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Shared.RecRoom.dll.partial.cs",
+        "syntaxErrors": 221
+      },
+      {
+        "file": "Circuits.Shared.Utilities.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Static.Api.dll.partial.cs",
+        "syntaxErrors": 114
+      },
+      {
+        "file": "Circuits.Static.Core.CompileSystem.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Static.Core.GraphSystem.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Static.Core.NetSystem.dll.partial.cs",
+        "syntaxErrors": 407
+      },
+      {
+        "file": "Circuits.Static.Core.RequestReduce.dll.partial.cs",
+        "syntaxErrors": 71
+      },
+      {
+        "file": "Circuits.Static.Core.TreeSystem.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Static.Core.TypeCheckSystem.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Static.Core.TypeSystem.dll.partial.cs",
+        "syntaxErrors": 97
+      },
+      {
+        "file": "Circuits.Static.Core.UnificationSystem.dll.partial.cs",
+        "syntaxErrors": 7
+      },
+      {
+        "file": "Circuits.Static.EV.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Static.Mock.dll.partial.cs",
+        "syntaxErrors": 126
+      },
+      {
+        "file": "Circuits.Static.RecRoom.Api.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.Static.RecRoom.dll.partial.cs",
+        "syntaxErrors": 43
+      },
+      {
+        "file": "Circuits.Static.Utilities.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Circuits.V2.dll.partial.cs",
+        "syntaxErrors": 19858
+      },
+      {
+        "file": "Codestage.Anticheattoolkit.Runtime.dll.partial.cs",
+        "syntaxErrors": 126
+      },
+      {
+        "file": "DissonanceNFGO.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "DissonanceVoip.dll.partial.cs",
+        "syntaxErrors": 357
+      },
+      {
+        "file": "GLTFSerialization.dll.partial.cs",
+        "syntaxErrors": 48
+      },
+      {
+        "file": "Google.Protobuf.dll.partial.cs",
+        "syntaxErrors": 139
+      },
+      {
+        "file": "ICSharpCode.SharpZipLib.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "K4os.Compression.LZ4.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Kyub.EmojiSearch.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Logger.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "MVVM-Databinding.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Microsoft.Bcl.AsyncInterfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Microsoft.Bcl.HashCode.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Microsoft.Toolkit.HighPerformance.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Microsoft.Win32.Registry.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "Mono.Security.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Netcode.Transports.LiteNetLib.dll.partial.cs",
+        "syntaxErrors": 93
+      },
+      {
+        "file": "Newtonsoft.Json.dll.partial.cs",
+        "syntaxErrors": 304
+      },
+      {
+        "file": "Nito.Collections.Deque.dll.partial.cs",
+        "syntaxErrors": 46
+      },
+      {
+        "file": "OPS.Obfuscator.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "OSA.dll.partial.cs",
+        "syntaxErrors": 134
+      },
+      {
+        "file": "Oculus.Platform.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Oculus.VR.dll.partial.cs",
+        "syntaxErrors": 427
+      },
+      {
+        "file": "Pathfinding.ClipperLib.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Pathfinding.Ionic.Zip.Reduced.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Pathfinding.Poly2Tri.dll.partial.cs",
+        "syntaxErrors": 119
+      },
+      {
+        "file": "Pngcs.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RRUI.Framework.Runtime.dll.partial.cs",
+        "syntaxErrors": 8
+      },
+      {
+        "file": "RRUI.Profiling.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecNet.DataCollection.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecNet.DataCollection.dll.partial.cs",
+        "syntaxErrors": 134
+      },
+      {
+        "file": "RecNet.DataExport.Runtime.dll.partial.cs",
+        "syntaxErrors": 3936
+      },
+      {
+        "file": "RecNet.Images.dll.partial.cs",
+        "syntaxErrors": 308
+      },
+      {
+        "file": "RecNet.Interfaces.dll.partial.cs",
+        "syntaxErrors": 440
+      },
+      {
+        "file": "RecNet.Runtime.dll.partial.cs",
+        "syntaxErrors": 20513
+      },
+      {
+        "file": "RecNet.Utilities.dll.partial.cs",
+        "syntaxErrors": 220
+      },
+      {
+        "file": "RecRoom.AI.Providers.dll.partial.cs",
+        "syntaxErrors": 1271
+      },
+      {
+        "file": "RecRoom.AI.Runtime.dll.partial.cs",
+        "syntaxErrors": 1568
+      },
+      {
+        "file": "RecRoom.AgInitialization.Interfaces.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.AgInitialization.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Agdxgidisplays.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Analytics.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Analytics.Runtime.dll.partial.cs",
+        "syntaxErrors": 438
+      },
+      {
+        "file": "RecRoom.AppUI.Data.Interfaces.dll.partial.cs",
+        "syntaxErrors": 12
+      },
+      {
+        "file": "RecRoom.AppUI.Data.Runtime.dll.partial.cs",
+        "syntaxErrors": 2769
+      },
+      {
+        "file": "RecRoom.AppUI.Runtime.dll.partial.cs",
+        "syntaxErrors": 4204
+      },
+      {
+        "file": "RecRoom.ApplicationLifecycle.Runtime.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.Assetbundles.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Async.dll.partial.cs",
+        "syntaxErrors": 8
+      },
+      {
+        "file": "RecRoom.Attributes.Runtime.dll.partial.cs",
+        "syntaxErrors": 18
+      },
+      {
+        "file": "RecRoom.Audio.Runtime.dll.partial.cs",
+        "syntaxErrors": 21
+      },
+      {
+        "file": "RecRoom.Audio.SFXTracks.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Audio.Utilties.dll.partial.cs",
+        "syntaxErrors": 37
+      },
+      {
+        "file": "RecRoom.AutomationTests.Runtime.dll.partial.cs",
+        "syntaxErrors": 18
+      },
+      {
+        "file": "RecRoom.AvatarRenderingSystems.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.AvatarRenderingSystems.Internal.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.AvatarRenderingSystems.Runtime.dll.partial.cs",
+        "syntaxErrors": 977
+      },
+      {
+        "file": "RecRoom.AvatarRenderingSystems.Serialization.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.AvatarRenderingSystems.SharedData.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.AvatarRenderingSystems.SharedInternal.dll.partial.cs",
+        "syntaxErrors": 167
+      },
+      {
+        "file": "RecRoom.AvatarSystems.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.AvatarSystems.Runtime.dll.partial.cs",
+        "syntaxErrors": 72
+      },
+      {
+        "file": "RecRoom.AvatarSystems.SharedData.dll.partial.cs",
+        "syntaxErrors": 7
+      },
+      {
+        "file": "RecRoom.BattlePass.Data.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.BitPacker.Runtime.dll.partial.cs",
+        "syntaxErrors": 7
+      },
+      {
+        "file": "RecRoom.Build.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Cameras.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Cameras.Runtime.dll.partial.cs",
+        "syntaxErrors": 299
+      },
+      {
+        "file": "RecRoom.Chat.Runtime.dll.partial.cs",
+        "syntaxErrors": 103
+      },
+      {
+        "file": "RecRoom.CircuitsV1.Runtime.dll.partial.cs",
+        "syntaxErrors": 93
+      },
+      {
+        "file": "RecRoom.CircuitsV2.ChipCulling.Data.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.CircuitsV2.ChipCulling.Jobs.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ClusterLods.Runtime.dll.partial.cs",
+        "syntaxErrors": 168
+      },
+      {
+        "file": "RecRoom.Commandline.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.CommonDataTypes.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Configloader.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Connectables.Runtime.dll.partial.cs",
+        "syntaxErrors": 30
+      },
+      {
+        "file": "RecRoom.Content.Authoring.Runtime.dll.partial.cs",
+        "syntaxErrors": 8
+      },
+      {
+        "file": "RecRoom.CoordinateBeacons.Runtime.dll.partial.cs",
+        "syntaxErrors": 42
+      },
+      {
+        "file": "RecRoom.Creation.Interfaces.UX.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Creation.Runtime.dll.partial.cs",
+        "syntaxErrors": 23
+      },
+      {
+        "file": "RecRoom.Crm.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Crm.Runtime.dll.partial.cs",
+        "syntaxErrors": 38
+      },
+      {
+        "file": "RecRoom.CultureUtil.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.DataLayer.Attributes.Runtime.dll.partial.cs",
+        "syntaxErrors": 42
+      },
+      {
+        "file": "RecRoom.DataLayer.Common.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.DataLayer.Interfaces.Generated.Runtime.dll.partial.cs",
+        "syntaxErrors": 28
+      },
+      {
+        "file": "RecRoom.DataLayer.Interfaces.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.DataLayer.Upgraders.Generated.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.DataLayer.Upgraders.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Datastructures.CollisionMesh.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Datastructures.CullingGroupManager.Runtime.dll.partial.cs",
+        "syntaxErrors": 24
+      },
+      {
+        "file": "RecRoom.Datastructures.OverridableFields.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Datastructures.Runtime.dll.partial.cs",
+        "syntaxErrors": 358
+      },
+      {
+        "file": "RecRoom.Datastructures.Singletons.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Debugging.Runtime.dll.partial.cs",
+        "syntaxErrors": 45
+      },
+      {
+        "file": "RecRoom.Econ.Abstractions.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Econ.Impl.dll.partial.cs",
+        "syntaxErrors": 133
+      },
+      {
+        "file": "RecRoom.EditorHelpers.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Encoding.Runtime.dll.partial.cs",
+        "syntaxErrors": 23
+      },
+      {
+        "file": "RecRoom.EnvironmentGen.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Experiments.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Experiments.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ExportTools.Runtime.dll.partial.cs",
+        "syntaxErrors": 280
+      },
+      {
+        "file": "RecRoom.FastLines.Runtime.dll.partial.cs",
+        "syntaxErrors": 102
+      },
+      {
+        "file": "RecRoom.FastMeshTools.Core.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.FastMeshTools.Runtime.dll.partial.cs",
+        "syntaxErrors": 44
+      },
+      {
+        "file": "RecRoom.FastText.Runtime.dll.partial.cs",
+        "syntaxErrors": 18
+      },
+      {
+        "file": "RecRoom.FileSystem.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Foundation.Attributes.Runtime.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.Foundation.Bitstream.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Foundation.Collections.Runtime.dll.partial.cs",
+        "syntaxErrors": 19
+      },
+      {
+        "file": "RecRoom.Foundation.ComponentSystems.Runtime.dll.partial.cs",
+        "syntaxErrors": 9
+      },
+      {
+        "file": "RecRoom.Foundation.Entities.Runtime.dll.partial.cs",
+        "syntaxErrors": 122
+      },
+      {
+        "file": "RecRoom.Foundation.Identifiers.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Foundation.LocalId.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Foundation.Logging.Implementation.Runtime.dll.partial.cs",
+        "syntaxErrors": 36
+      },
+      {
+        "file": "RecRoom.Foundation.Logging.Interfaces.Runtime.dll.partial.cs",
+        "syntaxErrors": 36
+      },
+      {
+        "file": "RecRoom.Foundation.Logging.Runtime.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.Foundation.Mathematics.Runtime.dll.partial.cs",
+        "syntaxErrors": 23
+      },
+      {
+        "file": "RecRoom.Foundation.Netcode.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Foundation.PlayerLoop.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Foundation.Registry.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Foundation.Service.Runtime.dll.partial.cs",
+        "syntaxErrors": 8
+      },
+      {
+        "file": "RecRoom.Foundation.Transforms.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Foundation.UnityEngineExtensions.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.FuzzySearch.Runtime.dll.partial.cs",
+        "syntaxErrors": 28
+      },
+      {
+        "file": "RecRoom.GameDataWrappers.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.GameSystems.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Imageutils.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Imageutils.Runtime.dll.partial.cs",
+        "syntaxErrors": 256
+      },
+      {
+        "file": "RecRoom.Imposters.Runtime.dll.partial.cs",
+        "syntaxErrors": 130
+      },
+      {
+        "file": "RecRoom.InGameNotifications.Runtime.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.Instantiation.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.JsonSerialization.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.JsonSerialization.Newtonsoft.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.JsonSerialization.System.Runtime.dll.partial.cs",
+        "syntaxErrors": 14
+      },
+      {
+        "file": "RecRoom.JsonSerialization.Unity.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.JuniorAccountVisibility.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Keepsakes.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Keepsakes.Runtime.dll.partial.cs",
+        "syntaxErrors": 71
+      },
+      {
+        "file": "RecRoom.Keepsakes.UnityExtensions.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Localization.Runtime.dll.partial.cs",
+        "syntaxErrors": 56
+      },
+      {
+        "file": "RecRoom.Localization.Service.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.MCluster.Runtime.dll.partial.cs",
+        "syntaxErrors": 189
+      },
+      {
+        "file": "RecRoom.Maker.Core.Runtime.dll.partial.cs",
+        "syntaxErrors": 159
+      },
+      {
+        "file": "RecRoom.Maker.Runtime.dll.partial.cs",
+        "syntaxErrors": 1
+      },
+      {
+        "file": "RecRoom.MemoryStats.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.MetricsPipeline.Bootstrapper.dll.partial.cs",
+        "syntaxErrors": 20
+      },
+      {
+        "file": "RecRoom.MetricsPipeline.Interfaces.dll.partial.cs",
+        "syntaxErrors": 48
+      },
+      {
+        "file": "RecRoom.MetricsPipeline.Runtime.dll.partial.cs",
+        "syntaxErrors": 23
+      },
+      {
+        "file": "RecRoom.Minijson.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.NativeMesh.Runtime.dll.partial.cs",
+        "syntaxErrors": 438
+      },
+      {
+        "file": "RecRoom.Networking.CreationOps.Runtime.dll.partial.cs",
+        "syntaxErrors": 177
+      },
+      {
+        "file": "RecRoom.Networking.DataTypes.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Networking.Experiment.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Networking.Instantiation.Runtime.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.Networking.NetcodeImpl.Runtime.dll.partial.cs",
+        "syntaxErrors": 132
+      },
+      {
+        "file": "RecRoom.Networking.NetworkedObjects.Runtime.dll.partial.cs",
+        "syntaxErrors": 46
+      },
+      {
+        "file": "RecRoom.Networking.PhotonImpl.Runtime.dll.partial.cs",
+        "syntaxErrors": 79
+      },
+      {
+        "file": "RecRoom.Networking.R1NetworkData.Generated.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Networking.RPC.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Networking.RRNetworkLayer.dll.partial.cs",
+        "syntaxErrors": 15
+      },
+      {
+        "file": "RecRoom.Networking.RoomLoading.Runtime.dll.partial.cs",
+        "syntaxErrors": 503
+      },
+      {
+        "file": "RecRoom.Networking.SharedDataTypes.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Networking.SynchronizedFields.Runtime.dll.partial.cs",
+        "syntaxErrors": 15
+      },
+      {
+        "file": "RecRoom.NoEngine.Algorithms.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.NoEngine.Common.Runtime.dll.partial.cs",
+        "syntaxErrors": 955
+      },
+      {
+        "file": "RecRoom.NoEngine.DataStructures.Performance.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.NoEngine.DataStructures.Runtime.dll.partial.cs",
+        "syntaxErrors": 723
+      },
+      {
+        "file": "RecRoom.NoEngine.Debugging.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.NoEngine.JetBrains.Annotations.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.NoEngine.Logging.Runtime.dll.partial.cs",
+        "syntaxErrors": 18
+      },
+      {
+        "file": "RecRoom.ObjectConfigs.dll.partial.cs",
+        "syntaxErrors": 66
+      },
+      {
+        "file": "RecRoom.ObjectModel.Attributes.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.ComponentData.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.ConfigUI.Runtime.dll.partial.cs",
+        "syntaxErrors": 14
+      },
+      {
+        "file": "RecRoom.ObjectModel.Dependencies.Runtime.dll.partial.cs",
+        "syntaxErrors": 14
+      },
+      {
+        "file": "RecRoom.ObjectModel.Entities.Runtime.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.ObjectModel.Interfaces.ConfigUI.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.Interfaces.Prefabs.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.Interfaces.RendererV1.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.Interfaces.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.Prefabs.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.Protobufs.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.RendererV1.Runtime.dll.partial.cs",
+        "syntaxErrors": 18
+      },
+      {
+        "file": "RecRoom.ObjectModel.Serialization.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ObjectModel.Systems.Runtime.dll.partial.cs",
+        "syntaxErrors": 892
+      },
+      {
+        "file": "RecRoom.ObjectPool.Runtime.dll.partial.cs",
+        "syntaxErrors": 15
+      },
+      {
+        "file": "RecRoom.OnlineRestrictions.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.OnlineRestrictions.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.PerformanceVisualization.Runtime.MetricGraph.Core.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.PerformanceVisualization.Runtime.PerformanceHud.dll.partial.cs",
+        "syntaxErrors": 30
+      },
+      {
+        "file": "RecRoom.Persistence.Runtime.dll.partial.cs",
+        "syntaxErrors": 63
+      },
+      {
+        "file": "RecRoom.PlatformNotifications.Runtime.dll.partial.cs",
+        "syntaxErrors": 86
+      },
+      {
+        "file": "RecRoom.PlayerProgression.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.PlayerProgression.Runtime.dll.partial.cs",
+        "syntaxErrors": 126
+      },
+      {
+        "file": "RecRoom.PrefParsers.Runtime.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.Preferences.Runtime.dll.partial.cs",
+        "syntaxErrors": 199
+      },
+      {
+        "file": "RecRoom.ProgressionEvents.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ProgressionEvents.Runtime.dll.partial.cs",
+        "syntaxErrors": 26
+      },
+      {
+        "file": "RecRoom.Promises.Runtime.dll.partial.cs",
+        "syntaxErrors": 36
+      },
+      {
+        "file": "RecRoom.Protobuf.Debugging.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Protobuf.Extensions.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Protobuf.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Protobuf.UnityExtensions.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RRAssetRemapping.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RRAssetRemapping.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RRUI.Core.Runtime.dll.partial.cs",
+        "syntaxErrors": 42
+      },
+      {
+        "file": "RecRoom.RRUI.Data.Runtime.dll.partial.cs",
+        "syntaxErrors": 1818
+      },
+      {
+        "file": "RecRoom.RRUI.Navigation.Runtime.dll.partial.cs",
+        "syntaxErrors": 1
+      },
+      {
+        "file": "RecRoom.RRUI.Theme.Runtime.dll.partial.cs",
+        "syntaxErrors": 8
+      },
+      {
+        "file": "RecRoom.Rbex.Runtime.dll.partial.cs",
+        "syntaxErrors": 21
+      },
+      {
+        "file": "RecRoom.ReactionCustomization.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ReactionCustomization.Runtime.dll.partial.cs",
+        "syntaxErrors": 19
+      },
+      {
+        "file": "RecRoom.RemoteCommands.Interfaces.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "RecRoom.Rendering.Core.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Rendering.Player.Runtime.dll.partial.cs",
+        "syntaxErrors": 8
+      },
+      {
+        "file": "RecRoom.ResourceManagement.Runtime.dll.partial.cs",
+        "syntaxErrors": 74
+      },
+      {
+        "file": "RecRoom.RoomConfig.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RoomConfig.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RoomEconomy.Core.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RoomEconomy.Core.Runtime.dll.partial.cs",
+        "syntaxErrors": 319
+      },
+      {
+        "file": "RecRoom.RoomEconomy.RoomInventory.Interfaces.dll.partial.cs",
+        "syntaxErrors": 93
+      },
+      {
+        "file": "RecRoom.RoomEconomy.RoomInventory.Runtime.dll.partial.cs",
+        "syntaxErrors": 1059
+      },
+      {
+        "file": "RecRoom.RoomEconomy.RoomOffer.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RoomEconomy.RoomOffer.Runtime.dll.partial.cs",
+        "syntaxErrors": 737
+      },
+      {
+        "file": "RecRoom.RoomEconomy.Store.Interfaces.dll.partial.cs",
+        "syntaxErrors": 18
+      },
+      {
+        "file": "RecRoom.RoomEconomy.Store.Runtime.dll.partial.cs",
+        "syntaxErrors": 470
+      },
+      {
+        "file": "RecRoom.RoomLoading.Runtime.Interfaces.Fallbacks.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RoomLoading.Runtime.dll.partial.cs",
+        "syntaxErrors": 6590
+      },
+      {
+        "file": "RecRoom.RoomPermissions.Runtime.dll.partial.cs",
+        "syntaxErrors": 146
+      },
+      {
+        "file": "RecRoom.RoomWideContent.Runtime.dll.partial.cs",
+        "syntaxErrors": 21
+      },
+      {
+        "file": "RecRoom.Roomie.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Roomie.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.RuntimeProfiling.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.SceneManagement.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.SceneManagement.Runtime.dll.partial.cs",
+        "syntaxErrors": 604
+      },
+      {
+        "file": "RecRoom.SceneManagement.Utils.dll.partial.cs",
+        "syntaxErrors": 25
+      },
+      {
+        "file": "RecRoom.Scheduling.Interface.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Scheduling.Scheduler.Runtime.dll.partial.cs",
+        "syntaxErrors": 49
+      },
+      {
+        "file": "RecRoom.Scheduling.Schedules.Runtime.dll.partial.cs",
+        "syntaxErrors": 47
+      },
+      {
+        "file": "RecRoom.ShapeConfig.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.ShapeRendering.Runtime.dll.partial.cs",
+        "syntaxErrors": 133
+      },
+      {
+        "file": "RecRoom.Streamingaudio.Runtime.dll.partial.cs",
+        "syntaxErrors": 8
+      },
+      {
+        "file": "RecRoom.Studio.Common.Base.Runtime.dll.partial.cs",
+        "syntaxErrors": 60
+      },
+      {
+        "file": "RecRoom.Studio.Common.GameOnly.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Studio.Common.LocalTesting.dll.partial.cs",
+        "syntaxErrors": 83
+      },
+      {
+        "file": "RecRoom.Studio.Common.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.TagsAndLayers.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Time.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Time.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.TimeLimitedActivity.Interfaces.dll.partial.cs",
+        "syntaxErrors": 62
+      },
+      {
+        "file": "RecRoom.TimeLimitedActivity.Runtime.dll.partial.cs",
+        "syntaxErrors": 9
+      },
+      {
+        "file": "RecRoom.Tweening.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.UIInteraction.Runtime.dll.partial.cs",
+        "syntaxErrors": 67
+      },
+      {
+        "file": "RecRoom.UnityContainer.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.UnityContainer.Runtime.dll.partial.cs",
+        "syntaxErrors": 36
+      },
+      {
+        "file": "RecRoom.Unityextensions.Runtime.dll.partial.cs",
+        "syntaxErrors": 85
+      },
+      {
+        "file": "RecRoom.Utf8json.Interfaces.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Utf8json.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.Versioning.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RecRoom.iOSNative.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RenderHeads.AVProMovieCapture.Runtime.dll.partial.cs",
+        "syntaxErrors": 22
+      },
+      {
+        "file": "RoomEconomy.Store.SharedData.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "RootMotion.FinalIK.Runtime.dll.partial.cs",
+        "syntaxErrors": 122
+      },
+      {
+        "file": "SA.Foundation.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "SA.iOS.XCode.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "SA.iOS.dll.partial.cs",
+        "syntaxErrors": 25
+      },
+      {
+        "file": "SharpGLTF.Core.dll.partial.cs",
+        "syntaxErrors": 6434
+      },
+      {
+        "file": "SharpGLTF.Runtime.dll.partial.cs",
+        "syntaxErrors": 520
+      },
+      {
+        "file": "SharpGLTF.Toolkit.dll.partial.cs",
+        "syntaxErrors": 3880
+      },
+      {
+        "file": "Singular.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "StansAssets.Foundation.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "StatsigUnity.Runtime.dll.partial.cs",
+        "syntaxErrors": 566
+      },
+      {
+        "file": "SteamVR.dll.partial.cs",
+        "syntaxErrors": 678
+      },
+      {
+        "file": "SteamVR_Actions.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "System.Core.dll.partial.cs",
+        "syntaxErrors": 3747
+      },
+      {
+        "file": "System.Data.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "System.Drawing.Common.dll.partial.cs",
+        "syntaxErrors": 12
+      },
+      {
+        "file": "System.Drawing.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "System.IO.Compression.FileSystem.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "System.IO.Compression.dll.partial.cs",
+        "syntaxErrors": 74
+      },
+      {
+        "file": "System.Net.Http.dll.partial.cs",
+        "syntaxErrors": 238
+      },
+      {
+        "file": "System.Numerics.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "System.Runtime.CompilerServices.Unsafe.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "System.Runtime.Serialization.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "System.Text.Encodings.Web.dll.partial.cs",
+        "syntaxErrors": 62
+      },
+      {
+        "file": "System.Text.Json.dll.partial.cs",
+        "syntaxErrors": 364
+      },
+      {
+        "file": "System.Xml.Linq.dll.partial.cs",
+        "syntaxErrors": 272
+      },
+      {
+        "file": "System.Xml.dll.partial.cs",
+        "syntaxErrors": 60
+      },
+      {
+        "file": "System.dll.partial.cs",
+        "syntaxErrors": 2452
+      },
+      {
+        "file": "UJect.Runtime.dll.partial.cs",
+        "syntaxErrors": 13
+      },
+      {
+        "file": "UJect.UnityExtensions.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.Addressables.dll.partial.cs",
+        "syntaxErrors": 8
+      },
+      {
+        "file": "Unity.Burst.Unsafe.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.Burst.dll.partial.cs",
+        "syntaxErrors": 90
+      },
+      {
+        "file": "Unity.Collections.LowLevel.ILSupport.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.Collections.dll.partial.cs",
+        "syntaxErrors": 72
+      },
+      {
+        "file": "Unity.Entities.UI.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.Entities.dll.partial.cs",
+        "syntaxErrors": 2500
+      },
+      {
+        "file": "Unity.InputSystem.ForUI.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.InputSystem.dll.partial.cs",
+        "syntaxErrors": 382
+      },
+      {
+        "file": "Unity.Localization.dll.partial.cs",
+        "syntaxErrors": 523
+      },
+      {
+        "file": "Unity.Mathematics.Extensions.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.Mathematics.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.Netcode.Runtime.dll.partial.cs",
+        "syntaxErrors": 142
+      },
+      {
+        "file": "Unity.ProBuilder.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.Profiling.Core.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.RenderPipeline.Universal.ShaderLibrary.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.RenderPipelines.Core.Runtime.Shared.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.RenderPipelines.Core.Runtime.dll.partial.cs",
+        "syntaxErrors": 280
+      },
+      {
+        "file": "Unity.RenderPipelines.GPUDriven.Runtime.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.RenderPipelines.Universal.Runtime.dll.partial.cs",
+        "syntaxErrors": 18
+      },
+      {
+        "file": "Unity.ResourceManager.dll.partial.cs",
+        "syntaxErrors": 55
+      },
+      {
+        "file": "Unity.Scenes.dll.partial.cs",
+        "syntaxErrors": 205
+      },
+      {
+        "file": "Unity.Serialization.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.TextMeshPro.dll.partial.cs",
+        "syntaxErrors": 686
+      },
+      {
+        "file": "Unity.Timeline.dll.partial.cs",
+        "syntaxErrors": 373
+      },
+      {
+        "file": "Unity.Transforms.dll.partial.cs",
+        "syntaxErrors": 133
+      },
+      {
+        "file": "Unity.WebRTC.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "Unity.XR.Management.dll.partial.cs",
+        "syntaxErrors": 53
+      },
+      {
+        "file": "Unity.XR.OpenVR.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.AIModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.AccessibilityModule.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "UnityEngine.AndroidJNIModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.AnimationModule.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "UnityEngine.AssetBundleModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.AudioModule.dll.partial.cs",
+        "syntaxErrors": 24
+      },
+      {
+        "file": "UnityEngine.ClothModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.ContentLoadModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.CoreModule.dll.partial.cs",
+        "syntaxErrors": 240
+      },
+      {
+        "file": "UnityEngine.CrashReportingModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.DirectorModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.GridModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.HierarchyCoreModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.IMGUIModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.ImageConversionModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.InputForUIModule.dll.partial.cs",
+        "syntaxErrors": 54
+      },
+      {
+        "file": "UnityEngine.InputLegacyModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.InputModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.JSONSerializeModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.ParticleSystemModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.Physics2DModule.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "UnityEngine.PhysicsModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.PropertiesModule.dll.partial.cs",
+        "syntaxErrors": 241
+      },
+      {
+        "file": "UnityEngine.RecRoomModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.ScreenCaptureModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.SharedInternalsModule.dll.partial.cs",
+        "syntaxErrors": 12
+      },
+      {
+        "file": "UnityEngine.SpatialTracking.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.SpriteShapeModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.StreamingModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.SubsystemsModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.TerrainModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.TerrainPhysicsModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.TextCoreFontEngineModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.TextCoreTextEngineModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.TextRenderingModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.TilemapModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.UI.dll.partial.cs",
+        "syntaxErrors": 540
+      },
+      {
+        "file": "UnityEngine.UIElementsModule.dll.partial.cs",
+        "syntaxErrors": 899
+      },
+      {
+        "file": "UnityEngine.UIModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.UnityAnalyticsCommonModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.UnityAnalyticsModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.UnityWebRequestAssetBundleModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.UnityWebRequestAudioModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.UnityWebRequestModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.VFXModule.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "UnityEngine.VRModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.VideoModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.WindModule.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityEngine.XRModule.dll.partial.cs",
+        "syntaxErrors": 6
+      },
+      {
+        "file": "UnityEngine.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityGLTF.Helpers.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityGLTF.Interactivity.VisualScripting.ExportPlugin.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityGLTF.Plugins.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "UnityGLTFScripts.dll.partial.cs",
+        "syntaxErrors": 2189
+      },
+      {
+        "file": "Valve.Newtonsoft.Json.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "__Generated.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "lostromb.concentus.dll.partial.cs",
+        "syntaxErrors": 0
+      },
+      {
+        "file": "lostromb.concentus.oggfile.dll.partial.cs",
+        "syntaxErrors": 97
+      },
+      {
+        "file": "mscorlib.dll.partial.cs",
+        "syntaxErrors": 1596
+      }
+    ]
+  },
+  "correction": "EscapeInvalidIdentifiers AST transform; original metadata names remain unchanged.",
+  "finalSyntaxErrors": 0,
+  "semanticCompilationPerformed": false
+}

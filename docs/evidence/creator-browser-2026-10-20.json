@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "recordType": "historical-browser-acceptance",
+  "provenance": {
+    "source": "Exact values transcribed from the earlier tool output reading artifacts/creator-browser-results.json in this conversation.",
+    "originalReportWasObserved": true,
+    "recordReconstructedAfterTemporaryWorkspacePrune": true,
+    "newBrowserRunPerformedDuringRestoration": false,
+    "originalScreenshotsWereCapturedAndInspected": true,
+    "originalScreenshotFilesRetained": false,
+    "note": "This preserves the observed earlier result. It does not recreate the pruned screenshots or claim that the restored checkout has been rerun."
+  },
+  "recordedRun": {
+    "startedAt": "2026-10-20T03:04:41.834Z",
+    "finishedAt": "2026-10-20T03:04:46.087Z",
+    "service": "http://127.0.0.1:5187",
+    "scope": "Real local creator API and browser UI; no game-client or multiplayer test",
+    "playwrightVersion": "1.56.1",
+    "chromiumBuild": "1194",
+    "responsesMocked": false,
+    "passed": true,
+    "passedChecks": 10,
+    "totalChecks": 10,
+    "checks": [
+      {
+        "name": "real service identity and initial circuit",
+        "passed": true,
+        "durationMs": 831
+      },
+      {
+        "name": "initial validation and actual preview result 42",
+        "passed": true,
+        "durationMs": 107
+      },
+      {
+        "name": "create and save a new draft through the real API",
+        "passed": true,
+        "durationMs": 250
+      },
+      {
+        "name": "visual edit, revision save, and reload persistence",
+        "passed": true,
+        "durationMs": 780
+      },
+      {
+        "name": "invalid JSON retention and valid return to Circuit",
+        "passed": true,
+        "durationMs": 318
+      },
+      {
+        "name": "named graph port wire endpoints",
+        "passed": true,
+        "durationMs": 2
+      },
+      {
+        "name": "desktop layout and screenshot",
+        "passed": true,
+        "durationMs": 108
+      },
+      {
+        "name": "mobile reload, preview, and layout",
+        "passed": true,
+        "durationMs": 756
+      },
+      {
+        "name": "small-mobile reload, preview, and layout",
+        "passed": true,
+        "durationMs": 780
+      },
+      {
+        "name": "no unexpected browser, failed-request, or server errors",
+        "passed": true,
+        "durationMs": 0
+      }
+    ],
+    "layouts": [
+      {
+        "screen": "desktop",
+        "viewportWidth": 1440,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "graphViewportWidth": 917,
+        "graphContentWidth": 917,
+        "clipped": [],
+        "unreadableSelectors": []
+      },
+      {
+        "screen": "mobile",
+        "viewportWidth": 390,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "graphViewportWidth": 356,
+        "graphContentWidth": 620,
+        "clipped": [],
+        "unreadableSelectors": []
+      },
+      {
+        "screen": "small-mobile",
+        "viewportWidth": 320,
+        "documentWidth": 320,
+        "bodyWidth": 320,
+        "graphViewportWidth": 286,
+        "graphContentWidth": 620,
+        "clipped": [],
+        "unreadableSelectors": []
+      }
+    ],
+    "browserErrors": [],
+    "requestFailures": [],
+    "serverErrors": [],
+    "originalScreenshotPaths": [
+      "artifacts/creator-browser-desktop.png",
+      "artifacts/creator-browser-mobile.png",
+      "artifacts/creator-browser-small-mobile.png"
+    ],
+    "createdDraft": {
+      "id": "0905815c02584cccb1ddc36b3e4d1306",
+      "name": "Score counter · QA 2026-10-20T03-04-41-833Z"
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "status": "compiled_login_response_profile_matches_native_fixture_observations",
+  "cases": 1428,
+  "reads": 1171,
+  "writes": 257,
+  "guestInstructions": 656666,
+  "fixtureSha256": "abf78dc93efb6805582986565b668bace5267144333081733d1bc9053641a58c",
+  "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+  "createdUtc": "2026-10-21T10:26:05.280697+00:00",
+  "currentProbeSha256": "beab5d5691417eab55cdeadd3b24fee3041cfc6130c9472fd30acf30390e66c8",
+  "actualGameExecuted": false,
+  "runtimeCallbacksModeled": true,
+  "comparisonResults": [
+    {
+      "variant": "actual",
+      "cases": 1428,
+      "mismatches": 0,
+      "firstDifferingFixtureIds": [],
+      "outputSha256": "bf6677aa2a9748012039c9a7437c2b84a8080050c8f38ff9ccf4bd0dc4e6ac1f"
+    },
+    {
+      "variant": "casefold",
+      "cases": 1428,
+      "mismatches": 8,
+      "firstDifferingFixtureIds": [
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170
+      ],
+      "outputSha256": "b088ebc2aa86844547bf1c673017383a61ee5aacb036b7e64340e73fffa93372"
+    },
+    {
+      "variant": "first-wins",
+      "cases": 1428,
+      "mismatches": 779,
+      "firstDifferingFixtureIds": [
+        171,
+        172,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        182,
+        183,
+        184,
+        185
+      ],
+      "outputSha256": "f96ed27efbb466945b5af705b483909171c8137fc4515e4bf8150806baa74a4d"
+    },
+    {
+      "variant": "empty-object",
+      "cases": 1428,
+      "mismatches": 1,
+      "firstDifferingFixtureIds": [
+        1
+      ],
+      "outputSha256": "d71dae5aec2996ef01be897d457d7f51aebff20e1a5bb2e1394135676df2da02"
+    }
+  ],
+  "admittedOrTypeErrorCases": 1410,
+  "deliberatelyUnsupportedNestedCases": 18,
+  "csharpContractSha256": "5f4eb10f1312cafd6158f17a4e89da3c08ae70656875453e033d678030f20524",
+  "comparedUtc": "2026-10-21T10:27:50.863803+00:00",
+  "wireEscapingBitwiseEquivalentClaimed": false,
+  "nativeClassifierEquivalenceClaimed": false,
+  "liveOriginalClientAcceptance": false,
+  "limits": [
+    "Generated constructor/read/write instructions are evaluated in an isolated x64 guest with declared runtime and token-reader callbacks.",
+    "Only null/absent code_hint is admitted. Non-null nested values stop at a modeled boundary; their original parser behavior is not claimed.",
+    "Writer checks compare ordered JSON values, not every byte-escaping rule of the original Utf8Json fork.",
+    "This component does not mint or validate real native access tokens, fetch an account, or complete login."
+  ]
+}

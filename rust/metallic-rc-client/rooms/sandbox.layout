@@ -1,0 +1,10 @@
+# Metallic-RC Maker room shell (the 15 m Sandbox pieces), in client (Bevy) space. INFERRED: the game places these
+# from room data we do not have; floor and ceiling (with its lights) stay where their roots put them, the walls stand
+# on the floor's edges (floor x/z -7.5..7.5, from examples/world_inventory.rs), the window wall on +x.
+# name                         x        y        z      yaw
+(Sandbox_Floor)                0.00     0.00     0.00     0
+(Sandbox_Ceiling)              0.00     0.00     0.00     0
+(Sandbox_Wall)                 0.19     0.00    -7.30     0
+(Sandbox_Wall)                -0.19     0.00     7.30   180
+(Sandbox_Wall)                -7.30     0.00    -0.19    90
+(Sandbox_Wall_Window)          7.19     0.00     0.00     0

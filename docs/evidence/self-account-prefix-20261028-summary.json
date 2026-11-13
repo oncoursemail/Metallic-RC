@@ -1,0 +1,101 @@
+{
+  "status": "review_candidate_not_deployed",
+  "steamBuildId": "23191908",
+  "component": "SelfAccountPrefixContract",
+  "nativePrefixCases": 1292,
+  "nativePrefixComparisons": [
+    {
+      "variant": "actual",
+      "cases": 1292,
+      "mismatches": 0
+    },
+    {
+      "variant": "casefold",
+      "cases": 1292,
+      "mismatches": 20
+    },
+    {
+      "variant": "first-wins",
+      "cases": 1292,
+      "mismatches": 224
+    },
+    {
+      "variant": "empty-object",
+      "cases": 1292,
+      "mismatches": 1
+    },
+    {
+      "variant": "swap-int-fields",
+      "cases": 1292,
+      "mismatches": 232
+    }
+  ],
+  "strictJsonValueTypesCompared": true,
+  "authoredSelfTests": 79,
+  "existingRegressions": {
+    "compatibilityCases": 570,
+    "compatibilityChecks": 4996,
+    "loginChecks": 106
+  },
+  "solutionBuild": {
+    "configuration": "Release",
+    "lockedRestore": true,
+    "warnings": 0,
+    "errors": 0
+  },
+  "provenance": {
+    "sourceImageSha256": "a183c7ff8262cbbc70fa4869790da4a0bf07e2fc4d2cfaf59612e2838d90b066",
+    "metadataSha256": "d675ea92bfb0086c0238e56702e91413fcc663c81fce364253749edbf6fcec9f",
+    "nativeFixtureSha256": "83b9d92ddb438e9c6be7ba9b143ff53bcaa18e3de2c346a6557ef37088291489",
+    "privateProbeSha256": "70e215e0f7bd204bb658e2f551031eba3f2ccc7f512470a1d4f42751509dcb64",
+    "inheritedProbeSha256": "beab5d5691417eab55cdeadd3b24fee3041cfc6130c9472fd30acf30390e66c8",
+    "authoredContractSha256": "b8d2de60ee95f08a7946a87b62d5ce248e5aba7e3684bde7afbc13ccd70913f7",
+    "authoredTestHarnessSha256": "f8dc9e4781fea31eea51626e82c5feaf3b257d05f47c91a94e1676003cec676e"
+  },
+  "accountFetchFragments": {
+    "firstBytes": 256,
+    "chainedContinuationBytes": 451,
+    "totalAuditedBytes": 707,
+    "validInstructions": 152,
+    "invalidInstructions": 0,
+    "chainInfoVerified": true,
+    "unionSha256": "057ea94e1987cdc916b1902b94c4757ede97424cda05cb1e1c8d51d237e321ca",
+    "earlierOvershootInterpretationCorrected": true
+  },
+  "formatter": {
+    "constructorMethod": 127648,
+    "readerMethod": 127650,
+    "canonicalFields": 20,
+    "rawAliases": 57,
+    "supportedPrimitiveFields": 12,
+    "unsupportedNestedFields": 8,
+    "constructorGuestSteps": 1014,
+    "fixtureGuestSteps": 280347
+  },
+  "bounds": {
+    "inputBytes": 65536,
+    "jsonDepth": 32,
+    "properties": 512,
+    "recoveredNativeLimits": false
+  },
+  "originalGameExecuted": false,
+  "accountConstructorExecuted": false,
+  "nestedParserVerified": false,
+  "nativeAuthenticationEnabled": false,
+  "nativeRouteEnabled": false,
+  "fullSelfAccountParserVerified": false,
+  "privateInstructionOrFixtureDataCommitted": false,
+  "limits": [
+    "Stops after native property dispatch and primitive local stores, before account allocation/constructor/setter behavior.",
+    "Eight nested formatter fields remain outside this profile even for null.",
+    "JSON lexical parsing/escaping/token-reader behavior is modeled, not the original Utf8Json lexical implementation.",
+    "Missing-property account defaults, native authentication and live original-client acceptance are unverified."
+  ],
+  "lexicalHardening": {
+    "strictWholeInputUtf8": true,
+    "staticInvalidUtf8Error": true,
+    "staticKnownInvalidStringError": true,
+    "newAuthoredChecks": 11,
+    "nativeLexicalEquivalenceClaimed": false
+  }
+}

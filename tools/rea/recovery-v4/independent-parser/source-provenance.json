@@ -1,0 +1,56 @@
+{
+  "repository": "Perfare/Il2CppDumper",
+  "commit": "4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a",
+  "modifiedUpstreamSources": false,
+  "files": [
+    {
+      "path": "Il2CppDumper/Attributes/ArrayLengthAttribute.cs",
+      "file": "ArrayLengthAttribute.cs",
+      "url": "https://raw.githubusercontent.com/Perfare/Il2CppDumper/4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a/Il2CppDumper/Attributes/ArrayLengthAttribute.cs",
+      "sha256": "e33a7ad3d5bc00a28346d3448b739c657d4c8d80e58a74b34e05d83ff0903ac4",
+      "bytes": 185
+    },
+    {
+      "path": "Il2CppDumper/Attributes/VersionAttribute.cs",
+      "file": "VersionAttribute.cs",
+      "url": "https://raw.githubusercontent.com/Perfare/Il2CppDumper/4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a/Il2CppDumper/Attributes/VersionAttribute.cs",
+      "sha256": "606c6b183531759235860f25773f28f46c00134c35464be1c13ac090b7bbfcdf",
+      "bytes": 254
+    },
+    {
+      "path": "Il2CppDumper/IO/BinaryStream.cs",
+      "file": "BinaryStream.cs",
+      "url": "https://raw.githubusercontent.com/Perfare/Il2CppDumper/4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a/Il2CppDumper/IO/BinaryStream.cs",
+      "sha256": "ce5f97946dd45621fb41ec2bf42364f9293fcd64645f90a0fe9552886db7b684",
+      "bytes": 8209
+    },
+    {
+      "path": "Il2CppDumper/Il2Cpp/Metadata.cs",
+      "file": "Metadata.cs",
+      "url": "https://raw.githubusercontent.com/Perfare/Il2CppDumper/4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a/Il2CppDumper/Il2Cpp/Metadata.cs",
+      "sha256": "aabb0ef28ea25509aee460df2863bcce1ca3b3f246f7dff6538c350b3a240334",
+      "bytes": 13383
+    },
+    {
+      "path": "Il2CppDumper/Il2Cpp/MetadataClass.cs",
+      "file": "MetadataClass.cs",
+      "url": "https://raw.githubusercontent.com/Perfare/Il2CppDumper/4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a/Il2CppDumper/Il2Cpp/MetadataClass.cs",
+      "sha256": "d66c9f867e66bf7709a2789b708c846517241e6aa54e8a6480271720b5fcc3cd",
+      "bytes": 13636
+    },
+    {
+      "path": "LICENSE",
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/Perfare/Il2CppDumper/4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a/LICENSE",
+      "sha256": "373bd2ed813eaa8245d1290138985c6fb025d588db254602720697455ae36c6c",
+      "bytes": 1064
+    },
+    {
+      "path": "Il2CppDumper/Extensions/BinaryReaderExtensions.cs",
+      "file": "BinaryReaderExtensions.cs",
+      "url": "https://raw.githubusercontent.com/Perfare/Il2CppDumper/4741d46ba9cd6159c5d853eb9d6fc48b4bfa2b1a/Il2CppDumper/Extensions/BinaryReaderExtensions.cs",
+      "bytes": 3198,
+      "sha256": "7a01fd286d5fc3eb1a7ddef4fc85da255719b647e0f2fa676b59fabc7346894d"
+    }
+  ]
+}

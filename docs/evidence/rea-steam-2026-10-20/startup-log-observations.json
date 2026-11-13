@@ -1,0 +1,35 @@
+[
+  {
+    "path": "C:\\ProgramData\\Referee\\Referee.App.log",
+    "bytes": 788,
+    "modifiedUtc": "2026-10-20T18:04:13.644445+00:00",
+    "relevantLines": [
+      "[2026-10-20 13:04:12] [Client App] Started service initialization.",
+      "[2026-10-20 13:04:13] [ERROR] [Client App] One or more blobs of type 0 were not found or loaded with status -99962.",
+      "[2026-10-20 13:04:13] [ERROR] [Client App] Unable to load configuration with status -99986. Stopping service."
+    ]
+  },
+  {
+    "path": "C:\\ProgramData\\Referee\\Referee.Launcher.log",
+    "bytes": 2669,
+    "modifiedUtc": "2026-10-20T18:04:18.963356+00:00",
+    "relevantLines": [
+      "[2026-10-20 13:03:55] [ERROR] [Client Launcher] Service transitioned to 'STOPPED' while waiting for 'RUNNING'. The service likely failed to start. See the service logs.",
+      "[2026-10-20 13:03:55] [ERROR] [Client Launcher] Service failed to reach a 'RUNNING' state in the time limit.",
+      "[2026-10-20 13:03:55] [ERROR] [Client Launcher] Unable to start the service. Attempt 1 of 5. Waiting 1000 milliseconds to retry...",
+      "[2026-10-20 13:03:58] [ERROR] [Client Launcher] Service transitioned to 'STOPPED' while waiting for 'RUNNING'. The service likely failed to start. See the service logs.",
+      "[2026-10-20 13:03:58] [ERROR] [Client Launcher] Service failed to reach a 'RUNNING' state in the time limit.",
+      "[2026-10-20 13:03:58] [ERROR] [Client Launcher] Unable to start the service. Attempt 2 of 5. Waiting 2000 milliseconds to retry...",
+      "[2026-10-20 13:04:02] [ERROR] [Client Launcher] Service transitioned to 'STOPPED' while waiting for 'RUNNING'. The service likely failed to start. See the service logs.",
+      "[2026-10-20 13:04:02] [ERROR] [Client Launcher] Service failed to reach a 'RUNNING' state in the time limit.",
+      "[2026-10-20 13:04:02] [ERROR] [Client Launcher] Unable to start the service. Attempt 3 of 5. Waiting 3000 milliseconds to retry...",
+      "[2026-10-20 13:04:07] [ERROR] [Client Launcher] Service transitioned to 'STOPPED' while waiting for 'RUNNING'. The service likely failed to start. See the service logs.",
+      "[2026-10-20 13:04:07] [ERROR] [Client Launcher] Service failed to reach a 'RUNNING' state in the time limit.",
+      "[2026-10-20 13:04:07] [ERROR] [Client Launcher] Unable to start the service. Attempt 4 of 5. Waiting 4000 milliseconds to retry...",
+      "[2026-10-20 13:04:13] [ERROR] [Client Launcher] Service transitioned to 'STOPPED' while waiting for 'RUNNING'. The service likely failed to start. See the service logs.",
+      "[2026-10-20 13:04:13] [ERROR] [Client Launcher] Service failed to reach a 'RUNNING' state in the time limit.",
+      "[2026-10-20 13:04:13] [ERROR] [Client Launcher] Unable to start the service. Attempt 5 of 5. Waiting 5000 milliseconds to retry...",
+      "[2026-10-20 13:04:18] [ERROR] [Client Launcher] Unable to start the service. Exiting."
+    ]
+  }
+]

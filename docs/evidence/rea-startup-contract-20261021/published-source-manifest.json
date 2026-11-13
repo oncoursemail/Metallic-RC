@@ -1,0 +1,167 @@
+[
+  {
+    "path": "src/Metallic.RC.Compatibility/DiscoveryContract.cs",
+    "bytes": 8488,
+    "sha256": "8ff8defbb0af1eae75114428c82bd5a6e80836420ba0ee3f8c9d98c4b9cc0090"
+  },
+  {
+    "path": "src/Metallic.RC.Compatibility/Metallic.RC.Compatibility.csproj",
+    "bytes": 168,
+    "sha256": "bd7b6d09d62946e48285f370193b24ffcd8262fd7fb1ae7b10605e554d4dd356"
+  },
+  {
+    "path": "src/Metallic.RC.Compatibility/packages.lock.json",
+    "bytes": 117,
+    "sha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792"
+  },
+  {
+    "path": "src/Metallic.RC.Compatibility/README.md",
+    "bytes": 1994,
+    "sha256": "660f19af9f382afa746721742a36bf9de4f338330777869972baad24445011a3"
+  },
+  {
+    "path": "src/Metallic.RC.Compatibility/ServiceAddressUpdate.cs",
+    "bytes": 1516,
+    "sha256": "bba5faeed222cda7bf0df977a18d7f753b6fdb9adb7080682ecbd49fddf15637"
+  },
+  {
+    "path": "tests/Metallic.RC.Compatibility.Tests/ContractSelfTests.cs",
+    "bytes": 10863,
+    "sha256": "930a076345badaef6dbba5d7205cf843e4f2a8a6acf9f0716768df1fc233ea93"
+  },
+  {
+    "path": "tests/Metallic.RC.Compatibility.Tests/fixtures/discovery.valid.json",
+    "bytes": 1490,
+    "sha256": "8d482eda21ec97a96a8b6c33a2924b85032a310617e8b129fe056331a92da438"
+  },
+  {
+    "path": "tests/Metallic.RC.Compatibility.Tests/Metallic.RC.Compatibility.Tests.csproj",
+    "bytes": 318,
+    "sha256": "40d793c44693d1cc0fe782780be93b71ec7e7a4846256eeb07d573d1d5301a35"
+  },
+  {
+    "path": "tests/Metallic.RC.Compatibility.Tests/packages.lock.json",
+    "bytes": 193,
+    "sha256": "395a35ff6747a0286c95b1201d33db90600b6b277792516594d4d7b8c528576e"
+  },
+  {
+    "path": "tests/Metallic.RC.Compatibility.Tests/Program.cs",
+    "bytes": 1827,
+    "sha256": "a0fe39d9b7c8f69f06ac7cd4f6aa6b790c71e0e6cca20b3c01650ca1c0555221"
+  },
+  {
+    "path": "tools/rea/startup-contract/.gitignore",
+    "bytes": 131,
+    "sha256": "ba001a21651bfb2aa375b02c00e66f312af859df30dd2f2b474a9ad7cacb8e53"
+  },
+  {
+    "path": "tools/rea/startup-contract/final_validation.py",
+    "bytes": 6912,
+    "sha256": "8dccf7269516d5eb0c28473b8692d538e95a125dea549e9f730840ebabcc5c99"
+  },
+  {
+    "path": "tools/rea/startup-contract/native_contract_probe.py",
+    "bytes": 13073,
+    "sha256": "2307afa3a4adeaa08bafaf7919c36fbf26068ed333f7afc0bdb532353070acaa"
+  },
+  {
+    "path": "tools/rea/startup-contract/Probe/contract-manifest.json",
+    "bytes": 5329,
+    "sha256": "fb5f8d3de48b1aeb0130d717722c042031427493a35d2aac46ffb724e158e9bd"
+  },
+  {
+    "path": "tools/rea/startup-contract/Probe/ContractSelfTests.cs",
+    "bytes": 10782,
+    "sha256": "6126e55a5112266d5c17c1341107f85ae9d87ff2cd36e9eac2bb6e612f7b96ef"
+  },
+  {
+    "path": "tools/rea/startup-contract/Probe/DiscoveryContract.cs",
+    "bytes": 8667,
+    "sha256": "9a6a8654e0e874a42ba1e600ad5afe8706dd41d55205039a805614a112440ae3"
+  },
+  {
+    "path": "tools/rea/startup-contract/Probe/InitializationCleanup.cs",
+    "bytes": 1819,
+    "sha256": "70375ec2fccec7e9475317f6c9518905373332f0fda5ba88893169ca80dbe625"
+  },
+  {
+    "path": "tools/rea/startup-contract/Probe/packages.lock.json",
+    "bytes": 117,
+    "sha256": "1d1dc155698e2dec519b9782729f488be113028b4abf40d5dbc4b58be4049792"
+  },
+  {
+    "path": "tools/rea/startup-contract/Probe/Program.cs",
+    "bytes": 1975,
+    "sha256": "8e00447805c9bf8de7eab71ad7024b40757a0c21637a16d97349991ae86f19ff"
+  },
+  {
+    "path": "tools/rea/startup-contract/Probe/ServiceAddressUpdate.cs",
+    "bytes": 1514,
+    "sha256": "1a18d951479c0a120e3e31ea4008b58174154a710c322b8fff7840747a12e88a"
+  },
+  {
+    "path": "tools/rea/startup-contract/Probe/StartupContract.csproj",
+    "bytes": 309,
+    "sha256": "8a0e306ecf0ba6f6ffef72dc5ba2eb51c19699797e250ca5948b92586c611591"
+  },
+  {
+    "path": "tools/rea/startup-contract/rea_session.py",
+    "bytes": 4223,
+    "sha256": "3f17a1c0889c001b165a89fc2064f958f461c8caeb71962c031a60d1afc8dcbf"
+  },
+  {
+    "path": "tools/rea/startup-contract/README.md",
+    "bytes": 1859,
+    "sha256": "751f1f5f9c113eddc819e19a661854bb91ff99b1b1f5c23b1719bdc71214d061"
+  },
+  {
+    "path": "tools/rea/startup-contract/resolve_cleanup_context.py",
+    "bytes": 3448,
+    "sha256": "79bacecbbc6485041cf5a23552c963da5b878c93db6621bc6399f07b17d51718"
+  },
+  {
+    "path": "tools/rea/startup-contract/run_isolated_pe_rea.py",
+    "bytes": 5131,
+    "sha256": "efe44ac53ad8ebe5e8b17502a7698cb262061962c1743c9ad317eedeebb61b19"
+  },
+  {
+    "path": "tools/rea/startup-contract/verify_cleanup.py",
+    "bytes": 5233,
+    "sha256": "09af033f004a105aba29c5a2eec94eca03fedd434a05b915626b3274dd53cb78"
+  },
+  {
+    "path": "tools/rea/startup-contract/verify_contract.py",
+    "bytes": 6452,
+    "sha256": "4a4334922dcb9095fb7cd91612723b6d23ed91779e26e48975cdc91356fef87a"
+  },
+  {
+    "path": "Metallic.RC.slnx",
+    "bytes": 659,
+    "sha256": "bcc36b045aef0a8a77b44a10b9eba530cd063065a8513011ea71749d85e5df76"
+  },
+  {
+    "path": "src/Metallic.RC.Launcher/Program.cs",
+    "bytes": 8000,
+    "sha256": "5f18e6aea4f561ea249338e018e3efe08b610a477092c983e41f9e313dccbcf1"
+  },
+  {
+    "path": "src/Metallic.RC.Launcher/Metallic.RC.Launcher.csproj",
+    "bytes": 1091,
+    "sha256": "4929f872aada3cab98e1b66ec1cc890879f56b0f07c509f4fecbbb3333ffaada"
+  },
+  {
+    "path": "src/Metallic.RC.Launcher/DiscoveryCheck.cs",
+    "bytes": 2284,
+    "sha256": "24c8900d085cd81ac884a6a942c06431b8a80e042dcfb248ef25105711c17fc5"
+  },
+  {
+    "path": "src/Metallic.RC.Launcher/packages.lock.json",
+    "bytes": 11229,
+    "sha256": "98cfa5b55cb7eb5cf255b542f0356c352d8410e0d453cd5fb070348451d18ede"
+  },
+  {
+    "path": "docs/evidence/REA_STARTUP_CONTRACT_FIX_2026-10-21.md",
+    "bytes": 9936,
+    "sha256": "7bbc7ad769c0db32e3f5c34f9ed3d6b683d848a7ee1209a6d23e7f805dcf3d58"
+  }
+]

@@ -1,0 +1,50 @@
+{
+  "sourceCommit": "70c32244d17bdaef815749b5582306955f2187cb",
+  "launcherPid": 11136,
+  "creatorButtonInvoked": true,
+  "health": {
+    "status": "ok",
+    "service": "metallic-rc-platform",
+    "scope": "local-authoring"
+  },
+  "capabilities": {
+    "product": "Metallic-RC",
+    "apiVersion": "1",
+    "mode": "local-authoring",
+    "workspaceId": "34f4a98043904f42383d2de3b9e7ef56c2dc878170281341dc950131eea941bc",
+    "features": {
+      "roomDrafts": true,
+      "cv3Validation": true,
+      "cv3Preview": true,
+      "compiledClientAdapter": false,
+      "recRoomProtocol": false,
+      "multiplayer": false,
+      "voice": false,
+      "accountMigration": false
+    },
+    "limits": {
+      "requestBytes": 262144,
+      "graphNodes": 256,
+      "graphEdges": 1024,
+      "previewSteps": 4096,
+      "dataDepth": 64,
+      "stringLength": 4096
+    }
+  },
+  "htmlStatus": 200,
+  "scriptStatus": 200,
+  "ownedCreator": [
+    {
+      "ProcessId": 8916,
+      "ExecutablePath": "C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\rework-20261020\\desktop-win-x64\\platform\\Metallic.RC.Platform.exe"
+    }
+  ],
+  "launcherExitCode": null,
+  "ownedCreatorStopped": true,
+  "portReleased": true,
+  "screenshot": "windows-launcher.png",
+  "initialProbeNote": "First harness used /api/capabilities and received 404; corrected to implemented /api/v1/capabilities, no product change.",
+  "recordedAtUtc": "2026-10-20T11:40:36.4625599Z",
+  "launcherClosed": true,
+  "launcherExitCodeCaptured": false
+}

@@ -1,0 +1,32 @@
+{
+  "status": "v2_runner_and_existing_desktop_entrypoint_updated",
+  "updatedUtc": "2026-10-21T17:54:50.592779+00:00",
+  "runnerSha256": "69354984b8be59e324845c210ef2aaa198453dc5d864f6b80dfe22ea6c3eaaef",
+  "manifestSha256": "456580f8919119c60ed18034f074fee38c4c8a8ecffecba1309b0472851d6857",
+  "launchControllerSha256": "caef0fce68a98f3aabee2aaaa8fe6945f4fc5c9af84aff3694f9c04e3c0afe76",
+  "privateWrapperSha256": "4482860e1ef1eb5aaae457d6dfa7bfaec441f481a3a7a22230dfeb67c43da89e",
+  "previousWrapperPreserved": "Start-NativeClientTest.before-v2.ps1",
+  "desktop": {
+    "shortcut": "Metallic-RC Native Client Test.lnk",
+    "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "arguments": "-NoProfile -ExecutionPolicy RemoteSigned -File \"C:\\Users\\alexi\\AppData\\Local\\Metallic-RC\\native-client-lab-20261021\\Start-NativeClientTest.ps1\"",
+    "opened": false
+  },
+  "budgets": {
+    "totalWorkerSeconds": 90,
+    "startupSeconds": 30,
+    "attachSeconds": 15,
+    "outerSupervisorWaitSeconds": 130
+  },
+  "retryApproval": {
+    "requestedUtc": "2026-10-21T17:48:51.1549380Z",
+    "status": "approval_or_launch_failed",
+    "workerBudgetSeconds": 90,
+    "attachLimitSeconds": 15,
+    "supervisorWaitSeconds": 130,
+    "error": "This command cannot be run due to the error: The operation was canceled by the user.",
+    "finishedUtc": "2026-10-21T17:50:53.5193137Z"
+  },
+  "originalClientRetested": false,
+  "automaticRetryAfterCancellation": false
+}
