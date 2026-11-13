@@ -94,6 +94,11 @@ pub fn renderer_flag_bytes(unity_version: &str) -> usize {
     n
 }
 
+/// Major Unity version (the year, e.g. 2019 or 6000) from a version string like `6000.0.27f1`.
+fn unity_major(unity_version: &str) -> u32 {
+    unity_version.split(|c: char| !c.is_ascii_digit()).find_map(|s| s.parse::<u32>().ok()).unwrap_or(0)
+}
+
 /// MeshRenderer (23): reads up to `m_StaticBatchInfo`; the rest (probe anchors, sorting) is skipped.
 pub fn mesh_renderer(r: &mut Reader, unity_version: &str) -> Result<MeshRenderer> {
     let game_object = pptr(r)?;
@@ -102,6 +107,12 @@ pub fn mesh_renderer(r: &mut Reader, unity_version: &str) -> Result<MeshRenderer
     r.align(4);
     r.u32()?; // m_RenderingLayerMask (2018+)
     r.i32()?; // m_RendererPriority (2018.3+)
+    // Unity 6 (6000+) inserts a 4-byte field here (seen -1) between m_RendererPriority and
+    // m_LightmapIndex. INFERRED from the 6000.0.27 player layout (the decrypted 2026 scenes); older
+    // no-type-tree builds (the 2019.4 reference install) do not have it.
+    if unity_major(unity_version) >= 6000 {
+        r.u32()?;
+    }
     let lightmap_index = r.u16()?;
     r.u16()?; // m_LightmapIndexDynamic
     let lightmap_st = floats::<4>(r)?;

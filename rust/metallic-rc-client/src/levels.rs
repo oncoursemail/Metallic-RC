@@ -16,11 +16,11 @@ use std::{
 };
 
 use bevy::math::{Mat4, Quat, Vec3};
-use unity_assets::{classes, level, Material, PPtr, SerializedFile};
+use unity_assets::{classes, level, Material, PPtr, Reader, SerializedFile, TypeTree};
 
 use crate::{
-    collide::Obb,
-    room::{self, Blend, Library, Part, RoomData, RoomLight, RoomMaterial},
+    collide::{Collider, MeshShape, Obb},
+    room::{self, Blend, Library, ParticleEmitter, Part, RoomData, RoomLight, RoomMaterial},
     shapes::{self, Pixels, ShapeKit},
 };
 
@@ -106,15 +106,23 @@ fn hidden_prefab(name: &str) -> bool {
 
 // ---- the reference install's files ----
 
-/// The plain files of the reference install, opened as they are needed (resolving PPtrs between them).
+/// The plain files of a plain-file install (the 2019 reference install, or the decrypted 2026 corpus), opened as
+/// they are needed (resolving PPtrs between them). `res_dirs` are where the out-of-line `.resS`/`.resource` streams
+/// are looked for (the install folder; for the 2026 corpus also the game install, whose `.resS` are plaintext).
 struct Files {
     dir: PathBuf,
+    res_dirs: Vec<PathBuf>,
     open: HashMap<String, Option<Rc<SerializedFile>>>,
 }
 
 impl Files {
     fn new(dir: &Path) -> Self {
-        Files { dir: dir.to_path_buf(), open: HashMap::new() }
+        Files { dir: dir.to_path_buf(), res_dirs: vec![dir.to_path_buf()], open: HashMap::new() }
+    }
+
+    /// Reads scenes from `dir` but looks for their stream data across `res_dirs` (first hit wins).
+    fn with_res(dir: &Path, res_dirs: Vec<PathBuf>) -> Self {
+        Files { dir: dir.to_path_buf(), res_dirs, open: HashMap::new() }
     }
 
     fn get(&mut self, name: &str) -> Option<Rc<SerializedFile>> {
@@ -145,8 +153,8 @@ impl Files {
         Some((name, p.path_id))
     }
 
-    fn resources(&self) -> level::DirResources {
-        level::DirResources(self.dir.clone())
+    fn resources(&self) -> level::MultiResources {
+        level::MultiResources(self.res_dirs.clone())
     }
 }
 
@@ -254,6 +262,45 @@ fn node_mesh(files: &mut Files, scene: &Scene, sf: &SerializedFile, i: usize) ->
     Some((name, filter, renderer))
 }
 
+/// Every drawn mesh of a scene, by node index and mesh name: active renderers (or statically-batched originals
+/// whose combined mesh draws them), skipping lower LODs, mobile variants, circuit helpers and shadow-only proxies.
+fn drawn_meshes(files: &mut Files, scene: &Scene) -> Vec<(usize, String)> {
+    let Some(sf) = files.get(&scene.file) else { return Vec::new() };
+    let mut drawn: Vec<(usize, String)> = Vec::new();
+    // Rec Room's own static batcher: originals keep their mesh with the renderer off, and a `StaticStaticBatch_<material>`
+    // object draws the combined mesh; such originals count as drawn (INFERRED from the object names).
+    let batched: HashSet<String> = scene.nodes.iter().filter_map(|n| n.name.strip_prefix("StaticStaticBatch_").map(String::from)).collect();
+    let desktop_parents: HashSet<Option<usize>> = scene.nodes.iter().filter(|n| n.name.contains("Desktop")).map(|n| n.parent).collect();
+    // Authoritative LOD selection: a LODGroup names the renderers at each level, so every renderer referenced at
+    // LOD1+ is a lower detail level and must not be drawn (LOD0 stays). This is exact where the `*LODn` name
+    // heuristic below is only a guess, and catches lower-LOD renderers that are not named with the LOD convention.
+    let lower_lods: HashSet<i64> = sf
+        .objects
+        .iter()
+        .filter(|o| o.class_id == classes::LOD_GROUP)
+        .filter_map(|o| level::lod_group(&sf, o).ok())
+        .flat_map(|g| g.lods.into_iter().skip(1).flatten().map(|p| p.path_id))
+        .collect();
+    for (i, n) in scene.nodes.iter().enumerate() {
+        let renderer = n.components.iter().find(|c| c.0 == classes::MESH_RENDERER || c.0 == classes::SKINNED_MESH_RENDERER).map(|c| c.1);
+        if !n.active || n.name.starts_with("StaticStaticBatch_") || lower_lod(&n.name) || mobile_variant(scene, &desktop_parents, i)
+            || n.path.contains("/Circuit ") || renderer.is_some_and(|id| lower_lods.contains(&id))
+        {
+            continue;
+        }
+        let Some((mesh, _, r)) = node_mesh(files, scene, &sf, i) else { continue };
+        if r.cast_shadows == 3 {
+            continue;
+        }
+        let first_mat = r.materials.first().and_then(|&p| files.resolve(&scene.file, p))
+            .and_then(|(f, id)| { let x = files.get(&f)?; x.object(id).and_then(|o| x.object_name(o)) });
+        if r.enabled || first_mat.is_some_and(|m| batched.contains(&m)) {
+            drawn.push((i, mesh));
+        }
+    }
+    drawn
+}
+
 /// A lower level of detail (`*LOD1`, `*_LOD_2`): LOD0 is drawn instead.
 fn lower_lod(name: &str) -> bool {
     let Some(i) = name.rfind("LOD") else { return false };
@@ -354,28 +401,9 @@ fn prefab_meshes(lib: &mut Library, dir: &Path, bundle: &str, prefix: &str) -> R
 fn plan(files: &mut Files, lib: &mut Library, dir: &Path, room: &str) -> Result<(Scene, Vec<Placed>), String> {
     let (file, name) = scene_file(files, room).ok_or_else(|| format!("no scene {room:?} in the reference install"))?;
     let scene = read_scene(files, &file, &name)?;
-    let sf = files.get(&file).ok_or("scene file")?;
     let info = ROOMS.iter().find(|r| r.scene.eq_ignore_ascii_case(&name));
     // every drawn mesh of the scene, by node
-    let mut drawn: Vec<(usize, String)> = Vec::new();
-    // Rec Room's own static batcher: originals keep their mesh with the renderer off, and a `StaticStaticBatch_<material>`
-    // object draws the combined mesh; such originals count as drawn (INFERRED from the object names)
-    let batched: HashSet<String> = scene.nodes.iter().filter_map(|n| n.name.strip_prefix("StaticStaticBatch_").map(String::from)).collect();
-    let desktop_parents: HashSet<Option<usize>> = scene.nodes.iter().filter(|n| n.name.contains("Desktop")).map(|n| n.parent).collect();
-    for (i, n) in scene.nodes.iter().enumerate() {
-        if !n.active || n.name.starts_with("StaticStaticBatch_") || lower_lod(&n.name) || mobile_variant(&scene, &desktop_parents, i) || n.path.contains("/Circuit ") {
-            continue;
-        }
-        let Some((mesh, _, r)) = node_mesh(files, &scene, &sf, i) else { continue };
-        if r.cast_shadows == 3 {
-            continue;
-        }
-        let first_mat = r.materials.first().and_then(|&p| files.resolve(&file, p))
-            .and_then(|(f, id)| { let x = files.get(&f)?; x.object(id).and_then(|o| x.object_name(o)) });
-        if r.enabled || first_mat.is_some_and(|m| batched.contains(&m)) {
-            drawn.push((i, mesh));
-        }
-    }
+    let drawn = drawn_meshes(files, &scene);
     let mut out = Vec::new();
     let mut covered: Vec<usize> = Vec::new(); // anchor subtrees
     let mut covered_meshes: HashSet<String> = HashSet::new();
@@ -756,26 +784,481 @@ fn load_with(files: &mut Files, lib: &mut Library, kit: &mut ShapeKit, dir: &Pat
             b.add(&scene, i);
         }
     }
-    // solid box colliders of active objects
-    for (i, n) in scene.nodes.iter().enumerate() {
-        if !n.active {
-            continue;
-        }
-        for &(class, id) in &n.components {
-            if class != classes::BOX_COLLIDER {
-                continue;
-            }
-            if let Ok(c) = level::box_collider(&sf, sf.object(id).unwrap()) {
-                if c.enabled && !c.trigger {
-                    r.colliders.push(Obb::from_box_collider(scene.nodes[i].world, c.center, c.size));
-                    r.collider_roots.push(root);
-                }
-            }
-        }
-    }
+    // solid colliders (box, sphere, capsule, mesh; triggers left out) of active objects
+    let (cols, croots) = scene_colliders(files, &sf, &scene, root);
+    r.colliders = cols;
+    r.collider_roots = croots;
     let lights = scene_lights(&scene, &sf, root);
     if !lights.is_empty() {
         r.lights = lights;
+    }
+    Ok(r)
+}
+
+// ---- the decrypted 2026 scenes ----
+
+/// The default place of the decrypted 2026 base files (the 114 `levelN` scenes, `sharedassetsN`, `resources.assets`,
+/// `globalgamemanagers`), produced by the preservation capture. Their `.resS` streams are read from the game install.
+pub const DEFAULT_SCENES_DIR: &str = r"C:\Users\alexi\rr-capture\decomp-full\assets\decrypted";
+
+static SCENES_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+/// Sets the decrypted-scene corpus from `--scenes-dir` (a folder, or `none` to turn it off). Call once, before the
+/// first room loads; later calls are ignored.
+pub fn set_scenes_dir(arg: Option<&str>) {
+    let dir = match arg {
+        Some(a) if a.eq_ignore_ascii_case("none") => None,
+        Some(a) => Some(PathBuf::from(a)),
+        None => default_scenes_dir(),
+    };
+    let _ = SCENES_DIR.set(dir);
+}
+
+fn default_scenes_dir() -> Option<PathBuf> {
+    Some(PathBuf::from(DEFAULT_SCENES_DIR)).filter(|d| d.join("globalgamemanagers").exists())
+}
+
+/// The decrypted 2026 scene corpus, if there is one.
+pub fn scenes_dir() -> Option<&'static Path> {
+    SCENES_DIR.get_or_init(default_scenes_dir).as_deref()
+}
+
+/// A tag for the world cache key: rooms built from the decrypted corpus differ from those without it.
+pub fn scenes_cache_tag() -> String {
+    format!("scenes1:{:?}", scenes_dir())
+}
+
+/// One built-in scene of the 2026 build: our short name (the scene file name, e.g. `reccenter`), its `levelN` file,
+/// and the full asset path.
+pub struct SceneEntry {
+    pub name: String,
+    pub file: String,
+    pub path: String,
+}
+
+/// Every built-in scene in the decrypted corpus (from `globalgamemanagers`' build settings), in `levelN` order.
+pub fn scene_list() -> Vec<SceneEntry> {
+    let Some(dir) = scenes_dir() else { return Vec::new() };
+    let mut files = Files::new(dir);
+    let Some(ggm) = files.get("globalgamemanagers") else { return Vec::new() };
+    let Ok(scenes) = level::build_scenes(&ggm) else { return Vec::new() };
+    scenes
+        .iter()
+        .enumerate()
+        .map(|(i, p)| SceneEntry { name: level::scene_name(p).to_string(), file: format!("level{i}"), path: p.clone() })
+        .collect()
+}
+
+/// Loads a built-in 2026 scene (by our name, scene name or `levelN`) straight from the decrypted corpus: its own
+/// geometry, materials, solid colliders and realtime lights. `game_data` is the game install's `RecRoom_Data`,
+/// where the plaintext `.resS` streams live. `None` when there is no corpus or it has no such scene, so the caller
+/// falls back to another loader.
+/// The solid colliders (box, sphere, capsule, mesh; triggers and disabled ones left out) of a scene's active
+/// objects, in client (Bevy) space, with the root each belongs to.
+fn scene_colliders(files: &mut Files, sf: &SerializedFile, scene: &Scene, root: usize) -> (Vec<Collider>, Vec<usize>) {
+    let mut colliders = Vec::new();
+    let mut roots = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        let world = n.world;
+        let to_bevy = |p: [f32; 3]| world.transform_point3(Vec3::new(p[0], p[1], -p[2]));
+        let smax = world.to_scale_rotation_translation().0.abs().max_element();
+        for &(class, id) in &n.components {
+            let Some(o) = sf.object(id) else { continue };
+            let col = if class == classes::BOX_COLLIDER {
+                level::box_collider(sf, o).ok().filter(|c| c.enabled && !c.trigger).map(|c| Collider::Box(Obb::from_box_collider(world, c.center, c.size)))
+            } else if class == classes::SPHERE_COLLIDER {
+                level::sphere_collider(sf, o).ok().filter(|c| c.enabled && !c.trigger).map(|c| Collider::Sphere { center: to_bevy(c.center), radius: c.radius * smax })
+            } else if class == classes::CAPSULE_COLLIDER {
+                level::capsule_collider(sf, o).ok().filter(|c| c.enabled && !c.trigger).map(|c| {
+                    let dir = match c.direction { 0 => Vec3::X, 1 => Vec3::Y, _ => Vec3::Z };
+                    let half = (c.height * 0.5 - c.radius).max(0.0);
+                    let cen = Vec3::from(c.center);
+                    let (a, b) = (cen + dir * half, cen - dir * half);
+                    Collider::Capsule { a: to_bevy(a.into()), b: to_bevy(b.into()), r: c.radius * smax }
+                })
+            } else if class == classes::MESH_COLLIDER {
+                mesh_collider_shape(files, sf, &scene.file, world, o)
+            } else {
+                None
+            };
+            if let Some(c) = col {
+                colliders.push(c);
+                roots.push(root);
+            }
+        }
+    }
+    (colliders, roots)
+}
+
+/// Build a [`Collider::Mesh`] from a MeshCollider's referenced mesh, in client (Bevy) world space.
+fn mesh_collider_shape(files: &mut Files, sf: &SerializedFile, scene_file: &str, world: Mat4, o: &unity_assets::ObjectInfo) -> Option<Collider> {
+    let mc = level::mesh_collider(sf, o).ok().filter(|c| c.enabled && !c.trigger)?;
+    let (f, pid) = files.resolve(scene_file, mc.mesh)?;
+    let mesh_sf = files.get(&f)?;
+    let res = files.resources();
+    let m = level::mesh(&mesh_sf, mesh_sf.object(pid)?, &res).ok()?;
+    let pos = m.positions();
+    let to_world = |i: u32| pos.get(i as usize).map(|p| world.transform_point3(Vec3::new(p[0], p[1], -p[2])));
+    let mut tris = Vec::new();
+    for s in 0..m.submeshes.len() {
+        if m.submeshes[s].topology != 0 {
+            continue; // triangle lists only
+        }
+        let Some(idx) = m.submesh_indices(s) else { continue };
+        for t in idx.chunks_exact(3) {
+            if let (Some(a), Some(b), Some(c)) = (to_world(t[0]), to_world(t[1]), to_world(t[2])) {
+                tris.push([a, b, c]);
+            }
+        }
+    }
+    (!tris.is_empty()).then(|| Collider::Mesh(MeshShape::new(tris)))
+}
+
+/// World transforms of a scene's spawn points (`SceneSpawnPoint` / `GamePlayerSpawnPoint` MonoBehaviours), for
+/// placing the player. The script class behind each MonoBehaviour is resolved through its `m_Script` and cached.
+fn scene_spawns(files: &mut Files, scene_file: &str, sf: &SerializedFile, scene: &Scene) -> Vec<Mat4> {
+    let mut cache: HashMap<(i32, i64), bool> = HashMap::new();
+    let mut spawns = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        let mut is_spawn = false;
+        for &(class, id) in &n.components {
+            if class != classes::MONO_BEHAVIOUR {
+                continue;
+            }
+            let Some(o) = sf.object(id) else { continue };
+            let Ok(p) = level::mono_script_ref(sf, o) else { continue };
+            let key = (p.file_id, p.path_id);
+            let hit = if let Some(&h) = cache.get(&key) {
+                h
+            } else {
+                let name = if p.file_id == 0 {
+                    sf.object(p.path_id).and_then(|so| level::mono_script_name(sf, so).ok())
+                } else if let Some((f, pid)) = files.resolve(scene_file, p) {
+                    files.get(&f).and_then(|x| {
+                        let so = x.object(pid)?;
+                        level::mono_script_name(&x, so).ok()
+                    })
+                } else {
+                    None
+                };
+                let h = matches!(name.as_ref().map(|(c, _)| c.as_str()), Some("SceneSpawnPoint" | "GamePlayerSpawnPoint"));
+                cache.insert(key, h);
+                h
+            };
+            if hit {
+                is_spawn = true;
+                break;
+            }
+        }
+        if is_spawn {
+            spawns.push(n.world);
+        }
+    }
+    spawns
+}
+
+static PS_TREE: OnceLock<Option<TypeTree>> = OnceLock::new();
+
+/// The ParticleSystem(198) type tree, read once from any install bundle that carries one. The decrypted scene files
+/// have no type trees, so this is injected to decode their inline ParticleSystems in place. Scans install bundles
+/// until one has it (bounded, cached); returns None if no install or none found.
+fn ps_type_tree() -> Option<&'static TypeTree> {
+    PS_TREE
+        .get_or_init(|| {
+            let game = room::GAME_DIRS.iter().map(PathBuf::from).find(|p| p.exists())?;
+            let bdir = room::bundle_dir(&game);
+            for (i, entry) in std::fs::read_dir(&bdir).ok()?.flatten().enumerate() {
+                if i >= 800 {
+                    break; // bound the one-time scan
+                }
+                let p = entry.path();
+                if p.extension().and_then(|e| e.to_str()) != Some("bundle") {
+                    continue;
+                }
+                let Ok(b) = unity_assets::Bundle::open(&p) else { continue };
+                let Ok(sfs) = b.serialized_files() else { continue };
+                for (_, sf) in sfs {
+                    if let Some(t) = sf.types.into_iter().find(|t| t.class_id == classes::PARTICLE_SYSTEM && t.tree.is_some()).and_then(|t| t.tree) {
+                        return Some(t);
+                    }
+                }
+            }
+            None
+        })
+        .as_ref()
+}
+
+/// A scene ParticleSystem reduced to the render essentials (representative constants; no curves).
+fn to_emitter(world: Mat4, ps: &unity_assets::ParticleSystem) -> ParticleEmitter {
+    let col = |c: &unity_assets::ParticleColor| [c.r, c.g, c.b, c.a];
+    ParticleEmitter {
+        world,
+        max_particles: ps.max_particles.clamp(0, 100_000) as u32,
+        looping: ps.looping,
+        rate: ps.rate_over_time.constant().max(0.0),
+        bursts: ps.bursts.iter().map(|b| (b.time, b.count.constant())).collect(),
+        lifetime: ps.start_lifetime.constant().max(0.01),
+        speed: ps.start_speed.constant(),
+        size: ps.start_size.constant().max(0.001),
+        gravity: ps.gravity_modifier.constant(),
+        shape: if ps.shape_enabled { ps.shape_type } else { -1 },
+        shape_angle: ps.shape_angle,
+        shape_radius: ps.shape_radius,
+        start_color: col(&ps.start_color.min_color),
+        color_over_life: ps.color_over_lifetime.as_ref().map(|g| g.stops.iter().map(|(t, c)| (*t, col(c))).collect()).unwrap_or_default(),
+        size_over_life: ps.size_over_lifetime.as_ref().map(|c| c.max_curve.iter().map(|k| (k.time, k.value)).collect()).unwrap_or_default(),
+    }
+}
+
+/// The room's auto-playing ambient particle emitters, decoded from the scene's inline ParticleSystems via the
+/// injected PS type tree. Player `VFX_Emote_*` effects and non-auto / non-emitting systems are left out.
+fn scene_particles(sf: &SerializedFile, scene: &Scene) -> Vec<ParticleEmitter> {
+    let Some(tree) = ps_type_tree() else { return Vec::new() };
+    let mut out = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        if n.name.starts_with("VFX_Emote") {
+            continue;
+        }
+        let Some(&(_, id)) = n.components.iter().find(|c| c.0 == classes::PARTICLE_SYSTEM) else { continue };
+        let Some(o) = sf.object(id) else { continue };
+        let mut r = Reader::new(sf.object_bytes(o), sf.big_endian);
+        let Ok(v) = unity_assets::value::read(tree, &sf.ref_types, &mut r) else { continue };
+        let ps = unity_assets::ParticleSystem::from_value(&v);
+        if ps.play_on_awake && ps.emission_enabled {
+            out.push(to_emitter(n.world, &ps));
+        }
+    }
+    out
+}
+
+/// A scene GameObject matched by its hierarchy NAME (e.g. objects whose name contains "Goal", "Basket", "Tee"): its
+/// world position (client/Bevy space) and, if it has a box/sphere collider, that collider's local half-extent. Per-
+/// game plugins use this to place goal/basket/hazard zones and spawns from the REAL scene objects instead of
+/// approximating from the arena bounds — the shared scene-object reader.
+///
+/// NOTE on the matcher: matching is by object NAME, not MonoBehaviour script class. The 2026 scenes reference their
+/// gameplay MonoScripts EXTERNALLY (in the game assembly), so the script class can't be resolved from the scene file
+/// alone (`mono_script_name` finds none) — resolving those external PPtrs is a maps-lane follow-up. Name matching
+/// works today and is enough to locate the gadgets. The objects' serialized FIELDS (a goal's hole/par/team) likewise
+/// need the MonoBehaviour byte layout and are not read here — mark those `// 1:1:` until the maps lane exposes them.
+pub struct SceneObject {
+    pub name: String,
+    /// true if it carries a MonoBehaviour (a gameplay script object, not just geometry)
+    pub scripted: bool,
+    /// world position, client (Bevy) space
+    pub pos: Vec3,
+    /// the object's box/sphere collider half-extent (local), if it has one — for a trigger zone's size
+    pub half: Option<Vec3>,
+}
+
+/// Every active scene object whose hierarchy name contains `needle` (case-insensitive; `*` matches all scripted
+/// objects, for discovery). Empty without the corpus.
+pub fn scene_objects(game_data: Option<&Path>, room: &str, needle: &str) -> Vec<SceneObject> {
+    let Some(dir) = scenes_dir() else { return Vec::new() };
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let mut files = Files::with_res(dir, res_dirs);
+    let Some((file, name)) = scene_file(&mut files, room) else { return Vec::new() };
+    let Ok(scene) = read_scene(&mut files, &file, &name) else { return Vec::new() };
+    let Some(sf) = files.get(&scene.file) else { return Vec::new() };
+    let needle = needle.to_lowercase();
+    let mut out = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        let scripted = n.components.iter().any(|(c, _)| *c == classes::MONO_BEHAVIOUR);
+        let wildcard = needle == "*";
+        if wildcard {
+            if !scripted {
+                continue; // discovery lists scripted objects only
+            }
+        } else if !n.name.to_lowercase().contains(&needle) {
+            continue;
+        }
+        let pos = n.world.transform_point3(Vec3::ZERO);
+        let half = n.components.iter().find_map(|(c, id)| {
+            let o = sf.object(*id)?;
+            if *c == classes::BOX_COLLIDER {
+                level::box_collider(&sf, o).ok().map(|bc| Vec3::from(bc.size) * 0.5)
+            } else if *c == classes::SPHERE_COLLIDER {
+                level::sphere_collider(&sf, o).ok().map(|sc| Vec3::splat(sc.radius))
+            } else {
+                None
+            }
+        });
+        out.push(SceneObject { name: n.name.clone(), scripted, pos, half });
+    }
+    out
+}
+
+/// A gameplay "goal"/trigger object read by MonoBehaviour CLASS (e.g. `SoccerGoal`, `PaddleballGoal`): its `team`
+/// field and the world-space AABB of the trigger `BoxCollider` it references. Unlike [`scene_objects`] (name match),
+/// this resolves the script class across the scene's sibling files (`mono_script_ref` → `mono_script_name`) and reads
+/// the serialized fields with [`level::MonoFields`], so it returns the REAL per-goal config, not an approximation.
+pub struct SceneGoal {
+    /// the team that DEFENDS this goal (`GameTeam`); scoring into it credits the OTHER team
+    pub team: i32,
+    /// world-space (client/bevy) centre of the trigger box
+    pub center: Vec3,
+    /// world-space half-extent of the trigger box (axis-aligned; goal boxes are not rotated on the pitch)
+    pub half: Vec3,
+}
+
+/// The scene's goal objects of MonoBehaviour class `class`, read the way the decompile lane specifies the field order.
+/// `read`: a cursor positioned just past the MB header; return `(defending_team, goal_collider_pptr_path_id)` — e.g.
+/// SoccerGoal is `|mf| Ok((/* goalCollider */ { let p = mf.pptr()?; p.path_id }, /* team */ mf.i32()?))` but with the
+/// two in field order. Here we hard-wire the SoccerGoal/PaddleballGoal shapes via `goal_collider_first`.
+pub fn scene_goals(game_data: Option<&Path>, room: &str, class: &str, goal_collider_first: bool) -> Vec<SceneGoal> {
+    let Some(dir) = scenes_dir() else { return Vec::new() };
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let mut files = Files::with_res(dir, res_dirs);
+    let Some((file, name)) = scene_file(&mut files, room) else { return Vec::new() };
+    let Ok(scene) = read_scene(&mut files, &file, &name) else { return Vec::new() };
+    let scene_file_name = scene.file.clone();
+    // externals of the scene file, for resolving an m_Script PPtr that points into a sibling file
+    let externals: Vec<String> = match files.get(&scene_file_name) {
+        Some(sf) => sf.externals.iter().map(|e| e.path.rsplit('/').next().unwrap_or(&e.path).to_string()).collect(),
+        None => return Vec::new(),
+    };
+    // component object id -> owning node index (to find the goalCollider's world transform)
+    let mut owner: std::collections::HashMap<i64, usize> = std::collections::HashMap::new();
+    for (i, n) in scene.nodes.iter().enumerate() {
+        for &(_, id) in &n.components {
+            owner.insert(id, i);
+        }
+    }
+    let mut out = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        for &(_, id) in n.components.iter().filter(|(c, _)| *c == classes::MONO_BEHAVIOUR) {
+            // resolve the script class name (same file or an external), each `files.get` in its own scope
+            let p = match files.get(&scene_file_name).and_then(|sf| sf.object(id).and_then(|o| level::mono_script_ref(&sf, o).ok())) {
+                Some(p) => p,
+                None => continue,
+            };
+            let class_name = if p.file_id == 0 {
+                files.get(&scene_file_name).and_then(|sf| sf.object(p.path_id).and_then(|so| level::mono_script_name(&sf, so).ok())).map(|(c, _)| c)
+            } else if let Some(ext) = externals.get(p.file_id as usize - 1).cloned() {
+                files.get(&ext).and_then(|f| f.object(p.path_id).and_then(|so| level::mono_script_name(&f, so).ok())).map(|(c, _)| c)
+            } else {
+                None
+            };
+            if class_name.as_deref() != Some(class) {
+                continue;
+            }
+            // read (goalCollider PPtr, team) in the class's declared field order
+            let read = files.get(&scene_file_name).and_then(|sf| {
+                let o = sf.object(id)?;
+                let mut mf = level::MonoFields::open(&sf, o).ok()?;
+                if goal_collider_first {
+                    let gc = mf.pptr().ok()?; // goalCollider: PPtr(BoxCollider)
+                    let team = mf.i32().ok()?; // team: GameTeam
+                    Some((team, gc.path_id))
+                } else {
+                    let team = mf.i32().ok()?; // team first (PaddleballGoal)
+                    Some((team, 0))
+                }
+            });
+            let Some((team, collider_pid)) = read else { continue };
+            // the referenced goal collider's world AABB (its owning node's transform × the collider's local box)
+            let coll_world = collider_pid.ne(&0).then(|| owner.get(&collider_pid).map(|&i| scene.nodes[i].world)).flatten().unwrap_or(n.world);
+            let (center, half) = files
+                .get(&scene_file_name)
+                .and_then(|sf| sf.object(collider_pid).and_then(|co| level::box_collider(&sf, co).ok()))
+                .map(|bc| {
+                    let center = coll_world.transform_point3(Vec3::new(bc.center[0], bc.center[1], -bc.center[2]));
+                    let scale = coll_world.to_scale_rotation_translation().0.abs();
+                    let half = Vec3::new(bc.size[0], bc.size[1], bc.size[2]) * 0.5 * scale;
+                    (center, half)
+                })
+                .unwrap_or((n.world.transform_point3(Vec3::ZERO), Vec3::splat(2.0)));
+            out.push(SceneGoal { team, center, half });
+        }
+    }
+    out
+}
+
+/// The world-space (client/bevy) positions of every active scene object whose MonoBehaviour class is `class`
+/// (resolved via `mono_script_ref` → `mono_script_name`, across sibling files — the same class resolution as
+/// [`scene_goals`]). Use it to read the real placements of a gameplay gadget by class, e.g. the 10 `BowlingPin`
+/// objects baked into a bowling lane. Empty without the corpus.
+pub fn scene_class_positions(game_data: Option<&Path>, room: &str, class: &str) -> Vec<Vec3> {
+    let Some(dir) = scenes_dir() else { return Vec::new() };
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let mut files = Files::with_res(dir, res_dirs);
+    let Some((file, name)) = scene_file(&mut files, room) else { return Vec::new() };
+    let Ok(scene) = read_scene(&mut files, &file, &name) else { return Vec::new() };
+    let scene_file_name = scene.file.clone();
+    let externals: Vec<String> = match files.get(&scene_file_name) {
+        Some(sf) => sf.externals.iter().map(|e| e.path.rsplit('/').next().unwrap_or(&e.path).to_string()).collect(),
+        None => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.active) {
+        for &(c, id) in n.components.iter().filter(|(c, _)| *c == classes::MONO_BEHAVIOUR) {
+            let _ = c;
+            let Some(p) = files.get(&scene_file_name).and_then(|sf| sf.object(id).and_then(|o| level::mono_script_ref(&sf, o).ok())) else { continue };
+            let class_name = if p.file_id == 0 {
+                files.get(&scene_file_name).and_then(|sf| sf.object(p.path_id).and_then(|so| level::mono_script_name(&sf, so).ok())).map(|(c, _)| c)
+            } else if let Some(ext) = externals.get(p.file_id as usize - 1).cloned() {
+                files.get(&ext).and_then(|f| f.object(p.path_id).and_then(|so| level::mono_script_name(&f, so).ok())).map(|(c, _)| c)
+            } else {
+                None
+            };
+            if class_name.as_deref() == Some(class) {
+                out.push(n.world.transform_point3(Vec3::ZERO));
+                break; // one position per object, even if it carries multiple MonoBehaviours
+            }
+        }
+    }
+    out
+}
+
+pub fn load_scene(game_data: Option<&Path>, room: &str) -> Option<Result<RoomData, String>> {
+    let dir = scenes_dir()?;
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let mut files = Files::with_res(dir, res_dirs);
+    scene_file(&mut files, room)?;
+    Some(load_scene_with(&mut files, room))
+}
+
+fn load_scene_with(files: &mut Files, room: &str) -> Result<RoomData, String> {
+    let (file, name) = scene_file(files, room).ok_or_else(|| format!("no scene {room:?} in the decrypted corpus"))?;
+    let scene = read_scene(files, &file, &name)?;
+    let drawn = drawn_meshes(files, &scene);
+    let mut r = RoomData::default();
+    r.roots.push(format!("2026:{name}"));
+    r.places.push(Mat4::IDENTITY);
+    r.props.push(false);
+    let root = r.roots.len() - 1;
+    // solid colliders (box, sphere, capsule, mesh; triggers left out) and realtime lights of active objects
+    // (read before the mesh builder borrows `files`)
+    let sf = files.get(&scene.file).ok_or("scene file")?;
+    let (cols, croots) = scene_colliders(files, &sf, &scene, root);
+    r.colliders = cols;
+    r.collider_roots = croots;
+    let lights = scene_lights(&scene, &sf, root);
+    if !lights.is_empty() {
+        r.lights = lights;
+    }
+    r.spawns = scene_spawns(files, &scene.file, &sf, &scene);
+    r.particles = scene_particles(&sf, &scene);
+    drop(sf);
+    let mut b = OldBuilder { files, out: &mut r, root, textures: HashMap::new(), materials: HashMap::new(), meshes: HashMap::new() };
+    for (i, _mesh) in &drawn {
+        // the room's systems (UI, tutorials, boards) are not part of its look
+        if scene.nodes[*i].path.starts_with("Systems/") {
+            continue;
+        }
+        b.add(&scene, *i);
     }
     Ok(r)
 }
@@ -905,7 +1388,26 @@ pub fn lighting(room: &str) -> Result<Lighting, String> {
     let files = &mut Files::new(data);
     let (file, name) = scene_file(files, room).ok_or_else(|| format!("no scene {room:?} in the reference install"))?;
     let scene = read_scene(files, &file, &name)?;
-    let sf = files.get(&file).ok_or("scene file")?;
+    lighting_from(files, &file, &name, &scene)
+}
+
+/// The lighting of a 2026 scene from the decrypted corpus: its real RenderSettings, baked reflection probes,
+/// skybox cubemap, ambient and realtime lights. `game_data` (the install's `RecRoom_Data`) supplies the out-of-line
+/// cubemap/texture streams (`.resource`/`.resS`) that are plaintext in the install.
+pub fn scene_lighting(game_data: Option<&Path>, room: &str) -> Result<Lighting, String> {
+    let dir = scenes_dir().ok_or("no scenes dir")?;
+    let mut res_dirs = vec![dir.to_path_buf()];
+    if let Some(g) = game_data {
+        res_dirs.push(g.to_path_buf());
+    }
+    let files = &mut Files::with_res(dir, res_dirs);
+    let (file, name) = scene_file(files, room).ok_or_else(|| format!("no scene {room:?} in the decrypted corpus"))?;
+    let scene = read_scene(files, &file, &name)?;
+    lighting_from(files, &file, &name, &scene)
+}
+
+fn lighting_from(files: &mut Files, file: &str, name: &str, scene: &Scene) -> Result<Lighting, String> {
+    let sf = files.get(file).ok_or("scene file")?;
     let rs = sf.objects.iter().find(|o| o.class_id == classes::RENDER_SETTINGS).ok_or("no RenderSettings")?;
     let settings = level::render_settings(&sf, rs).map_err(|e| e.to_string())?;
     let lightmap_settings = sf.objects.iter().find(|o| o.class_id == classes::LIGHTMAP_SETTINGS).and_then(|o| level::lightmap_settings(&sf, o).ok());
@@ -917,8 +1419,8 @@ pub fn lighting(room: &str) -> Result<Lighting, String> {
         let t = m.textures.iter().find(|t| t.name == "_Tex" || t.name == "_Cube")?;
         cubemap(files, f, t.texture)
     });
-    let reflection = cubemap(files, &file, settings.custom_reflection);
-    let lights = scene_lights(&scene, &sf, 0);
+    let reflection = cubemap(files, file, settings.custom_reflection);
+    let lights = scene_lights(scene, &sf, 0);
     // the sun: the RenderSettings' sun light, by its GameObject's world matrix
     let sun_go = sf.object(settings.sun.path_id).and_then(|o| level::light(&sf, o).ok()).map(|l| l.game_object.path_id);
     let sun_world = sun_go.and_then(|g| scene.nodes.iter().find(|n| n.game_object == g)).map(|n| n.world);
@@ -937,21 +1439,21 @@ pub fn lighting(room: &str) -> Result<Lighting, String> {
             let tex = if p.custom_texture.path_id != 0 { p.custom_texture } else { p.baked_texture };
             probes.push(Probe {
                 world: n.world, size: p.box_size, offset: p.box_offset, intensity: p.intensity, box_projection: p.box_projection,
-                importance: p.importance, cubemap: cubemap(files, &file, tex),
+                importance: p.importance, cubemap: cubemap(files, file, tex),
             });
         }
     }
     let mut light_probes = Vec::new();
     let mut lightmaps = Vec::new();
     if let Some(lm) = &lightmap_settings {
-        if let Some((f, id)) = files.resolve(&file, lm.light_probes) {
+        if let Some((f, id)) = files.resolve(file, lm.light_probes) {
             if let Some(lp) = files.get(&f).and_then(|x| level::light_probes(&x, x.object(id)?).ok()) {
                 light_probes = lp.positions.iter().zip(&lp.coefficients).map(|(p, c)| (Vec3::new(p[0], p[1], -p[2]), *c)).collect();
             }
         }
         let res = files.resources();
         for d in &lm.lightmaps {
-            let px = files.resolve(&file, d.color).and_then(|(f, id)| {
+            let px = files.resolve(file, d.color).and_then(|(f, id)| {
                 let x = files.get(&f)?;
                 let t = level::texture(&x, x.object(id)?, &res).ok()?;
                 Some((t.width as u32, t.height as u32, t.decode_rgba8().ok()?))
@@ -961,7 +1463,7 @@ pub fn lighting(room: &str) -> Result<Lighting, String> {
     }
     let sh = settings.ambient_probe;
     Ok(Lighting {
-        scene: name,
+        scene: name.to_owned(),
         ambient_mode: settings.ambient_mode,
         ambient_sky: lin(settings.ambient_sky),
         ambient_equator: lin(settings.ambient_equator),

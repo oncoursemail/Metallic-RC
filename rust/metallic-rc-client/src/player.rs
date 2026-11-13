@@ -19,7 +19,7 @@ use bevy::{
 
 use crate::{
     avatar::{self, Drive, Kit, LocalLook, LookPanel, Rig},
-    collide::{self, Obb},
+    collide::{self, Collider},
     interact::{self, LocalHands, PropSolids},
     settings::Settings,
 };
@@ -212,9 +212,7 @@ fn look_and_walk(
     };
     p.motor.step(&tuning, &input, dt);
     let asked = p.motor.velocity * dt;
-    // the capsule is as tall as the body now (shorter while crouched)
-    let height = collide::HEIGHT * p.motor.height;
-    let (mut next, mut grounded) = if p.motor.flying { (feet + asked, false) } else { walk(room, &props.0, feet, asked, height) };
+    let (mut next, mut grounded) = if p.motor.flying { (feet + asked, false) } else { walk(room, &props.0, feet, asked) };
     // the stand-in room has no colliders: its floor is y = 0
     if room.is_empty() && next.y < 0.0 && !p.motor.flying {
         (next.y, grounded) = (0.0, true);
@@ -226,15 +224,14 @@ fn look_and_walk(
 
 /// Moves the player's capsule from `feet` by `asked`: against the room's boxes, then out of the props sideways or up
 /// onto them, never down (a prop falling on the player would press it through the floor) and not into the room's
-/// walls. `height`: the capsule's height (shorter while crouched). Returns where the feet end and whether they stand on
-/// something.
-pub fn walk(room: &[Obb], props: &[Obb], feet: Vec3, asked: Vec3, height: f32) -> (Vec3, bool) {
-    let (mut next, mut grounded) = collide::move_capsule_height(room, feet, asked, height);
+/// walls. Returns where the feet end and whether they stand on something.
+pub fn walk(room: &[Collider], props: &[Collider], feet: Vec3, asked: Vec3) -> (Vec3, bool) {
+    let (mut next, mut grounded) = collide::move_capsule(room, feet, asked);
     if !props.is_empty() {
-        let (out, on_prop) = collide::move_capsule_height(props, next, Vec3::ZERO, height);
+        let (out, on_prop) = collide::move_capsule(props, next, Vec3::ZERO);
         let push = Vec3::new(out.x - next.x, (out.y - next.y).max(0.0), out.z - next.z);
         if push != Vec3::ZERO {
-            let (moved, g) = collide::move_capsule_height(room, next, push, height);
+            let (moved, g) = collide::move_capsule(room, next, push);
             (next, grounded) = (moved, grounded || g);
         }
         grounded |= on_prop;
@@ -347,9 +344,10 @@ fn local_avatar(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collide::Obb;
 
-    fn cube(center: Vec3, half: Vec3) -> Obb {
-        Obb { center, axes: [Vec3::X, Vec3::Y, Vec3::Z], half }
+    fn cube(center: Vec3, half: Vec3) -> Collider {
+        Collider::Box(Obb { center, axes: [Vec3::X, Vec3::Y, Vec3::Z], half })
     }
 
     #[test]
@@ -359,7 +357,7 @@ mod tests {
         // a 0.3 m crate coming down through where the player's chest is
         for i in 0..30 {
             let crate_ = [cube(Vec3::new(0.0, 1.4 - i as f32 * 0.05, 0.1), Vec3::splat(0.15))];
-            (feet, _) = walk(&floor, &crate_, feet, Vec3::new(0.0, -0.05, 0.0), collide::HEIGHT);
+            (feet, _) = walk(&floor, &crate_, feet, Vec3::new(0.0, -0.05, 0.0));
             assert!(feet.y > -0.01, "step {i}: {feet}");
         }
     }
@@ -369,11 +367,11 @@ mod tests {
         let floor = [cube(Vec3::new(0.0, -0.5, 0.0), Vec3::new(10.0, 0.5, 10.0))];
         // a low box (one step high) under the feet: stood on
         let low = [cube(Vec3::new(0.0, 0.1, 0.0), Vec3::new(0.3, 0.1, 0.3))];
-        let (feet, grounded) = walk(&floor, &low, Vec3::new(0.0, 0.18, 0.0), Vec3::new(0.0, -0.05, 0.0), collide::HEIGHT);
+        let (feet, grounded) = walk(&floor, &low, Vec3::new(0.0, 0.18, 0.0), Vec3::new(0.0, -0.05, 0.0));
         assert!(grounded && (feet.y - 0.2).abs() < 0.02, "{feet}");
         // a tall box beside the player: pushed out sideways, still on the floor
         let tall = [cube(Vec3::new(0.4, 0.5, 0.0), Vec3::new(0.2, 0.5, 0.2))];
-        let (feet, grounded) = walk(&floor, &tall, Vec3::ZERO, Vec3::new(0.0, -0.05, 0.0), collide::HEIGHT);
+        let (feet, grounded) = walk(&floor, &tall, Vec3::ZERO, Vec3::new(0.0, -0.05, 0.0));
         assert!(grounded && feet.x < -0.04 && feet.y.abs() < 0.01, "{feet}");
     }
 }

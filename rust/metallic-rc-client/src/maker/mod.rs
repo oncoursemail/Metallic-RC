@@ -34,7 +34,7 @@ use rr_net::objects::{creator, RpcTarget};
 
 use crate::{
     avatar::LookPanel,
-    collide::{Obb, Solids},
+    collide::{Collider, Solids},
     netobj::{NetObject, NetObjects, NetRpc, RoomLink},
     player::{Controls, Player, PlayerSystems, View},
     world::PropColliders,
@@ -267,7 +267,7 @@ fn tag_made(add: On<Add<NetObject>>, objects: Query<&NetObject>, mut commands: C
     let mut e = commands.entity(add.entity);
     if let Kind::Shape { shape, color, material } = &kind {
         e.insert((Mesh3d(looks.mesh(&mut meshes, *shape)), MeshMaterial3d(looks.material(&mut mats, &pen, *color, *material)),
-                  PropColliders(shape.colliders()), Name::new(format!("maker {}", o.address))));
+                  PropColliders(shape.colliders().into_iter().map(Collider::Box).collect()), Name::new(format!("maker {}", o.address))));
     }
     e.insert(Made { kind, uid });
 }
@@ -398,12 +398,12 @@ fn decode_look(b: &[u8]) -> Option<(i32, i32, Vec3)> {
 }
 
 /// The aiming boxes of a maker object in the world: its colliders (loaded ones for props) under its transform.
-fn boxes(m: &Made, cols: Option<&PropColliders>, g: &GlobalTransform) -> Vec<Obb> {
+fn boxes(m: &Made, cols: Option<&PropColliders>, g: &GlobalTransform) -> Vec<Collider> {
     let own;
     let list = match cols.filter(|c| !c.0.is_empty()) {
         Some(c) => &c.0,
         None => {
-            own = m.kind.colliders();
+            own = m.kind.colliders().into_iter().map(Collider::Box).collect::<Vec<_>>();
             &own
         }
     };
@@ -799,13 +799,13 @@ fn show(
     let (from, dir) = (cam.translation(), *cam.forward());
     let tip = cam.transform_point(Vec3::new(0.2, -0.17, -0.42) + Vec3::new(0.0, 0.0, -0.1));
     let held = pen.sel.as_ref().map(|s| s.entity);
-    let wire = |gizmos: &mut Gizmos, boxes: &[Obb], c: Color| {
-        for b in boxes {
+    let wire = |gizmos: &mut Gizmos, boxes: &[Collider], c: Color| {
+        for b in boxes.iter().filter_map(|c| c.as_box()) {
             let rot = Quat::from_mat3(&Mat3::from_cols(b.axes[0], b.axes[1], b.axes[2]));
             gizmos.cube(Transform { translation: b.center, rotation: rot, scale: b.half * 2.0 }, c);
         }
     };
-    let mut aim: Option<(f32, Vec<Obb>)> = None;
+    let mut aim: Option<(f32, Vec<Collider>)> = None;
     for (e, m, g, c, by) in &made {
         let bx = boxes(m, c, g);
         if Some(e) == held {

@@ -109,30 +109,58 @@ async fn objectives() -> Json<Value> {
 // ---- rooms: the built-in rooms every player has; user-made rooms come later ----
 struct RoomDef {
     id: i64,
+    /// the room's name in matchmaking (also accepted by `goto`)
     name: &'static str,
+    /// the client world to load for this room (`--world`): a decrypted 2026 scene name, or `dorm` for the bridged
+    /// Dorm. Sent to the client as the sub-room's `UnitySceneId`.
+    scene: &'static str,
     description: &'static str,
+    max_players: i64,
+    /// private (one instance per player, like the Dorm) vs shared
+    private: bool,
 }
-const ROOMS: [RoomDef; 2] = [
-    RoomDef { id: 1, name: "DormRoom", description: "Your private dorm room." },
-    RoomDef { id: 2, name: "RecCenter", description: "The Rec Center, where everyone meets." },
+
+/// The built-in environments, loaded from the decrypted 2026 scenes (the Dorm keeps its bridged look). The client
+/// loads `scene` through `world::load`. Internal scenes (main_root, logout, additive, title screen, orientation
+/// bootstraps) are not offered as rooms.
+const ROOMS: &[RoomDef] = &[
+    RoomDef { id: 1, name: "DormRoom", scene: "dorm", description: "Your private dorm room.", max_players: 4, private: true },
+    RoomDef { id: 2, name: "RecCenter", scene: "reccenter", description: "The Rec Center, where everyone meets.", max_players: 40, private: false },
+    RoomDef { id: 3, name: "Charades", scene: "charades", description: "Act it out in Charades.", max_players: 16, private: false },
+    RoomDef { id: 4, name: "DiscGolf", scene: "discgolf", description: "Disc Golf.", max_players: 16, private: false },
+    RoomDef { id: 5, name: "DiscGolfPropulsion", scene: "Discgolf_Propulsion", description: "Disc Golf: Propulsion.", max_players: 16, private: false },
+    RoomDef { id: 6, name: "Dodgeball", scene: "dodgeball", description: "Dodgeball arena.", max_players: 16, private: false },
+    RoomDef { id: 7, name: "Paddleball", scene: "paddleball", description: "Paddleball court.", max_players: 16, private: false },
+    RoomDef { id: 8, name: "EventRoom", scene: "eventroom", description: "The Event Room.", max_players: 40, private: false },
+    RoomDef { id: 9, name: "PaintballRiver", scene: "paintball", description: "Paintball: River.", max_players: 16, private: false },
+    RoomDef { id: 10, name: "PaintballConstruction", scene: "paintball2_open", description: "Paintball: Construction.", max_players: 16, private: false },
+    RoomDef { id: 11, name: "PaintballCastle", scene: "Paintball_Castle", description: "Paintball: Castle.", max_players: 16, private: false },
+    RoomDef { id: 12, name: "PaintballClearCut", scene: "Paintball_ClearCut", description: "Paintball: Clear Cut.", max_players: 16, private: false },
+    RoomDef { id: 13, name: "PaintballDam", scene: "Paintball_Dam", description: "Paintball: Dam.", max_players: 16, private: false },
+    RoomDef { id: 14, name: "QuestFoyer", scene: "Quest_Foyer", description: "Quest: the Goblin King's Foyer.", max_players: 4, private: false },
+    RoomDef { id: 15, name: "QuestLibrary", scene: "Quest_Library", description: "Quest: the Library.", max_players: 4, private: false },
+    RoomDef { id: 16, name: "QuestBattlefield", scene: "Quest_Battlefield", description: "Quest: the Battlefield.", max_players: 4, private: false },
+    RoomDef { id: 17, name: "QuestCafeteria", scene: "Quest_Cafeteria", description: "Quest: the Cafeteria.", max_players: 4, private: false },
+    RoomDef { id: 18, name: "QuestScifiFoyer", scene: "Quest_Scifi_Foyer", description: "Quest: Sci-Fi Foyer.", max_players: 4, private: false },
+    RoomDef { id: 19, name: "OrientationPracticeGym", scene: "Orientation_PracticeGym", description: "Orientation: Practice Gym.", max_players: 16, private: false },
 ];
 
 fn room_json(r: &RoomDef) -> Value {
     json!({
         "RoomId": r.id, "Name": r.name, "Description": r.description, "CreatorAccountId": 1,
-        "ImageName": "", "State": 0, "Accessibility": if r.id == 1 { 0 } else { 1 }, "IsRRO": true,
+        "ImageName": "", "State": 0, "Accessibility": if r.private { 0 } else { 1 }, "IsRRO": true,
         "SupportsLevelVoting": false, "SupportsScreens": true, "SupportsWalkVR": true, "SupportsTeleportVR": true,
         "SupportsVRLow": true, "SupportsQuest2": true, "SupportsMobile": true, "SupportsJuniors": true, "MinLevel": 0,
         "CreatedAt": "2026-01-01T00:00:00Z", "Tags": [],
         "Stats": { "CheerCount": 0, "FavoriteCount": 0, "VisitorCount": 0, "VisitCount": 0 },
-        // UnitySceneId: the 2026 client's scene id for this room is not mapped yet (it lives in the client's catalog)
+        // UnitySceneId: the decrypted 2026 scene the client loads for this room (`world::load` accepts this name).
         "SubRooms": [{ "SubRoomId": r.id, "RoomId": r.id, "Name": "Home", "DataBlob": "", "IsSandbox": false,
-                       "MaxPlayers": if r.id == 1 { 4 } else { 40 }, "Accessibility": 1, "UnitySceneId": "" }],
+                       "MaxPlayers": r.max_players, "Accessibility": 1, "UnitySceneId": r.scene }],
     })
 }
 
 fn find_room(name_or_id: &str) -> Option<&'static RoomDef> {
-    ROOMS.iter().find(|r| r.name.eq_ignore_ascii_case(name_or_id) || r.id.to_string() == name_or_id)
+    ROOMS.iter().find(|r| r.name.eq_ignore_ascii_case(name_or_id) || r.scene.eq_ignore_ascii_case(name_or_id) || r.id.to_string() == name_or_id)
 }
 
 async fn rooms_bulk(RawQuery(q): RawQuery) -> Json<Value> {
@@ -164,12 +192,12 @@ async fn goto_room(State(app): State<Shared>, h: HeaderMap, Path(name): Path<Str
         let made = crate::creations::goto(&app, &a, &name);
         return Ok(Json(json!({ "errorCode": if made.is_some() { 0 } else { 1 }, "roomInstance": made })));
     };
-    let instance_id = if r.id == 1 { 1_000_000 + a.account_id } else { r.id };
-    let photon_room = if r.id == 1 { format!("dorm-{}", a.account_id) } else { format!("room-{}", r.id) };
+    let instance_id = if r.private { 1_000_000 + a.account_id } else { r.id };
+    let photon_room = if r.private { format!("{}-{}", r.scene, a.account_id) } else { format!("room-{}", r.id) };
     let instance = json!({
         "roomInstanceId": instance_id, "roomId": r.id, "subRoomId": r.id, "location": "", "dataBlob": "",
         "photonRegionId": "us", "photonRoomId": photon_room, "name": format!("^{}", r.name),
-        "maxCapacity": if r.id == 1 { 4 } else { 40 }, "isFull": false, "isPrivate": r.id == 1,
+        "maxCapacity": r.max_players, "isFull": false, "isPrivate": r.private,
         "isInProgress": false, "roomInstanceType": 0,
     });
     println!("  {} -> {}", a.username, r.name);

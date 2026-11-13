@@ -13,6 +13,12 @@ pub fn version_of(unity_version: &str) -> (u32, u32) {
     (it.next().unwrap_or(0), it.next().unwrap_or(0))
 }
 
+/// Unity 6 (6000.x) and later: several player-build layouts gained fields (verified against the type trees of the
+/// 2026 Addressables bundles and the decrypted 2026 base files, both 6000.0.27f1).
+fn is_u6(sf: &SerializedFile) -> bool {
+    version_of(&sf.unity_version).0 >= 6000
+}
+
 fn pptr(r: &mut Reader) -> Result<PPtr> {
     Ok(PPtr { file_id: r.i32()?, path_id: r.i64()? })
 }
@@ -69,10 +75,118 @@ fn behaviour(r: &mut Reader) -> Result<(PPtr, bool)> {
     Ok((go, enabled))
 }
 
-/// The readers below know the 2019.3 .. 2021.3 player layouts (checked on 2019.4.26f1).
+/// A MonoBehaviour's `m_Script` PPtr (points at the MonoScript, in this file or an external), so a caller can
+/// resolve what gameplay script sits on a scene object (spawn points, NetObjects, triggers, teleporters).
+pub fn mono_script_ref(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<PPtr> {
+    let mut r = reader(sf, o, classes::MONO_BEHAVIOUR, "MonoBehaviour")?;
+    behaviour(&mut r)?;
+    pptr(&mut r)
+}
+
+/// A MonoScript's `(class_name, namespace)`. Layout: m_Name, m_ExecutionOrder (i32), m_PropertiesHash (16 bytes),
+/// m_ClassName, m_Namespace, m_AssemblyName — stable across the 2019..6000 player builds.
+pub fn mono_script_name(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<(String, String)> {
+    let mut r = reader(sf, o, classes::MONO_SCRIPT, "MonoScript")?;
+    r.aligned_string()?; // m_Name
+    r.i32()?; // m_ExecutionOrder
+    r.bytes(16)?; // m_PropertiesHash (Hash128)
+    let class_name = r.aligned_string()?;
+    let namespace = r.aligned_string()?;
+    Ok((class_name, namespace))
+}
+
+/// A cursor over a scene MonoBehaviour's OWN serialized fields, positioned just past the MonoBehaviour header
+/// (m_GameObject, m_Enabled, m_Script, m_Name). The 2026 scenes carry no type trees, so a caller that knows the
+/// script's serialized field order — e.g. from the decompiled class body — walks the fields in declaration order
+/// with the methods below (reading the ones it needs, skipping the rest) and this applies Unity's serialization
+/// alignment. The rules the methods encode: a serialized `bool`/byte is followed by padding to the next 4-byte
+/// boundary; `int`/`uint`/`float`/`PPtr`/`Vector*`/`Color` are not; a string or an array is length-prefixed and then
+/// aligned to 4. Nested structs are just their fields in order (read them inline); for a list/array call
+/// [`MonoFields::array_len`], read that many elements, then [`MonoFields::align`]. Use this to read gameplay config
+/// off scene objects (a goal's team, a hole's par, a trigger's half-extent) exactly as the game serialized it.
+pub struct MonoFields<'a> {
+    r: Reader<'a>,
+}
+
+impl<'a> MonoFields<'a> {
+    /// Opens a MonoBehaviour object and skips its header, ready to read the script's first serialized field.
+    pub fn open(sf: &'a SerializedFile, o: &crate::ObjectInfo) -> Result<Self> {
+        let mut r = reader(sf, o, classes::MONO_BEHAVIOUR, "MonoBehaviour")?;
+        behaviour(&mut r)?; // m_GameObject, m_Enabled (aligned)
+        pptr(&mut r)?; // m_Script
+        r.aligned_string()?; // m_Name
+        Ok(MonoFields { r })
+    }
+
+    pub fn i32(&mut self) -> Result<i32> {
+        self.r.i32()
+    }
+    pub fn u32(&mut self) -> Result<u32> {
+        self.r.u32()
+    }
+    pub fn i64(&mut self) -> Result<i64> {
+        self.r.i64()
+    }
+    pub fn f32(&mut self) -> Result<f32> {
+        self.r.f32()
+    }
+    /// A serialized `bool`/`byte`: one byte, then padding to the next 4-byte boundary.
+    pub fn bool(&mut self) -> Result<bool> {
+        let b = self.r.bool()?;
+        self.r.align(4);
+        Ok(b)
+    }
+    /// One raw byte with NO following alignment — for walking a run of bytes you align yourself.
+    pub fn byte(&mut self) -> Result<u8> {
+        self.r.u8()
+    }
+    pub fn vector2(&mut self) -> Result<[f32; 2]> {
+        floats::<2>(&mut self.r)
+    }
+    pub fn vector3(&mut self) -> Result<[f32; 3]> {
+        floats::<3>(&mut self.r)
+    }
+    pub fn vector4(&mut self) -> Result<[f32; 4]> {
+        floats::<4>(&mut self.r)
+    }
+    /// A Color (RGBA floats).
+    pub fn color(&mut self) -> Result<[f32; 4]> {
+        floats::<4>(&mut self.r)
+    }
+    pub fn pptr(&mut self) -> Result<PPtr> {
+        pptr(&mut self.r)
+    }
+    /// A Unity string (length-prefixed, then aligned to 4).
+    pub fn string(&mut self) -> Result<String> {
+        self.r.aligned_string()
+    }
+    /// The element count of an array/list field (its int length-prefix). Read that many elements, then [`Self::align`].
+    pub fn array_len(&mut self) -> Result<usize> {
+        self.r.len_prefix(1)
+    }
+    /// Skip `n` raw bytes (a fixed-size field you don't need).
+    pub fn skip(&mut self, n: usize) -> Result<()> {
+        skip(&mut self.r, n)
+    }
+    /// Align the cursor to the next 4-byte boundary (after a bool run, a string, or an array).
+    pub fn align(&mut self) {
+        self.r.align(4);
+    }
+    /// Current byte offset within the object, and bytes left — for diagnostics / layout checks.
+    pub fn pos(&self) -> usize {
+        self.r.pos()
+    }
+    pub fn remaining(&self) -> usize {
+        self.r.remaining()
+    }
+}
+
+/// The readers below know the 2019.3 .. 2021.3 player layouts (checked on 2019.4.26f1) and the Unity 6
+/// (6000.x) player layout (checked on 6000.0.27f1, the decrypted 2026 Rec Room base files). Every reader
+/// also verifies it consumed exactly the object's bytes, so a layout mismatch is an error, not garbage.
 fn check_version(sf: &SerializedFile, what: &str) -> Result<()> {
     let v = version_of(&sf.unity_version);
-    if !((2019, 3)..(2022, 0)).contains(&v) {
+    if !(((2019, 3)..(2022, 0)).contains(&v) || ((6000, 0)..(6001, 0)).contains(&v)) {
         return crate::unsupported(format!("{what} layout for Unity {}", sf.unity_version));
     }
     Ok(())
@@ -119,7 +233,9 @@ pub fn light(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<Light> {
     let mut r = reader(sf, o, classes::LIGHT, "Light")?;
     let (game_object, enabled) = behaviour(&mut r)?;
     let kind = r.i32()?;
-    r.i32()?; // m_Shape
+    if !is_u6(sf) {
+        r.i32()?; // m_Shape (removed in Unity 6)
+    }
     let color = color(&mut r)?;
     let [intensity, range, spot_angle, inner_spot_angle, cookie_size] = floats::<5>(&mut r)?;
     let shadows = r.i32()?;
@@ -146,11 +262,22 @@ pub fn light(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<Light> {
     let use_color_temperature = r.bool()?;
     r.align(4);
     skip(&mut r, 16)?; // m_BoundingSphereOverride
-    r.bool()?; // m_UseBoundingSphereOverride
-    r.align(4);
-    if version_of(&sf.unity_version) >= (2020, 1) && r.remaining() == 4 {
-        r.bool()?; // m_UseViewFrustumForShadowCasterCull (INFERRED version)
+    if is_u6(sf) {
+        r.bool()?; // m_UseBoundingSphereOverride
+        r.bool()?; // m_UseViewFrustumForShadowCasterCull
+        r.bool()?; // m_ForceVisible
         r.align(4);
+        r.i32()?; // m_LightUnit
+        r.f32()?; // m_LuxAtDistance
+        r.bool()?; // m_EnableSpotReflector
+        r.align(4);
+    } else {
+        r.bool()?; // m_UseBoundingSphereOverride
+        r.align(4);
+        if version_of(&sf.unity_version) >= (2020, 1) && r.remaining() == 4 {
+            r.bool()?; // m_UseViewFrustumForShadowCasterCull (INFERRED version)
+            r.align(4);
+        }
     }
     done(&r, "Light")?;
     Ok(Light {
@@ -263,15 +390,30 @@ pub fn lightmap_settings(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<L
     }
     let light_probes = pptr(&mut r)?;
     let lightmaps = vec_of(&mut r, 36, |r| Ok(LightmapData { color: pptr(r)?, directional: pptr(r)?, shadow_mask: pptr(r)? }))?;
+    // Unity 6 (6000.x) inserts a 4-byte field between m_Lightmaps and m_LightmapsMode. INFERRED from the
+    // decrypted 2026 base scenes (6000.0.27f1): it reads 0 in every sampled scene. Layout verified by the
+    // cipher session's byte dumps of the decrypted corpus (session sweet-galileo).
+    let u6 = is_u6(sf);
+    if u6 {
+        r.i32()?;
+    }
     let mode = r.i32()?;
     let [bounce_scale, indirect_output_scale, albedo_boost] = floats::<3>(&mut r)?;
     let environment_lighting_mode = r.u32()?;
     let baked_lightmaps = r.bool()?;
     let realtime_lightmaps = r.bool()?;
     r.align(4);
-    r.bool()?; // m_UseShadowmask
-    if r.remaining() > 0 {
-        r.align(4);
+    if u6 {
+        // Unity 6 tail is three i32 (0x40-0x4b): m_UseShadowmask and two unidentified fields (candidates
+        // m_ShadowMaskMode and a LightingDataAsset tail), replacing the 2019/2021 single-bool + align.
+        r.i32()?;
+        r.i32()?;
+        r.i32()?;
+    } else {
+        r.bool()?; // m_UseShadowmask
+        if r.remaining() > 0 {
+            r.align(4);
+        }
     }
     done(&r, "LightmapSettings")?;
     Ok(LightmapSettings {
@@ -355,6 +497,43 @@ pub fn reflection_probe(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<Re
     })
 }
 
+/// LODGroup (205): the renderers at each level of detail, level 0 (highest detail) first.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LodGroup {
+    pub game_object: PPtr,
+    /// renderer PPtrs per LOD level; `lods[0]` is LOD0 (drawn), `lods[1..]` are the lower levels
+    pub lods: Vec<Vec<PPtr>>,
+    pub enabled: bool,
+}
+
+/// LODGroup (205) without type tree. Layout verified on the decrypted 2026 scenes (6000.0.27f1): m_GameObject,
+/// m_LocalReferencePoint (Vec3), m_Size, m_FadeMode (int), m_AnimateCrossFading (bool+align), m_LODs
+/// (each: screenRelativeTransitionHeight f32, fadeTransitionWidth f32, renderers vector of PPtr), m_Enabled.
+pub fn lod_group(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<LodGroup> {
+    let mut r = reader(sf, o, classes::LOD_GROUP, "LODGroup")?;
+    let game_object = pptr(&mut r)?;
+    floats::<3>(&mut r)?; // m_LocalReferencePoint
+    r.f32()?; // m_Size
+    r.i32()?; // m_FadeMode
+    r.bool()?; // m_AnimateCrossFading
+    r.align(4);
+    let count = r.i32()? as usize;
+    let mut lods = Vec::with_capacity(count.min(16));
+    for _ in 0..count {
+        r.f32()?; // screenRelativeTransitionHeight
+        r.f32()?; // fadeTransitionWidth
+        let rn = r.i32()? as usize;
+        let mut rs = Vec::with_capacity(rn.min(64));
+        for _ in 0..rn {
+            rs.push(pptr(&mut r)?);
+        }
+        lods.push(rs);
+    }
+    let enabled = r.i32()? != 0; // m_Enabled
+    done(&r, "LODGroup")?;
+    Ok(LodGroup { game_object, lods, enabled })
+}
+
 /// BoxCollider (65).
 #[derive(Debug, Clone, PartialEq)]
 pub struct BoxCollider {
@@ -365,17 +544,97 @@ pub struct BoxCollider {
     pub center: [f32; 3],
 }
 
+/// The shared Collider prefix (`m_GameObject`, `m_Material`, the Unity 6 layer block, `m_IsTrigger`,
+/// `m_ProvidesContacts`, `m_Enabled`), leaving the reader at the shape-specific fields.
+fn collider_base(r: &mut Reader, sf: &SerializedFile) -> Result<(PPtr, bool, bool)> {
+    let game_object = pptr(r)?;
+    pptr(r)?; // m_Material
+    if is_u6(sf) {
+        skip(r, 12)?; // m_IncludeLayers, m_ExcludeLayers (BitField), m_LayerOverridePriority
+        let trigger = r.bool()?;
+        r.bool()?; // m_ProvidesContacts
+        r.align(4);
+        let enabled = r.bool()?;
+        r.align(4);
+        Ok((game_object, trigger, enabled))
+    } else {
+        let trigger = r.bool()?;
+        let enabled = r.bool()?;
+        r.align(4);
+        Ok((game_object, trigger, enabled))
+    }
+}
+
 pub fn box_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<BoxCollider> {
     let mut r = reader(sf, o, classes::BOX_COLLIDER, "BoxCollider")?;
-    let game_object = pptr(&mut r)?;
-    pptr(&mut r)?; // m_Material
-    let trigger = r.bool()?;
-    let enabled = r.bool()?;
-    r.align(4);
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
     let size = floats::<3>(&mut r)?;
     let center = floats::<3>(&mut r)?;
     done(&r, "BoxCollider")?;
     Ok(BoxCollider { game_object, trigger, enabled, size, center })
+}
+
+/// SphereCollider (135).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SphereCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub radius: f32,
+    pub center: [f32; 3],
+}
+
+pub fn sphere_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<SphereCollider> {
+    let mut r = reader(sf, o, classes::SPHERE_COLLIDER, "SphereCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let radius = r.f32()?;
+    let center = floats::<3>(&mut r)?;
+    done(&r, "SphereCollider")?;
+    Ok(SphereCollider { game_object, trigger, enabled, radius, center })
+}
+
+/// CapsuleCollider (136). `direction`: 0 = X, 1 = Y, 2 = Z (the axis the height runs along).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CapsuleCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub radius: f32,
+    pub height: f32,
+    pub direction: i32,
+    pub center: [f32; 3],
+}
+
+pub fn capsule_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<CapsuleCollider> {
+    let mut r = reader(sf, o, classes::CAPSULE_COLLIDER, "CapsuleCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let radius = r.f32()?;
+    let height = r.f32()?;
+    let direction = r.i32()?;
+    let center = floats::<3>(&mut r)?;
+    done(&r, "CapsuleCollider")?;
+    Ok(CapsuleCollider { game_object, trigger, enabled, radius, height, direction, center })
+}
+
+/// MeshCollider (64): a collision surface from an arbitrary mesh (`mesh` points at the Mesh to use).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshCollider {
+    pub game_object: PPtr,
+    pub trigger: bool,
+    pub enabled: bool,
+    pub convex: bool,
+    pub mesh: PPtr,
+}
+
+pub fn mesh_collider(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<MeshCollider> {
+    let mut r = reader(sf, o, classes::MESH_COLLIDER, "MeshCollider")?;
+    let (game_object, trigger, enabled) = collider_base(&mut r, sf)?;
+    let convex = r.bool()?;
+    r.align(4);
+    r.i32()?; // m_CookingOptions
+    let mesh = pptr(&mut r)?;
+    done(&r, "MeshCollider")?;
+    Ok(MeshCollider { game_object, trigger, enabled, convex, mesh })
 }
 
 /// Out-of-line data (`.resS` / `.resource`) of plain files in a player's data folder.
@@ -383,13 +642,33 @@ pub struct DirResources(pub std::path::PathBuf);
 
 impl crate::objects::Resources for DirResources {
     fn resource(&self, path: &str, offset: u64, size: u64) -> Result<Vec<u8>> {
+        MultiResources(vec![self.0.clone()]).resource(path, offset, size)
+    }
+}
+
+/// Out-of-line data looked up across several folders, first hit wins. The decrypted 2026 base files live in one
+/// folder while their `.resS` streams live in the game install's `RecRoom_Data`, so both are searched.
+pub struct MultiResources(pub Vec<std::path::PathBuf>);
+
+impl crate::objects::Resources for MultiResources {
+    fn resource(&self, path: &str, offset: u64, size: u64) -> Result<Vec<u8>> {
         use std::io::{Read, Seek, SeekFrom};
         let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
-        let mut f = std::fs::File::open(self.0.join(name))?;
-        f.seek(SeekFrom::Start(offset))?;
-        let mut v = vec![0; size as usize];
-        f.read_exact(&mut v)?;
-        Ok(v)
+        let mut last = None;
+        for dir in &self.0 {
+            match std::fs::File::open(dir.join(name)) {
+                Ok(mut f) => {
+                    f.seek(SeekFrom::Start(offset))?;
+                    let mut v = vec![0; size as usize];
+                    match f.read_exact(&mut v) {
+                        Ok(()) => return Ok(v),
+                        Err(e) => last = Some(e),
+                    }
+                }
+                Err(e) => last = Some(e),
+            }
+        }
+        Err(last.map_or_else(|| crate::Error::Format(format!("resource {name} not found")), crate::Error::Io))
     }
 }
 
@@ -467,7 +746,8 @@ pub fn mesh(sf: &SerializedFile, o: &crate::ObjectInfo, res: &dyn crate::objects
         packed(&mut r, float)?;
     }
     r.u32()?; // m_UVInfo
-    skip(&mut r, 24 + 4)?; // m_LocalAABB, m_MeshUsageFlags
+    // m_LocalAABB (24), m_MeshUsageFlags (4), and in Unity 6 an added m_CookingOptions (4)
+    skip(&mut r, 24 + 4 + if is_u6(sf) { 4 } else { 0 })?;
     byte_vec(&mut r)?; // m_BakedConvexCollisionMesh
     byte_vec(&mut r)?; // m_BakedTriangleCollisionMesh
     skip(&mut r, 8)?; // m_MeshMetrics
@@ -486,27 +766,56 @@ pub fn texture(sf: &SerializedFile, o: &crate::ObjectInfo, res: &dyn crate::obje
     let mut r = reader(sf, o, class, "Texture2D")?;
     let v = version_of(&sf.unity_version);
     let name = r.aligned_string()?;
-    r.i32()?; // m_ForcedFallbackFormat
-    r.bool()?; // m_DownscaleFallback (+ m_IsAlphaChannelOptional since 2020.2)
-    r.align(4);
-    let width = r.i32()? as usize;
-    let height = r.i32()? as usize;
-    r.i32()?; // m_CompleteImageSize
-    let format = r.i32()?;
-    let mip_count = r.i32()?;
-    skip(&mut r, 3)?; // readable, ignore master texture limit, streaming mipmaps
-    r.align(4);
-    r.i32()?; // m_StreamingMipmapsPriority
-    let image_count = r.i32()?;
-    skip(&mut r, 4 + 24 + 8)?; // dimension, texture settings, lightmap format, colour space
-    if v >= (2020, 2) {
+    let (width, height, format, mip_count, image_count, inline, streamed) = if is_u6(sf) {
+        // Unity 6 Texture2D player layout (from the type tree): no m_ForcedFallbackFormat/m_DownscaleFallback;
+        // adds m_MipsStripped, m_MipmapLimitGroupName, m_IsPreProcessed, m_IgnoreMipmapLimit.
+        r.bool()?; // m_IsAlphaChannelOptional
+        r.align(4);
+        let width = r.i32()? as usize;
+        let height = r.i32()? as usize;
+        r.i32()?; // m_CompleteImageSize
+        r.i32()?; // m_MipsStripped
+        let format = r.i32()?;
+        let mip_count = r.i32()?;
+        skip(&mut r, 3)?; // m_IsReadable, m_IsPreProcessed, m_IgnoreMipmapLimit
+        r.align(4);
+        r.aligned_string()?; // m_MipmapLimitGroupName
+        r.bool()?; // m_StreamingMipmaps
+        r.align(4);
+        r.i32()?; // m_StreamingMipmapsPriority
+        let image_count = r.i32()?;
+        skip(&mut r, 4 + 24 + 8)?; // m_TextureDimension, m_TextureSettings, lightmap format, colour space
         byte_vec(&mut r)?; // m_PlatformBlob
-    }
-    let inline = byte_vec(&mut r)?;
-    let streamed = stream_info(&mut r, v)?;
-    if class == classes::CUBEMAP {
-        vec_of(&mut r, 12, pptr)?; // m_SourceTextures
-    }
+        let inline = byte_vec(&mut r)?;
+        let streamed = stream_info(&mut r, v)?;
+        if class == classes::CUBEMAP {
+            vec_of(&mut r, 12, pptr)?; // m_SourceTextures
+        }
+        (width, height, format, mip_count, image_count, inline, streamed)
+    } else {
+        r.i32()?; // m_ForcedFallbackFormat
+        r.bool()?; // m_DownscaleFallback (+ m_IsAlphaChannelOptional since 2020.2)
+        r.align(4);
+        let width = r.i32()? as usize;
+        let height = r.i32()? as usize;
+        r.i32()?; // m_CompleteImageSize
+        let format = r.i32()?;
+        let mip_count = r.i32()?;
+        skip(&mut r, 3)?; // readable, ignore master texture limit, streaming mipmaps
+        r.align(4);
+        r.i32()?; // m_StreamingMipmapsPriority
+        let image_count = r.i32()?;
+        skip(&mut r, 4 + 24 + 8)?; // dimension, texture settings, lightmap format, colour space
+        if v >= (2020, 2) {
+            byte_vec(&mut r)?; // m_PlatformBlob
+        }
+        let inline = byte_vec(&mut r)?;
+        let streamed = stream_info(&mut r, v)?;
+        if class == classes::CUBEMAP {
+            vec_of(&mut r, 12, pptr)?; // m_SourceTextures
+        }
+        (width, height, format, mip_count, image_count, inline, streamed)
+    };
     done(&r, "Texture2D")?;
     let data = match streamed {
         Some((offset, size, path)) => res.resource(&path, offset, size)?,
@@ -534,8 +843,9 @@ pub fn material(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<crate::Mat
     r.i32()?; // m_CustomRenderQueue
     vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.aligned_string()?)))?; // stringTagMap
     vec_of(&mut r, 4, |r| r.aligned_string())?; // disabledShaderPasses
-    if v >= (2020, 1) {
-        vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.aligned_string()?)))?; // m_BuildTextureStacks
+    if ((2020, 1)..(2022, 0)).contains(&v) {
+        // m_BuildTextureStacks (2020.1 .. 2021.x only; Unity 6 player materials do not serialize it)
+        vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.aligned_string()?)))?;
     }
     let textures = vec_of(&mut r, 32, |r| {
         let name = r.aligned_string()?;
@@ -546,6 +856,14 @@ pub fn material(sf: &SerializedFile, o: &crate::ObjectInfo) -> Result<crate::Mat
     let ints = if v >= (2021, 1) { vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.i32()? as i64)))? } else { Vec::new() };
     let floats = vec_of(&mut r, 8, |r| Ok((r.aligned_string()?, r.f32()?)))?;
     let colors = vec_of(&mut r, 20, |r| Ok((r.aligned_string()?, color(r)?)))?;
+    if is_u6(sf) {
+        // Unity 6 serializes m_BuildTextureStacks at the end, after m_SavedProperties (groupName, itemName strings).
+        vec_of(&mut r, 8, |r| {
+            r.aligned_string()?;
+            r.aligned_string()?;
+            Ok(())
+        })?;
+    }
     done(&r, "Material")?;
     Ok(crate::Material { name, shader, keywords, textures, floats, ints, colors })
 }

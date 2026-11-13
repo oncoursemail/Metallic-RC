@@ -21,19 +21,25 @@ struct Shot {
     talk: bool,
     grip: Grip,
     turn: f32,
+    /// ground speed (m/s) fed to the avatars so they walk/run in place (0 = standing)
+    speed: f32,
 }
 
+const S: f32 = 0.0;
 const SHOTS: &[Shot] = &[
-    Shot { name: "01_lineup", eye: Vec3::new(0.0, 1.45, 4.3), at: Vec3::new(0.0, 0.9, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0 },
-    Shot { name: "02_hero", eye: Vec3::new(0.55, 1.35, 1.65), at: Vec3::new(0.0, 1.0, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0 },
-    Shot { name: "03_face", eye: Vec3::new(0.25, 1.6, 0.75), at: Vec3::new(0.0, 1.5, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0 },
-    Shot { name: "04_talking", eye: Vec3::new(-0.2, 1.6, 0.75), at: Vec3::new(0.0, 1.5, 0.0), dark: false, talk: true, grip: Grip::Open, turn: 0.0 },
-    Shot { name: "05_side", eye: Vec3::new(2.0, 1.3, 0.0), at: Vec3::new(0.0, 0.95, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0 },
-    Shot { name: "06_back", eye: Vec3::new(0.7, 1.4, -2.0), at: Vec3::new(0.0, 0.95, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0 },
-    Shot { name: "07_point", eye: Vec3::new(0.15, 1.05, 0.95), at: Vec3::new(0.2, 0.85, 0.0), dark: false, talk: false, grip: Grip::Point, turn: 0.0 },
-    Shot { name: "08_hold", eye: Vec3::new(0.15, 1.05, 0.95), at: Vec3::new(0.2, 0.85, 0.0), dark: false, talk: false, grip: Grip::Hold, turn: 0.0 },
-    Shot { name: "09_dark_room", eye: Vec3::new(0.0, 1.45, 4.3), at: Vec3::new(0.0, 0.9, 0.0), dark: true, talk: true, grip: Grip::Open, turn: 0.0 },
-    Shot { name: "10_lineup_turned", eye: Vec3::new(0.0, 1.45, 4.3), at: Vec3::new(0.0, 0.9, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.6 },
+    Shot { name: "01_lineup", eye: Vec3::new(0.0, 1.45, 4.3), at: Vec3::new(0.0, 0.9, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0, speed: S },
+    Shot { name: "02_hero", eye: Vec3::new(0.55, 1.35, 1.65), at: Vec3::new(0.0, 1.0, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0, speed: S },
+    Shot { name: "03_face", eye: Vec3::new(0.25, 1.6, 0.75), at: Vec3::new(0.0, 1.5, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0, speed: S },
+    Shot { name: "04_talking", eye: Vec3::new(-0.2, 1.6, 0.75), at: Vec3::new(0.0, 1.5, 0.0), dark: false, talk: true, grip: Grip::Open, turn: 0.0, speed: S },
+    Shot { name: "05_side", eye: Vec3::new(2.0, 1.3, 0.0), at: Vec3::new(0.0, 0.95, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0, speed: S },
+    Shot { name: "06_back", eye: Vec3::new(0.7, 1.4, -2.0), at: Vec3::new(0.0, 0.95, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0, speed: S },
+    Shot { name: "07_point", eye: Vec3::new(0.15, 1.05, 0.95), at: Vec3::new(0.2, 0.85, 0.0), dark: false, talk: false, grip: Grip::Point, turn: 0.0, speed: S },
+    Shot { name: "08_hold", eye: Vec3::new(0.15, 1.05, 0.95), at: Vec3::new(0.2, 0.85, 0.0), dark: false, talk: false, grip: Grip::Hold, turn: 0.0, speed: S },
+    Shot { name: "09_dark_room", eye: Vec3::new(0.0, 1.45, 4.3), at: Vec3::new(0.0, 0.9, 0.0), dark: true, talk: true, grip: Grip::Open, turn: 0.0, speed: S },
+    Shot { name: "10_lineup_turned", eye: Vec3::new(0.0, 1.45, 4.3), at: Vec3::new(0.0, 0.9, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.6, speed: S },
+    Shot { name: "11_walk_side", eye: Vec3::new(2.0, 1.3, 0.0), at: Vec3::new(0.0, 0.95, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0, speed: 2.4 },
+    Shot { name: "12_walk_hero", eye: Vec3::new(0.55, 1.35, 1.65), at: Vec3::new(0.0, 1.0, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0, speed: 2.4 },
+    Shot { name: "13_run_side", eye: Vec3::new(2.0, 1.3, 0.0), at: Vec3::new(0.0, 0.95, 0.0), dark: false, talk: false, grip: Grip::Open, turn: 0.0, speed: 4.5 },
 ];
 
 /// The looks in the line-up: every accessory, outfit and eye style at least once.
@@ -149,6 +155,9 @@ fn run(
         tr.rotation = Quat::from_rotation_y(std::f32::consts::PI + shot.turn * if k % 2 == 0 { 1.0 } else { -1.0 });
         drive.talking = shot.talk && k % 3 == 0;
         drive.grip = [shot.grip; 2];
+        // walk/run in place: a ground velocity drives the stride (they don't translate here)
+        drive.velocity = Vec3::new(shot.speed, 0.0, 0.0);
+        drive.grounded = Some(true);
     }
     // the first shot waits for the room and avatars to load
     let wait = if *i == 0 { 3.0 } else { 1.2 };

@@ -27,6 +27,7 @@ use bevy::{
     prelude::*,
     window::{CursorGrabMode, CursorOptions, MonitorSelection, PresentMode, PrimaryWindow, WindowMode},
 };
+use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 use metallic_rc_client::{
     avatar::{self, Drive, Kit, LocalLook, Look, Rig},
     net::{self, Login},
@@ -73,8 +74,9 @@ fn args() -> Args {
             "--world" => a.world = Some(it.next().unwrap_or_else(|| die("--world needs an address"))),
             "--game-dir" => a.game_dir = Some(it.next().unwrap_or_else(|| die("--game-dir needs a folder")).into()),
             "--ref-install" => metallic_rc_client::levels::set_ref_install(Some(&it.next().unwrap_or_else(|| die("--ref-install needs a folder or none")))),
+            "--scenes-dir" => metallic_rc_client::levels::set_scenes_dir(Some(&it.next().unwrap_or_else(|| die("--scenes-dir needs a folder or none")))),
             "-h" | "--help" => {
-                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--world ADDRESS] [--headless]");
+                println!("metallic-rc-client [--server URL] [--name NAME] [--game-dir DIR] [--camera x,y,z,yaw,pitch] [--room NAME] [--realtime ADDR] [--look skin,shirt,accent[,accessory]] [--world ADDRESS|SCENE] [--ref-install DIR|none] [--scenes-dir DIR|none] [--headless]");
                 std::process::exit(0)
             }
             _ => die(&format!("unknown argument {k}")),
@@ -207,9 +209,13 @@ fn main() {
     let mut prefs = Prefs { s: Settings::path().map(|p| Settings::load(&p)).unwrap_or_default(), changed: true };
     prefs.s.remember(&a.name);
 
+    // METALLIC_HIDDEN=1: create the window but don't show it. The ECS (net, rules, bots) runs exactly the same, so a
+    // net self-test can drive a game to a result and print its log without popping a window over whatever the owner is
+    // doing (they're often on a call). The window still exists, so the systems that take `Single<&Window>` are fine.
+    let hidden = std::env::var("METALLIC_HIDDEN").is_ok();
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window { title: "Metallic RC".into(), ..default() }),
+            primary_window: Some(Window { title: "Metallic RC".into(), visible: !hidden, ..default() }),
             ..default()
         }))
         .insert_resource(status)
@@ -233,13 +239,63 @@ fn main() {
         .add_plugins(player)
         .add_plugins(metallic_rc_client::maker::MakerPlugin)
         // engine lane: quality tiers, texture mips/compression, platform defaults (touch, mobile)
+        .add_plugins(metallic_rc_client::particles::ParticlePlugin)
         .add_plugins((metallic_rc_client::quality::QualityPlugin, metallic_rc_client::texprep::TexPrepPlugin, metallic_rc_client::platform::PlatformPlugin::default()))
+        // dynamic-prop rigidbody physics foundation (bevy_rapier): mirrors the room's static colliders + lets games
+        // spawn dynamic props (bowling pins, projectiles, karts) that a real solver simulates
+        .add_plugins(metallic_rc_client::physics::RapierFoundationPlugin)
+        // Dodgeball game mode: active when the Dodgeball arena is the loaded world (`--world dodgeball`)
+        .add_plugins(metallic_rc_client::dodgeball::DodgeballPlugin)
+        .insert_resource(metallic_rc_client::dodgeball::DodgeballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("dodgeball"))))
+        .add_plugins(metallic_rc_client::paddleball::PaddleballPlugin)
+        .insert_resource(metallic_rc_client::paddleball::PaddleballActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("paddleball"))))
+        .add_plugins(metallic_rc_client::discgolf::DiscGolfPlugin)
+        .insert_resource(metallic_rc_client::discgolf::DiscGolfActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("discgolf"))))
+        .add_plugins(metallic_rc_client::soccer::SoccerPlugin)
+        .insert_resource(metallic_rc_client::soccer::SoccerActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("soccer"))))
+        .add_plugins(metallic_rc_client::bowling::BowlingPlugin)
+        .insert_resource(metallic_rc_client::bowling::BowlingActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("bowlingalley") || w.eq_ignore_ascii_case("bowling"))))
+        .add_plugins(metallic_rc_client::charades::CharadesPlugin)
+        .insert_resource(metallic_rc_client::charades::CharadesActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("charades"))))
+        .add_plugins(metallic_rc_client::stuntrunner::StuntRunnerPlugin)
+        .insert_resource(metallic_rc_client::stuntrunner::StuntRunnerActive(a.world.as_deref().is_some_and(|w| w.eq_ignore_ascii_case("stuntrunner") || w.eq_ignore_ascii_case("level93") || w.eq_ignore_ascii_case("course1"))))
         .insert_resource(LocalLook(look))
+        // the Customize screen edits this; `avatar::real::redress` applies it live to the real body
+        .insert_resource(avatar::Dressing::default())
         .insert_resource(GlobalAmbientLight { brightness: 400.0, ..default() })
         .add_systems(Startup, setup)
         .add_systems(Update, (use_menu, show_menu.after(use_menu), grab_mouse.after(use_menu), apply_settings.after(use_menu), show_status, spawn_room,
-            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room))
+            feed_player.after(use_menu).before(PlayerSystems::Move), realtime_sync.after(PlayerSystems::Avatar), follow_room, auto_shot))
         .run();
+}
+
+/// QA capture: with `METALLIC_SHOT=<path>` set, wait `METALLIC_SHOT_AT` seconds (default 7, to let the room and its
+/// particles settle), save a screenshot of the window to `<path>`, then exit. No effect when the env var is unset.
+#[allow(clippy::too_many_arguments)]
+fn auto_shot(time: Res<Time>, mut commands: Commands, mut third: ResMut<player::ThirdPerson>, mut elapsed: Local<f32>, mut shot: Local<bool>, mut exit: MessageWriter<AppExit>, mut cam: Query<&mut Transform, With<Camera3d>>, bounds: Res<world::RoomBounds>) {
+    let Ok(path) = std::env::var("METALLIC_SHOT") else { return };
+    // METALLIC_DEMO_CAM: a demo camera framed from the loaded room's own bounds (the same 3/4 overview the offscreen
+    // rasterizer uses), detached from the player and overriding the player-follow each frame. One rule frames every
+    // arena cleanly — the ±14/±18 shell (Dodgeball/Paddleball) and the large open DiscGolf course alike.
+    if std::env::var("METALLIC_DEMO_CAM").is_ok() {
+        if let (Some(mut t), Some((lo, hi))) = (cam.iter_mut().next(), bounds.0) {
+            let center = (lo + hi) * 0.5;
+            let radius = (hi - lo).length() * 0.5;
+            let eye = center + Vec3::new(0.9, 0.55, 0.9).normalize() * radius * 1.6;
+            *t = Transform::from_translation(eye).looking_at(center, Vec3::Y);
+        }
+    } else {
+        third.0 = true; // show the avatar in the room (not the first-person face) for the capture
+    }
+    *elapsed += time.delta_secs();
+    let at = std::env::var("METALLIC_SHOT_AT").ok().and_then(|s| s.parse().ok()).unwrap_or(7.0);
+    if !*shot && *elapsed >= at {
+        *shot = true;
+        commands.spawn(Screenshot::primary_window()).observe(save_to_disk(std::path::PathBuf::from(path)));
+    }
+    if *shot && *elapsed >= at + 2.0 {
+        exit.write(AppExit::Success);
+    }
 }
 
 /// A stand-in dorm: floor, four walls, a bed and a desk, lit from the ceiling.
@@ -443,6 +499,44 @@ fn leave_room(net: &Net) -> Option<Realtime> {
     Some(rt)
 }
 
+/// Parses a `#rrggbb` (or `rrggbb`) colour into bytes.
+fn hex_rgb(s: &str) -> Option<[u8; 3]> {
+    let s = s.trim_start_matches('#');
+    if s.len() < 6 {
+        return None;
+    }
+    Some([
+        u8::from_str_radix(&s[0..2], 16).ok()?,
+        u8::from_str_radix(&s[2..4], 16).ok()?,
+        u8::from_str_radix(&s[4..6], 16).ok()?,
+    ])
+}
+
+/// Applies a Customize-screen click to the local [`avatar::Dressing`]: a colour swatch (outfit type >= 1000 carries the
+/// hex and `1000 + avatarColorType`) or a wardrobe item (the game's `OutfitType` and the item's style name).
+fn wear(d: &mut avatar::Dressing, outfit_type: i32, val: &str) {
+    if outfit_type >= 1000 {
+        let Some(c) = hex_rgb(val) else { return };
+        match outfit_type - 1000 {
+            0 => d.skin = c,       // avatarColorType 0 = skin
+            _ => d.hair_color = c, // 1 / 2 = hair primary / highlight
+        }
+        return;
+    }
+    let Some(slot) = avatar::real::Slot::from_outfit_type(outfit_type) else { return };
+    use avatar::real::Slot;
+    match slot {
+        // the hair swap wants the bare style name (`redress` appends `_Hair`); the others want the full wardrobe stem
+        Slot::Hair => d.hair_style = val.to_string(),
+        Slot::Top => d.top = format!("{val}_{}", slot.suffix()),
+        Slot::Bottom => d.bottom = format!("{val}_{}", slot.suffix()),
+        Slot::Shoes => d.shoes = format!("{val}_{}", slot.suffix()),
+        Slot::Hat => d.hat = format!("{val}_{}", slot.suffix()),
+        Slot::Beard => d.beard = format!("{val}_{}", slot.suffix()),
+        Slot::Glasses => d.glasses = format!("{val}_{}", slot.suffix()),
+    }
+}
+
 /// The escape menu's input: Esc opens it, closes it or leaves the name field; the pointer presses and drags its
 /// selectables, the wheel scrolls its lists, typing fills the name field, and clicks do what the page's controllers
 /// say.
@@ -454,6 +548,7 @@ fn use_menu(
     mut menu: ResMut<Menu>,
     mut prefs: ResMut<Prefs>,
     mut account: ResMut<Account>,
+    mut dress: ResMut<avatar::Dressing>,
     (net, status): (Res<Net>, Res<Status>),
     window: Single<&Window, With<PrimaryWindow>>,
     avatars: Query<Entity, With<Avatar>>,
@@ -550,6 +645,8 @@ fn use_menu(
             go_to = Some((room.clone(), scene));
             (account.goto, rejoin) = (Some(room), true);
         }
+        // a Customize click: recolour or re-equip the live avatar (`avatar::real::redress` applies the change)
+        Some(Action::WearItem(ot, val)) => wear(&mut dress, ot, &val),
         Some(Action::Slider(_)) | None => {}
     }
     // a new account goes to its dorm; a room from the rooms browser is joined by logging in again and going there

@@ -1,7 +1,7 @@
 //! The pen's maths and memory, without Bevy systems: undo/redo, grid snapping, rays against boxes.
 use bevy::prelude::*;
 
-use crate::collide::Obb;
+use crate::collide::{Collider, Obb};
 
 /// The grid the snap puts positions on (INFERRED: the game's Maker Pen grid is configurable; 0.25 m is ours).
 pub const GRID: f32 = 0.25;
@@ -106,8 +106,8 @@ pub fn ray_obb(b: &Obb, from: Vec3, dir: Vec3) -> Option<f32> {
 }
 
 /// The nearest hit of a ray among boxes.
-pub fn ray_boxes(boxes: &[Obb], from: Vec3, dir: Vec3) -> Option<f32> {
-    boxes.iter().filter_map(|b| ray_obb(b, from, dir)).min_by(|a, b| a.total_cmp(b))
+pub fn ray_boxes(boxes: &[Collider], from: Vec3, dir: Vec3) -> Option<f32> {
+    boxes.iter().filter_map(|c| c.as_box()).filter_map(|b| ray_obb(b, from, dir)).min_by(|a, b| a.total_cmp(b))
 }
 
 #[cfg(test)]
@@ -154,6 +154,6 @@ mod tests {
         assert!((ray_obb(&t, Vec3::ZERO, Vec3::NEG_Z).unwrap() - (5.0 - 0.5 * 2f32.sqrt())).abs() < 1e-4);
         // from inside: 0
         assert_eq!(ray_obb(&b, Vec3::new(0.0, 0.0, -5.0), Vec3::X), Some(0.0));
-        assert_eq!(ray_boxes(&[t, b], Vec3::ZERO, Vec3::NEG_Z).map(|d| d < 4.5), Some(true));
+        assert_eq!(ray_boxes(&[Collider::Box(t), Collider::Box(b)], Vec3::ZERO, Vec3::NEG_Z).map(|d| d < 4.5), Some(true));
     }
 }

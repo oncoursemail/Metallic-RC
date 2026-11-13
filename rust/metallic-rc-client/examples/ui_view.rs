@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 use bevy::window::PrimaryWindow;
 use metallic_rc_client::room;
 use metallic_rc_client::settings::Settings;
@@ -29,8 +30,22 @@ fn main() {
         .insert_resource(Shown(painter))
         .init_resource::<view::Uploaded>()
         .add_systems(Startup, |mut c: Commands| { c.spawn(Camera2d); })
-        .add_systems(Update, show)
+        .add_systems(Update, (show, shot))
         .run();
+}
+
+/// With METALLIC_SHOT=<path> set, screenshot after it has laid out, then exit.
+fn shot(mut commands: Commands, time: Res<Time>, mut done: Local<bool>, mut exit: MessageWriter<AppExit>) {
+    let Ok(path) = std::env::var("METALLIC_SHOT") else { return };
+    let at: f32 = std::env::var("METALLIC_SHOT_AT").ok().and_then(|s| s.parse().ok()).unwrap_or(6.0);
+    let t = time.elapsed_secs();
+    if !*done && t > at {
+        commands.spawn(Screenshot::primary_window()).observe(save_to_disk(std::path::PathBuf::from(path)));
+        *done = true;
+    }
+    if *done && t > at + 1.5 {
+        exit.write(AppExit::Success);
+    }
 }
 
 fn show(mut commands: Commands, shown: Res<Shown>, window: Single<&Window, With<PrimaryWindow>>, mut images: ResMut<Assets<Image>>, mut fonts: ResMut<Assets<Font>>,

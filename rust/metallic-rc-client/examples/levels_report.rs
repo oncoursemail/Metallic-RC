@@ -19,6 +19,40 @@ fn main() {
     }
     levels::set_ref_install(reference.as_deref());
     let game = game.or_else(|| room::GAME_DIRS.iter().map(std::path::PathBuf::from).find(|p| p.exists())).expect("no game folder");
+    // METALLIC_OBJECTS=<ScriptClass>: list the scene's objects with that MonoBehaviour (goals, baskets, spawns, ...)
+    // via the shared scene-object reader, to verify it finds the real per-game gadgets. (Standalone of the layout
+    // report below, which needs a 2019 reference install.)
+    // METALLIC_CLASS=<MonoBehaviourClass>: list the world positions of scene objects of that script class (via the
+    // class-based reader scene_class_positions), e.g. the real BowlingPin placements in level91.
+    if let Ok(class) = std::env::var("METALLIC_CLASS") {
+        let data = game.join("RecRoom_Data");
+        let pos = levels::scene_class_positions(Some(data.as_path()), &room, &class);
+        println!("scene_class_positions '{class}' in {room}: {} found", pos.len());
+        for (i, p) in pos.iter().enumerate().take(30) {
+            println!("  {i:3}  ({:7.2} {:6.2} {:7.2})", p.x, p.y, p.z);
+        }
+        return;
+    }
+    if let Ok(script) = std::env::var("METALLIC_OBJECTS") {
+        let data = game.join("RecRoom_Data");
+        let objs = levels::scene_objects(Some(data.as_path()), &room, &script);
+        println!("scene_objects '{script}' in {room}: {} found", objs.len());
+        if script == "*" {
+            // discovery: distinct scripted-object names, with counts
+            let mut counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+            for o in &objs {
+                *counts.entry(o.name.clone()).or_default() += 1;
+            }
+            for (name, n) in counts.iter().take(60) {
+                println!("  {n:4}  {name}");
+            }
+        } else {
+            for o in objs.iter().take(24) {
+                println!("  {:34}{} at ({:7.1} {:6.1} {:7.1})  half {:?}", o.name, if o.scripted { " [script]" } else { "" }, o.pos.x, o.pos.y, o.pos.z, o.half.map(|h| (h.x, h.y, h.z)));
+            }
+        }
+        return;
+    }
     let dir = room::bundle_dir(&game);
     let mut lib = Library::new(&dir).expect("bundles");
     if load {
@@ -28,7 +62,7 @@ fn main() {
         let mb = |b: usize| b as f64 / 1048576.0;
         let verts: usize = r.parts.iter().map(|p| p.positions.len() * 32 + p.indices.len() * 4).sum();
         let tex = |t: &Option<shapes::Pixels>| t.as_ref().map_or(0, |t| t.2.len());
-        let pixels: usize = r.materials.iter().map(|m| tex(&m.texture) + tex(&m.roughness_map) + tex(&m.normal_map) + tex(&m.emissive_map)).sum();
+        let pixels: usize = r.materials.iter().map(|m| tex(&m.texture) + tex(&m.spec_map) + tex(&m.normal_map) + tex(&m.emissive_map)).sum();
         println!("{room}: {} parts ({:.0} MB of vertices), {} materials ({:.0} MB of pixels), {} lights, built in {:.1} s",
             r.parts.len(), mb(verts), r.materials.len(), mb(pixels), r.lights.len(), t.elapsed().as_secs_f32());
         for p in &r.problems {

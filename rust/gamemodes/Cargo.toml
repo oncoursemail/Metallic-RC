@@ -1,0 +1,7 @@
+[package]
+name = "gamemodes"
+version = "0.1.0"
+edition = "2021"
+description = "Rec Room built-in game modes (RR Originals) ported from the decompiled C# GameRuleManager subclasses. Each built-in game (Dodgeball, Paintball, …) is a hardcoded rules manager + its gadgets; this crate is the engine-agnostic rules core, driven by the client/server over rr-net."
+
+[dependencies]

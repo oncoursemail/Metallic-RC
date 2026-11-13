@@ -22,6 +22,8 @@ use super::theme::Theme;
 use crate::room::Library;
 use crate::settings::{Settings, RESOLUTIONS};
 
+/// The avatar-item card prefab that fills the Customize grids.
+const ITEM_CARD: &str = "Assets/RRUI/Prefabs/WatchMenu/Components/Cards/(AvatarCustomizationItemCard).prefab";
 pub const ESCAPE: &str = "(EscapeMenu_standalone)";
 pub const SWITCH_ACCOUNT: &str = "(SwitchAccount)";
 pub const LOGIN: &str = "(Login)";
@@ -132,6 +134,8 @@ pub enum Action {
     Login,
     /// leave this room and join the named one (a room card): its name and scene (empty when the server names none)
     GoToRoom(String, String),
+    /// wear a wardrobe item from a Customize grid: the game's OutfitType number and the item's style name
+    WearItem(i32, String),
 }
 
 /// What a page shows besides its prefab.
@@ -150,6 +154,8 @@ pub struct Ctx<'a> {
     pub choosing: Option<&'a str>,
     /// the server's rooms, for room lists
     pub rooms: &'a [RoomInfo],
+    /// the loaded (AvatarCustomizationItemCard) template, to fill the avatar-item grids
+    pub item_card: Option<&'a Element>,
 }
 
 /// A page made ready to lay out.
@@ -158,6 +164,30 @@ pub struct Built {
     pub actions: HashMap<i64, Action>,
     /// ScrollRect component id, content and viewport RectTransform ids
     pub scrolls: Vec<(i64, i64, i64)>,
+    /// runtime-assigned graphics: (Image component id, icon PNG file name) — e.g. the customize category tab icons the
+    /// prefab leaves null. The painter loads each from the exported icon set and overrides the sprite.
+    pub icons: Vec<(i64, String)>,
+}
+
+/// The exported RRUI icon for a customize category tab (the `[IconToggleChip] <Category>` chips), or None.
+fn category_icon(category: &str) -> Option<&'static str> {
+    Some(match category.trim() {
+        "AvatarType" => "icon_AvatarCustomization_Body_Full.png",
+        "Face" => "icon_AvatarCustomization_Face.png",
+        "Hair" => "icon_AvatarCustomization_Hair.png",
+        "Clothing" => "icon_AvatarCustomization_Torso.png",
+        "Accessories" => "icon_AvatarCustomization_Accessories.png",
+        "Feet" => "icon_AvatarCustomization_Shoes.png",
+        "Custom" => "icon_AvatarCustomization_Custom.png",
+        _ => return None,
+    })
+}
+
+/// Where the exported RRUI icons live (override with METALLIC_WARDROBE_DIR).
+fn icon_dir() -> PathBuf {
+    std::env::var("METALLIC_WARDROBE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(r"C:\Users\alexi\rr-capture\decomp-full\assets\AssetStudioExport"))
 }
 
 /// Rows the client adds to a page, copied from rows of the game's pages: a slider row, a switch row, and a radio
@@ -657,8 +687,30 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             e.rect.anchored_position[1] += y;
         }
     }
+    // the customize category tabs: each `[IconToggleChip] <Category>` has an Image whose sprite the prefab leaves null
+    // (the game assigns it at runtime). Record its id + the real icon so the painter overrides it.
+    let mut icons: Vec<(i64, String)> = vec![];
+    for (_, e) in page.walk() {
+        let Some(cat) = e.name.strip_prefix("[IconToggleChip] ") else { continue };
+        let Some(file) = category_icon(cat) else { continue };
+        let id = e.walk().iter().find_map(|(_, k)| {
+            if k.name.starts_with("Image - Change Icon") {
+                k.component("UnityEngine.UI.Image").map(|c| c.id)
+            } else {
+                None
+            }
+        });
+        if let Some(id) = id {
+            icons.push((id, file.to_string()));
+        }
+    }
+    // fill the Customize item grids with real wardrobe items, and the colour grids with the real swatches
+    if let Some(card) = ctx.item_card {
+        item_cards(&mut page, card, &mut w.actions);
+    }
+    color_swatches(&mut page, &mut w.actions);
     theme.apply_with(&mut page, &active);
-    Built { page, actions: w.actions, scrolls }
+    Built { page, actions: w.actions, scrolls, icons }
 }
 
 fn strukt(fields: Vec<(&str, Value)>) -> Value {
@@ -819,6 +871,10 @@ impl Painter {
             let mut donors = None;
             // the list, when and with which token it was fetched
             let mut room_list: Option<(std::time::Instant, String, Vec<RoomInfo>)> = None;
+            // decoded customize-category icons, kept so each PNG is read once
+            let mut icon_cache: HashMap<String, Option<std::sync::Arc<paint::Sprite>>> = HashMap::new();
+            // the avatar-item card template, loaded once, to fill the Customize grids
+            let item_card = prefab::load(looks.library(), &pages, &bundle_dir, ITEM_CARD).ok();
             while let Ok(mut r) = asked.recv() {
                 // only the newest request matters
                 while let Ok(newer) = asked.try_recv() {
@@ -838,8 +894,19 @@ impl Painter {
                     }
                     let none = Donors::default();
                     let ctx = Ctx { page: &path, back_stack: r.back_stack, settings: &r.settings, account: &r.account, typed: &r.typed, focused: r.focused,
-                        scroll: &r.scroll, choosing: r.choosing.as_deref(), rooms: room_list.as_ref().map(|(_, _, l)| l.as_slice()).unwrap_or_default() };
+                        scroll: &r.scroll, choosing: r.choosing.as_deref(), rooms: room_list.as_ref().map(|(_, _, l)| l.as_slice()).unwrap_or_default(), item_card: item_card.as_ref() };
                     let b = build(&t, &ctx, &theme, donors.as_ref().unwrap_or(&none));
+                    // place the real customize-category icons (the prefab leaves their sprite null)
+                    looks.clear_overrides();
+                    for (id, file) in &b.icons {
+                        let sprite = icon_cache
+                            .entry(file.clone())
+                            .or_insert_with(|| paint::load_icon_sprite(&icon_dir().join(file), [0x33, 0x34, 0x3a]))
+                            .clone();
+                        if let Some(s) = sprite {
+                            looks.override_sprite(*id, s);
+                        }
+                    }
                     Painted { drawn: paint::page_with(&mut looks, &b.page, canvas(&r.page)), page: r.page, actions: b.actions, scrolls: b.scrolls }
                 });
                 if tell.send(painted).is_err() {
@@ -878,6 +945,148 @@ fn account_cards(page: &mut Element, list: i64, ctx: &Ctx, actions: &mut HashMap
         r.anchored_position = [120.0 + i as f32 * (size[0] + 40.0), 0.0];
         content.children.push(card);
     }
+}
+
+/// Fills each avatar-item grid (an `AvatarCustomizationItemListModel`, keyed by `outfitType`) with a card per real
+/// wardrobe item for that slot, laid out in a grid — the way `room_cards` fills the rooms list, but from the external
+/// `(AvatarCustomizationItemCard)` template.
+fn item_cards(page: &mut Element, template: &Element, actions: &mut HashMap<i64, Action>) {
+    use crate::avatar::real::{scan_slot, BodyType, Slot};
+    let slot_for = |ot: i32| -> Option<Slot> {
+        Some(match ot {
+            2 => Slot::Hair,
+            101 => Slot::Top,
+            300 => Slot::Bottom,
+            301 => Slot::Shoes,
+            0 => Slot::Hat,
+            20 => Slot::Beard,
+            10 => Slot::Glasses,
+            _ => return None,
+        })
+    };
+    // each item list: its outfitType and the transform id of the element the cards spawn under
+    let mut lists: Vec<(i32, i64)> = vec![];
+    for (_, e) in page.walk() {
+        let Some(model) = e.components.iter().find(|c| c.class == "RRUI.Data.AvatarCustomizationItemListModel") else { continue };
+        let Some(ot) = model.value.get("outfitType").and_then(Value::as_i64) else { continue };
+        let target = e.walk().iter().find_map(|(_, k)| {
+            k.component("RRUI.Data.InfiniteListDataProvider").and_then(|p| pptr(&p.value, "prefabSpawnTarget"))
+        });
+        if let Some(t) = target {
+            lists.push((ot as i32, t));
+        }
+    }
+    let (cw, ch) = (template.rect.size_delta[0].max(210.0), template.rect.size_delta[1].max(280.0));
+    let cols = 5usize;
+    for (n, (ot, target)) in lists.into_iter().enumerate() {
+        let Some(slot) = slot_for(ot) else { continue };
+        let items = scan_slot(BodyType::Full, slot);
+        let Some(content) = find_mut(page, &|e| e.transform == target) else { continue };
+        for (i, name) in items.iter().enumerate() {
+            let salt = MADE | (((n as i64) * 128 + 0x40 + i as i64) << 40);
+            let mut c = card(template, salt, &prettify(name), "", "", Action::WearItem(ot, name.clone()), actions);
+            let (col, row) = (i % cols, i / cols);
+            let r = &mut c.rect;
+            (r.anchor_min, r.anchor_max, r.pivot) = ([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]);
+            r.size_delta = [cw, ch];
+            r.anchored_position = [32.0 + col as f32 * (cw + 22.5), -50.0 - row as f32 * (ch + 22.5)];
+            content.children.push(c);
+        }
+    }
+}
+
+/// The real Rec Room skin tones (ColorsResourcesConfig.skinColors, sRGB), in order.
+const SKIN_COLORS: [[u8; 3]; 20] = [
+    [0x33, 0x1b, 0x13], [0x34, 0x24, 0x1c], [0x35, 0x29, 0x24], [0x44, 0x24, 0x1a], [0x54, 0x2f, 0x23], [0x5d, 0x42, 0x36], [0x7d, 0x48, 0x2e],
+    [0x89, 0x5d, 0x43], [0xad, 0x5c, 0x38], [0xbd, 0x5f, 0x4c], [0xa6, 0x71, 0x53], [0xc1, 0x76, 0x57], [0xd4, 0x7b, 0x65], [0xb6, 0x8a, 0x66],
+    [0xc7, 0x90, 0x80], [0xcb, 0x90, 0x6c], [0xbd, 0x94, 0x7b], [0xd2, 0xa5, 0x83], [0xd0, 0xa4, 0x90], [0xed, 0xd3, 0xc7],
+];
+/// The real Rec Room natural hair colours (ColorsResourcesConfig.naturalHairColors, sRGB), in order.
+const HAIR_COLORS: [[u8; 3]; 17] = [
+    [0x1b, 0x0f, 0x06], [0x23, 0x1e, 0x1a], [0x38, 0x1a, 0x03], [0x46, 0x13, 0x05], [0x57, 0x18, 0x09], [0x51, 0x2e, 0x15], [0x57, 0x35, 0x09],
+    [0x80, 0x58, 0x23], [0x9f, 0x29, 0x0d], [0xa2, 0x41, 0x25], [0xba, 0x5e, 0x37], [0xbe, 0x70, 0x48], [0xc3, 0x86, 0x36], [0xd0, 0xb0, 0x86],
+    [0x7c, 0x78, 0x77], [0xa4, 0xae, 0xbc], [0xb4, 0xae, 0xa9],
+];
+
+/// Fills each colour grid (an `AvatarColorListModel`, keyed by `avatarColorType`) with the real Rec Room swatches,
+/// cloning the page's `[CardBackground] Color Swatch` template and setting each clone's Background Image colour.
+fn color_swatches(page: &mut Element, actions: &mut HashMap<i64, Action>) {
+    let palette = |ct: i32| -> Option<&'static [[u8; 3]]> {
+        match ct {
+            0 => Some(&SKIN_COLORS), // Skin
+            1 | 2 => Some(&HAIR_COLORS), // HairPrimary / HairHighlight
+            _ => None,
+        }
+    };
+    // each colour list: its avatarColorType, the spawn-target transform id, and a clone of its swatch template
+    let mut lists: Vec<(i32, i64, Element)> = vec![];
+    for (_, e) in page.walk() {
+        let Some(model) = e.components.iter().find(|c| c.class == "RRUI.Data.AvatarColorListModel") else { continue };
+        let Some(ct) = model.value.get("avatarColorType").and_then(Value::as_i64) else { continue };
+        let target = e.walk().iter().find_map(|(_, k)| {
+            k.component("RRUI.Data.InfiniteListDataProvider").and_then(|p| pptr(&p.value, "prefabSpawnTarget"))
+        });
+        let template = e.walk().iter().find(|(_, k)| k.name.starts_with("[CardBackground] Color Swatch")).map(|(_, k)| (*k).clone());
+        if let (Some(t), Some(tmpl)) = (target, template) {
+            lists.push((ct as i32, t, tmpl));
+        }
+    }
+    for (n, (ct, target, template)) in lists.into_iter().enumerate() {
+        let Some(colors) = palette(ct) else { continue };
+        let Some(content) = find_mut(page, &|e| e.transform == target) else { continue };
+        content.children.clear(); // drop the baked placeholder swatches
+        let (sw, sh, per_row) = (92.0f32, 92.0f32, 8usize);
+        for (i, col) in colors.iter().enumerate() {
+            let salt = MADE | (((0x400 + n * 64 + i) as i64) << 36);
+            let mut c = fresh(&template, salt);
+            c.active = true;
+            // set the swatch's Background colour, and its select action, from the cloned ids
+            let img = c.walk().iter().find_map(|(_, k)| k.impls().iter().find_map(|(cl, d)| cl.ends_with("/BackgroundColorImageImpl").then(|| pptr(d, "image")).flatten()));
+            let btn = c.walk().iter().find_map(|(_, k)| k.impls().iter().find_map(|(cl, d)| cl.ends_with("/PrimaryToggleButtonImpl").then(|| pptr(d, "button")).flatten()));
+            if let Some(id) = img {
+                set_color(&mut c, id, *col);
+            }
+            if let Some(b) = btn {
+                // colour actions carry the real colour as hex; outfitType 1000 = skin, 1001/1002 = hair
+                actions.insert(b, Action::WearItem(1000 + ct, format!("#{:02x}{:02x}{:02x}", col[0], col[1], col[2])));
+            }
+            let (col_i, row_i) = (i % per_row, i / per_row);
+            let r = &mut c.rect;
+            (r.anchor_min, r.anchor_max, r.pivot) = ([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]);
+            r.size_delta = [sw, sh];
+            r.anchored_position = [24.0 + col_i as f32 * (sw + 16.0), -24.0 - row_i as f32 * (sh + 16.0)];
+            content.children.push(c);
+        }
+    }
+}
+
+/// Sets the `m_Color` of an Image component (by id) in `root` — like `set_text`, but for a colour.
+fn set_color(root: &mut Element, id: i64, c: [u8; 3]) {
+    let col = strukt(vec![
+        ("r", Value::Float(c[0] as f64 / 255.0)),
+        ("g", Value::Float(c[1] as f64 / 255.0)),
+        ("b", Value::Float(c[2] as f64 / 255.0)),
+        ("a", Value::Float(1.0)),
+    ]);
+    if let Some(e) = find_mut(root, &|e| has_component(e, id)) {
+        for comp in e.components.iter_mut().filter(|comp| comp.id == id) {
+            set(&mut comp.value, "m_Color", col.clone());
+        }
+    }
+}
+
+/// "CurlyHelmetHair"/"Blazer_Shirt" -> "Curly Helmet" / "Blazer": split camel case, drop a trailing slot word.
+fn prettify(s: &str) -> String {
+    let s = s.strip_suffix("_Shirt").or_else(|| s.strip_suffix("_Leg")).or_else(|| s.strip_suffix("_Shoe")).or_else(|| s.strip_suffix("_Hat")).unwrap_or(s);
+    let s = s.strip_suffix("Hair").unwrap_or(s);
+    let mut out = String::new();
+    for (i, ch) in s.char_indices() {
+        if i > 0 && ch.is_uppercase() && !out.ends_with(' ') {
+            out.push(' ');
+        }
+        out.push(ch);
+    }
+    out.trim().to_string()
 }
 
 /// A card (CardModelController impls) made from a list's item template: primary and secondary text, a badge text
@@ -1002,7 +1211,7 @@ mod tests {
         let mut st = Settings::default();
         st.set("invert_y", 1.0);
         let scroll = HashMap::new();
-        let ctx = Ctx { page: ESCAPE, back_stack: 0, settings: &st, account: "me", typed: "", focused: false, scroll: &scroll, choosing: None, rooms: &[] };
+        let ctx = Ctx { page: ESCAPE, back_stack: 0, settings: &st, account: "me", typed: "", focused: false, scroll: &scroll, choosing: None, rooms: &[], item_card: None };
         let mut w = Wiring::default();
         // the theme is not needed to see the wiring: build's steps before it
         let mut hides = vec![];

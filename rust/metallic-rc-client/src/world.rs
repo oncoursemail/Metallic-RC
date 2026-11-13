@@ -12,7 +12,7 @@ use std::{
 use bevy::{asset::RenderAssetUsages, audio::AddAudioSource, mesh::{Indices, PrimitiveTopology}, prelude::*};
 use unity_assets::{catalog::{bundle_file, Catalog}, classes, AssetBundleInfo, GameObject, PPtr};
 
-use crate::{audio, cache, collide::{Obb, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
+use crate::{audio, cache, collide::{Collider, Solids}, render, room::{self, value, FileRef, Library, RoomData}, shapes::{self, ShapeKit}};
 
 
 /// Where an address leads: the bundle file and the bundle's own name for the asset (its `m_Container` key).
@@ -243,7 +243,7 @@ fn recenter(r: &mut RoomData) {
         *w = m * *w;
     }
     for c in &mut r.colliders {
-        c.center += shift;
+        *c = c.transformed(Mat4::from_translation(shift));
     }
 }
 
@@ -354,6 +354,11 @@ fn unplace(r: &mut RoomData) {
 #[derive(Resource, Default)]
 pub struct Arrived(pub Option<RoomData>);
 
+/// The loaded room's world-space bounding box (min, max), for framing the demo/overview camera. `None` until a room
+/// is in.
+#[derive(Resource, Default)]
+pub struct RoomBounds(pub Option<(Vec3, Vec3)>);
+
 /// A spawnable or interactive object in the room: the prefab's address and an id that is the same on every client
 /// that loads the same room (for room props) or that the spawner chose. The realtime lane syncs props by `id`.
 #[derive(Component, Clone, Debug)]
@@ -364,7 +369,7 @@ pub struct Prop {
 
 /// A prop's colliders, in the prop's own space; `Solids` gets them where the prop is now.
 #[derive(Component, Clone, Default)]
-pub struct PropColliders(pub Vec<Obb>);
+pub struct PropColliders(pub Vec<Collider>);
 
 /// Every entity a room load made (despawned with the room).
 #[derive(Component)]
@@ -372,7 +377,7 @@ pub struct RoomPiece;
 
 /// The room's fixed colliders (props' are on their entities).
 #[derive(Resource, Default)]
-struct FixedSolids(Vec<Obb>);
+pub struct FixedSolids(pub Vec<Collider>);
 
 /// FNV-1a: a stable id from a room name, a root's index and its name.
 pub fn stable_id(parts: &[&str]) -> u64 {
@@ -401,6 +406,7 @@ impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(render::LookPlugin)
             .init_resource::<Arrived>()
+            .init_resource::<RoomBounds>()
             .init_resource::<FixedSolids>()
             .init_resource::<Solids>()
             .add_systems(Update, (spawn_arrived, attach_props, update_solids.after(spawn_arrived).after(attach_props)))
@@ -414,7 +420,7 @@ impl Plugin for WorldPlugin {
 /// Builds the meshes, materials and lights of `r` as children of one entity per root prefab. Returns the root
 /// entities; `roots[i]` is `None` for a root the caller already has an entity for (`existing`).
 fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option<Entity>,
-         meshes: &mut Assets<Mesh>, materials: &mut Assets<render::AgMaterial>, images: &mut Assets<Image>, clips: &mut Assets<audio::Pcm>) -> (Vec<Entity>, Vec<Obb>) {
+         meshes: &mut Assets<Mesh>, materials: &mut Assets<render::AgMaterial>, images: &mut Assets<Image>, clips: &mut Assets<audio::Pcm>) -> (Vec<Entity>, Vec<Collider>) {
     let mut textures = render::Textures::default();
     let mats: Vec<Handle<render::AgMaterial>> = r.materials.iter().map(|m| materials.add(render::material(m, images, &mut textures))).collect();
     let needs_tangents: Vec<bool> = r.materials.iter().map(|m| m.normal_map.is_some()).collect();
@@ -484,7 +490,7 @@ fn build(commands: &mut Commands, r: RoomData, room_name: &str, existing: Option
     }
     // props carry their own colliders; the rest are fixed
     let mut fixed = Vec::new();
-    let mut by_root: HashMap<usize, Vec<Obb>> = HashMap::new();
+    let mut by_root: HashMap<usize, Vec<Collider>> = HashMap::new();
     for (c, &root) in r.colliders.iter().zip(&r.collider_roots) {
         if r.props[root] || existing.is_some() {
             by_root.entry(root).or_default().push(c.transformed(inverse[root]));
@@ -511,12 +517,14 @@ fn spawn_arrived(
     mut clips: ResMut<Assets<audio::Pcm>>,
     mut ambient: ResMut<GlobalAmbientLight>,
     env: Res<render::RoomEnvMaps>,
+    mut room_bounds: ResMut<RoomBounds>,
 ) {
     let Some(r) = arrived.0.take() else { return };
     for e in &old {
         commands.entity(e).despawn();
     }
     let (lo, hi) = bounds(&r);
+    room_bounds.0 = Some((lo, hi));
     let has_lights = !r.lights.is_empty();
     let name = r.roots.first().cloned().unwrap_or_default();
     let props: Vec<&str> = r.roots.iter().zip(&r.props).filter(|(_, p)| **p).map(|(n, _)| n.as_str()).collect();

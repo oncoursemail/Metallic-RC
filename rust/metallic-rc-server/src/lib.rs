@@ -16,6 +16,7 @@ pub mod profile;
 pub mod room;
 pub mod social;
 pub mod store;
+pub mod web;
 
 use std::{path::{Path, PathBuf}, sync::Arc, time::Instant};
 

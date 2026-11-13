@@ -8,7 +8,7 @@ use std::{collections::HashMap, path::{Path, PathBuf}, rc::Rc, sync::Arc};
 use bevy::math::{Mat4, Quat, Vec3};
 use unity_assets::{classes, Bundle, GameObject, Material, Mesh, MeshFilter, MeshRenderer, PPtr, SerializedFile, Texture2D, Transform};
 
-use crate::{audio::{self, Clip}, collide::Obb, shapes::{self, Pixels, ShapeKit}};
+use crate::{audio::{self, Clip}, collide::{Collider, Obb}, shapes::{self, Pixels, ShapeKit}};
 
 /// The default place of the game files: the Steam copy kept for this work, then the installed game.
 pub const GAME_DIRS: [&str; 2] = [
@@ -247,13 +247,44 @@ pub struct RoomData {
     pub places: Vec<Mat4>,
     /// roots that are props: grabbable or movable objects (`RigidbodyPickup` / `MoveableProp` on the root)
     pub props: Vec<bool>,
-    /// the solid BoxColliders (triggers left out), for walking
-    pub colliders: Vec<Obb>,
+    /// the solid colliders (box, sphere, capsule and mesh; triggers left out), for walking
+    pub colliders: Vec<Collider>,
     /// the root each collider belongs to
     pub collider_roots: Vec<usize>,
     pub lights: Vec<RoomLight>,
     pub sounds: Vec<RoomSound>,
+    /// player spawn poses (world transforms of `SceneSpawnPoint` / `GamePlayerSpawnPoint` objects)
+    pub spawns: Vec<Mat4>,
+    /// the room's ambient particle emitters (dust, steam, fire, sparks), for the particle renderer
+    pub particles: Vec<ParticleEmitter>,
     pub problems: Vec<String>,
+}
+
+/// One scene ParticleSystem reduced to the fields the CPU particle renderer needs (world placement + the main /
+/// emission / shape / over-lifetime modules, as representative constants). Cache-friendly (no curves).
+#[derive(Clone, Debug)]
+pub struct ParticleEmitter {
+    /// emitter origin + orientation in client (Bevy) space
+    pub world: Mat4,
+    pub max_particles: u32,
+    pub looping: bool,
+    /// steady emission (particles/second) and timed bursts `(time, count)`
+    pub rate: f32,
+    pub bursts: Vec<(f32, f32)>,
+    pub lifetime: f32,
+    pub speed: f32,
+    pub size: f32,
+    /// `gravity_modifier` (× -9.81 m/s²)
+    pub gravity: f32,
+    /// 0 sphere, 4 cone, 5 box, 6 mesh; `angle` (cone, degrees) and `radius`
+    pub shape: i32,
+    pub shape_angle: f32,
+    pub shape_radius: f32,
+    pub start_color: [f32; 4],
+    /// colour over the particle's life `(t in 0..1, rgba)`
+    pub color_over_life: Vec<(f32, [f32; 4])>,
+    /// size multiplier over life `(t in 0..1, mult)`
+    pub size_over_life: Vec<(f32, f32)>,
 }
 
 pub(crate) struct Open {
@@ -592,7 +623,7 @@ impl Builder<'_> {
                     let on = |k: &str| v.get(k).and_then(|x| x.as_i64()).unwrap_or(0) != 0;
                     let vec3 = |k: &str| v.get(k).map(|x| x.floats()).filter(|f| f.len() == 3).map(|f| [f[0], f[1], f[2]]);
                     if let (true, false, Some(size), Some(center)) = (on("m_Enabled"), on("m_IsTrigger"), vec3("m_Size"), vec3("m_Center")) {
-                        self.out.colliders.push(Obb::from_box_collider(world, center, size));
+                        self.out.colliders.push(Collider::Box(Obb::from_box_collider(world, center, size)));
                         self.out.collider_roots.push(self.out.roots.len() - 1);
                     }
                 }

@@ -18,7 +18,7 @@ use rr_net::games::{Mode, Phase, Up};
 use super::{send, Game, GameEvent, TEAM_COLOURS};
 use crate::{
     avatar::{self, Drive, Kit, Look},
-    collide::Obb,
+    collide::{Collider, Obb},
     interact::{body::{ray_box, Body, Shape}, Grabbable, Held, Physics, Remote},
     netobj::{NetObject, NetObjects, RoomLink},
     player::{Player, PlayerSystems, Solids, View},
@@ -128,7 +128,7 @@ fn tag_guns(mut commands: Commands, guns: Query<(Entity, &NetObject), Without<Pa
 }
 
 /// Where a paintball from `from` at `vel` first meets the room's boxes within `life` seconds: time, point, normal.
-pub fn impact(solids: &[Obb], from: Vec3, vel: Vec3, life: f32) -> Option<(f32, Vec3, Vec3)> {
+pub fn impact(solids: &[Collider], from: Vec3, vel: Vec3, life: f32) -> Option<(f32, Vec3, Vec3)> {
     const DT: f32 = 1.0 / 30.0;
     let (mut p, mut v, mut t) = (from, vel, 0.0);
     while t < life {
@@ -138,7 +138,7 @@ pub fn impact(solids: &[Obb], from: Vec3, vel: Vec3, life: f32) -> Option<(f32, 
         let l = seg.length();
         if l > 1e-6 {
             let dir = seg / l;
-            let near = solids.iter().filter_map(|b| ray_box(b, p, dir).filter(|&d| d <= l).map(|d| (d, b))).min_by(|a, b| a.0.total_cmp(&b.0));
+            let near = solids.iter().filter_map(|c| c.as_box()).filter_map(|b| ray_box(b, p, dir).filter(|&d| d <= l).map(|d| (d, b))).min_by(|a, b| a.0.total_cmp(&b.0));
             if let Some((d, b)) = near {
                 let at = p + dir * d;
                 return Some((t + step * d / l, at, face_normal(b, at)));
@@ -162,7 +162,7 @@ fn face_normal(b: &Obb, at: Vec3) -> Vec3 {
     if n == Vec3::ZERO { Vec3::Y } else { n }
 }
 
-fn spawn_ball(commands: &mut Commands, paint: &Paint, solids: &[Obb], shooter: i32, team: u8, origin: Vec3, vel: Vec3, life: f32) {
+fn spawn_ball(commands: &mut Commands, paint: &Paint, solids: &[Collider], shooter: i32, team: u8, origin: Vec3, vel: Vec3, life: f32) {
     let landing = impact(solids, origin, vel, life.min(MAX_LIFE) + 0.2);
     let (left, lands) = match landing {
         Some((t, at, n)) => (t, Some((at, n))),
@@ -211,7 +211,7 @@ fn fire(
     *last = now;
     let cam = player.mul_transform(**view);
     let (eye, look) = (cam.translation, *cam.forward());
-    let wall = solids.0.iter().filter_map(|b| ray_box(b, eye, look)).fold(60.0f32, f32::min).max(1.0);
+    let wall = solids.0.iter().filter_map(|c| c.as_box()).filter_map(|b| ray_box(b, eye, look)).fold(60.0f32, f32::min).max(1.0);
     let muzzle = gun.translation + look * 0.25;
     let vel = (eye + look * wall - muzzle).normalize_or(look) * SPEED;
     let life = impact(&solids.0, muzzle, vel, MAX_LIFE).map_or(MAX_LIFE, |h| h.0);
@@ -461,13 +461,13 @@ mod tests {
     #[test]
     fn paint_lands_on_the_floor() {
         let floor = Obb { center: Vec3::new(0.0, -0.5, 0.0), axes: [Vec3::X, Vec3::Y, Vec3::Z], half: Vec3::new(50.0, 0.5, 50.0) };
-        let (t, at, n) = impact(&[floor], Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 0.0, -SPEED), 3.0).unwrap();
+        let (t, at, n) = impact(&[Collider::Box(floor)], Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 0.0, -SPEED), 3.0).unwrap();
         // falls 1.5 m in sqrt(2 * 1.5 / 9.81) = 0.553 s, 18.3 m away
         assert!((t - 0.553).abs() < 0.02, "{t}");
         assert!((at.z + 18.25).abs() < 0.5 && at.y.abs() < 0.02, "{at}");
         assert_eq!(n, Vec3::Y);
         let wall = Obb { center: Vec3::new(0.0, 1.0, -5.0), axes: [Vec3::X, Vec3::Y, Vec3::Z], half: Vec3::new(5.0, 3.0, 0.1) };
-        let (_, at, n) = impact(&[wall], Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 0.0, -SPEED), 3.0).unwrap();
+        let (_, at, n) = impact(&[Collider::Box(wall)], Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 0.0, -SPEED), 3.0).unwrap();
         assert!((at.z + 4.9).abs() < 0.01);
         assert_eq!(n, Vec3::Z);
     }

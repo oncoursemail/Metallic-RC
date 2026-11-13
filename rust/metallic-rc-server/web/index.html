@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Metallic</title>
+<meta name="description" content="Metallic is the community revival of Rec Room's 2026 build — rebuilt in Rust. Real rooms, real multiplayer, real voice. Switched back on." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ground:#0d1014; --surface:#151a21; --surface2:#1c2430; --line:#232c38;
+    --ink:#f4f7fb; --muted:#9babbd; --dim:#6b7a8c;
+    --teal:#2fd4c6; --orange:#f0813c; --blue:#4aa3ff; --yellow:#ffd23f;
+    --display:'Space Grotesk',system-ui,sans-serif; --text:'Inter',system-ui,sans-serif;
+    --gut:clamp(16px,5vw,80px); --maxw:1240px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ground);color:var(--ink);font-family:var(--text);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  h1,h2,h3{font-family:var(--display);font-weight:700;line-height:0.98;letter-spacing:-0.03em}
+  a{color:inherit;text-decoration:none}
+  img{display:block;max-width:100%}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gut)}
+  .btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--display);font-weight:500;font-size:16px;
+    padding:14px 24px;border-radius:999px;border:0;cursor:pointer;transition:transform .12s ease,background .15s ease}
+  .btn-primary{background:var(--teal);color:#06231f}
+  .btn-primary:hover{transform:translateY(-2px);background:#49e4d6}
+  .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--teal);color:var(--teal);transform:translateY(-2px)}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;background:rgba(13,16,20,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:28px;height:70px}
+  .brand{font-family:var(--display);font-weight:700;font-size:23px;letter-spacing:-0.04em;display:flex;align-items:center;gap:10px}
+  .brand .dot{width:13px;height:13px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 4px rgba(47,212,198,.18)}
+  nav .links{display:flex;gap:26px;margin-left:auto;font-size:15.5px;color:var(--muted)}
+  nav .links a:hover{color:var(--ink)}
+  nav .cta{margin-left:8px}
+  @media(max-width:760px){nav .links{display:none}}
+
+  /* hero */
+  .hero{position:relative;min-height:min(92vh,820px);display:flex;align-items:flex-end;overflow:hidden}
+  .hero .bg{position:absolute;inset:0}
+  .hero .bg img{width:100%;height:100%;object-fit:cover;transform:scale(1.04)}
+  .hero .scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(13,16,20,.94) 0%,rgba(13,16,20,.8) 42%,rgba(13,16,20,.25) 100%)}
+  .hero .scrim2{position:absolute;inset:0;background:linear-gradient(0deg,rgba(13,16,20,.95) 0%,rgba(13,16,20,0) 45%)}
+  .hero .wrap{position:relative;padding-bottom:64px;padding-top:80px;width:100%}
+  .status-row{display:flex;align-items:center;gap:12px;color:var(--teal);font-weight:600;font-size:15px;margin-bottom:22px}
+  .pulse{width:10px;height:10px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 0 rgba(47,212,198,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(47,212,198,.55)}70%{box-shadow:0 0 0 12px rgba(47,212,198,0)}100%{box-shadow:0 0 0 0 rgba(47,212,198,0)}}
+  .hero h1{font-size:clamp(44px,7.4vw,104px);max-width:14ch}
+  .hero p.lead{font-size:clamp(18px,2.1vw,23px);color:var(--muted);max-width:40ch;margin-top:24px}
+  .hero .actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:34px}
+  .counter{display:flex;gap:40px;margin-top:40px;flex-wrap:wrap}
+  .counter .n{font-family:var(--display);font-weight:700;font-size:clamp(30px,4vw,46px);letter-spacing:-0.03em;line-height:1}
+  .counter .k{color:var(--dim);font-size:14px;margin-top:7px}
+  .counter .teal{color:var(--teal)} .counter .orange{color:var(--orange)} .counter .blue{color:var(--blue)}
+
+  /* section frame */
+  section{padding-block:clamp(72px,10vw,140px)}
+  .shead{max-width:46ch;margin-bottom:48px}
+  .shead h2{font-size:clamp(32px,4.4vw,58px)}
+  .shead p{color:var(--muted);margin-top:18px;font-size:19px}
+  .surface{background:var(--surface)}
+
+  /* live rooms */
+  .rooms{display:grid;grid-template-columns:repeat(12,1fr);gap:20px}
+  .room{grid-column:span 4;background:var(--surface2);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;
+    transition:transform .15s ease}
+  .room:hover{transform:translateY(-4px)}
+  .room.feature{grid-column:span 8;grid-row:span 2}
+  .room .poster{position:relative;aspect-ratio:16/10;overflow:hidden;background:var(--line)}
+  .room.feature .poster{aspect-ratio:16/9}
+  .room .poster img{width:100%;height:100%;object-fit:cover}
+  .room .poster.flat{display:flex;align-items:flex-end;padding:18px}
+  .room .live-badge{position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:8px;background:rgba(13,16,20,.72);
+    backdrop-filter:blur(6px);padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:600}
+  .room .live-badge .pulse{width:8px;height:8px}
+  .room .body{padding:20px 22px 24px}
+  .room h3{font-size:22px}
+  .room.feature h3{font-size:34px}
+  .room .blurb{color:var(--muted);font-size:15.5px;margin-top:9px}
+  @media(max-width:900px){.rooms{grid-template-columns:repeat(2,1fr)}.room,.room.feature{grid-column:span 1;grid-row:auto}}
+  @media(max-width:560px){.rooms{grid-template-columns:1fr}}
+
+  /* split proof */
+  .split{display:grid;grid-template-columns:1.05fr 1fr;gap:56px;align-items:center}
+  .split .media{border-radius:20px;overflow:hidden;aspect-ratio:16/11;background:#000}
+  .split .media img{width:100%;height:100%;object-fit:cover}
+  .split h2{font-size:clamp(30px,4vw,52px)}
+  .split p{color:var(--muted);margin-top:20px;font-size:18.5px}
+  .facts{display:flex;gap:36px;margin-top:30px;flex-wrap:wrap}
+  .facts .n{font-family:var(--display);font-weight:700;font-size:30px;color:var(--teal)}
+  .facts .k{color:var(--dim);font-size:14px;margin-top:4px}
+  @media(max-width:820px){.split{grid-template-columns:1fr;gap:32px}}
+
+  /* communities */
+  .cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .club{background:var(--surface2);border-radius:18px;padding:26px;border-top:4px solid var(--teal);transition:transform .15s ease}
+  .club:hover{transform:translateY(-4px)}
+  .club h3{font-size:21px}
+  .club .blurb{color:var(--muted);font-size:15px;margin-top:12px;min-height:66px}
+  .club .meta{display:flex;align-items:center;justify-content:space-between;margin-top:18px}
+  .club .mem{font-family:var(--display);font-weight:700;font-size:19px}
+  .club .mem span{color:var(--dim);font-weight:400;font-size:13px;font-family:var(--text)}
+  .tags{display:flex;gap:8px;flex-wrap:wrap}
+  .tag{font-size:12.5px;color:var(--muted);background:var(--surface);padding:5px 11px;border-radius:999px}
+  @media(max-width:860px){.cgrid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.cgrid{grid-template-columns:1fr}}
+
+  /* why rust — alternating rows */
+  .rowset{display:flex;flex-direction:column;gap:clamp(40px,6vw,88px)}
+  .frow{display:grid;grid-template-columns:0.9fr 1.1fr;gap:48px;align-items:center}
+  .frow.flip{grid-template-columns:1.1fr 0.9fr}
+  .frow.flip .copy{order:2}
+  .frow h3{font-size:clamp(26px,3vw,38px)}
+  .frow p{color:var(--muted);margin-top:16px;font-size:18px}
+  .frow .art{aspect-ratio:4/3;border-radius:20px;overflow:hidden;background:var(--surface2);position:relative}
+  .frow .art svg{width:100%;height:100%}
+  @media(max-width:820px){.frow,.frow.flip{grid-template-columns:1fr;gap:24px}.frow.flip .copy{order:0}}
+
+  /* feed */
+  .feed{display:flex;flex-direction:column;gap:2px;background:var(--surface2);border-radius:18px;overflow:hidden}
+  .fitem{display:flex;gap:18px;align-items:center;padding:20px 24px;background:var(--surface2);transition:background .15s}
+  .fitem:hover{background:var(--surface)}
+  .fitem .mk{width:46px;height:46px;border-radius:12px;flex:0 0 auto;display:grid;place-items:center;font-family:var(--display);font-weight:700;color:#06231f}
+  .fitem .txt{font-size:16.5px}
+  .fitem .rm{color:var(--dim);font-size:14px;margin-top:3px}
+  .feed-note{color:var(--dim);font-size:14.5px;margin-top:20px}
+
+  /* download */
+  .get{background:var(--teal);color:#06231f;border-radius:28px;padding:clamp(40px,6vw,76px);display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+  .get h2{font-size:clamp(32px,4.6vw,60px);color:#06231f}
+  .get p{font-size:19px;color:#0a3b34;margin-top:18px;max-width:34ch}
+  .plats{display:flex;flex-direction:column;gap:12px}
+  .plat{display:flex;align-items:center;justify-content:space-between;background:#06231f;color:var(--ink);border-radius:14px;padding:18px 22px;font-family:var(--display);font-weight:500;transition:transform .12s}
+  .plat:hover{transform:translateX(6px)}
+  .plat small{color:var(--teal);font-family:var(--text);font-weight:400}
+  @media(max-width:760px){.get{grid-template-columns:1fr;gap:28px}}
+
+  /* footer */
+  footer{padding-block:80px 60px;border-top:1px solid var(--line)}
+  .fword{font-family:var(--display);font-weight:700;font-size:clamp(60px,15vw,200px);letter-spacing:-0.05em;line-height:0.8;color:var(--surface2)}
+  .frow2{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-top:40px;flex-wrap:wrap}
+  .frow2 .col{display:flex;gap:28px;color:var(--muted);font-size:15px}
+  .frow2 .col a:hover{color:var(--ink)}
+  .disc{color:var(--dim);font-size:13.5px;max-width:52ch;margin-top:26px}
+
+  .reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.pulse{animation:none}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="dot"></span>Metallic</a>
+    <div class="links">
+      <a href="#rooms">Rooms</a>
+      <a href="#communities">Communities</a>
+      <a href="#why">Why Rust</a>
+      <a href="#feed">Activity</a>
+    </div>
+    <a class="btn btn-primary cta" href="#get">Download</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="bg"><img src="/www/img/hero.png" alt="The Rec Center interior rendered in the Metallic client" /></div>
+  <div class="scrim"></div><div class="scrim2"></div>
+  <div class="wrap">
+    <div class="status-row"><span class="pulse"></span><span id="status-line">Servers are live right now</span></div>
+    <h1>Rec Room didn't have to end.</h1>
+    <p class="lead">On June 1, 2026 the lights went out. Metallic switches them back on — the 2026 build, rebuilt in Rust, with real rooms, real people and real voice.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="#get">Download &amp; play free</a>
+      <a class="btn btn-ghost" href="#rooms">Browse live rooms</a>
+    </div>
+    <div class="counter">
+      <div><div class="n teal" id="c-players">—</div><div class="k">players in rooms now</div></div>
+      <div><div class="n" id="c-rooms">—</div><div class="k">rooms open</div></div>
+      <div><div class="n orange" id="c-accounts">—</div><div class="k">accounts created</div></div>
+      <div><div class="n blue" id="c-comm">—</div><div class="k">communities</div></div>
+    </div>
+  </div>
+</header>
+
+<section id="rooms">
+  <div class="wrap">
+    <div class="shead reveal">
+      <h2>Live right now</h2>
+      <p>These aren't screenshots. Every room below has people in it this second, pulled straight from the game server.</p>
+    </div>
+    <div class="rooms" id="rooms-grid"></div>
+  </div>
+</section>
+
+<section class="surface" id="proof">
+  <div class="wrap split">
+    <div class="media reveal"><img src="/www/img/multiplayer.png" alt="Two players together in a Metallic room, one with a Bob name tag" /></div>
+    <div class="copy reveal">
+      <h2>Real rooms. Real people. Real voice.</h2>
+      <p>Walk up to someone and they hear you. Metallic runs the same 30 Hz room relay the 2026 build used — name tags, positional voice, master-client authority — ported to Rust and tested end to end.</p>
+      <div class="facts">
+        <div><div class="n">30 Hz</div><div class="k">room tick rate</div></div>
+        <div><div class="n">2</div><div class="k">body types</div></div>
+        <div><div class="n">100%</div><div class="k">Rust client + server</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="communities">
+  <div class="wrap">
+    <div class="shead reveal">
+      <h2>Find your people</h2>
+      <p>Communities run the show — ladders, build jams, quest nights and welcome crews. Join one in-app and you're in.</p>
+    </div>
+    <div class="cgrid" id="comm-grid"></div>
+  </div>
+</section>
+
+<section class="surface" id="why">
+  <div class="wrap">
+    <div class="shead reveal">
+      <h2>Why we rebuilt it in Rust</h2>
+      <p>Not a wrapper around the old game — a clean reimplementation. That buys performance, stability and a codebase anyone can keep alive.</p>
+    </div>
+    <div class="rowset">
+      <div class="frow reveal">
+        <div class="copy">
+          <h3>Faster than the build it replaces</h3>
+          <p>A native Rust client with GPU avatar skinning and a CPU particle renderer that holds frame time where the original dropped it. No garbage-collector stalls mid-match.</p>
+        </div>
+        <div class="art" data-art="perf"></div>
+      </div>
+      <div class="frow flip reveal">
+        <div class="copy">
+          <h3>Both body types, exactly like Rec Room</h3>
+          <p>The floating Bean with detached hands and the full humanoid rig share one 111-joint skeleton. Finger grips, authored emotes and VR-style arm IK all included.</p>
+        </div>
+        <div class="art" data-art="avatar"></div>
+      </div>
+      <div class="frow reveal">
+        <div class="copy">
+          <h3>Your account, your server</h3>
+          <p>Real login, real matchmaking, real inventory — all served by one open Rust backend you can self-host. No shutdown date, because the community owns it.</p>
+        </div>
+        <div class="art" data-art="server"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="feed">
+  <div class="wrap">
+    <div class="shead reveal">
+      <h2>What's happening</h2>
+      <p>A live pulse of rooms opening, matches ending and builds going up across Metallic.</p>
+    </div>
+    <div class="feed" id="feed-list"></div>
+    <p class="feed-note">Soon this feed carries real in-game photos pushed by the Metallic Discord bot.</p>
+  </div>
+</section>
+
+<section id="get">
+  <div class="wrap">
+    <div class="get reveal">
+      <div>
+        <h2>Jump back in.</h2>
+        <p>Free, no account wall at the door. Download the launcher and you're in the Rec Center in under a minute.</p>
+      </div>
+      <div class="plats">
+        <a class="plat" href="#">Windows <small>Launcher 0.2.27 →</small></a>
+        <a class="plat" href="#">macOS <small>Universal →</small></a>
+        <a class="plat" href="#">Linux <small>AppImage →</small></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="fword">Metallic</div>
+    <div class="frow2">
+      <div class="col">
+        <a href="#rooms">Rooms</a>
+        <a href="#communities">Communities</a>
+        <a href="#get">Download</a>
+        <a href="#feed">Activity</a>
+      </div>
+      <div class="col"><span id="foot-status">live</span></div>
+    </div>
+    <p class="disc">Metallic is a non-commercial, fan-made community revival. Not affiliated with or endorsed by Rec Room Inc. All in-world imagery is rendered by the open-source Metallic client.</p>
+  </div>
+</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt = n => n.toLocaleString('en-US');
+
+// count-up animation
+function animateTo(el, target){
+  const start = 0, dur = 900, t0 = performance.now();
+  const step = now => {
+    const p = Math.min(1,(now-t0)/dur);
+    el.textContent = fmt(Math.round(start + (target-start)*(1-Math.pow(1-p,3))));
+    if(p<1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+const IMG = { hero:'/www/img/hero.png', island:'/www/img/island.png', multiplayer:'/www/img/multiplayer.png' };
+
+async function load(){
+  try{
+    const [stats, rooms, comms, feed] = await Promise.all([
+      fetch('/www/api/stats').then(r=>r.json()),
+      fetch('/www/api/rooms').then(r=>r.json()),
+      fetch('/www/api/communities').then(r=>r.json()),
+      fetch('/www/api/feed').then(r=>r.json()),
+    ]);
+    animateTo($('#c-players'), stats.playersOnline);
+    animateTo($('#c-rooms'), stats.roomsOpen);
+    animateTo($('#c-accounts'), stats.accounts);
+    animateTo($('#c-comm'), stats.communities);
+    $('#status-line').textContent = stats.playersOnline > 0
+      ? `${fmt(stats.playersOnline)} players across ${fmt(stats.roomsOpen)} rooms right now`
+      : 'Servers are live — be the first one in';
+    renderRooms(rooms);
+    renderComms(comms);
+    renderFeed(feed);
+  }catch(e){
+    $('#status-line').textContent = 'Could not reach the server';
+  }
+}
+
+function renderRooms(rooms){
+  const grid = $('#rooms-grid');
+  if(!rooms.length){ grid.innerHTML = '<p style="color:var(--muted)">No rooms are open at this very moment — launch the game and open the first one.</p>'; return; }
+  grid.innerHTML = rooms.map((r,i)=>{
+    const feature = i===0;
+    const photo = (r.image==='hero'||r.image==='island') && feature;
+    const poster = photo
+      ? `<div class="poster"><img src="${IMG[r.image]||IMG.island}" alt="${r.title}"/>${badge(r.players)}</div>`
+      : `<div class="poster flat" style="background:${tint(r.accent)}">${badge(r.players)}</div>`;
+    return `<article class="room ${feature?'feature':''}">
+      ${poster}
+      <div class="body"><h3>${esc(r.title)}</h3><p class="blurb">${esc(r.blurb)}</p></div>
+    </article>`;
+  }).join('');
+}
+const badge = p => `<div class="live-badge"><span class="pulse"></span>${p} ${p===1?'player':'players'}</div>`;
+const tint = hex => {
+  const n = parseInt(hex.slice(1),16), r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return `linear-gradient(145deg, rgba(${r},${g},${b},.26), rgba(${r},${g},${b},.08)), var(--surface2)`;
+};
+
+function renderComms(cs){
+  $('#comm-grid').innerHTML = cs.map(c=>`
+    <article class="club" style="border-top-color:${c.accent}">
+      <h3>${esc(c.name)}</h3>
+      <p class="blurb">${esc(c.blurb)}</p>
+      <div class="tags">${c.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+      <div class="meta">
+        <div class="mem">${fmt(c.members)} <span>members</span></div>
+        <div class="tag" style="color:${c.accent}">Join →</div>
+      </div>
+    </article>`).join('');
+}
+
+function renderFeed(items){
+  const col = {room:'var(--teal)',match:'var(--orange)',join:'var(--blue)',build:'var(--yellow)',quest:'var(--teal)'};
+  const mark = {room:'R',match:'VS',join:'+',build:'B',quest:'Q'};
+  $('#feed-list').innerHTML = items.map(f=>`
+    <div class="fitem">
+      <div class="mk" style="background:${col[f.kind]||'var(--teal)'}">${mark[f.kind]||'•'}</div>
+      <div><div class="txt">${esc(f.text)}</div>${f.room?`<div class="rm">${esc(f.room)}</div>`:''}</div>
+    </div>`).join('');
+}
+
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// reveal on scroll + draw the SVG art
+const io = new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.14});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+drawArt();
+
+load();
+setInterval(load, 15000); // live refresh
+
+function drawArt(){
+  const perf = `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#1c2430"/>
+    ${[...Array(9)].map((_,i)=>`<rect x="${34+i*38}" y="${250-((i*i)%7+2)*26}" width="22" height="${((i*i)%7+2)*26}" rx="4" fill="${i>5?'#2fd4c6':'#2a3647'}"/>`).join('')}
+    <polyline points="34,210 72,150 110,170 148,96 186,120 224,60 262,84 300,40 338,58" fill="none" stroke="#f0813c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const avatar = `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#1c2430"/>
+    <circle cx="140" cy="120" r="34" fill="#f2d9b8"/><path d="M110 170 q30 -22 60 0 l-6 70 q-24 12 -48 0 z" fill="#2fd4c6"/>
+    <circle cx="96" cy="196" r="13" fill="#f2d9b8"/><circle cx="184" cy="196" r="13" fill="#f2d9b8"/>
+    <circle cx="286" cy="120" r="34" fill="#f2d9b8"/><path d="M256 170 q30 -22 60 0 l6 70 q-24 12 -48 0 l-10 -70" fill="#f0813c"/>
+    <rect x="266" y="176" width="40" height="86" rx="18" fill="#f0813c"/><rect x="256" y="238" width="18" height="40" rx="9" fill="#39424f"/><rect x="298" y="238" width="18" height="40" rx="9" fill="#39424f"/></svg>`;
+  const server = `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#1c2430"/>
+    ${[0,1,2].map(i=>`<rect x="150" y="${70+i*58}" width="100" height="40" rx="8" fill="#232c38"/><circle cx="168" cy="${90+i*58}" r="6" fill="${i===0?'#2fd4c6':'#4aa3ff'}"/>`).join('')}
+    ${[[70,90],[330,120],[64,210],[336,220],[200,264]].map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="10" fill="#f0813c"/><line x1="${p[0]}" y1="${p[1]}" x2="200" y2="150" stroke="#2a3647" stroke-width="2"/>`).join('')}
+    <circle cx="200" cy="150" r="14" fill="#2fd4c6"/></svg>`;
+  const map = {perf,avatar,server};
+  document.querySelectorAll('.art').forEach(a=>a.innerHTML = map[a.dataset.art]||'');
+}
+</script>
+</body>
+</html>

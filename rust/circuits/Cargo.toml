@@ -1,0 +1,7 @@
+[package]
+name = "circuits"
+version = "0.1.0"
+edition = "2021"
+description = "Rec Room CircuitsV2 (CV2) gameplay runtime: the node/graph dataflow engine that runs the built-in games' rule circuits. Engine-agnostic (no Bevy) so the client and the server can both drive it."
+
+[dependencies]

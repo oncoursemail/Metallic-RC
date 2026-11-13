@@ -6,9 +6,11 @@ description = "Reads Unity 6 asset bundles and serialized files from a local Rec
 publish = false
 
 [dependencies]
+bcdec_rs = "0.2.1"
 lz4_flex = { version = "0.14", default-features = false, features = ["std", "safe-decode"] }
 lzma-rs = "0.3"
 texture2ddecoder = "0.1.2"
+lewton = "0.10"
 
 [dev-dependencies]
 png = "0.18"

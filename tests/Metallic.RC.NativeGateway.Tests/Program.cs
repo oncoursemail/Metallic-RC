@@ -85,8 +85,12 @@ async Task RawPostControls(string folder,string form)
         return int.Parse(Encoding.ASCII.GetString(output.ToArray()).Split('\n',2)[0].Split(' ',3)[1],System.Globalization.CultureInfo.InvariantCulture);
     }
     void Empty()=>Check(N(folder,"SELECT count(*) FROM native_sessions;")==0&&N(folder,"SELECT count(*) FROM native_gateway_request_keys;")==0,"rejected raw POST creates no session or request key");
+    // Kestrel 10.0.14+ rejects a '#' fragment in the request target with 400 before dispatch; earlier
+    // patches surfaced it to the handler, which returns 501 for any target but the exact token slice.
+    // Accept either for that alias: both reject it and (asserted by Empty()) commit no session or key.
+    bool Rejected(int status,string target)=>target.Contains('#',StringComparison.Ordinal)?status is 400 or 501:status==501;
     foreach(string target in new[]{path+"?x=1","/%72ecnet/auth/connect/token","http://127.0.0.1:"+new Uri(address).Port+path,path+"/",path+"#fragment",path+"?bad=%"})
-    {Check(await Post(target)==501,"raw POST alias or query is outside the exact token slice");Empty();}
+    {Check(Rejected(await Post(target),target),"raw POST alias or query is outside the exact token slice");Empty();}
     foreach(var control in new[]{("Content-Type: "+NativePasswordFormProfile.ContentType+"\r\n",501),("Transfer-Encoding: chunked\r\n",400),("Content-Length: "+Encoding.ASCII.GetByteCount(form)+"\r\n",400)})
     {Check(await Post(path,control.Item1)==control.Item2,"ambiguous raw POST headers are rejected by handler or Kestrel");Empty();}
     Check(await Post(path)==200,"exact raw POST positive control succeeds");
