@@ -462,8 +462,10 @@ fn title_backdrop(
 /// primaryAnimationSpeed -0.2.
 fn title_tile_uv(t: f32) -> bevy::math::Affine2 {
     use bevy::math::{Affine2, Vec2};
+    // rows of the mascot tile across the 16:9 frame; env-tunable to match the reference's tile density
+    let rows = envf("METALLIC_BG_ROWS", 7.0);
     Affine2::from_angle(350.0_f32.to_radians())
-        * Affine2::from_scale(Vec2::new(6.5 * 16.0 / 9.0, 6.5))
+        * Affine2::from_scale(Vec2::new(rows * 16.0 / 9.0, rows))
         * Affine2::from_translation(Vec2::new(0.0, -0.2 * t))
 }
 

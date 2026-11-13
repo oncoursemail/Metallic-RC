@@ -736,23 +736,28 @@ pub fn build(template: &Element, ctx: &Ctx, theme: &Theme, donors: &Donors) -> B
             .and_then(|pre| pre.children.iter().find(|c| c.name.starts_with("[Icon]")))
             .cloned()
         {
+            // large, overlapping the card's top edge (the video). Absolute-positioned (ignore the card's vertical layout)
+            // and anchored to the card top-centre so most of the logo sits ABOVE the card. Env-tunable: METALLIC_LOGO_H
+            // (height), METALLIC_LOGO_Y (how far its centre sits above the card top edge).
+            let logo_h = crate::envf("METALLIC_LOGO_H", 430.0);
+            let logo_y = crate::envf("METALLIC_LOGO_Y", 165.0);
             let mut l = fresh(&icon, LOGO_SALT);
             l.name = "[Icon] Logo".into();
             l.active = true;
-            l.rect.size_delta = [0.0, 220.0];
-            l.rect.anchored_position = [0.0, 0.0];
+            l.rect.anchor_min = [0.5, 1.0];
+            l.rect.anchor_max = [0.5, 1.0];
+            l.rect.pivot = [0.5, 0.5];
+            l.rect.size_delta = [logo_h * 1.35, logo_h];
+            l.rect.anchored_position = [0.0, logo_y];
             l.each_mut(&mut |e| {
                 e.active = true;
-                // keep the logo at its own aspect (centred), not stretched to the full card width
+                // keep the logo at its own aspect (centred), not stretched
                 for c in e.components.iter_mut().filter(|c| c.class == "UnityEngine.UI.Image") {
                     set(&mut c.value, "m_PreserveAspect", Value::Bool(true));
                 }
             });
-            // the card's vertical layout controls child height, so give the logo a LayoutElement preferred height
-            l.components.push(made("UnityEngine.UI.LayoutElement", LOGO_SALT ^ 0xabc,
-                vec![("m_PreferredHeight", Value::Float(220.0)), ("m_MinHeight", Value::Float(220.0)),
-                     ("m_PreferredWidth", Value::Float(-1.0)), ("m_MinWidth", Value::Float(-1.0)),
-                     ("m_FlexibleWidth", Value::Float(-1.0)), ("m_FlexibleHeight", Value::Float(-1.0)), ("m_IgnoreLayout", Value::Int(0))]));
+            // ignore the layout so the logo floats over the card top instead of pushing the content down
+            l.components.push(made("UnityEngine.UI.LayoutElement", LOGO_SALT ^ 0xabc, vec![("m_IgnoreLayout", Value::Int(1))]));
             if let Some(iid) = l.walk().iter().find_map(|(_, k)| k.component("UnityEngine.UI.Image").map(|c| c.id)) {
                 logo = Some((iid, "RecRoomLogo_Sprite.png".into()));
             }
