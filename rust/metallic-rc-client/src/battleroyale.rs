@@ -7,13 +7,13 @@
 //!
 //! WHAT'S REAL vs PENDING (to the 1:1 bar): the SCORING is the body-verified `BattleRoyaleMode`
 //! (sweet-galileo_battleroyale-recon — last-standing, reverse-placement ranks, permanent elimination). The KILL
-//! pipeline is the real rapier projectile → Health damage → CombatantDown path. The projectile DYNAMICS are now REAL:
-//! BR weapons are loot-drop (no BR-specific prefabs) and resolve to the Arena PvP weapon set — the Arena Pistol (80
-//! m/s, radius 0.02, FLAT / no arc, 4 s, 6 shots/s), from sweet-galileo_paintball-weapon-recon. PENDING: the HP +
-//! per-hit DAMAGE — BattleRoyaleManager has no HP/damage field; HP is a BR GameConfiguration value (RR standard combat
-//! is 100 — plausible, UNCONFIRMED) and damage is master-computed per hit as an int from (weapon, damage type, body
-//! part, charge), whose table needs a Ghidra pass (requested). So BR_HEALTH + BR_SPEC.damage are a working model,
-//! flagged `// 1:1:`. The killzone (the OTHER death source) is a separate vertical. Keep the client muted: `METALLIC_NO_MIC=1`.
+//! pipeline is the real rapier projectile → Health damage → CombatantDown path. ALL the numbers are now REAL
+//! (sweet-galileo_paintball-weapon-recon): BR weapons are loot-drop (no BR-specific prefabs) and resolve to the Arena
+//! PvP set — the Arena Pistol (80 m/s, radius 0.02, FLAT / no arc, 4 s, 6 shots/s). HP = 100 (CONFIRMED — BR/Arena use
+//! the combat default; the RocketLauncher's 100-dmg one-shot proves it). DAMAGE is a serialized per-weapon,
+//! per-body-part table (`Weapon.playerDamageSettings[]`) — Arena Pistol Head 30 / Body 18; we apply the BODY value
+//! (18) to single-collider combatants, headshots drop in when avatars get per-body-part hitboxes (the one follow-up).
+//! The killzone (the OTHER death source) is a separate vertical. Keep the client muted: `METALLIC_NO_MIC=1`.
 
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -30,16 +30,17 @@ const RPC_ELIM: &str = "BrElim"; // guest → master: a combat elimination (vict
 const RPC_RANK: &str = "BrRank"; // master → others: a player's elimination rank (player, rank)
 const RPC_WIN: &str = "BrWin"; // master → others: match over (winner player id)
 
-// Projectile DYNAMICS = the REAL Arena Pistol (sweet-galileo_paintball-weapon-recon): BR weapons are loot-drop and
-// resolve to the Arena PvP weapon set, which fly FLAT (applyGravity 0 — unlike paintball), speed 80, radius 0.02,
-// airDrag 0, 4 s life, 6 shots/s. HEALTH + DAMAGE are the pending piece: BattleRoyaleManager has no HP/damage field —
-// HP is a BR GameConfiguration value (RR standard combat is 100; plausible but UNCONFIRMED) and damage is
-// master-computed per hit as an INT from (weapon, damage type, body part, charge) — the exact table needs a Ghidra
-// pass (requested). So BR_HEALTH/BR_SPEC.damage are a WORKING model (34 dmg vs 100 HP = 3 hits to down), flagged 1:1.
+// REAL Arena Pistol (sweet-galileo_paintball-weapon-recon): BR weapons are loot-drop and resolve to the Arena PvP set,
+// which fly FLAT (applyGravity 0 — unlike paintball), speed 80, radius 0.02, airDrag 0, 4 s life, 6 shots/s. DAMAGE is
+// a serialized per-weapon, per-body-part table `Weapon.playerDamageSettings[] = {AvatarBodyPart, int}` — Arena Pistol
+// = Head 30 / Body 18 (at 100 HP: ~4 headshots / ~6 body). We apply the BODY/default value (18) to our single-collider
+// combatants; headshot damage (30) drops in when avatars gain per-body-part hitbox colliders (the follow-up). HP = 100
+// is CONFIRMED (no BR-specific config; BR/Arena use the combat default 100 — the RocketLauncher's 100-dmg one-shot is
+// the design proof). (Other Arena weapons Head/Body: Auto 6/5, Shotgun 5/pellet×9, RailGun 60/35, Rocket 100/100, Beam 15/15.)
 const BR_SPEED: f32 = 80.0; // Arena Pistol bulletFireSpeed (m/s)
 const BR_FIRE_COOLDOWN: f32 = 1.0 / 6.0; // Arena Pistol fire rate 6 shots/s
-const BR_HEALTH: f32 = 100.0; // 1:1: RR standard combat HP — UNCONFIRMED (BR GameConfiguration, requested)
-const BR_SPEC: ProjectileSpec = ProjectileSpec { radius: 0.02, mass: 0.02, gravity_scale: 0.0, air_drag: 0.0, life: 4.0, damage: 34.0 };
+const BR_HEALTH: f32 = 100.0; // CONFIRMED combat default HP (BR/Arena)
+const BR_SPEC: ProjectileSpec = ProjectileSpec { radius: 0.02, mass: 0.02, gravity_scale: 0.0, air_drag: 0.0, life: 4.0, damage: 18.0 }; // Arena Pistol BODY damage (headshot 30 pending hitboxes)
 
 #[derive(Resource, Clone, Copy)]
 pub struct BattleRoyaleActive(pub bool);

@@ -32,9 +32,9 @@ struct Outcome {
 
 const TARGETS: u32 = 3;
 const SPEED: f32 = 80.0; // real Arena Pistol bulletFireSpeed (BR uses the Arena PvP set)
-const HEALTH: f32 = 100.0; // RR standard combat HP (working value)
-// real Arena Pistol Bullet: r0.02, FLAT (no arc), airDrag 0, 4 s life; damage = working master-int model
-const SPEC: ProjectileSpec = ProjectileSpec { radius: 0.02, mass: 0.02, gravity_scale: 0.0, air_drag: 0.0, life: 4.0, damage: 34.0 };
+const HEALTH: f32 = 100.0; // CONFIRMED combat default HP
+// real Arena Pistol: r0.02, FLAT, airDrag 0, 4 s; BODY damage 18 (100 HP → ~6 hits; headshot 30 pending hitboxes)
+const SPEC: ProjectileSpec = ProjectileSpec { radius: 0.02, mass: 0.02, gravity_scale: 0.0, air_drag: 0.0, life: 4.0, damage: 18.0 };
 
 fn main() {
     let mut rules = BattleRoyaleMode::new(BattleRoyaleConfig::solos());
